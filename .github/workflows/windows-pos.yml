@@ -11,7 +11,8 @@ on:
       - 'tsconfig.base.json'
       - '.node-version'
       - '.github/workflows/windows-pos.yml'
-      - 'infra/windows/update-runtime-stage2-1024.ps1'
+      - 'infra/windows/**'
+      - 'tests/operations/test_windows_stage2_release.py'
   pull_request:
     branches: [main]
     paths:
@@ -22,7 +23,8 @@ on:
       - 'tsconfig.base.json'
       - '.node-version'
       - '.github/workflows/windows-pos.yml'
-      - 'infra/windows/update-runtime-stage2-1024.ps1'
+      - 'infra/windows/**'
+      - 'tests/operations/test_windows_stage2_release.py'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +35,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  stage2_guards:
+    name: Native release guards on Windows PowerShell 5.1
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Verify pinned helpers and mocked service recovery
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) {
+            throw 'Windows PowerShell 5.1 is required for these release guard tests.'
+          }
+          $env:PICKCHICK_TEST_PWSH = Join-Path $PSHOME 'powershell.exe'
+          python tests/operations/test_windows_stage2_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   package:
     name: Package installed Windows x64 POS
     runs-on: windows-2022
