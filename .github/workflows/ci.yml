@@ -525,7 +525,9 @@ jobs:
   fulfillment_transport:
     name: Cloud-edge fulfillment transport and recovery
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Includes dependency installation/build and sequential fulfillment + paid POS suites.
+    # Run 42376771065/attempts/2 exhausted 10m while POS recovery tests were progressing.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
