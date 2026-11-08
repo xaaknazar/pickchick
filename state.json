@@ -7470,6 +7470,19 @@
       "updatedAt": "2026-11-08T14:49:04.056Z",
       "summary": "PR300 head0499f583 published, shared2cf775fa explicitly merged; accepted server/offline/handoff kept. Fixed Windows LF/CRLF checksum drift with .gitattributes and added actual Windows5.1 guard CI. Windows run42488292583 both jobs success (POS package and3/3 guards). Build, DB025 helper8/8 on PG18 and Linux guards3/3 passed. CI transport10m timeout diagnosed; standalone commit2cf20e31 raises budget25m without removing checks. No live devices/server/keys/data changed. Full new Foundation CI pending; PR300 remains draft. See cloud-checkpoint-1108.md and preserved cashier-launch-1105 protocol.",
       "nextAction": "Complete guarded024→025 Windows operator with cloud072/API/rights proof, exact runtime/fullCI and fresh restored real backup; do not pass025/028 archive to024 installer. Carry minimal CI budget fix into final cutover explicitly and run exact-SHA CI. Then real-copy rehearsal/rollback, independent backup disk/key, LAN and agreed deployment window. POS sync43110 separately with real backlog decision; existing43100 stays. No release readiness claimed."
+    },
+    {
+      "id": "queue-cloud-072-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/queue-cloud-072-1108",
+      "scopes": [
+        "infra/staging/queue-recovery-cloud-owner.mjs",
+        "tests/integration/queue-recovery-cloud-owner.test.mjs",
+        "docs/operations/queue-recovery-cloud-072.md"
+      ],
+      "status": "active",
+      "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
+      "updatedAt": "2026-11-08T15:08:49.837Z"
     }
   ]
 }
