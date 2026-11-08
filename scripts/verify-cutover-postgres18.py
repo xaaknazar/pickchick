@@ -15,7 +15,7 @@ import subprocess
 import time
 
 
-IMAGE = 'postgres:18.3-alpine@sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7'
+IMAGE = 'postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395'
 TESTS = (
     'tests/integration/windows-edge-backup.test.mjs',
     'tests/integration/windows-cutover-upgrade.test.mjs',
@@ -73,6 +73,26 @@ def docker(args, env, timeout=60):
     return command([*DOCKER, *args], env=env, timeout=timeout)
 
 
+def verify_tool_version(tool, version):
+    if not re.search(r'\(PostgreSQL\) 18\.6(?:\s|$)', version):
+        raise RuntimeError(tool + ' must match the PostgreSQL 18.6 rehearsal baseline')
+
+
+def wait_database(name, database, env):
+    for attempt in range(60):
+        try:
+            # initdb's temporary server accepts Unix sockets but is about to stop.
+            # Only the final server listens on TCP and is usable by the Node tests.
+            docker(['exec', name, 'pg_isready', '-h', '127.0.0.1',
+                    '-U', 'pickchick_local', '-d', database], env)
+            return docker(['exec', name, 'psql', '-U', 'pickchick_local',
+                           '-d', database, '-Atc', 'SHOW server_version_num'], env)
+        except RuntimeError:
+            if attempt == 59:
+                raise RuntimeError('Disposable PostgreSQL did not become ready') from None
+            time.sleep(1)
+
+
 def run(args):
     env = environment(os.environ)
     source = args.source.resolve()
@@ -92,8 +112,7 @@ def run(args):
     versions = {}
     for tool in ('pg_dump', 'pg_restore'):
         version = command([str(pg_bin / tool), '--version'], env=env)
-        if not re.search(r'\(PostgreSQL\) 18\.', version):
-            raise RuntimeError(tool + ' must be PostgreSQL 18')
+        verify_tool_version(tool, version)
         versions[tool] = version
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -125,17 +144,9 @@ def run(args):
             binding = docker(['port', name, '5432/tcp'], env)
             if not re.fullmatch(r'127\.0\.0\.1:\d+', binding):
                 raise RuntimeError('Unexpected database port binding')
-            for attempt in range(60):
-                try:
-                    server = docker(['exec', name, 'psql', '-U', 'pickchick_local',
-                                     '-d', database, '-Atc', 'SHOW server_version_num'], env)
-                    break
-                except RuntimeError:
-                    if attempt == 59:
-                        raise RuntimeError('Disposable PostgreSQL did not become ready') from None
-                    time.sleep(1)
-            if not server.isdigit() or int(server) // 10000 != 18:
-                raise RuntimeError('Server is not PostgreSQL 18')
+            server = wait_database(name, database, env)
+            if server != '180006':
+                raise RuntimeError('Server does not match the PostgreSQL 18.6 rehearsal baseline')
             report[scope + 'ServerVersionNum'] = int(server)
             env[scope.upper() + '_DATABASE_URL'] = (
                 f'postgresql://pickchick_local:{password}@{binding}/{database}')
