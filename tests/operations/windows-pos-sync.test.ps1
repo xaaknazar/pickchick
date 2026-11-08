@@ -16,7 +16,7 @@ Rejects {Quote-WindowsArgument "unsafe`nargument"}
 $connection='{"format":"pickchick-pos-sync-connection-v1","sshHost":"vps.example.test","sshPort":22,"sshUser":"dedicated_tunnel","remoteApiPort":13100,"branchId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","deviceId":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","organizationId":"cccccccc-cccc-4ccc-8ccc-cccccccccccc"}' | ConvertFrom-Json
 Validate-Connection $connection
 $ssh=Build-SshConfig $connection 'C:\Private Folder\id_ed25519' 'C:\Private Folder\known_hosts'
-foreach ($required in @('BatchMode yes','IdentityAgent none','StrictHostKeyChecking yes','ExitOnForwardFailure yes','ServerAliveInterval 15','ServerAliveCountMax 3','ForwardAgent no','ForwardX11 no','GlobalKnownHostsFile NUL','LocalForward 127.0.0.1:43100 127.0.0.1:13100','IdentityFile "C:/Private Folder/id_ed25519"')) {
+foreach ($required in @('BatchMode yes','IdentityAgent none','StrictHostKeyChecking yes','ExitOnForwardFailure yes','ServerAliveInterval 15','ServerAliveCountMax 3','ForwardAgent no','ForwardX11 no','GlobalKnownHostsFile NUL','LocalForward 127.0.0.1:43110 127.0.0.1:13100','IdentityFile "C:/Private Folder/id_ed25519"')) {
     if (-not $ssh.Contains($required)) {throw 'Missing SSH restriction.'}
 }
 Rejects {Build-SshConfig $connection 'C:\%h\key' 'C:\known_hosts'}

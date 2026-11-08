@@ -150,26 +150,27 @@ test('runtime grant SQL: cloud link is opt-in and column limited', () => {
   assert.throws(() => edgeRuntimeGrantSql('edge_runtime', { cloudLink: 'yes' }));
 });
 
-test('runtime grant command line: --cloud-link is the only way to opt in, typos are refused', () => {
+test('runtime grant command line: --cloud-link is refused in favour of the additive tool (#278)', () => {
   const role = 'pickchick_edge_runtime';
   assert.deepEqual(runtimeGrantCliOptions([role]), {
     role,
     options: { fulfillment: false, cloudLink: false },
   });
-  assert.deepEqual(runtimeGrantCliOptions([role, '--cloud-link', '--fulfillment']), {
-    role,
-    options: { fulfillment: true, cloudLink: true },
+  assert.deepEqual(runtimeGrantCliOptions([role, '--fulfillment']).options, {
+    fulfillment: true,
+    cloudLink: false,
   });
-  assert.deepEqual(runtimeGrantCliOptions([role, '--cloud-link']).options, {
-    fulfillment: false,
-    cloudLink: true,
-  });
+  for (const args of [
+    [role, '--cloud-link'],
+    [role, '--cloud-link', '--fulfillment'],
+  ])
+    assert.throws(() => runtimeGrantCliOptions(args), /cloud-link-grant\.mjs/);
   for (const args of [
     [],
     ['--cloud-link'],
     [role, '--cloudLink'],
-    [role, '--cloud-link', '--cloud-link'],
+    [role, '--fulfillment', '--fulfillment'],
     [role, '--fulfillment', 'extra'],
   ])
-    assert.throws(() => runtimeGrantCliOptions(args));
+    assert.throws(() => runtimeGrantCliOptions(args), /Usage/);
 });
