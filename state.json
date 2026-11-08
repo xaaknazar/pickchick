@@ -7465,11 +7465,11 @@
         "infra/windows/update-runtime-queue-recovery-025.ps1",
         "tests/operations/test_windows_queue_recovery_release.py"
       ],
-      "status": "active",
-      "head": "0499f5836e113fa38bb0ea7013d8607473626083",
-      "updatedAt": "2026-11-08T14:49:04.056Z",
-      "summary": "PR300 head0499f583 published, shared2cf775fa explicitly merged; accepted server/offline/handoff kept. Fixed Windows LF/CRLF checksum drift with .gitattributes and added actual Windows5.1 guard CI. Windows run42488292583 both jobs success (POS package and3/3 guards). Build, DB025 helper8/8 on PG18 and Linux guards3/3 passed. CI transport10m timeout diagnosed; standalone commit2cf20e31 raises budget25m without removing checks. No live devices/server/keys/data changed. Full new Foundation CI pending; PR300 remains draft. See cloud-checkpoint-1108.md and preserved cashier-launch-1105 protocol.",
-      "nextAction": "Complete guarded024→025 Windows operator with cloud072/API/rights proof, exact runtime/fullCI and fresh restored real backup; do not pass025/028 archive to024 installer. Carry minimal CI budget fix into final cutover explicitly and run exact-SHA CI. Then real-copy rehearsal/rollback, independent backup disk/key, LAN and agreed deployment window. POS sync43110 separately with real backlog decision; existing43100 stays. No release readiness claimed."
+      "status": "done",
+      "head": "0c9a257a479580ca2d22092cdcfcb062efd834e6",
+      "updatedAt": "2026-11-08T15:51:53.478Z",
+      "summary": "PR300 и PR324 включены в shared обычным merge; оператор025 head0c9a257a, mergeec5625c1. Foundation42492796731 success, Windows42492796755 success.14 локальных guard-тестов; настоящий PowerShell/Node-драйвер inspect024/apply025 на PG18.3 и18.6, fingerprint сохранён, повтор отказан.Рабочие системы не менялись.",
+      "nextAction": "Разработка оператора завершена, не установка. С4: cloud072/API и реальные старые023/024, свежая восстановленная копия реальной кассы, Windows-rehearsal/rollback, независимый диск и ключ, согласованное окно. Свежий финальный RC требует полной CI. Отдельно POS43110 после решения по настоящей очереди;43100 сохраняется."
     },
     {
       "id": "queue-cloud-072-1108",
