@@ -7483,6 +7483,36 @@
       "status": "active",
       "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
       "updatedAt": "2026-11-08T15:08:49.837Z"
+    },
+    {
+      "id": "pos-sync-shared-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/pos-sync-shared-1108",
+      "scopes": [
+        "docs/operations/cutover-2026-11-19.md",
+        "docs/operations/edge-restore.md",
+        "docs/operations/offline-8h-test.md",
+        "docs/operations/offline-stand.md",
+        "docs/operations/pos-sync-shared-1108.md",
+        "infra/windows/edge-runtime-grants.mjs",
+        "infra/windows/inspect-native-ssh.ps1",
+        "infra/windows/install-native-pos-sync.ps1",
+        "infra/windows/native-pos-sync-worker.mjs",
+        "infra/windows/native-pos-sync.md",
+        "infra/windows/pos-sync-backlog.mjs",
+        "scripts/build-windows-edge-runtime.py",
+        "scripts/edge-runtime-grants.mjs",
+        "tests/integration/edge-cloud-link.test.mjs",
+        "tests/integration/edge-runtime-grants.test.mjs",
+        "tests/integration/pos-sync-backlog.test.mjs",
+        "tests/integration/windows-cloud-link-grant.test.mjs",
+        "tests/operations/test_windows_edge_runtime.py",
+        "tests/operations/windows-pos-sync.test.mjs",
+        "tests/operations/windows-pos-sync.test.ps1"
+      ],
+      "status": "active",
+      "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
+      "updatedAt": "2026-11-08T15:24:25.024Z"
     }
   ]
 }
