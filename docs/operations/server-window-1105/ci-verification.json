@@ -1,0 +1,37 @@
+{
+  "verification": "Canonical GitHub run/jobs validated; no deploy performed",
+  "runs": [
+    {
+      "kind": "ci-proof",
+      "source_sha": "6630eb0f676350341806b735b6877a36f017c673",
+      "run_id": 42008838570,
+      "result": "PASS",
+      "jobs": 11,
+      "completed_at": "2026-11-05T10:59:16Z"
+    },
+    {
+      "kind": "offline-ci-proof",
+      "source_sha": "6630eb0f676350341806b735b6877a36f017c673",
+      "run_id": 42008838516,
+      "result": "PASS",
+      "jobs": 1,
+      "completed_at": "2026-11-05T10:28:09Z"
+    },
+    {
+      "kind": "foundation",
+      "source_sha": "bf4a2280dd6e169bb1f8fc946a999df78b78f1b9",
+      "run_id": 42010176649,
+      "result": "PASS",
+      "jobs": 11,
+      "completed_at": "2026-11-05T10:55:22Z"
+    },
+    {
+      "kind": "offline",
+      "source_sha": "bf4a2280dd6e169bb1f8fc946a999df78b78f1b9",
+      "run_id": 42010176561,
+      "result": "PASS",
+      "jobs": 1,
+      "completed_at": "2026-11-05T10:32:59Z"
+    }
+  ]
+}

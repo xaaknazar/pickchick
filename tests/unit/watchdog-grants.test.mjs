@@ -12,6 +12,7 @@ import {
   watchdogAssertSql,
   watchdogDisableSql,
   watchdogGrantSql,
+  watchdogInspectSql,
   watchdogRevokeSql,
 } from '../../infra/staging/watchdog-grants.mjs';
 import { WATCHDOG_SQL } from '../../infra/staging/watchdog/queries.mjs';
@@ -172,4 +173,20 @@ test('runbook and env example describe the role without real secrets', () => {
   assert.match(example, /^WATCHDOG_TELEGRAM_ENABLED=false$/m);
   assert.match(example, /^WATCHDOG_KASPI_SESSION_PROBE_HOURS=0$/m);
   assert.match(example, /^WATCHDOG_DAILY_SUMMARY=false$/m);
+});
+
+test('inspect emits read-only catalog SQL without credentials or client tables', () => {
+  const sql = watchdogInspectSql();
+  assert.match(sql, /^BEGIN READ ONLY;/);
+  assert.match(sql, /FROM pg_roles/);
+  assert.match(sql, /column_select/);
+  assert.doesNotMatch(
+    sql,
+    /rolpassword|pg_authid|token_hash|FROM commerce_|FROM devices|\b(?:ALTER|GRANT|REVOKE|DROP)\b/,
+  );
+  assert.throws(() => watchdogInspectSql({ role: "bad'; --" }));
+  const result = spawnSync(process.execPath, [script, 'inspect'], { encoding: 'utf8', input: '' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, sql + '\n');
+  assert.equal(result.stderr, '');
 });
