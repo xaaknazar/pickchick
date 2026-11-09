@@ -9,7 +9,11 @@ screens = json.loads((root / 'design/prototype/screens.json').read_text())
 base = os.environ.get('DESIGN_URL', 'http://127.0.0.1:4173')
 output = root / '.local/design-qa'
 output.mkdir(parents=True, exist_ok=True)
+previews = Path(os.environ.get('DESIGN_PREVIEW_DIR', str(root / 'design/previews')))
+previews.mkdir(parents=True, exist_ok=True)
 errors = []
+error_details = []
+failed_requests = []
 broken = []
 overflows = []
 checked = 0
@@ -17,7 +21,14 @@ video_fallbacks = []
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page(viewport={'width': 1600, 'height': 1200}, device_scale_factor=1)
-    page.on('pageerror', lambda e: errors.append(str(e)))
+    def watch_errors(tab):
+        def record(error):
+            errors.append(str(error))
+            error_details.append({'message': str(error), 'stack': error.stack, 'page': tab.url})
+        tab.on('pageerror', record)
+        tab.on('requestfailed', lambda request: failed_requests.append({
+            'url': request.url, 'method': request.method, 'failure': request.failure}))
+    watch_errors(page)
     page.on('response', lambda r: broken.append([r.status, r.url]) if r.status >= 400 else None)
     page.goto(base)
     page.wait_for_load_state('networkidle')
@@ -87,7 +98,7 @@ with sync_playwright() as p:
     page.wait_for_function('()=>document.title.startsWith("K02")')
     # Decorative video has no playback buttons; a failed source retains the poster and menu.
     cold = browser.new_page(viewport={'width': 1600, 'height': 1200})
-    cold.on('pageerror', lambda e: errors.append(str(e)))
+    watch_errors(cold)
     cold.route('**/assets/mockup/hero.mp4', lambda route: route.abort())
     cold.goto(base + '/#M06')
     cold.wait_for_function('()=>{const v=document.querySelector("#preview video");return v && v.networkState===v.NETWORK_NO_SOURCE;}')
@@ -98,10 +109,10 @@ with sync_playwright() as p:
     kiosk_checks = check_kiosk_ux(browser, base)
     page.set_viewport_size({'width': 2100, 'height': 1550})
     for (id, name) in [('M06', 'mobile-menu'), ('M07', 'mobile-product'), ('M18', 'mobile-ready'), ('M23', 'mobile-wallet'), ('M30', 'mobile-profile'), ('K01', 'kiosk-welcome'), ('K03', 'kiosk-menu'), ('P03', 'pos-sale'), ('D01', 'kitchen-a'), ('D02', 'kitchen-b'), ('T01', 'display'), ('B02', 'backoffice')]:
-        page.goto(base + '/')
-        page.reload()
+        # A unique query forces one fresh document and resets the demo model.
+        # Merely clearing the hash can retain it; two navigations are unnecessary.
+        page.goto(base + '/?preview=' + id + '#' + id)
         page.wait_for_load_state('networkidle')
-        page.goto(base + '/#' + id)
         page.wait_for_function('(id)=>document.title.startsWith(id)', arg=id)
         page.wait_for_load_state('networkidle')
         page.locator('#preview').evaluate('(e)=>{e.style.transform="scale(1)";e.style.position="relative";}')
@@ -111,10 +122,10 @@ with sync_playwright() as p:
                 video_fallbacks.append(id)
             page.locator('#preview video').evaluate_all('(videos)=>videos.forEach(v=>{v.pause();if(!v.error && v.readyState>=1)v.currentTime=4;})')
             page.wait_for_function('()=>Array.from(document.querySelectorAll("#preview video")).every(v=>!v.seeking)')
-        page.locator('#preview').screenshot(path=str(root / 'design/previews' / f'{name}.png'))
+        page.locator('#preview').screenshot(path=str(previews / f'{name}.png'))
         if id == 'M06':
             page.locator('#preview .frame-content').evaluate('(e)=>e.scrollTop=640')
-            page.locator('#preview').screenshot(path=str(root / 'design/previews/mobile-menu-scrolled.png'))
+            page.locator('#preview').screenshot(path=str(previews / 'mobile-menu-scrolled.png'))
     page.set_viewport_size({'width': 390, 'height': 900})
     page.goto(base + '/#M06')
     page.wait_for_function('()=>document.title.startsWith("M06")')
@@ -124,6 +135,9 @@ with sync_playwright() as p:
     browser.close()
 result = {'screens': len(screens), 'screen_states': checked, 'browser_errors': errors, 'failed_resources': broken, 'frame_overflows': overflows, 'video_poster_fallbacks': video_fallbacks, 'interactive_checks': ['menu→product→cart', 'quantity', 'cash amount / disabled confirmation', 'unknown payment stays unknown', 'assembly dependencies', 'table search', '390px review layout', 'decorative video without playback controls', 'source bottom navigation', 'kiosk attract transition', 'no pause control before media loads', 'unavailable media poster fallback']}
 result['interactive_checks'].extend(kiosk_checks)
+result['browser_error_details'] = error_details
+# Includes the deliberately aborted hero video; diagnostic only, never an error filter.
+result['failed_requests'] = failed_requests
 (output / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(result, ensure_ascii=False))
 assert not errors and (not broken) and (not overflows)
