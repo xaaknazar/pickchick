@@ -7585,6 +7585,20 @@
       "updatedAt": "2026-11-09T08:49:41.150Z",
       "summary": "PR331 head56f36644 merged normally into shared2420cdc8. Fixed cancellation during initial legal consent GET in submit/pay, before AbortController previously existed. Both old-code failures reproduced on bc88aca6. PASS typecheck/eslint/prettier,38 unit tests,5 browser suites (Kaspi4 sizes +held-consent checkout/invoice,legal,traps,slideA-R,launchA-H). Late consent cannot revive cancelled attempt; explicit retry sends one fixture invoice. No bank/VPS/device changes. Protocol docs/operations/checkout-cancel-1109.md. Prior329 Foundation42570270934 rerun11/11 success. B10 PR330 codeprep merged, livecheck stillopen.",
       "nextAction": "Check Foundation42588427538 and Photo42588495808 on exact56f36644; B10 Foundation42585450941 stillpending. This is shareddevelopment, not production/mobile release. Future release requires fullCI, actual device build/acceptance. Б10 needsVPS metadata/UID/ACL/logpolicy audit, coordinated update.py change under restaurant-completion, staff/iDrink guarded recreation and health/rotation evidence. Globalstatus/roadmap held byAndroid."
+    },
+    {
+      "id": "launch-ci-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/launch-ci-1109",
+      "scopes": [
+        "tests/design/browser_smoke.py",
+        "tests/design/test_navigation_readiness.py",
+        "tests/design/navigation.py",
+        "docs/operations/launch-reliability-1109.md"
+      ],
+      "status": "active",
+      "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
+      "updatedAt": "2026-11-09T09:56:20.920Z"
     }
   ]
 }
