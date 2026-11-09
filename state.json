@@ -7497,11 +7497,11 @@
         "tests/integration/queue-recovery-cloud-owner.test.mjs",
         "docs/operations/queue-recovery-cloud-072.md"
       ],
-      "status": "active",
-      "head": "5893981592e53306b8a307959aff66eb6467425b",
-      "updatedAt": "2026-11-09T04:33:20.504Z",
-      "summary": "PR325 e1cbdb99: cloud071→072 DB-only transaction, old rows/sequences/ACL preserved, exact new grants for four current POS/BO combinations. 20/20 PG18.3 tests plus build/lint/format passed. Full Foundation42494114493 pending. No VPS/API/flags changed.",
-      "nextAction": "Review final CI and integrate current shared before merge. DB helper does not deploy API or produce Windows cloud release proof. Real backup/lease/writer stop, API072 compatibility with actual023/024 binaries and release window remain."
+      "status": "done",
+      "head": "7028a0b0893931f93231fb92ba959a1cfb5792b7",
+      "updatedAt": "2026-11-09T05:29:36.701Z",
+      "summary": "PR325 включён в shared через проверенный dbbf4aa8, история сохранена. PG18.6:20 cloud072 проверок в составе34/34; Foundation42564141916 11/11, Windows/Photo PASS; offline42562815709 9/9 на исполняемо идентичном7a94b6ed. API/VPS/флаги и реальные данные не менялись. Протокол docs/operations/launch-integration-1109.md.",
+      "nextAction": "Дальше: резерв сервера, свежий backup/restore, cloud072/API с проверкой фактических прав и совместимости023/024. Не повторять069-071; DB-helper не CloudReleaseReceipt. Касса ждёт LAN и отдельного SSD."
     },
     {
       "id": "pos-sync-shared-1108",
