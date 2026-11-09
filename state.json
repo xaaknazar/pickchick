@@ -7472,21 +7472,6 @@
       "nextAction": "Разработка оператора завершена, не установка. С4: cloud072/API и реальные старые023/024, свежая восстановленная копия реальной кассы, Windows-rehearsal/rollback, независимый диск и ключ, согласованное окно. Свежий финальный RC требует полной CI. Отдельно POS43110 после решения по настоящей очереди;43100 сохраняется."
     },
     {
-      "id": "queue-cloud-072-1108",
-      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
-      "branch": "codex/queue-cloud-072-1108",
-      "scopes": [
-        "infra/staging/queue-recovery-cloud-owner.mjs",
-        "tests/integration/queue-recovery-cloud-owner.test.mjs",
-        "docs/operations/queue-recovery-cloud-072.md"
-      ],
-      "status": "available",
-      "head": "e1cbdb99623f192687a0f23556fb4841c7279086",
-      "updatedAt": "2026-11-08T15:47:44.004Z",
-      "summary": "PR325 e1cbdb99: cloud071→072 DB-only transaction, old rows/sequences/ACL preserved, exact new grants for four current POS/BO combinations. 20/20 PG18.3 tests plus build/lint/format passed. Full Foundation42494114493 pending. No VPS/API/flags changed.",
-      "nextAction": "Review final CI and integrate current shared before merge. DB helper does not deploy API or produce Windows cloud release proof. Real backup/lease/writer stop, API072 compatibility with actual023/024 binaries and release window remain."
-    },
-    {
       "id": "pos-sync-shared-1108",
       "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
       "branch": "codex/pos-sync-shared-1108",
@@ -7535,6 +7520,21 @@
       "updatedAt": "2026-11-09T04:31:52.598Z",
       "summary": "PR327 head80c1a6ab: current shared ec5625c1 explicitly merged after PR324 full green CI. PG18.6 rehearsal tool unchanged since final28/28 cutover4c2, no skips, synthetic cleanup complete. Integrated checks4 runner +14 operator guards PASS; CSV73 tasks and report updated. No production changes.",
       "nextAction": "Check latest-head CI, then integrate any newer shared before merge. K15 still needs real protected cashier copy and final RC/Windows. PR325/326 pending own fullCI and shared integration. Menu needs49 confirmations and real channel prices; current54-item fixture is not approved. Global status/roadmap remain with Android task."
+    },
+    {
+      "id": "queue-cloud-072-1108",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/queue-cloud-072-1108",
+      "scopes": [
+        "infra/staging/queue-recovery-cloud-owner.mjs",
+        "tests/integration/queue-recovery-cloud-owner.test.mjs",
+        "docs/operations/queue-recovery-cloud-072.md"
+      ],
+      "status": "active",
+      "head": "5893981592e53306b8a307959aff66eb6467425b",
+      "updatedAt": "2026-11-09T04:33:20.504Z",
+      "summary": "PR325 e1cbdb99: cloud071→072 DB-only transaction, old rows/sequences/ACL preserved, exact new grants for four current POS/BO combinations. 20/20 PG18.3 tests plus build/lint/format passed. Full Foundation42494114493 pending. No VPS/API/flags changed.",
+      "nextAction": "Review final CI and integrate current shared before merge. DB helper does not deploy API or produce Windows cloud release proof. Real backup/lease/writer stop, API072 compatibility with actual023/024 binaries and release window remain."
     }
   ]
 }
