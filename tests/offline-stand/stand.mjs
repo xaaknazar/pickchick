@@ -394,6 +394,10 @@ export class Stand {
       EDGE_FULFILLMENT_TRANSPORT_ENABLED: 'true',
       EDGE_POS_ORDER_SYNC_ENABLED: 'true',
       FULFILLMENT_TRANSPORT_PROTOCOL: '4',
+      // Opt-in acceptance task list (mobile assembly stage); off unless the run sets it.
+      ...(process.env.FULFILLMENT_TRANSPORT_TASK_LIST === '1'
+        ? { FULFILLMENT_TRANSPORT_TASK_LIST: '1' }
+        : {}),
       OFFLINE_STAND_CLOUD_ORIGIN: this.wan.url,
       OFFLINE_STAND_IDENTITY: this.identityPath,
     };

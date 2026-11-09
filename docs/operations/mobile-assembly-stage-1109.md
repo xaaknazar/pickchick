@@ -45,4 +45,4 @@
 `packages/fulfillment-transport/tests/cloud.test.mjs`: новый сценарий (старая касса -
 «Готовится», со списком - «На сборке», повтор/обратный порядок, подмена станции,
 список на чужом событии). Пройдены transport 12+81, fulfillment 48, commerce 52+171,
-unit 388, lint, typecheck, format, contracts. Офлайн-стенд с флагом - в PR.
+unit 388, lint, typecheck, format, contracts. Офлайн-стенд, профиль ci, с `FULFILLMENT_TRANSPORT_TASK_LIST=1`: 9/9, 51 из 52 заказов киоска/приложения пришли со списком заданий (168 заданий), без дублей и потерь.
