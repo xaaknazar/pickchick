@@ -7634,6 +7634,19 @@
       "updatedAt": "2026-11-09T10:49:37.999Z",
       "summary": "PR334 merged5249c8ef. С8 HTTP/API/PostgreSQL18.3 cutover rehearsal:4/4 PASS, enabled control, TEST endpoints404 for4 token types, identity/review login+refresh preserved, review orders/payment403, synthetic deletion, history+ledger unchanged and rollback read. Zero external fetches, containers cleaned. API build/lint/format pass. Report docs/operations/test-mode-cutover-1109.md. CI42603865755 pending; whole С8 remains open.",
       "nextAction": "Check earlier CI42601172103(PR332),42600844743(PR333) and new42603865755 exactaced6baa. С8 install16.11 requires reserved VPS access/current config/device checks. Keep auth/review keys and phone provider; no APP_ENV=production switch. Next ordered infrastructure work requires real VPS/S3 or separate authorized window; do not claim standby tests as deployment."
+    },
+    {
+      "id": "iiko-export-integrity-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/iiko-export-integrity-1109",
+      "scopes": [
+        "scripts/iiko-menu-export.mjs",
+        "tests/unit/iiko-menu-export.test.mjs",
+        "docs/operations/iiko-export-integrity-1109.md"
+      ],
+      "status": "active",
+      "head": "5249c8ef8355e436073b201dc7dd21e3002c65f4",
+      "updatedAt": "2026-11-09T11:17:43.608Z"
     }
   ],
   "approvedScopeTransfers": [
