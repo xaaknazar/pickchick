@@ -1,0 +1,56 @@
+name: Queue recovery operator delivery
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'scripts/build-queue-recovery-operator.py'
+      - 'tests/operations/test_queue_recovery_operator_bundle.py'
+      - 'infra/windows/**'
+      - 'docs/operations/stage2-windows-1030/queue-recovery-025.md'
+      - 'docs/operations/edge-restore.md'
+      - '.github/workflows/queue-recovery-operator.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/build-queue-recovery-operator.py'
+      - 'tests/operations/test_queue_recovery_operator_bundle.py'
+      - 'infra/windows/**'
+      - 'docs/operations/stage2-windows-1030/queue-recovery-025.md'
+      - 'docs/operations/edge-restore.md'
+      - '.github/workflows/queue-recovery-operator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: queue-recovery-operator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Verify provenance, pins, dependency closure and Windows newlines
+        run: python3 -m unittest discover -s tests/operations -p test_queue_recovery_operator_bundle.py
+      - name: Package exact committed operator bytes
+        run: |
+          python3 scripts/build-queue-recovery-operator.py \
+            --source "$GITHUB_WORKSPACE" --expected-sha "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/operator025-$GITHUB_SHA.zip" \
+            > "$RUNNER_TEMP/operator025-build.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pickchick-operator025-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/operator025-${{ github.sha }}.zip
+            ${{ runner.temp }}/operator025-build.json
+          if-no-files-found: error
+          retention-days: 14
+
+# Source delivery only. No credentials, runtime, cloud proof, migration or Windows installation.

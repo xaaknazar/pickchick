@@ -1,0 +1,65 @@
+{
+  "shared": "a06d0398018c37b2866fcc24c780a50d0cea4ac8",
+  "restoredProtocols": [
+    {
+      "path": "docs/operations/mobile-testflight27.md",
+      "sha256": "11a3a1ff72c0e8651bcada4bc309ea426eb2eabc0cff4b36cd88251dce0f1120",
+      "restoredFrom": "f94f252da29ad8f0e376ff9ecc2319bbfa10ef87"
+    },
+    {
+      "path": "docs/operations/mobile-testflight27-evidence.json",
+      "sha256": "1854a12a50e57609d3438b12d88376a66ac6771e8dcd108151d7310fca0e2188",
+      "restoredFrom": "f94f252da29ad8f0e376ff9ecc2319bbfa10ef87"
+    },
+    {
+      "path": "docs/operations/mobile-testflight32.md",
+      "sha256": "7da97419a19f671846db94fc4c4e56dd59aa23c21df271268e7c32aa404d38ef",
+      "restoredFrom": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e"
+    },
+    {
+      "path": "docs/operations/mobile-testflight32-evidence.json",
+      "sha256": "381db9dc096ac376d2a5769ebba9923d79803d93ee44e500f8c31d19c7bd4c7a",
+      "restoredFrom": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e"
+    }
+  ],
+  "pr292and309Preserved": true,
+  "openPullRequests": [
+    {
+      "baseRefName": "codex/shared-development",
+      "headRefOid": "4544cc368eb6e7694eab7be6d7475bd37db1ed11",
+      "number": 322,
+      "title": "docs(android): опубликованный Alpha и 16 адресов тестировщиков",
+      "headFullyInTarget": false
+    },
+    {
+      "baseRefName": "codex/cutover-1119",
+      "headRefOid": "32e651165bfe078796d825e3c81917ea82895e75",
+      "number": 319,
+      "title": "Отчёт остатка POS-sync перед первой установкой (#312, п. 4)",
+      "headFullyInTarget": false
+    },
+    {
+      "baseRefName": "codex/shared-development",
+      "headRefOid": "f8a23411b6634f99e615e41f9f333c29aeeaa941",
+      "number": 318,
+      "title": "Политика: уточнить хранение заказов после удаления аккаунта",
+      "headFullyInTarget": false
+    },
+    {
+      "baseRefName": "codex/stage2-windows-1030",
+      "headRefOid": "6630eb0f676350341806b735b6877a36f017c673",
+      "number": 310,
+      "title": "fix(ops): adapt stage2 fallback to installed JSON compose",
+      "headFullyInTarget": false
+    },
+    {
+      "baseRefName": "codex/shared-development",
+      "headRefOid": "b10885f15d87cd1e602dd712bfe424a1fa879bcc",
+      "number": 281,
+      "title": "Kiosk: отдельный изолированный демо-вход для проверки Apple",
+      "headFullyInTarget": false
+    }
+  ],
+  "newClosuresPerformed": 0,
+  "note": "Five active PRs retained; PR310 and PR281 explicitly protected by launch plan. PR316 already merged on morning integration."
+}

@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "dbbf4aa8846f6510f6d4d556185c489426487c23",
+  "workflowRun": 42564285056,
+  "artifactId": 13651180905,
+  "archiveSha256": "7c9da88e529cb85d93a1069c30693ae7ca0753785e18146af89d0463396da9ee",
+  "files": {
+    "PickChick-POS-Portable-0.4.8-x64.exe": {
+      "bytes": 172057606,
+      "sha256": "5646fbe715f53c6538d6e90b99d4e38793704fb4757edea631cacd9415dcb6ec",
+      "launcherPeMachine": 332
+    },
+    "PickChick-POS-Setup-0.4.8-x64.exe": {
+      "bytes": 172221745,
+      "sha256": "9362c9af7a036ab73cc86f243c2daadc200afba03dd79d7a55de0eacb08e4a7f",
+      "launcherPeMachine": 332
+    }
+  },
+  "sourceInputsVerified": 86,
+  "windowsGitNewlineMaterialization": [
+    "apps/pos-desktop/electron-builder.yml",
+    "apps/pos-desktop/journal.mjs",
+    "apps/pos-desktop/main.mjs",
+    "apps/pos-desktop/menu-assets.mjs",
+    "apps/pos-desktop/package-lock.json",
+    "apps/pos-desktop/package.json",
+    "apps/pos-desktop/preload.cjs",
+    "apps/pos-desktop/protocol.mjs",
+    "apps/pos-desktop/resources/config.example.json",
+    "apps/pos-desktop/scripts/build.mjs",
+    "apps/pos-desktop/scripts/verify-package.mjs",
+    "apps/pos-desktop/tsconfig.renderer.json",
+    "apps/pos-desktop/v2-assets.mjs",
+    "apps/pos/src/api.ts",
+    "apps/pos/src/app.ts",
+    "apps/pos/src/auth-view.ts",
+    "apps/pos/src/index.html",
+    "apps/pos/src/model.ts",
+    "apps/pos/src/order-view.ts",
+    "apps/pos/src/styles.css",
+    "apps/pos/src/types.ts",
+    "apps/pos/src/v2/app.js",
+    "apps/pos/src/v2/photos.js",
+    "apps/pos/src/v2/pin-login.js",
+    "apps/pos/src/v2/reference-view.js",
+    "apps/pos/src/v2/runtime.js",
+    "apps/pos/src/v2/styles.css",
+    "apps/pos/src/v2/template-engine.js",
+    "apps/pos/src/v2/template.html",
+    "apps/pos/tsconfig.json",
+    "packages/contracts/src/index.ts",
+    "tsconfig.base.json"
+  ],
+  "installed": false,
+  "executed": false,
+  "embeddedAsarRecheckedLocally": false
+}
