@@ -7537,6 +7537,19 @@
       "updatedAt": "2026-11-09T05:30:03.792Z",
       "summary": "PR326/PR325 и PR328 включены в shared без squash/force. Код dbbf4aa8: Foundation42564141916 11/11, Windows42564285056 и guards42564284556 PASS; Photo PASS. PG18.6:34+5 PASS; packaging5; offline7a94b6ed9/9, runtime8047 файлов идентичен. Исправлена воспроизводимая гонка теста фотографий. Исторические023/024 проверены противAPI072 на синтетике с restricted LOGIN. Протокол a06d0398 docs/operations/launch-integration-1109.md; production не менялся.",
       "nextAction": "Для установки нужны LAN к кассе, свежая копия с восстановлением и отдельный SSD; затем согласованное cloud072/API окно, касса020→023→024→025, решение по старой POS-очереди и установка43110. №279/312 остаются открыты. Проверить срок ключа, резервное продление до13.11 если авторотация не установлена. Общие status/roadmap у другой задачи."
+    },
+    {
+      "id": "release-artifacts-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/release-artifacts-1109",
+      "scopes": [
+        "scripts/build-queue-recovery-operator.py",
+        "tests/operations/test_queue_recovery_operator_bundle.py",
+        "docs/operations/release-artifacts-1109"
+      ],
+      "status": "active",
+      "head": "a06d0398018c37b2866fcc24c780a50d0cea4ac8",
+      "updatedAt": "2026-11-09T05:46:10.732Z"
     }
   ]
 }
