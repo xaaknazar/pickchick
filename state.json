@@ -7610,11 +7610,12 @@
         "infra/staging/watchdog/api-probe.mjs",
         "infra/staging/watchdog/telegram.mjs",
         "tests/unit/ops-watchdog.test.mjs",
-        "docs/operations/backup-watchdog-recovery-1109.md"
+        "docs/operations/backup-watchdog-recovery-1109.md",
+        "tests/operations/test_restore_drill_docker.py"
       ],
       "status": "active",
       "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
-      "updatedAt": "2026-11-09T09:58:14.762Z"
+      "updatedAt": "2026-11-09T10:02:11.334Z"
     }
   ]
 }
