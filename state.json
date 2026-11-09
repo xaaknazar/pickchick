@@ -7565,9 +7565,11 @@
         "docs/operations/server-storage-audit-1109",
         "tests/operations/server_storage_docker.py"
       ],
-      "status": "active",
-      "head": "eb86d392b8cb820669783fb49b7e127a0a9bee6c",
-      "updatedAt": "2026-11-09T08:17:47.849Z"
+      "status": "done",
+      "head": "e3c38cc5a46b2fc69d9906108b101ea9ce082e51",
+      "updatedAt": "2026-11-09T08:25:27.252Z",
+      "summary": "PR330 e3c38cc5 merged normally into shared bc88aca6. Б10 preparation: read-only Redis/Docker metadata auditor, bounded initial staff-login logs10m×3, 13 audit tests +5 existing release tests PASS. Pinned Redis Docker rehearsal6 checks PASS; confirms blind0644→0600 breaks startup. Fixtures removed; noVPS changes. Full Foundation42585450941 pending. Prior329 Foundation42570270934 Kaspi cart-return failure; one sameSHA rerun pending. Report docs/operations/server-storage-audit-1109.",
+      "nextAction": "Б10 remains open operationally: actual VPS inventory/UID/GID/ACL, staff-login and iDrink logging, coordinated update.py fix (restaurant-completion owns path), guarded recreation+health+rotation evidence. Globalstatus/roadmap held byAndroid. Investigate cart-return cancellation race revealed by priorCI; no production release untilfullCI."
     }
   ]
 }
