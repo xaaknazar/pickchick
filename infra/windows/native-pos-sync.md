@@ -12,10 +12,21 @@ POS order events and kitchen progress are two durable streams. The worker uses
 payloads and checkpoints survive process/network failures. An open tunnel is not
 proof that the cloud accepted an order. No receipt or payment is fabricated.
 
+## Local forward port (#312)
+
+`127.0.0.1:43100` belongs to the live `PickChickFulfillmentTunnel`; the menu-sync,
+device-access and identity-rotation workers use it. This installer therefore binds its
+own `PickChickSyncTunnel` only on `127.0.0.1:43110` and points `PickChickPosSync` at
+`http://127.0.0.1:43110`. It never stops, replaces or probes the fulfillment tunnel.
+Prepare refuses if 43110 is already listening. An earlier setup record or SSH config
+written with 43100 is not migrated: Configure/Verify fail with "SSH configuration
+changed" or "Dedicated worker environment changed" and nothing is overwritten.
+
 ## Preconditions
 
 1. Run `inspect-native-ssh.ps1` in elevated x64 Windows PowerShell. This is read-only:
-   it reports OpenSSH, signatures, local port 43100 and existing service accounts.
+   it reports OpenSSH, signatures, the sync forward port 43110, the live fulfillment
+   forward port 43100 and existing service accounts.
    An absent client requires a separately reviewed Windows prerequisite action.
 2. Complete the existing foundation and explicit branch provisioning. Apply edge
    migrations 001-013 and install the immutable runtime with the files below.
@@ -141,7 +152,7 @@ Install creates only two new LocalService WinSW services, delayed automatic star
 with restart recovery. The worker depends on both `PickChickEdge` and
 `PickChickSyncTunnel`. SSH uses a pinned host key, `BatchMode`,
 `ExitOnForwardFailure`, 15-second keepalives/3 missed replies, no passwords, agent,
-X11 or interactive command. The forward binds exactly `127.0.0.1:43100` and targets
+X11 or interactive command. The forward binds exactly `127.0.0.1:43110` and targets
 only the VPS loopback API. No renderer/browser can choose its endpoint.
 
 Install/Verify check service identity, image/XML, dependency configuration, actual

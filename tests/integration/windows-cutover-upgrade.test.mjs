@@ -397,8 +397,11 @@ test('pos-sales-upgrade-db: 026 on a populated 025 edge with the installed roles
           assert.equal(verified.applied, true);
           assert.equal(verified.migrations, 26);
           assert.deepEqual(verified.posSalesGrantedTo, [runtime.role, posSync.role].sort());
-          // A runtime grant reset after 026 keeps the reviewed set (edge-runtime-grants.mjs).
-          await applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true });
+          // #278: the runtime grant reset refuses the live role after 026 and changes nothing.
+          await assert.rejects(
+            applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true }),
+            /Live runtime role/,
+          );
           assert.equal((await run(ctx, { mode: 'inspect', ...roles })).applied, true);
           // A stray privilege is reported by inspect.
           await pool.query(`GRANT SELECT ON pos_sales TO ${fulfillment.role}`);
@@ -586,8 +589,11 @@ test('kds-upgrade-db: 027 after the 026 tool on a populated edge - KDS stations 
             /KDS table privileges differ: kds_layouts/,
           );
           await pool.query(`GRANT SELECT ON kds_layouts TO ${fulfillment.role}`);
-          // A runtime grant reset on 027 keeps the reviewed KDS set (edge-runtime-grants.mjs).
-          await applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true });
+          // #278: the runtime grant reset refuses the live role on 027 and changes nothing.
+          await assert.rejects(
+            applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true }),
+            /Live runtime role/,
+          );
           assert.equal((await runKds(ctx, { mode: 'inspect', ...kdsRoles })).applied, true);
           // The 026 tool still verifies its own state on 027.
           assert.equal(
@@ -786,8 +792,11 @@ test('pos-sales-upgrade-db 028: the desk number after the 026 and 027 tools on a
             ],
             [true, 28, 1, true, null],
           );
-          // A runtime grant reset on 028 keeps the read and gives no write.
-          await applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true });
+          // #278: the runtime grant reset refuses the live role on 028; the read stays, no write.
+          await assert.rejects(
+            applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true }),
+            /Live runtime role/,
+          );
           assert.equal(
             (await runDesk(ctx, { mode: 'inspect', ...desk })).runtimeReadsDeskNumber,
             true,

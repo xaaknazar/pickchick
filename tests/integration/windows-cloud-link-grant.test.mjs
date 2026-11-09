@@ -172,22 +172,31 @@ for (const count of [23, 24])
       }
     }));
 
-test('why not the runtime grant script on a live cashier: its reset drops terminal access and presence', () =>
+test('the runtime grant script refuses a live cashier role and keeps terminal access and presence (#278)', () =>
   cashier(24, async ({ pool, schema, roles, grantLikeCashier }) => {
     await grantLikeCashier(roles.runtime);
-    assert.deepEqual(await cashierGrants(pool, roles.runtime), {
-      presence: true,
-      registry: true,
-      pairLimits: true,
-      orders: true,
-    });
-    // What `scripts/edge-runtime-grants.mjs <role> --cloud-link` does.
-    await applyEdgeRuntimeGrants(pool, roles.runtime, { schema, cloudLink: true });
-    assert.equal(await columnPrivilege(pool, roles.runtime, 'last_success_at'), true);
-    assert.deepEqual(await cashierGrants(pool, roles.runtime), {
-      presence: false,
-      registry: false,
-      pairLimits: false,
-      orders: true,
-    });
+    const expected = { presence: true, registry: true, pairLimits: true, orders: true };
+    assert.deepEqual(await cashierGrants(pool, roles.runtime), expected);
+    // What `scripts/edge-runtime-grants.mjs <role>` (with or without --cloud-link) would do.
+    for (const options of [{ schema, cloudLink: true }, { schema }])
+      await assert.rejects(
+        applyEdgeRuntimeGrants(pool, roles.runtime, options),
+        /Live runtime role/,
+      );
+    assert.equal(await columnPrivilege(pool, roles.runtime, 'last_success_at'), false);
+    assert.deepEqual(await cashierGrants(pool, roles.runtime), expected);
+  }));
+
+test('schema019 and older (historical installers): reapplying runtime grants is still a reset', () =>
+  cashier(19, async ({ pool, schema, roles }) => {
+    await applyEdgeRuntimeGrants(pool, roles.runtime, { schema });
+    await pool.query(`GRANT UPDATE(role) ON local_staff TO ${roles.runtime}`);
+    await applyEdgeRuntimeGrants(pool, roles.runtime, { schema });
+    assert.equal(
+      await allowed(pool, "SELECT has_column_privilege($1,'local_staff','role','UPDATE') ok", [
+        roles.runtime,
+      ]),
+      false,
+    );
+    assert.equal(await tablePrivilege(pool, roles.runtime, 'local_orders', 'INSERT'), true);
   }));

@@ -43,8 +43,9 @@ function identifier(value) {
 
 /**
  * Command line of scripts/edge-runtime-grants.mjs: `<role> [--fulfillment] [--cloud-link]`.
- * Each option at most once, in any order; anything else is refused. The grants are a reset, so
- * an installer that re-applies them without --cloud-link removes the cloud-link column grant.
+ * Each option at most once, in any order; anything else is refused. --cloud-link is recognised
+ * only to be refused with a pointer to infra/windows/cloud-link-grant.mjs (issue #278): the grants
+ * are a reset, and on a live cashier that would drop rights granted by other tools.
  */
 export function runtimeGrantCliOptions(args) {
   const [role, ...flags] = args;
@@ -57,6 +58,11 @@ export function runtimeGrantCliOptions(args) {
     new Set(flags).size !== flags.length
   )
     throw new Error('Usage: edge-runtime-grants.mjs <role> [--fulfillment] [--cloud-link]');
+  // The cloud-link column grant on a live cashier is additive only (issue #278).
+  if (flags.includes('--cloud-link'))
+    throw new Error(
+      '--cloud-link is refused: use infra/windows/cloud-link-grant.mjs inspect|apply|revoke',
+    );
   return {
     role,
     options: {
@@ -177,7 +183,9 @@ export function edgeRuntimeGrantSql(
   ].join('\n');
 }
 
-/** Apply to a pre-created, dedicated, unprivileged runtime role in one transaction. */
+/** Apply to a pre-created, dedicated, unprivileged runtime role in one transaction. Before 020
+ * this is a reset (historical installers rely on it). From schema020 on it only grants a role
+ * that holds nothing in the schema yet and refuses a live role before the first REVOKE. */
 export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
   const schema = options.schema ?? 'public';
   const target = identifier(role),
@@ -237,6 +245,35 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     if (media.applied !== media.cache) throw new Error('Menu publication migration objects differ');
     if (options.menuMedia !== undefined && options.menuMedia !== media.applied)
       throw new Error('Menu media grant flag differs from applied schema');
+    // Schema020+ is a live cashier: terminal access/presence, restore fence and kitchen review
+    // rights come from other guarded tools, and the reset below would silently drop them.
+    // Decide from the database before the first REVOKE: only a role that holds nothing in this
+    // schema yet (first install, isolated test schema) may be granted here. No override flag.
+    const live = await client.query(
+      `SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='020_terminal_access.sql'`,
+    );
+    if (live.rowCount) {
+      const held = await client.query(
+        `SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) p
+         WHERE n.nspname=$1 AND p.grantee=$2
+         UNION ALL
+         SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+         CROSS JOIN LATERAL aclexplode(c.relacl) p WHERE n.nspname=$1 AND p.grantee=$2
+         UNION ALL
+         SELECT 1 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+         JOIN pg_namespace n ON n.oid=c.relnamespace
+         CROSS JOIN LATERAL aclexplode(a.attacl) p WHERE n.nspname=$1 AND p.grantee=$2
+         UNION ALL
+         SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid=f.pronamespace
+         CROSS JOIN LATERAL aclexplode(f.proacl) p WHERE n.nspname=$1 AND p.grantee=$2
+         LIMIT 1`,
+        [schema, actual.oid],
+      );
+      if (held.rowCount)
+        throw new Error(
+          'Live runtime role on schema020+: reset refused; use infra/windows/cloud-link-grant.mjs or another additive tool',
+        );
+    }
     const fence = (
       await client.query(
         `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='023_edge_restore_fence.sql') AS applied,

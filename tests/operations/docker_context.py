@@ -22,6 +22,7 @@ def main():
                 'patches/unrelated.txt':'excluded',
                 'infra/staging/provision.mjs':'included',
                 'infra/windows/pos-sync-worker-grants.mjs':'included',
+                'infra/windows/pos-sales-grants.mjs':'included',
                 'infra/windows/unrelated-operator.mjs':'excluded',
                 'infra/windows/operator.env':'excluded',
                 'infra/public-staging/unrelated':'excluded',
