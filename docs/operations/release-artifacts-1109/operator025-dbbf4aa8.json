@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "dbbf4aa8846f6510f6d4d556185c489426487c23",
+  "archive": "operator025-dbbf4aa8.zip",
+  "bytes": 89851,
+  "sha256": "9eb00cb8b826ba12e725c99e2d3dea6197fa58e17d9787dd3702bce356b13de4",
+  "files": 15,
+  "runtimeIncluded": false,
+  "deploymentReady": false
+}
