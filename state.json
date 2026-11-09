@@ -7562,11 +7562,12 @@
         "infra/operations/server-storage-audit.py",
         "tests/operations/test_server_storage_audit.py",
         "infra/backoffice-login/release.py",
-        "docs/operations/server-storage-audit-1109"
+        "docs/operations/server-storage-audit-1109",
+        "tests/operations/server_storage_docker.py"
       ],
       "status": "active",
       "head": "eb86d392b8cb820669783fb49b7e127a0a9bee6c",
-      "updatedAt": "2026-11-09T08:11:08.069Z"
+      "updatedAt": "2026-11-09T08:17:47.849Z"
     }
   ]
 }
