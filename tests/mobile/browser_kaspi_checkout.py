@@ -15,12 +15,55 @@ future=(datetime.now(timezone.utc)+timedelta(hours=2)).isoformat().replace('+00:
 customer={'id':CUSTOMER,'phone':'+77000000000','nickname':'UI test','birth_date':None,'gender':None,'profile_completed_at':None,'created_at':'2026-09-07T10:00:00.000Z'}
 envelope={'version':1,'device_id':'40000000-0000-4000-8000-000000000004','tokens':{'access_token':'a'*64,'refresh_token':'b'*64,'access_expires_at':future,'session_id':'40000000-0000-4000-8000-000000000002','customer':customer},'challenge':None,'otp_request':None,'verify_intent':None,'refresh_request_id':None,'closing':None}
 errors=[]
+def cancel_invoice_during_consent(browser):
+ from browser_checkout_traps import context as fixture_context, fresh_state, fulfill, order as fixture_order, release, errors as fixture_errors
+ state=fresh_state()
+ def handler(route,path,method,body):
+  if path=='/v1/customer-checkout/orders' and method=='GET':return fulfill(route,{'orders':[fixture_order('ready_to_pay')]})
+  if path==f'/v1/customer-checkout/orders/{ORDER}' and method=='GET':return fulfill(route,fixture_order('ready_to_pay'))
+  if path==f'/v1/customer-checkout/orders/{ORDER}/payment':return fulfill(route,fixture_order('awaiting_payment'))
+  return False
+ ctx,page=fixture_context(browser,state,handler)
+ hold={'enabled':False,'routes':[]}
+ consent={'customer':customer,'legal':{'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
+ def me(route):
+  if hold['enabled']:hold['routes'].append(route)
+  else:fulfill(route,consent)
+ route_fixture(ctx,'**/v1/customers/me',me)
+ page.goto(URL+'/orders')
+ history=page.get_by_test_id(f'order-history-open-{ORDER}')
+ history.click(timeout=20000)
+ resume=page.get_by_role('button',name='Отправить счёт на',exact=False)
+ expect(resume).to_be_visible(timeout=15000)
+ hold['enabled']=True
+ resume.click()
+ for _ in range(100):
+  if hold['routes']:break
+  page.wait_for_timeout(50)
+ assert hold['routes'], 'No invoice consent request was held'
+ page.get_by_test_id('kaspi-state-close').click()
+ expect(history).to_be_visible(timeout=5000)
+ hold['enabled']=False
+ for route in hold['routes']:fulfill(route,consent)
+ page.wait_for_timeout(300)
+ assert state['payments']==state['quotes']==state['creates']==0, 'Late consent sent an invoice after leaving payment'
+ # A later explicit tap still sends exactly one invoice for this existing order.
+ history.click()
+ expect(resume).to_be_visible(timeout=15000)
+ resume.click()
+ expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
+ assert state['payments']==1 and state['quotes']==state['creates']==0
+ release(state);ctx.close()
+ assert not fixture_errors,fixture_errors
+ print('PASS cancel held consent before invoice, late answer ignored, explicit retry sends once')
+
 with sync_playwright() as p:
  browser=p.chromium.launch()
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
   state={'payment_blocked':True,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'quote_modes':[],'handled':[],'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  legal_hold={'enabled':False,'routes':[]}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
@@ -33,7 +76,9 @@ with sync_playwright() as p:
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
     assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2'
    data=None
-   if path=='/v1/customers/me':data={'customer':customer,'legal':{'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
+   if path=='/v1/customers/me':
+    if legal_hold['enabled']:legal_hold['routes'].append(r);return
+    data={'customer':customer,'legal':{'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}
    elif path=='/v1/auth/config':data={'enabled':True,'delivery_consent_required':True,'consent_version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy'}
    elif path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
@@ -132,6 +177,25 @@ with sync_playwright() as p:
   assert total.evaluate('(el) => parseFloat(getComputedStyle(el).lineHeight) >= parseFloat(getComputedStyle(el).fontSize) * 1.3')
   page.screenshot(path=str(OUT/f'blocked-{width}.png'))
   state['blocked']=False
+  # A slow consent GET used to expose a return button before its AbortController
+  # existed. Hold that exact request: cancellation must work before it answers.
+  legal_hold['enabled']=True
+  before_config=state['config_reads']
+  button.click()
+  expect(page.get_by_test_id('kaspi-connecting')).to_be_visible()
+  for _ in range(100):
+   if legal_hold['routes']:break
+   page.wait_for_timeout(50)
+  assert legal_hold['routes'], 'No consent request was held'
+  page.get_by_role('button',name='Вернуться в корзину',exact=True).click()
+  expect(button).to_be_enabled(timeout=5000)
+  legal_hold['enabled']=False
+  for held in legal_hold['routes']:
+   held.fulfill(json={'customer':customer,'legal':{'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}},headers={'Access-Control-Allow-Origin':'*'})
+  legal_hold['routes'].clear()
+  page.wait_for_timeout(300)
+  assert state['config_reads']==before_config and state['quotes']==0 and not state['keys'] and state['payments']==0, 'Late consent answer revived cancelled checkout'
+  print(f'PASS cancel held consent before checkout: {width}')
   # Lost configuration connection cannot disable payment. Cancelling preparation
   # stops retries without creating a quote, order or invoice.
   state['config_offline']=True
@@ -384,6 +448,7 @@ with sync_playwright() as p:
    except Exception:pass
   page.wait_for_timeout(50)
   context.close()
+ cancel_invoice_during_consent(browser)
  browser.close()
 assert not errors,errors
 print('PASS: 4 sizes, no pre-pay quote, actionable offline checkout, cancellation, duplicate taps, same-key quote/order recovery, price confirmation, touch targets, persisted recovery, unknown blocks retry, definitive failure retries, paid/kitchen/completed stages, server-backed review save/retry/reload, no overflow')
