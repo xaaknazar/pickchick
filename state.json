@@ -7482,11 +7482,11 @@
         "docs/operations/launch-cloud-progress-1108.md",
         "docs/operations/launch-cloud-progress-1108.csv"
       ],
-      "status": "active",
+      "status": "done",
       "head": "80c1a6abbd41221954ce442b9a7ded83d42d65fb",
-      "updatedAt": "2026-11-09T04:31:52.598Z",
-      "summary": "PR327 head80c1a6ab: current shared ec5625c1 explicitly merged after PR324 full green CI. PG18.6 rehearsal tool unchanged since final28/28 cutover4c2, no skips, synthetic cleanup complete. Integrated checks4 runner +14 operator guards PASS; CSV73 tasks and report updated. No production changes.",
-      "nextAction": "Check latest-head CI, then integrate any newer shared before merge. K15 still needs real protected cashier copy and final RC/Windows. PR325/326 pending own fullCI and shared integration. Menu needs49 confirmations and real channel prices; current54-item fixture is not approved. Global status/roadmap remain with Android task."
+      "updatedAt": "2026-11-09T04:34:16.797Z",
+      "summary": "PR327 включён в shared после проверки diff и полной Foundation CI42497123843 success. Упавший design-smoke Failed to fetch повторён один раз на том же80c1a6ab без изменений; все130экранов/749состояний прошли. Локальные4теста runner PASS. Прежние28/28 PG18.6 относятся к указанному4c2beb13. Установок на кассу/VPS нет.",
+      "nextAction": "Продолжить PR325/326 с текущим shared, проверять точный объединённый SHA. Физическая касса/реальная копия/SSD/окно отдельно. У нового Mac сеть172.20.10.x,192.168.2.69:22 недоступен; владелец уведомлён."
     },
     {
       "id": "queue-cloud-072-1108",
