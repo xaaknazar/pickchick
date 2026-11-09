@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createServer } from 'node:http';
+import { ReadableStream } from 'node:stream/web';
 import { loadWatchdogConfig, parseQuietHours } from '../../infra/staging/watchdog/config.mjs';
 import { parseHostFacts } from '../../infra/staging/watchdog/host-facts.mjs';
 import {
@@ -1359,6 +1361,61 @@ test('Telegram sender posts JSON and never exposes the token in errors', async (
   );
 });
 
+test('response-body transport failures keep watchdog timeout codes and never leak secrets', async () => {
+  for (const [name, apiCode, telegramCode] of [
+    ['AbortError', 'timeout', 'TELEGRAM_TIMEOUT'],
+    ['TimeoutError', 'timeout', 'TELEGRAM_TIMEOUT'],
+    ['TypeError', 'unreachable', 'TELEGRAM_UNREACHABLE'],
+  ]) {
+    const fetcher = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            const error = new Error(`response interrupted: ${BOT_TOKEN}`);
+            error.name = name;
+            controller.error(error);
+          },
+        }),
+        { status: 200 },
+      );
+    const result = await probeApi('http://127.0.0.1/health/ready', fetcher);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, apiCode);
+    assert.ok(!JSON.stringify(result).includes(BOT_TOKEN));
+    await assert.rejects(
+      sendTelegram({ token: BOT_TOKEN, chatId: '-100' }, 'fixture', fetcher),
+      (error) => error.code === telegramCode && !String(error).includes(BOT_TOKEN),
+    );
+  }
+});
+
+test('real loopback responses that stall after headers time out during body reading', async () => {
+  let requests = 0;
+  const server = createServer((_request, response) => {
+    requests++;
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.write('{');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  try {
+    assert.equal((await probeApi(url, fetch, 1000)).error, 'timeout');
+    await assert.rejects(
+      sendTelegram(
+        { token: BOT_TOKEN, chatId: '-100' },
+        'fixture',
+        (_telegramUrl, init) => fetch(url, init),
+        1000,
+      ),
+      (error) => error.code === 'TELEGRAM_TIMEOUT' && !String(error).includes(BOT_TOKEN),
+    );
+    assert.equal(requests, 2);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 function harness({
   envExtra = {},
   facts = hostFacts(),
@@ -1539,6 +1596,34 @@ test('Telegram mode: confirmation, de-dup, recovery; failed delivery is retried,
   const state = JSON.parse(h.files.get('/state.json'));
   assert.equal(state.delivery, 'telegram');
   assert.deepEqual(state.checks, {});
+  assert.equal(leaks(h), null);
+});
+
+test('an interrupted Telegram body leaves notification state unchanged for the next run', async () => {
+  const h = harness({ envExtra: telegramEnv, api: 503 });
+  assert.equal(await h.run(), 0);
+  const saved = h.files.get('/state.json');
+  const original = h.options.fetcher;
+  h.options.fetcher = async (url, init) =>
+    String(url).startsWith('https://api.telegram.org/')
+      ? new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(
+                Object.assign(new Error('fixture body timeout'), { name: 'AbortError' }),
+              );
+            },
+          }),
+        )
+      : original(url, init);
+  h.advance(5 * MIN);
+  assert.equal(await h.run(), 1);
+  assert.equal(h.printed.at(-1).code, 'TELEGRAM_TIMEOUT');
+  assert.equal(h.files.get('/state.json'), saved);
+  h.options.fetcher = original;
+  h.advance(5 * MIN);
+  assert.equal(await h.run(), 0);
+  assert.equal(h.sent.length, 1);
   assert.equal(leaks(h), null);
 });
 

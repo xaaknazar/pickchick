@@ -18,10 +18,15 @@ export async function probeApi(url, fetcher = fetch, timeoutMs = 5000) {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(timeoutMs),
     });
-    const body = await response
-      .text()
-      .then((text) => (text.length <= 16_384 ? JSON.parse(text) : null))
-      .catch(() => null);
+    // A timeout may happen after headers arrive. Keep transport failures distinct
+    // from a complete but invalid readiness payload.
+    const text = await response.text();
+    let body = null;
+    try {
+      if (text.length <= 16_384) body = JSON.parse(text);
+    } catch {
+      // A complete invalid JSON body is not a ready API.
+    }
     return {
       ok: response.status === 200 && body?.ready === true,
       status: response.status,
