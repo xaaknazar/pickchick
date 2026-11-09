@@ -7570,6 +7570,19 @@
       "updatedAt": "2026-11-09T08:25:27.252Z",
       "summary": "PR330 e3c38cc5 merged normally into shared bc88aca6. Б10 preparation: read-only Redis/Docker metadata auditor, bounded initial staff-login logs10m×3, 13 audit tests +5 existing release tests PASS. Pinned Redis Docker rehearsal6 checks PASS; confirms blind0644→0600 breaks startup. Fixtures removed; noVPS changes. Full Foundation42585450941 pending. Prior329 Foundation42570270934 Kaspi cart-return failure; one sameSHA rerun pending. Report docs/operations/server-storage-audit-1109.",
       "nextAction": "Б10 remains open operationally: actual VPS inventory/UID/GID/ACL, staff-login and iDrink logging, coordinated update.py fix (restaurant-completion owns path), guarded recreation+health+rotation evidence. Globalstatus/roadmap held byAndroid. Investigate cart-return cancellation race revealed by priorCI; no production release untilfullCI."
+    },
+    {
+      "id": "checkout-cancel-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/checkout-cancel-1109",
+      "scopes": [
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "docs/operations/checkout-cancel-1109.md"
+      ],
+      "status": "active",
+      "head": "bc88aca62969e3832e7b2b3c895c735fc211934b",
+      "updatedAt": "2026-11-09T08:25:42.330Z"
     }
   ]
 }
