@@ -7599,6 +7599,22 @@
       "status": "active",
       "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
       "updatedAt": "2026-11-09T09:56:20.920Z"
+    },
+    {
+      "id": "backup-watchdog-recovery-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/backup-watchdog-recovery-1109",
+      "scopes": [
+        "infra/staging/backup-offsite.py",
+        "tests/operations/test_backup_offsite.py",
+        "infra/staging/watchdog/api-probe.mjs",
+        "infra/staging/watchdog/telegram.mjs",
+        "tests/unit/ops-watchdog.test.mjs",
+        "docs/operations/backup-watchdog-recovery-1109.md"
+      ],
+      "status": "active",
+      "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
+      "updatedAt": "2026-11-09T09:58:14.762Z"
     }
   ]
 }
