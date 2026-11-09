@@ -2,6 +2,7 @@
  * Contract checked against https://api-ru.iiko.services/api-docs/docs (2026-09-25).
  */
 import { createHash, randomUUID } from 'node:crypto';
+import { isUtf8 } from 'node:buffer';
 import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -198,7 +199,12 @@ export function createIikoReader(
         await reader.cancel().catch(() => {});
         reader.releaseLock();
       }
-      const raw = Buffer.concat(chunks).toString('utf8');
+      const bytes = Buffer.concat(chunks);
+      // Buffer.toString replaces malformed bytes with U+FFFD. That would silently
+      // change source names/SKUs and hash the repaired text as an original snapshot.
+      // Validate the complete body: a UTF-8 letter may span network chunks.
+      if (!isUtf8(bytes)) throw new IikoExportError('IIKO_INVALID_UTF8');
+      const raw = bytes.toString('utf8');
       let data;
       try {
         data = JSON.parse(raw);
