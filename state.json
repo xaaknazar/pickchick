@@ -7472,39 +7472,6 @@
       "nextAction": "Разработка оператора завершена, не установка. С4: cloud072/API и реальные старые023/024, свежая восстановленная копия реальной кассы, Windows-rehearsal/rollback, независимый диск и ключ, согласованное окно. Свежий финальный RC требует полной CI. Отдельно POS43110 после решения по настоящей очереди;43100 сохраняется."
     },
     {
-      "id": "pos-sync-shared-1108",
-      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
-      "branch": "codex/pos-sync-shared-1108",
-      "scopes": [
-        "docs/operations/cutover-2026-11-19.md",
-        "docs/operations/edge-restore.md",
-        "docs/operations/offline-8h-test.md",
-        "docs/operations/offline-stand.md",
-        "docs/operations/pos-sync-shared-1108.md",
-        "infra/windows/edge-runtime-grants.mjs",
-        "infra/windows/inspect-native-ssh.ps1",
-        "infra/windows/install-native-pos-sync.ps1",
-        "infra/windows/native-pos-sync-worker.mjs",
-        "infra/windows/native-pos-sync.md",
-        "infra/windows/pos-sync-backlog.mjs",
-        "scripts/build-windows-edge-runtime.py",
-        "scripts/edge-runtime-grants.mjs",
-        "tests/integration/edge-cloud-link.test.mjs",
-        "tests/integration/edge-runtime-grants.test.mjs",
-        "tests/integration/pos-sync-backlog.test.mjs",
-        "tests/integration/windows-cloud-link-grant.test.mjs",
-        "tests/operations/test_windows_edge_runtime.py",
-        "tests/operations/windows-pos-sync.test.mjs",
-        "tests/operations/windows-pos-sync.test.ps1",
-        ".github/workflows/windows-pos-sync.yml"
-      ],
-      "status": "available",
-      "head": "40508c62b8c7d7a4dba4390566a21d4007d6c369",
-      "updatedAt": "2026-11-08T15:47:48.726Z",
-      "summary": "PR326 40508c62: ordinary merge of PR316 commits, adapted PR319 backlog and complete POS installer ZIP closure on shareda29788f7. Full build,19 distinct Node tests (including native PG18.6),5 packaging tests, Windows5.1 run42495224832 success. Real runtime ZIP SHA256 bc779b26a418355cadbe3a1a1ba1b9a9be73d84e530a9b763a3e07a7a0179a21. Foundation42495224560 pending.",
-      "nextAction": "After CI explicitly integrate newer shared and merge. Only then audit PR316 closure. PR319 still separate cutover target. Read real five-order backlog and obtain disposition before first Windows install43110; fulfillment43100 unchanged. No live install/delivery acceptance."
-    },
-    {
       "id": "pg186-rehearsal-1108",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/pg186-rehearsal-1108",
@@ -7535,6 +7502,39 @@
       "updatedAt": "2026-11-09T04:33:20.504Z",
       "summary": "PR325 e1cbdb99: cloud071→072 DB-only transaction, old rows/sequences/ACL preserved, exact new grants for four current POS/BO combinations. 20/20 PG18.3 tests plus build/lint/format passed. Full Foundation42494114493 pending. No VPS/API/flags changed.",
       "nextAction": "Review final CI and integrate current shared before merge. DB helper does not deploy API or produce Windows cloud release proof. Real backup/lease/writer stop, API072 compatibility with actual023/024 binaries and release window remain."
+    },
+    {
+      "id": "pos-sync-shared-1108",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/pos-sync-shared-1108",
+      "scopes": [
+        "docs/operations/cutover-2026-11-19.md",
+        "docs/operations/edge-restore.md",
+        "docs/operations/offline-8h-test.md",
+        "docs/operations/offline-stand.md",
+        "docs/operations/pos-sync-shared-1108.md",
+        "infra/windows/edge-runtime-grants.mjs",
+        "infra/windows/inspect-native-ssh.ps1",
+        "infra/windows/install-native-pos-sync.ps1",
+        "infra/windows/native-pos-sync-worker.mjs",
+        "infra/windows/native-pos-sync.md",
+        "infra/windows/pos-sync-backlog.mjs",
+        "scripts/build-windows-edge-runtime.py",
+        "scripts/edge-runtime-grants.mjs",
+        "tests/integration/edge-cloud-link.test.mjs",
+        "tests/integration/edge-runtime-grants.test.mjs",
+        "tests/integration/pos-sync-backlog.test.mjs",
+        "tests/integration/windows-cloud-link-grant.test.mjs",
+        "tests/operations/test_windows_edge_runtime.py",
+        "tests/operations/windows-pos-sync.test.mjs",
+        "tests/operations/windows-pos-sync.test.ps1",
+        ".github/workflows/windows-pos-sync.yml"
+      ],
+      "status": "active",
+      "head": "09f113d8df97c6132990200510b6814cf8ab9e6a",
+      "updatedAt": "2026-11-09T04:33:32.782Z",
+      "summary": "PR326 40508c62: ordinary merge of PR316 commits, adapted PR319 backlog and complete POS installer ZIP closure on shareda29788f7. Full build,19 distinct Node tests (including native PG18.6),5 packaging tests, Windows5.1 run42495224832 success. Real runtime ZIP SHA256 bc779b26a418355cadbe3a1a1ba1b9a9be73d84e530a9b763a3e07a7a0179a21. Foundation42495224560 pending.",
+      "nextAction": "After CI explicitly integrate newer shared and merge. Only then audit PR316 closure. PR319 still separate cutover target. Read real five-order backlog and obtain disposition before first Windows install43110; fulfillment43100 unchanged. No live install/delivery acceptance."
     }
   ]
 }
