@@ -12,6 +12,15 @@ export async function readCheckoutOrder(
 ) {
   // Ownership is checked before consulting any provider/fulfillment projection.
   const order = await repository.readOrder(scope, orderId);
+  // Edges that report the task list on acceptance (version-1 task rows) let the view show the
+  // assembly stage once every other station is done. Without the read grant: previous rule.
+  const taskList =
+    (
+      await pool.query<{ readable: boolean }>(
+        `SELECT CASE WHEN to_regclass('cloud_fulfillment_task_versions') IS NULL THEN false
+          ELSE has_table_privilege('cloud_fulfillment_task_versions','SELECT') END AS readable`,
+      )
+    ).rows[0]?.readable === true;
   const [invoice, projection, branch] = await Promise.all([
     pool.query<{ state: string; operation_id: string | null; expires_at: Date | null }>(
       'SELECT state,operation_id,expires_at FROM commerce_kaspi_invoices WHERE order_id=$1 ORDER BY issue_started_at DESC LIMIT 1',
@@ -25,7 +34,13 @@ export async function readCheckoutOrder(
     }>(
       `SELECT p.state,p.display_number::text,p.observed_at,
           EXISTS(SELECT 1 FROM cloud_fulfillment_observed_tasks t WHERE t.order_id=p.order_id
-          AND t.station_id=p.assembly_station_id AND t.state IN ('in_progress','done')) assembly
+          AND t.station_id=p.assembly_station_id AND t.state IN ('in_progress','done'))${
+            taskList
+              ? ` OR (EXISTS(SELECT 1 FROM cloud_fulfillment_task_versions v WHERE v.order_id=p.order_id AND v.version=1)
+          AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_observed_tasks t WHERE t.order_id=p.order_id
+          AND t.station_id IS DISTINCT FROM p.assembly_station_id AND t.state<>'done'))`
+              : ''
+          } assembly
          FROM cloud_fulfillment_projection p WHERE p.order_id=$1`,
       [orderId],
     ),

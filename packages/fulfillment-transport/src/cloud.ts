@@ -558,6 +558,42 @@ export async function receiveFulfillment(pool: DatabasePool, auth: DeviceAuth, i
         ],
       );
     }
+    if (event.type === 'edge.fulfillment_accepted' && p.tasks) {
+      // Every task starts queued at version 1; later task_changed facts carry version 2+.
+      // Version-1 rows therefore also mark the order's task list as complete.
+      for (const t of p.tasks) {
+        const taskHash = digest({
+          taskId: t.taskId,
+          stationId: t.stationId,
+          version: 1,
+          state: 'queued',
+        });
+        const known = (
+          await client.query<{ station_id: string }>(
+            'SELECT station_id FROM cloud_fulfillment_observed_tasks WHERE order_id=$1 AND task_id=$2',
+            [event.orderId, t.taskId],
+          )
+        ).rows[0];
+        if (known && known.station_id !== t.stationId) fail('CONFLICT');
+        const tv = (
+          await client.query<{ payload_hash: string }>(
+            'SELECT payload_hash FROM cloud_fulfillment_task_versions WHERE order_id=$1 AND task_id=$2 AND version=1',
+            [event.orderId, t.taskId],
+          )
+        ).rows[0];
+        if (tv && tv.payload_hash !== taskHash) fail('CONFLICT');
+        if (!tv)
+          await client.query(
+            'INSERT INTO cloud_fulfillment_task_versions(order_id,task_id,version,payload_hash) VALUES($1,$2,1,$3)',
+            [event.orderId, t.taskId, taskHash],
+          );
+        await client.query(
+          `INSERT INTO cloud_fulfillment_observed_tasks(order_id,task_id,station_id,version,state,aggregate_version,payload_hash) VALUES($1,$2,$3,1,'queued',$4,$5)
+          ON CONFLICT(order_id,task_id) DO NOTHING`,
+          [event.orderId, t.taskId, t.stationId, event.aggregateVersion, taskHash],
+        );
+      }
+    }
     await client.query(
       `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,display_number,routing_version,assembly_station_id,payload)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)

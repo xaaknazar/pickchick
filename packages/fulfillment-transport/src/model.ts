@@ -159,6 +159,16 @@ export const EdgeEventPayloadSchema = z.strictObject({
   reason: z.string().min(1).max(500).optional(),
   inventoryDisposition: z.enum(['requires_inventory_review', 'recorded_elsewhere']).optional(),
   inventoryEffect: z.literal('none').optional(),
+  /**
+   * Opt-in on edge.fulfillment_accepted (worker taskList): every kitchen task of the order, so the
+   * cloud knows which stations still have work before they start. Older edges omit it.
+   */
+  tasks: z
+    .array(z.strictObject({ taskId: uuid, stationId: uuid }))
+    .min(1)
+    .max(100)
+    .refine((tasks) => new Set(tasks.map((t) => t.taskId)).size === tasks.length)
+    .optional(),
 });
 export const EdgeEventSchema = z
   .strictObject({
@@ -207,6 +217,8 @@ export const EdgeEventSchema = z
       [p.taskId, p.taskVersion, p.taskState, p.stationId].some((v) => v !== undefined)
     )
       ctx.addIssue({ code: 'custom', message: 'Unexpected task snapshot' });
+    if (e.type !== 'edge.fulfillment_accepted' && p.tasks !== undefined)
+      ctx.addIssue({ code: 'custom', message: 'Task list belongs to acceptance only' });
     if (
       ['accepted', 'in_production', 'ready', 'handed_over', 'cancel_requested'].includes(p.state) &&
       p.displayNumber === null

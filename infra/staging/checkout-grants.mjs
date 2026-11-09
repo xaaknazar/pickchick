@@ -20,7 +20,7 @@ export function customerCheckoutGrants(role, enabled) {
       commerce_refund_effects,commerce_fiscal_documents,commerce_fiscal_effects,
       commerce_reconciliation_issues,commerce_outbox,commerce_cancellation_intents,
       commerce_kaspi_invoices,fulfillment_transport_bindings,cloud_fulfillment_projection,
-      cloud_fulfillment_observed_tasks TO ${role};
+      cloud_fulfillment_observed_tasks,cloud_fulfillment_task_versions TO ${role};
     GRANT UPDATE(lock_anchor) ON catalog_branch_heads,fulfillment_transport_bindings TO ${role};
     GRANT UPDATE(state,version,updated_at,attention_required,kitchen_effect_id) ON commerce_orders TO ${role};
     GRANT UPDATE(state) ON commerce_payment_intents TO ${role};

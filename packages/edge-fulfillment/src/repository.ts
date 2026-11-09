@@ -98,7 +98,11 @@ async function tasks(client: DatabaseClient, row: Reservation) {
 }
 
 export class EdgeFulfillment {
-  constructor(private readonly pool: DatabasePool) {}
+  constructor(
+    private readonly pool: DatabasePool,
+    /** reportTaskList: acceptance events carry the order's task list (needs a cloud that reads it). */
+    private readonly options: { reportTaskList?: boolean } = {},
+  ) {}
   /** Human kitchen check after restore; never changes the order's canonical state or money. */
   async reviewRestore(branchId: string, auth: StaffAuth, input: unknown) {
     const c = parse(
@@ -316,7 +320,20 @@ export class EdgeFulfillment {
               `INSERT INTO fulfillment_tasks(id,branch_id,order_id,component_key,station_id,routing_version,kind,details) SELECT gen_random_uuid(),$1,$2,p->>'componentKey',(p->>'stationId')::uuid,$3,p->>'kind',p->'details' FROM jsonb_array_elements($4::jsonb) p`,
               [row.branch_id, row.order_id, row.routing_version, JSON.stringify(row.task_plan)],
             );
-            await emit(client, row, 'edge.fulfillment_accepted');
+            const taskList = this.options.reportTaskList
+              ? (
+                  await client.query<{ taskId: string; stationId: string }>(
+                    'SELECT id AS "taskId",station_id AS "stationId" FROM fulfillment_tasks WHERE order_id=$1 ORDER BY id',
+                    [row.order_id],
+                  )
+                ).rows
+              : [];
+            await emit(
+              client,
+              row,
+              'edge.fulfillment_accepted',
+              taskList.length ? { tasks: taskList } : {},
+            );
           }
         } else {
           const p = command.payload;
