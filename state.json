@@ -7054,7 +7054,6 @@
         "tests/mobile/kazakh-typography.test.mjs",
         "tests/mobile/browser_kazakh_typography.py",
         "apps/mobile/src/components/AccountGate.tsx",
-        "tests/mobile/payment-method.test.mjs",
         "tests/mobile/combo-promo-copy.test.mjs",
         "tests/mobile/browser_localization.py",
         "tests/operations/layout_regression.py",
@@ -7070,7 +7069,7 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-11-08T13:11:27.910Z",
+      "updatedAt": "2026-11-09T10:14:22.436Z",
       "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: tests/mobile/browser_review_account.py, tests/mobile/browser_store_walk.py, apps/mobile/app.json, @release/ios, @apple/appstore. Task and all other scopes preserved; no App Store32 submission change. Temporary build33 transfer returned after successful internal TestFlight delivery; existing task and remaining scopes preserved. Owner approved temporary transfer of 5 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты.\n08.11.2026: владелец явно разрешил в чате передать только итоговые mobile-testflight27/32.md и evidence.json задаче cutover-pg18-1108 для восстановления протоколов PR290/299 (С15). Остальные резервы, checkpoint и мобильный код сохранены."
     },
@@ -7594,11 +7593,12 @@
         "tests/design/browser_smoke.py",
         "tests/design/test_navigation_readiness.py",
         "tests/design/navigation.py",
-        "docs/operations/launch-reliability-1109.md"
+        "docs/operations/launch-reliability-1109.md",
+        "tests/mobile/payment-method.test.mjs"
       ],
       "status": "active",
       "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
-      "updatedAt": "2026-11-09T09:56:20.920Z"
+      "updatedAt": "2026-11-09T10:14:22.436Z"
     },
     {
       "id": "backup-watchdog-recovery-1109",
@@ -7616,6 +7616,15 @@
       "status": "active",
       "head": "2420cdc8a76d2e70d0ca9bfddcf5a288549a10bb",
       "updatedAt": "2026-11-09T10:02:11.334Z"
+    }
+  ],
+  "approvedScopeTransfers": [
+    {
+      "at": "2026-11-09T10:14:22.436Z",
+      "path": "tests/mobile/payment-method.test.mjs",
+      "from": "mobile-kazakh-review-1030",
+      "to": "launch-ci-1109",
+      "authorization": "Owner explicitly approved in this chat: Да, передать этот файл и исправить тест"
     }
   ]
 }
