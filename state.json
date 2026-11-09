@@ -7644,9 +7644,11 @@
         "tests/unit/iiko-menu-export.test.mjs",
         "docs/operations/iiko-export-integrity-1109.md"
       ],
-      "status": "active",
-      "head": "5249c8ef8355e436073b201dc7dd21e3002c65f4",
-      "updatedAt": "2026-11-09T11:17:43.608Z"
+      "status": "done",
+      "head": "92cc73f0429f25d96443821fc73f3e98e5abced3",
+      "updatedAt": "2026-11-09T11:22:40.001Z",
+      "summary": "PR335 merged81329d98. Д2/М1 exporter rejects malformedUTF8 before decode; reproduced old false-success. 13/13 tests including4 invalid encodings and byte-exact RU/KK chunked archive/SHA. ESLint/Prettier PASS. Report docs/operations/iiko-export-integrity-1109.md. PR332 Foundation42601172103 and PR33342600844743 now SUCCESS11/11, PR metadata updated. No iiko/VPS/DB mutation.",
+      "nextAction": "Д2 remains open pending real iiko access or current exports and organization/menu/price-category review. Check Foundation on exact92cc73f0; C8 Foundation42603865755 was still running last check. No release claimed. Preserve Claude cutover integration ownership from HANDOVER; no takeover of bo-ui2 merge."
     }
   ],
   "approvedScopeTransfers": [
