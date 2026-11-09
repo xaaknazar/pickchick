@@ -7532,11 +7532,11 @@
         "docs/operations/launch-integration-1109.md",
         "tests/mobile/browser_published_photos.py"
       ],
-      "status": "active",
-      "head": "7a94b6ed44e85c30504659d31775cb3231a4f2fb",
-      "updatedAt": "2026-11-09T04:51:10.542Z",
-      "summary": "PR326 40508c62: ordinary merge of PR316 commits, adapted PR319 backlog and complete POS installer ZIP closure on shareda29788f7. Full build,19 distinct Node tests (including native PG18.6),5 packaging tests, Windows5.1 run42495224832 success. Real runtime ZIP SHA256 bc779b26a418355cadbe3a1a1ba1b9a9be73d84e530a9b763a3e07a7a0179a21. Foundation42495224560 pending.",
-      "nextAction": "After CI explicitly integrate newer shared and merge. Only then audit PR316 closure. PR319 still separate cutover target. Read real five-order backlog and obtain disposition before first Windows install43110; fulfillment43100 unchanged. No live install/delivery acceptance."
+      "status": "done",
+      "head": "a06d0398018c37b2866fcc24c780a50d0cea4ac8",
+      "updatedAt": "2026-11-09T05:30:03.792Z",
+      "summary": "PR326/PR325 и PR328 включены в shared без squash/force. Код dbbf4aa8: Foundation42564141916 11/11, Windows42564285056 и guards42564284556 PASS; Photo PASS. PG18.6:34+5 PASS; packaging5; offline7a94b6ed9/9, runtime8047 файлов идентичен. Исправлена воспроизводимая гонка теста фотографий. Исторические023/024 проверены противAPI072 на синтетике с restricted LOGIN. Протокол a06d0398 docs/operations/launch-integration-1109.md; production не менялся.",
+      "nextAction": "Для установки нужны LAN к кассе, свежая копия с восстановлением и отдельный SSD; затем согласованное cloud072/API окно, касса020→023→024→025, решение по старой POS-очереди и установка43110. №279/312 остаются открыты. Проверить срок ключа, резервное продление до13.11 если авторотация не установлена. Общие status/roadmap у другой задачи."
     }
   ]
 }
