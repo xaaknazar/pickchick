@@ -7649,6 +7649,18 @@
       "updatedAt": "2026-11-09T11:22:40.001Z",
       "summary": "PR335 merged81329d98. Д2/М1 exporter rejects malformedUTF8 before decode; reproduced old false-success. 13/13 tests including4 invalid encodings and byte-exact RU/KK chunked archive/SHA. ESLint/Prettier PASS. Report docs/operations/iiko-export-integrity-1109.md. PR332 Foundation42601172103 and PR33342600844743 now SUCCESS11/11, PR metadata updated. No iiko/VPS/DB mutation.",
       "nextAction": "Д2 remains open pending real iiko access or current exports and organization/menu/price-category review. Check Foundation on exact92cc73f0; C8 Foundation42603865755 was still running last check. No release claimed. Preserve Claude cutover integration ownership from HANDOVER; no takeover of bo-ui2 merge."
+    },
+    {
+      "id": "offline-soak-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/offline-soak-1109",
+      "scopes": [
+        "docs/operations/offline-soak-1109.md",
+        "@cloud/offline-soak-1109"
+      ],
+      "status": "active",
+      "head": "81329d980c4550a40484b22e6867fe82f6f249d5",
+      "updatedAt": "2026-11-09T11:37:49.588Z"
     }
   ],
   "approvedScopeTransfers": [
