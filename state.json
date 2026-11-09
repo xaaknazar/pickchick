@@ -7545,11 +7545,12 @@
       "scopes": [
         "scripts/build-queue-recovery-operator.py",
         "tests/operations/test_queue_recovery_operator_bundle.py",
-        "docs/operations/release-artifacts-1109"
+        "docs/operations/release-artifacts-1109",
+        ".github/workflows/queue-recovery-operator.yml"
       ],
       "status": "active",
       "head": "a06d0398018c37b2866fcc24c780a50d0cea4ac8",
-      "updatedAt": "2026-11-09T05:46:10.732Z"
+      "updatedAt": "2026-11-09T05:55:03.607Z"
     }
   ]
 }
