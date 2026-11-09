@@ -7620,6 +7620,18 @@
       "updatedAt": "2026-11-09T10:29:59.966Z",
       "summary": "PR332 merged f643f902. С5: response-body timeout/unreachable and retry state, watchdog39/39. С6: no-clobber private atomic S3 downloads and truncated-body retries, backup21/21 with age. С7: restore/PITR2/2 PG18.3 via S3 client. Integrated PR333; combined mobile586 + Python96/skip1 and watchdog39 passed. Foundation42601172103 pending, not a production release. Report docs/operations/backup-watchdog-recovery-1109.md.",
       "nextAction": "Check full CI42601172103 exact2346a3b9 and sharedf643f902. Operational С5/С6/С7 remain open: VPS install, bot/24h shadow, independent S3, real restore/RTO, WAL/RPO. No external messages or deployment."
+    },
+    {
+      "id": "test-mode-cutover-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/test-mode-cutover-1109",
+      "scopes": [
+        "tests/integration/test-mode-cutover.test.mjs",
+        "docs/operations/test-mode-cutover-1109.md"
+      ],
+      "status": "active",
+      "head": "f643f902de30fa07e3110b04829b50a1a7e3ca1f",
+      "updatedAt": "2026-11-09T10:38:41.326Z"
     }
   ],
   "approvedScopeTransfers": [
