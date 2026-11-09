@@ -363,7 +363,7 @@ test('a method without its own payment flow stops with a message, nothing is sen
   assert.ok(stop > 0);
   const guard = submit.slice(stop, submit.indexOf('}', stop) + 1);
   assert.ok(guard.includes('setMethodStop(true);') && guard.includes('return;'), guard);
-  for (const step of ['lock.current = true', 'props.authorizeLegal()', "'/quotes'", 'recover('])
+  for (const step of ['lock.current = true', 'props.authorizeLegal(', "'/quotes'", 'recover('])
     assert.ok(submit.indexOf(step) > stop, step);
   assert.ok(screen.includes('testID="cart-pay-method-stop"'));
   assert.ok(screen.includes('t(PAYMENT_METHOD_NOT_CONNECTED)'));
