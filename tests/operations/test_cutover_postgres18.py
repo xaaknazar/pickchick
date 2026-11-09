@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/verify-cutover-postgres18.py'
@@ -10,6 +11,34 @@ spec.loader.exec_module(runner)
 
 
 class CutoverPostgres18Tests(unittest.TestCase):
+    def test_waits_past_the_temporary_unix_only_initdb_server(self):
+        probes = 0
+
+        def server(args, env):
+            nonlocal probes
+            if 'pg_isready' in args:
+                self.assertIn('127.0.0.1', args)
+                probes += 1
+                if probes == 1:
+                    raise RuntimeError('TCP not ready during initdb')
+                return ''
+            self.assertGreaterEqual(probes, 2, 'Unix-only temporary server is not ready')
+            return '180006'
+
+        with patch.object(runner, 'docker', side_effect=server), patch.object(runner.time, 'sleep'):
+            self.assertEqual(runner.wait_database('owned-fixture', 'pickchick_edge', {}), '180006')
+        with patch.object(runner, 'docker', side_effect=RuntimeError('unavailable')), \
+                patch.object(runner.time, 'sleep'), self.assertRaisesRegex(RuntimeError, 'did not become ready'):
+            runner.wait_database('owned-fixture', 'pickchick_edge', {})
+
+    def test_backup_tools_match_the_native_setup_baseline(self):
+        for tool in ('pg_dump', 'pg_restore'):
+            runner.verify_tool_version(tool, tool + ' (PostgreSQL) 18.6')
+            runner.verify_tool_version(tool, tool + ' (PostgreSQL) 18.6 (packaged build)')
+            for version in ('16.9', '18.3', '18.60', '19.0', '18.6beta1', ''):
+                with self.subTest(tool=tool, version=version), self.assertRaises(RuntimeError):
+                    runner.verify_tool_version(tool, tool + ' (PostgreSQL) ' + version)
+
     def test_production_configuration_cannot_enter_test_environment(self):
         env = runner.environment({
             'PATH': '/tools', 'HOME': '/user', 'DOCKER_CONFIG': '/docker-auth',
