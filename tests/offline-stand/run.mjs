@@ -184,7 +184,12 @@ async function soak(ctx, report, save) {
   while (Date.now() - started < profile.durationMs && !profile.signal?.aborted) {
     await ctx.hold(Math.min(profile.checkEveryMs, profile.durationMs - (Date.now() - started)));
     if (Date.now() >= nextStaff) {
+      // Relogin revokes old sessions and replaces the actor credentials. Drain in-flight
+      // actor requests first, as a screen stops issuing commands while signing in again.
+      // Do not hide 401s or extend session lifetimes just to make a long run pass.
+      await traffic.stop();
       await stand.refreshStaff();
+      traffic.start();
       nextStaff += profile.staffEveryMs;
     }
     if (Date.now() >= nextShift) {
