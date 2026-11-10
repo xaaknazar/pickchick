@@ -45,6 +45,7 @@ import {
   navigationIcon,
 } from './dom.js';
 import { openEditor, emptyProduct, type EditorContext } from './editor.js';
+import { renderExternalMenu } from './external-menu.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
@@ -108,6 +109,7 @@ const operationView = new OperationsView(
     render();
   },
   stops,
+  () => model.state?.published?.payload ?? null,
 );
 const finance = new FinanceModel(
   (path, request) => model.operations(path, request),
@@ -291,6 +293,8 @@ let customEnd = '';
 let query = '',
   category = '',
   localError = '';
+/** «Меню и цены»: the main catalog table or the external menu of the aggregators. */
+let catalogView: 'main' | 'external' = location.hash === '#items-external' ? 'external' : 'main';
 const action = (fn: () => void) => {
   try {
     localError = '';
@@ -941,6 +945,27 @@ function render() {
   }
   content.append(stats);
   content.append(channelStatus());
+  if (model.payload) {
+    const tabs = el('div', 'editor-tabs catalog-tabs');
+    tabs.setAttribute('aria-label', 'Вид меню');
+    for (const [key, label] of [
+      ['main', 'Основное меню'],
+      ['external', 'Внешнее меню'],
+    ] as const) {
+      const b = button(
+        label,
+        () => {
+          catalogView = key;
+          render();
+        },
+        `tab ${catalogView === key ? 'active' : ''}`,
+        `catalog-tab-${key}`,
+      );
+      b.setAttribute('aria-pressed', String(catalogView === key));
+      tabs.append(b);
+    }
+    content.append(tabs);
+  }
   if (!model.payload) {
     const empty = el('section', 'panel empty');
     if (model.state.publication_support?.mobile) {
@@ -1045,7 +1070,14 @@ function render() {
       ),
     ),
   );
-  content.append(panel);
+  if (catalogView === 'main') content.append(panel);
+  else
+    renderExternalMenu(content, {
+      payload: model.payload,
+      support: model.state.publication_support,
+      disabled: model.busy || Boolean(model.pending),
+      apply: (products) => model.updateProducts(products),
+    });
   function rows() {
     tbody.replaceChildren();
     const products = model.payload!.products.filter(
@@ -1141,7 +1173,7 @@ function render() {
   }
   rows();
   const groups = model.payload.products.flatMap((p) => p.modifier_groups.map((g) => ({ p, g })));
-  if (groups.length) {
+  if (groups.length && catalogView === 'main') {
     const modifierPanel = el('section', 'panel modifier-summary');
     modifierPanel.append(
       el('h2', '', 'Группы модификаторов'),
