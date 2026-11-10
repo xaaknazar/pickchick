@@ -62,8 +62,11 @@ jobs:
           $setup = Get-ChildItem release -Filter 'PickChick-Kitchen-Setup-*.exe' | Select-Object -First 1
           $p = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Installer exit code $($p.ExitCode)" }
+          $found = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'PickChickKitchen.exe' -ErrorAction SilentlyContinue)
+          $found | ForEach-Object { "Installed: $($_.FullName)" }
+          # install-kitchen-client.ps1 expects this default -AppPath.
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChick Kitchen\PickChickKitchen.exe'
-          if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not found: $exe" }
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not at the install-kitchen-client.ps1 default: $exe" }
           (Get-Item -LiteralPath $exe).VersionInfo | Format-List ProductVersion, FileVersion
       - name: Record executable hashes
         shell: pwsh
