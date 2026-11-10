@@ -10,7 +10,7 @@ import {
   zMismatch,
 } from './checks.mjs';
 import { LABELS, distinguishable } from './staff-view.mjs';
-import { parseArgs, parseDuration, profileFor, PROFILES } from './run.mjs';
+import { mergeVerifyContext, parseArgs, parseDuration, profileFor, PROFILES } from './run.mjs';
 import { checkedAdminUrl, scopedUrl, standCatalog } from './stand.mjs';
 import { renderMarkdown } from './report.mjs';
 import { CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
@@ -860,4 +860,21 @@ test('paid day after a restore: the cloud may hold more than the Z only for a Z 
       'paid_z_in_cloud',
     ),
   );
+});
+
+test('what a restore lost stays excluded in the scenarios that follow it', () => {
+  const restore = {
+    lostPosOrders: ['a'],
+    lostChannelOrders: ['c'],
+    reviewedRestores: [{ orderId: 'r' }],
+  };
+  const afterRestore = mergeVerifyContext({}, restore);
+  assert.deepEqual(afterRestore, restore);
+  // paid_day returns no context: the restore's lists are still passed to the comparison.
+  assert.deepEqual(mergeVerifyContext(afterRestore, undefined), restore);
+  assert.deepEqual(mergeVerifyContext(afterRestore, { lostPosOrders: ['b'] }).lostPosOrders, [
+    'a',
+    'b',
+  ]);
+  assert.deepEqual(restore.lostPosOrders, ['a']);
 });
