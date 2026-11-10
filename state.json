@@ -7681,6 +7681,17 @@
       "updatedAt": "2026-11-10T13:46:47.883Z",
       "summary": "PR340 published f944a53a, remote SHA verified, clean worktree. Д1 local archive seal/verify CLI for five required categories, independent manifest SHA, no-clobber inventory, exact file/hash checks; Linux/macOS Python3.10+. 12/12 synthetic tests PASS; prettier/diff checks PASS. Foundation42827482910 in progress. No real exports or production access; Д1 not fully closed. PR335 Foundation42608362751 and PR336 Foundation42820557929 confirmed success. Live8h source8945 untouched; first10min checkpoint recorded.",
       "nextAction": "Check Foundation42827482910 exact f944a53a, review and integrate into fresh shared without force, then finish software stage. Real Д1 requires full period/organization/register/warehouse exports, independent protected copy, retrieval verification and accountant acceptance. Do not store actual exports/manifests in Git/chat. Global status/roadmap retained by Android task; online board not updated. Follow eight-hour run through existing automation, no duplicate or live source change."
+    },
+    {
+      "id": "play-testers-1110",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/play-testers-1110",
+      "scopes": [
+        "codex-reports/2026-11-10-android-testers.md"
+      ],
+      "status": "active",
+      "head": "81329d980c4550a40484b22e6867fe82f6f249d5",
+      "updatedAt": "2026-11-10T14:13:17.674Z"
     }
   ],
   "approvedScopeTransfers": [
