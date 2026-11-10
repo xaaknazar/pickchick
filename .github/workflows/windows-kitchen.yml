@@ -6,6 +6,8 @@ on:
     paths:
       - 'apps/kitchen/**'
       - 'apps/kitchen-desktop/**'
+      - 'apps/pos-desktop/**'
+      - 'infra/windows/install-*-client.ps1'
       - '.node-version'
       - '.github/workflows/windows-kitchen.yml'
   workflow_dispatch:
@@ -85,6 +87,37 @@ jobs:
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChick Kitchen\PickChickKitchen.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not at the install-kitchen-client.ps1 default: $exe" }
           (Get-Item -LiteralPath $exe).VersionInfo | Format-List ProductVersion, FileVersion
+
+  pos_install_path:
+    name: Where the POS installer puts PickChickPOS.exe
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/pos-desktop
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned standalone package manager
+        run: npm install --global npm@11.13.0
+      - name: Install locked desktop toolchain
+        run: npm ci
+      - name: Package clean source for Windows x64
+        run: npm run dist:win
+      - name: Silent per-user install of the NSIS package
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release -Filter 'PickChick-POS-Setup-*.exe' | Select-Object -First 1
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer exit code $($p.ExitCode)" }
+          $found = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'PickChickPOS.exe' -ErrorAction SilentlyContinue)
+          $found | ForEach-Object { "Installed: $($_.FullName)" }
+          if ($found.Count -ne 1) { throw 'PickChickPOS.exe not found exactly once' }
 
 # Packaging and Electron shell tests on a GitHub Windows Server runner do not replace
 # installation on the restaurant monoblocks (Windows 10 Pro, touch, LAN gateway, iiko nearby).
