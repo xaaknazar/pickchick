@@ -183,18 +183,20 @@ async function soak(ctx, report, save) {
     restarted = false;
   while (Date.now() - started < profile.durationMs && !profile.signal?.aborted) {
     await ctx.hold(Math.min(profile.checkEveryMs, profile.durationMs - (Date.now() - started)));
-    if (Date.now() >= nextStaff) {
-      // Relogin revokes old sessions and replaces the actor credentials. Drain in-flight
-      // actor requests first, as a screen stops issuing commands while signing in again.
-      // Do not hide 401s or extend session lifetimes just to make a long run pass.
+    if (Date.now() >= nextStaff || Date.now() >= nextShift) {
+      // Relogin replaces credentials; shift turnover briefly leaves no open shift.
+      // Drain actor commands before either operation, as staff cannot sell while logging
+      // in or closing the register. Keep unexpected 401/shift errors as test failures.
       await traffic.stop();
-      await stand.refreshStaff();
+      if (Date.now() >= nextStaff) {
+        await stand.refreshStaff();
+        nextStaff += profile.staffEveryMs;
+      }
+      if (Date.now() >= nextShift) {
+        await r.closeAndReopenShift().catch((error) => traffic.record('shift', error));
+        nextShift += profile.shiftEveryMs;
+      }
       traffic.start();
-      nextStaff += profile.staffEveryMs;
-    }
-    if (Date.now() >= nextShift) {
-      await r.closeAndReopenShift().catch((error) => traffic.record('shift', error));
-      nextShift += profile.shiftEveryMs;
     }
     if (!restarted && Date.now() - started >= profile.durationMs * profile.edgeRestartAtShare) {
       // A Windows reboot in the middle of the offline day.
