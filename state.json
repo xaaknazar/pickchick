@@ -7705,11 +7705,11 @@
         "tests/offline-stand/soak-progress.mjs",
         "tests/offline-stand/soak-progress.test.mjs"
       ],
-      "status": "active",
-      "head": "8945f86219b722a8edc81003f9efbf675e7f5891",
-      "updatedAt": "2026-11-10T16:42:44.453Z",
-      "summary": "PR336 source8945f862 published and clean. Harness checkpoints/continuous-duration plus relogin/shift race fixes; 32 unit tests PASS. Smoke6 PASS21/21, zero traffic errors, offline120479ms, reconvergence verified. Full8h retry running supervisor11694 runner12638 in .local/offline-stand/soak-1110-full; baseline17/17 PASS, WAN down2026-11-10T13:33:26.190Z. Prior failed controls and old interrupted1109 preserved. Foundation42820557929 still in progress. Hourly automatic follow-up configured. NOT full8h PASS; no production deployment or wholeK12 acceptance.",
-      "nextAction": "Do not alter live source/dependencies/containers or start another run. Read supervisor.json heartbeat10s and report checkpoints10m; earliest end21:33UTC Nov10 plus recovery. On completion claim task, validate actual28800000ms continuous coverage, restarts/shifts, zero traffic errors and all final invariants. Publish sanitized evidence and final doc/PR report; check CI and current shared before integration. Preserve unpaid_service/two-station and physical restaurant acceptance limits. If process lost or fails, record actual failure; never infer PASS from elapsed clock. Disable automatic follow-up after final report."
+      "status": "available",
+      "head": "b21cd4bfc2871712cb0f3f273bfebd8a6ba5031a",
+      "updatedAt": "2026-11-10T16:47:19.997Z",
+      "summary": "Confirmed full retry FAILED: exit1/reportfailed, baseline17/17 PASS, soakerror DBconnectiontimeout at16:23:46UTC Nov10. Only16 observations through160min2.905s; no8h/restart/shift/reconnect/final invariants. 12 traffic errors: kitchen4, bank statementtimeout5/connectiontimeout3. PostgreSQL logs corroborate timeout; rootcause unknown. Evidence hashes and sanitized report published b21cd4bf in PR336, remote SHA verified, docformat/diff PASS. Source8945f862 Foundation42820557929 success does not override failed soak. All DBs/logs retained; no cleanup/retry. Monitoring disabled after final result.",
+      "nextAction": "Diagnose retained cloud/edge query and pool timeout evidence16:17-16:23UTC. Do not assume OOM or environment restart. Only after proven cause/fix run new full8h separately with strict error/coverage/restart/shift/recovery checks. К12 open; unpaid_service/two stations excludes physical restaurant acceptance. PRdraft, no merge or finish; globalstatus/roadmap held by Android."
     }
   ],
   "approvedScopeTransfers": [
