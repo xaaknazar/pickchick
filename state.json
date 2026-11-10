@@ -7705,9 +7705,11 @@
         "docs/operations/cloud-1-execution-1110.md",
         "@vps/rehearsal/cloud1"
       ],
-      "status": "active",
-      "head": "d16ca996e97c90bcc94116ef12d69417ebe6b7a3",
-      "updatedAt": "2026-11-10T15:10:06.067Z"
+      "status": "available",
+      "head": "898fe3fa0eb7e7b3c48b9d232c8a1f0e377e0874",
+      "updatedAt": "2026-11-10T15:22:05.387Z",
+      "summary": "PR345 / 898fe3fa: Cloud-1 STOP до окна. Свежий сервер API6630eb0f/schema071/64, compose3b6d2f55, ready200. JSON compose guard штатного helper отказал; отдельный подготовщик+GitHub gate,13 тестов PASS, реальный compose локально PREPARED_ONLY. Ночной encrypted backup на Mac, SHA60588185 совпал. restore-drill STOP: identity не соответствует backup recipient; владелец подтвердил ключ на другом Mac. Production/idrink не менялись, migration rehearsal не запускалась. PR343 открыт и CI неполная; PR345 fullCI ещё не подтверждена.",
+      "nextAction": "Получить правильный age identity безопасным файлом в ~/.ssh/pickchick-cloud1-backup/identity.agekey и проверить recipient; восстановить backup. Дождаться PR343 и приёмки PR345/полной CI точной головы cutover; выполнить 072-075 на изолированном PG18.3, API на074/075 и rollback6630. Никакого автоматического продолжения после STOP. Живое окно только после закрытия/00:15 Алматы, свежий backup+restore, принять существующие резервы API/PG и штатный lease;072-074/APIfalse. Готового полного оператора пока нет. См. docs/operations/cloud-1-execution-1110.md."
     }
   ],
   "approvedScopeTransfers": [
