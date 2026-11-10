@@ -7658,11 +7658,11 @@
         "docs/operations/offline-soak-1109.md",
         "@cloud/offline-soak-1109"
       ],
-      "status": "active",
-      "head": "2e8bf740d01662d5b0a278fb966f25bd0992b2c2",
-      "updatedAt": "2026-11-10T12:34:19.234Z",
-      "summary": "PR336 draft опубликован, head 2e8bf740. К12: реальный 8h soak запущен на исходнике 81329d98 в /workspace/pickchick-offline-soak; build PASS, unit 28/28; baseline 300s PASS 17/17, 15 POS и 10 channel заказов, 347 sync events, traffic_errors=0. WAN-off начался 09.11 11:46:49 UTC. К12 не закрыт.",
-      "nextAction": "Проверить supervisor.json, runner.jsonl и report.json в .local/offline-stand/soak-1109; supervisor PID24041, runner PID24841 сверять с процессами и heartbeat. Самое раннее окончание 8h 09.11 19:46:49 UTC, затем convergence. Не менять код/зависимости этой копии и не запускать cleanup. При потере среды повторить полные 8h. После итога сохранить обезличенные доказательства в PR336; POS unpaid_service и две станции не заменяют оплату/ИБП/Windows/все роли на точке."
+      "status": "available",
+      "head": "aeb2e46205bc2f576285fb4d66b027fc2efe2d85",
+      "updatedAt": "2026-11-10T12:35:48.122Z",
+      "summary": "10.11 проверен неполный итог, PR336 обновлён, commit aeb2e462. Процессы PID24041/24841 отсутствуют. Последний heartbeat 09.11 19:20:01 UTC, POS log 19:20:05.854 UTC: 7h33m16s от старта soak. Нет завершения, exit_code и итоговой сверки; running устарел. Подтверждён только baseline 17/17. К12 открыт, причина остановки не установлена.",
+      "nextAction": "Нужен новый полный 8h прогон и convergence на среде с обеспеченным временем жизни. Сохранить старые логи и базы; не дописывать недостающие 27 минут. Новый запуск сегодня не выполнялся. Проверить актуальный источник перед новым прогоном. PR336 draft, обезличенные факты и SHA256 в docs/operations/offline-soak-1109.md."
     }
   ],
   "approvedScopeTransfers": [
