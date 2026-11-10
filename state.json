@@ -7658,9 +7658,9 @@
         "docs/operations/offline-soak-1109.md",
         "@cloud/offline-soak-1109"
       ],
-      "status": "available",
+      "status": "active",
       "head": "2e8bf740d01662d5b0a278fb966f25bd0992b2c2",
-      "updatedAt": "2026-11-09T11:48:07.634Z",
+      "updatedAt": "2026-11-10T12:34:19.234Z",
       "summary": "PR336 draft опубликован, head 2e8bf740. К12: реальный 8h soak запущен на исходнике 81329d98 в /workspace/pickchick-offline-soak; build PASS, unit 28/28; baseline 300s PASS 17/17, 15 POS и 10 channel заказов, 347 sync events, traffic_errors=0. WAN-off начался 09.11 11:46:49 UTC. К12 не закрыт.",
       "nextAction": "Проверить supervisor.json, runner.jsonl и report.json в .local/offline-stand/soak-1109; supervisor PID24041, runner PID24841 сверять с процессами и heartbeat. Самое раннее окончание 8h 09.11 19:46:49 UTC, затем convergence. Не менять код/зависимости этой копии и не запускать cleanup. При потере среды повторить полные 8h. После итога сохранить обезличенные доказательства в PR336; POS unpaid_service и две станции не заменяют оплату/ИБП/Windows/все роли на точке."
     }
