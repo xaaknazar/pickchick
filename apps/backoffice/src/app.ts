@@ -108,6 +108,7 @@ const operationView = new OperationsView(
     render();
   },
   stops,
+  () => model.state?.published?.payload ?? null,
 );
 const finance = new FinanceModel(
   (path, request) => model.operations(path, request),

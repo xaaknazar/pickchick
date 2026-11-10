@@ -1117,3 +1117,58 @@ export function stationPlanSummary(status: StationPlanStatus): StationPlanSummar
     canDeliver: true,
   };
 }
+
+/** Aggregators whose own apps take no stops from PickChick yet (no direct API, tracker Аг5/Аг7/Аг8). */
+export const STOP_AGGREGATORS = [
+  ['yandex_eda', 'Яндекс Еда'],
+  ['glovo', 'Glovo'],
+] as const;
+export type StopAggregator = (typeof STOP_AGGREGATORS)[number][0];
+export type AggregatorStopReminder = {
+  variant_id: string;
+  name: string;
+  aggregators: StopAggregator[];
+};
+/**
+ * Stopped positions that are also sold on an aggregator (the product has its Yandex Eda / Glovo
+ * price in the published catalog). The PickChick stop already blocks such an order on the cashier,
+ * but the aggregator's own app keeps selling the dish until the manager stops it in its cabinet.
+ * An option stop is listed under its product's aggregators. Pure; the order of the stop list stays.
+ */
+export function aggregatorStopReminders(
+  items: readonly Pick<
+    StopItem,
+    | 'catalog_ref'
+    | 'variant_id'
+    | 'kind'
+    | 'name_ru'
+    | 'product_name_ru'
+    | 'listed'
+    | 'sales_blocked'
+  >[],
+  products: readonly {
+    id: string;
+    channel_prices_minor?: Partial<Record<string, string | undefined>> | undefined;
+  }[],
+): AggregatorStopReminder[] {
+  const sold = new Map<string, StopAggregator[]>();
+  for (const p of products) {
+    const prices = p.channel_prices_minor ?? {};
+    const channels = STOP_AGGREGATORS.map(([key]) => key).filter(
+      (key) => typeof prices[key] === 'string',
+    );
+    if (channels.length) sold.set(p.id, channels);
+  }
+  const result: AggregatorStopReminder[] = [];
+  for (const item of items) {
+    if (!item.listed || !item.sales_blocked) continue;
+    const aggregators = sold.get(item.catalog_ref.product_id);
+    if (!aggregators) continue;
+    result.push({
+      variant_id: item.variant_id,
+      name: item.kind === 'option' ? `${item.product_name_ru}: ${item.name_ru}` : item.name_ru,
+      aggregators,
+    });
+  }
+  return result;
+}

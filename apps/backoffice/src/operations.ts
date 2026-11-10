@@ -66,6 +66,8 @@ import {
 import {
   OperationsModel,
   StopsModel,
+  STOP_AGGREGATORS,
+  aggregatorStopReminders,
   STATION_PLAN_STATE_LABELS,
   auditFixes,
   autoconsumeAvailable,
@@ -565,6 +567,13 @@ export class OperationsView {
     private catalog: () => { products: { id: string; name: { ru: string } }[] } | null,
     private navigate: (section: string) => void,
     readonly stops: StopsModel | null = null,
+    /** Published catalog (aggregator prices): which stopped dishes are also sold on Yandex/Glovo. */
+    private published: () => {
+      products: {
+        id: string;
+        channel_prices_minor?: Partial<Record<string, string | undefined>> | undefined;
+      }[];
+    } | null = () => null,
   ) {}
   /**
    * Whether this person may send stop commands. Servers with BACKOFFICE_ROLES_ENABLED send
@@ -793,6 +802,7 @@ export class OperationsView {
     };
     rows();
     content.append(p);
+    this.renderAggregatorStops(content, d);
     if (d.unknown_stops.length) {
       const u = panel(
         'На стопе вне опубликованного меню',
@@ -810,6 +820,28 @@ export class OperationsView {
       );
       content.append(u);
     }
+  }
+  /**
+   * Tracker Аг5: Yandex Eda and Glovo take no stops from PickChick yet, so the manager repeats
+   * each stop of a dish sold there in the aggregator's cabinet. Shown only when such a dish is
+   * stopped; the cashier already refuses these dishes for aggregator orders.
+   */
+  private renderAggregatorStops(content: HTMLElement, d: StopList) {
+    const reminders = aggregatorStopReminders(d.items, this.published()?.products ?? []);
+    if (!reminders.length) return;
+    const p = panel(
+      'Поставьте стоп и у агрегаторов',
+      'Эти позиции на стопе в PickChick и продаются в Яндекс Еде или Glovo. Касса не примет их в заказ агрегатора, но в приложениях Яндекса и Glovo они остаются в продаже, пока вы не поставите стоп в их кабинете. Когда снимете стоп здесь, снимите его и там.',
+    );
+    p.dataset.testid = 'aggregator-stops';
+    const label = new Map<string, string>(STOP_AGGREGATORS);
+    p.append(
+      table(
+        ['Позиция', 'Где поставить стоп вручную'],
+        reminders.map((r) => [r.name, r.aggregators.map((a) => label.get(a) ?? a).join(', ')]),
+      ),
+    );
+    content.append(p);
   }
   private stopRow(item: StopItem, d: StopList, blocker: { text: string; hide: boolean } | null) {
     const r = el('tr', item.kind === 'option' ? 'stop-option' : 'stop-product');
