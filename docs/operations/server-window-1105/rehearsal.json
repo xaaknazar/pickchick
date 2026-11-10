@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "caddy_image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+  "checks": {
+    "host_parity": true,
+    "availability": {
+      "status": 200,
+      "seconds": 12.066,
+      "hsts": "max-age=86400",
+      "location": null
+    },
+    "order_watch": {
+      "status": 200,
+      "seconds": 12.071,
+      "hsts": "max-age=86400",
+      "location": null
+    },
+    "default": {
+      "status": 504,
+      "seconds": 8.066,
+      "hsts": null,
+      "location": null
+    },
+    "rollback_seconds": 0.44
+  }
+}

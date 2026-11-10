@@ -18,6 +18,7 @@ import tempfile
 import threading
 import unittest
 import urllib.parse
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGING = ROOT / 'infra/staging'
@@ -43,6 +44,7 @@ class FakeS3(http.server.ThreadingHTTPServer):
     def __init__(self):
         super().__init__(('127.0.0.1', 0), Handler)
         self.objects, self.order, self.fail, self.refuse = {}, [], 0, False
+        self.get_truncations, self.get_requests, self.get_status = 0, [], 200
         self.thread = threading.Thread(target=self.serve_forever, daemon=True)
         self.thread.start()
 
@@ -107,6 +109,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                    + items + '<IsTruncated>false</IsTruncated></ListBucketResult>')
             return self._answer(200, xml.encode())
         body = self.server.objects.get(parts[2])
+        self.server.get_requests.append(parts[2])
+        if body is not None and self.server.get_truncations:
+            self.server.get_truncations -= 1
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body[:13])
+            self.close_connection = True
+            return
+        if body is not None and self.server.get_status != 200:
+            return self._answer(self.server.get_status, body[:13])
         self._answer(200, body) if body is not None else self._answer(404)
 
 
@@ -195,6 +208,65 @@ class Client(unittest.TestCase):
         self.addCleanup(self.server.close)
         self.settings = offsite.parse_settings(env_text(self.server.endpoint))
         self.s3 = offsite.S3(self.settings, timeout=5, sleep=lambda seconds: None)
+
+    def test_fetch_refuses_existing_file_or_symlink_before_request(self):
+        self.server.objects['copy'] = b'new backup'
+        with tempfile.TemporaryDirectory() as name:
+            destination = Path(name, 'backup.age')
+            destination.write_bytes(b'previous verified backup')
+            for target in (destination, Path(name, 'link.age')):
+                if target != destination:
+                    target.symlink_to(destination)
+                with self.assertRaises(offsite.OffsiteError):
+                    self.s3.get_file('copy', target)
+                self.assertEqual(destination.read_bytes(), b'previous verified backup')
+            self.assertEqual(self.server.get_requests, [])
+
+    def test_fetch_failure_does_not_publish_a_partial_file(self):
+        self.server.objects['copy'] = b'encrypted fixture' * 5000
+        self.server.get_truncations = 3
+        with tempfile.TemporaryDirectory() as name:
+            destination = Path(name, 'backup.age')
+            with self.assertRaises(offsite.OffsiteError):
+                self.s3.get_file('copy', destination)
+            self.assertEqual(list(Path(name).iterdir()), [])
+            self.assertEqual(len(self.server.get_requests), 3)
+
+    def test_fetch_retries_short_body_and_publishes_only_complete_private_file(self):
+        expected = b'encrypted fixture' * 5000
+        self.server.objects['copy'] = expected
+        self.server.get_truncations = 1
+        with tempfile.TemporaryDirectory() as name:
+            destination = Path(name, 'backup.age')
+            self.s3.get_file('copy', destination)
+            self.assertEqual(destination.read_bytes(), expected)
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(Path(name).iterdir()), [destination])
+            self.assertEqual(len(self.server.get_requests), 2)
+
+    def test_fetch_404_and_unsolicited_partial_response_leave_no_file(self):
+        with tempfile.TemporaryDirectory() as name:
+            destination = Path(name, 'backup.age')
+            with self.assertRaises(offsite.OffsiteError):
+                self.s3.get_file('missing', destination)
+            self.assertEqual(list(Path(name).iterdir()), [])
+            self.server.objects['copy'] = b'encrypted fixture' * 5000
+            self.server.get_status = 206
+            with self.assertRaises(offsite.OffsiteError):
+                self.s3.get_file('copy', destination)
+            self.assertEqual(list(Path(name).iterdir()), [])
+
+    def test_fetch_never_overwrites_a_destination_created_during_download(self):
+        with tempfile.TemporaryDirectory() as name:
+            destination = Path(name, 'backup.age')
+            def request(method, key, sink):
+                destination.write_bytes(b'another download won')
+                sink.write(b'this download')
+            with patch.object(self.s3, 'request', side_effect=request):
+                with self.assertRaises(offsite.OffsiteError):
+                    self.s3.get_file('copy', destination)
+            self.assertEqual(destination.read_bytes(), b'another download won')
+            self.assertEqual(list(Path(name).iterdir()), [destination])
 
     def test_put_get_list_with_retries_and_refusal(self):
         with tempfile.TemporaryDirectory() as name:

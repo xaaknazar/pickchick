@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,6 +32,10 @@ import {
   backofficeP1Grants,
 } from '../../infra/staging/backoffice-p1-grants.mjs';
 import { OwnerGuardError, runtimePrivileges } from '../../infra/staging/unified-menu-owner.mjs';
+import {
+  queueRecoveryPrivileges,
+  upgradeQueueRecoveryCloud,
+} from '../../infra/staging/queue-recovery-cloud-owner.mjs';
 import {
   BASELINE,
   CHECKSUMS,
@@ -879,5 +883,77 @@ test('API environment step: the candidate adds only the cutover keys, all off; e
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('Cloud-1 chain on exact schema071: the queue recovery owner step applies 072, then deploy accepts it for 073 and 074 and deploy-075 for 075', async () => {
+  // Round 4 of the integration: on the VPS 072 arrives through the transactional step of the
+  // shared branch (infra/staging/queue-recovery-cloud-owner.mjs) with its own grants, not through
+  // plain migrations as in withCloud072. The cutover owner tool must accept that exact state.
+  const baseline = await copyMigrations('cutover-chain-071-', (f) => number(f) <= 71);
+  const release072 = await mkdtemp(join(tmpdir(), 'cutover-chain-072-'));
+  const candidate = await copyMigrations('cutover-chain-075-', (f) => number(f) <= 75);
+  try {
+    const migrations072 = join(release072, 'db/cloud/migrations');
+    await mkdir(migrations072, { recursive: true });
+    for (const f of await readdir(source))
+      if (/^\d{3}_[a-z0-9_]+\.sql$/.test(f) && number(f) <= 72)
+        await copyFile(join(source, f), join(migrations072, f));
+    await withSyncDatabases(
+      async (ctx) => {
+        const pool = ctx.cloud.pool,
+          schema = ctx.cloud.schema;
+        const role = 'cutover_chain_' + randomUUID().replaceAll('-', '').slice(0, 20);
+        await ctx.cloud.admin.query(`CREATE ROLE ${role} NOLOGIN`);
+        const client = await pool.connect();
+        try {
+          await pool.query(backofficeGrants(role, true));
+          const queue = {
+            appRoot: release072,
+            branchId: ctx.branch,
+            runtimeRole: role,
+            schema,
+            posSyncEnabled: false,
+            backofficeEnabled: true,
+          };
+          const before = await upgradeQueueRecoveryCloud(client, { mode: 'inspect', ...queue });
+          assert.equal(before.schema, 71);
+          const applied = await upgradeQueueRecoveryCloud(client, { mode: 'apply', ...queue });
+          assert.equal(applied.schema, 72);
+
+          const inspected = await owner(
+            client,
+            () => deployCutover(client, { directory: candidate, role, inspect: true }),
+            false,
+          );
+          assert.equal(inspected.ledger, 'schema072');
+          const deployed = await owner(client, () =>
+            deployCutover(client, { directory: candidate, role }),
+          );
+          assert.deepEqual(deployed.flags, OFF);
+          await owner(client, () => deployBackofficeP1(client, { directory: candidate, role }));
+          const versions = (
+            await pool.query('SELECT version FROM schema_migrations ORDER BY version')
+          ).rows.map((r) => r.version);
+          assert.deepEqual(versions.slice(-4), [BASELINE, ...MIGRATIONS, P1_MIGRATION]);
+          // What the 072 step granted for the kitchen restore review is still there after Cloud-1.
+          const after = await runtimePrivileges(pool, role);
+          for (const privilege of queueRecoveryPrivileges({
+            posSyncEnabled: false,
+            backofficeEnabled: true,
+          }))
+            assert.ok(after.includes(privilege), privilege);
+        } finally {
+          await client.query('ROLLBACK').catch(() => {});
+          client.release();
+          await pool.query(`DROP OWNED BY ${role}`);
+          await ctx.cloud.admin.query(`DROP ROLE ${role}`);
+        }
+      },
+      { cloudMigrationDirectory: baseline },
+    );
+  } finally {
+    for (const dir of [baseline, release072, candidate])
+      await rm(dir, { recursive: true, force: true });
   }
 });

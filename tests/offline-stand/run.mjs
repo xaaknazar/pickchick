@@ -52,6 +52,13 @@ const FLAKY = {
   reset: 0.01,
   delayMs: [20, 150],
 };
+/** Union of the list-valued verify contexts of the scenarios run so far (pure). */
+export function mergeVerifyContext(carried = {}, next = {}) {
+  const merged = { ...carried };
+  for (const [key, value] of Object.entries(next ?? {}))
+    merged[key] = Array.isArray(value) ? [...(carried[key] ?? []), ...value] : value;
+  return merged;
+}
 export const PROFILES = {
   ci: {
     baselineMs: 20000,
@@ -413,6 +420,10 @@ export async function main(argv = process.argv.slice(2)) {
     const restaurant = new Restaurant(stand, { random: seededRandom(options.seed) });
     traffic = new Traffic(restaurant, profile.rates);
     const ctx = new Context({ stand, restaurant, traffic, profile, log });
+    // What a restore lost stays lost for every later scenario of the same run: the edge never
+    // gets those orders back, so the ledger comparison must keep excluding them (paid_day runs
+    // after edge_restore in the default order).
+    let carried = {};
     traffic.start();
     for (const id of order) {
       if (abort.signal.aborted) break;
@@ -438,7 +449,8 @@ export async function main(argv = process.argv.slice(2)) {
         // A QR the bank paid in the last moment is recorded as paid before comparing.
         await restaurant.kioskBankPass();
         const converge = await ctx.converge();
-        const verified = await ctx.verify(result.context);
+        carried = mergeVerifyContext(carried, result.context);
+        const verified = await ctx.verify(carried);
         Object.assign(entry, {
           notes: result.notes ?? {},
           checks: [...(result.checks ?? []), ...verified.checks],

@@ -4,6 +4,7 @@ import { mkdtemp, readFile, stat, readdir, mkdir, symlink, rm } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { ReadableStream } from 'node:stream/web';
 import {
   createIikoReader,
   collectExport,
@@ -54,6 +55,67 @@ function fakeReader(menu = source()) {
     },
   };
 }
+
+function transportReader(menuBytes) {
+  return createIikoReader(credentials, {
+    fetcher: async (url) => {
+      if (url.endsWith('/access_token')) return reply({ token: 'synthetic-token' });
+      if (url.endsWith('/organizations'))
+        return reply({ organizations: [{ id: org, name: 'Synthetic point' }] });
+      if (url.endsWith('/api/2/menu'))
+        return reply({
+          externalMenus: [{ id: 'menu#1', name: 'Synthetic menu' }],
+          priceCategories: [],
+        });
+      assert.equal(url, IIKO_ORIGIN + '/api/menu/v3/by_id');
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            // Split even multi-byte letters across network chunks.
+            for (const byte of menuBytes) controller.enqueue(Uint8Array.of(byte));
+            controller.close();
+          },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    },
+  });
+}
+
+test('malformed UTF-8 cannot silently replace source names and complete a menu export', async () => {
+  const original = JSON.stringify(source());
+  const marker = 'Synthetic source';
+  const position = original.indexOf(marker);
+  for (const malformed of [[0xc3, 0x28], [0xe2, 0x82], [0xff], [0xed, 0xa0, 0x80]]) {
+    const bytes = Buffer.concat([
+      Buffer.from(original.slice(0, position)),
+      Buffer.from(malformed),
+      Buffer.from(original.slice(position + marker.length)),
+    ]);
+    await assert.rejects(collectExport(transportReader(bytes), { organizationId: org }), {
+      code: 'IIKO_INVALID_UTF8',
+    });
+  }
+});
+
+test('RU/KK names split across chunks retain source bytes and their manifest hash', async (t) => {
+  const menu = source();
+  menu.name = 'Меню — Ә Ғ Қ Ң Ө Ұ Ү Һ І 🍗';
+  // A genuine U+FFFD in valid UTF-8 is data, not a decoding failure.
+  menu.itemsGroups[0].items[0].name = 'Тауық / Курица / �';
+  const raw = Buffer.from(JSON.stringify(menu, null, 2) + '\r\n');
+  const result = await collectExport(transportReader(raw), { organizationId: org });
+  assert.equal(result.review.menus[0].sourceMenuName, menu.name);
+  assert.equal(result.review.menus[0].placements[0].name, menu.itemsGroups[0].items[0].name);
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-iiko-utf8-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = await saveExport(root, result);
+  assert.deepEqual(await readFile(join(directory, 'menu-1.json')), raw);
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.files[0].bytes, raw.length);
+  assert.equal(manifest.files[0].sha256, createHash('sha256').update(raw).digest('hex'));
+  assert.equal(manifest.publishable, false);
+});
 
 test('v2 auth uses three credentials once, only fixed-origin allowlisted reads reach transport', async () => {
   const calls = [];

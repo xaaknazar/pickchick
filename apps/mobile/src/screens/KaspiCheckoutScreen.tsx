@@ -624,18 +624,22 @@ function KaspiCheckoutSession(
     }
     setMethodStop(false);
     lock.current = true;
+    // The connecting scene is visible during the consent GET too. Install its
+    // cancellation before the first await, so returning cannot revive this attempt.
+    const controller = new AbortController();
+    preparation.current = controller;
     setBusy(true);
     try {
-      await props.authorizeLegal();
+      await props.authorizeLegal(controller.signal);
+      if (controller.signal.aborted) throw new Error('CHECKOUT_CANCELLED');
     } catch {
+      if (preparation.current === controller) preparation.current = null;
       lock.current = false;
       setBusy(false);
       return;
     }
     const acceptedTotal = quote?.totalMinor ?? localTotal;
     bootstrap.current?.abort();
-    const controller = new AbortController();
-    preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     setBusy(true);
     setConnectionPaused(false);
@@ -802,19 +806,22 @@ function KaspiCheckoutSession(
   const pay = useCallback(async () => {
     if (lock.current || !order) return;
     lock.current = true;
+    // Leaving while consent is being checked must also cancel the future invoice.
+    const controller = new AbortController();
+    preparation.current = controller;
     setBusy(true);
     try {
-      await props.authorizeLegal();
+      await props.authorizeLegal(controller.signal);
+      if (controller.signal.aborted) throw new Error('CHECKOUT_CANCELLED');
     } catch {
+      if (preparation.current === controller) preparation.current = null;
       lock.current = false;
       setBusy(false);
-      setPaymentPaused(true);
+      setPaymentPaused(controller.signal.reason !== 'user');
       return;
     }
     setPaymentPaused(false);
     setError(null);
-    const controller = new AbortController();
-    preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     // Bounds "the bank may still answer" for this order even when it was created long ago.
     noteBankCommand(order.orderId, Date.now());

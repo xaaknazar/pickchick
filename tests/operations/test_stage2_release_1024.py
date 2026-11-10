@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -34,6 +35,25 @@ class Guards(unittest.TestCase):
             with self.assertRaises(r.market.GuardFailure): r.compose_candidate(bad, r.digest(bad.encode()))
         with self.assertRaises(r.market.GuardFailure): r.compose_candidate(text, '0'*64)
 
+    def test_resolved_json_changes_only_image_and_three_false_flags(self):
+        obj = {'services': {'api': {'image':'pickchick-api:'+r.BASELINE, 'environment': {
+            'APP_ENV':'staging', 'CUSTOMER_AUTH_TERMS_URL':'https://pickchick.kz/legal/terms',
+            'CUSTOMER_AUTH_PRIVACY_URL':'https://pickchick.kz/legal/privacy', 'PAYMENT':'preserve'}},
+            'provision': {'image':'unchanged','environment':{'X':'same'}}, 'worker':{'image':'same'}}}
+        raw = json.dumps(obj, indent=2)
+        actual = json.loads(r.compose_candidate(raw, r.digest(raw.encode()), 'a'*40))
+        self.assertEqual(actual['services']['api']['image'], 'pickchick-api:'+'a'*40)
+        for key in r.FLAGS: self.assertEqual(actual['services']['api']['environment'].pop(key), 'false')
+        actual['services']['api']['image'] = 'pickchick-api:'+r.BASELINE
+        self.assertEqual(actual, obj)
+        for bad in [raw.replace(r.BASELINE,'b'*40), raw.replace('"PAYMENT"','"RELEASE_SHA"'),
+                    raw.replace('"PAYMENT"',json.dumps(next(iter(r.FLAGS)))),
+                    raw.replace('"PAYMENT": "preserve"','"PAYMENT":"x","PAYMENT":"y"')]:
+            with self.subTest(), self.assertRaises(r.market.GuardFailure):
+                r.compose_candidate(bad, r.digest(bad.encode()), 'a'*40)
+        with self.assertRaises(r.market.GuardFailure): r.compose_candidate(raw, r.digest(raw.encode()))
+        with self.assertRaises(r.market.GuardFailure): r.compose_candidate(raw, r.digest(raw.encode()), r.BASELINE)
+
     def test_environment_preserves_existing_payment_and_review_settings(self):
         before = {'PAYMENT':r.digest(b'true'), 'REVIEW':r.digest(b'opaque'), 'RELEASE_SHA':'old'}
         after = {**before, **{k:r.digest(b'false') for k in r.FLAGS}, 'RELEASE_SHA':'new'}
@@ -59,6 +79,22 @@ class Guards(unittest.TestCase):
         r.check_delta(r.SUPPORT)
         for path in ['services/api/src/main.ts','db/cloud/migrations/069_cloud_customer_notifications.sql','infra/staging/release-market.py']:
             with self.assertRaises(r.market.GuardFailure): r.check_delta([path])
+
+    def test_exact_full_offline_ci_required(self):
+        import copy
+        proof = {'run': {'head_sha':'a'*40,'status':'completed','conclusion':'success',
+          'path':'.github/workflows/offline-stand.yml','head_repository':{'full_name':'xaaknazar/pickchick'}},
+          'jobs': {'total_count':1,'jobs':[{'name':'Offline stand (ci)','head_sha':'a'*40,
+            'status':'completed','conclusion':'success'}]}}
+        r.check_offline_ci(proof, 'a'*40)
+        for field,value in [('head_sha','b'*40),('conclusion','failure'),('path','.github/workflows/ci.yml')]:
+            bad=copy.deepcopy(proof);bad['run'][field]=value
+            with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
+        for field,value in [('head_sha','b'*40),('conclusion','skipped'),('name','Offline stand (soak)')]:
+            bad=copy.deepcopy(proof);bad['jobs']['jobs'][0][field]=value
+            with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
+        bad=copy.deepcopy(proof);bad['jobs']['total_count']=2
+        with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
 
     def test_flags_off_for_all_optional_programs(self):
         r.check_flags({})

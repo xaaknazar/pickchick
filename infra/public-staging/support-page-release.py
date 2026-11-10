@@ -5,6 +5,9 @@ Exact CI/source hashes, baseline pins, shared release lock and an immutable gate
 release are required. All existing assets/routes and neighboring services survive.
 """
 import argparse
+import ctypes
+import hashlib
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import json
@@ -90,6 +93,200 @@ def verify(manifest, before, api, old, release, baseline):
               'Release pointer changed')
 
 
+SUPPORT_ASSETS = {'support/ru.html', 'support/kk.html', 'support/en.html', 'support/style.css'}
+
+
+def update_manifest(manifest, pages):
+    r.require(set(pages) == SUPPORT_ASSETS, 'support.update.page_set')
+    r.require({k for k in manifest['files'] if k.startswith('support/')} == SUPPORT_ASSETS,
+              'support.update.existing_asset_set')
+    result = json.loads(json.dumps(manifest))
+    for name, content in pages.items():
+        result['files'][name] = hashlib.sha256(content.encode()).hexdigest()
+    return result
+
+
+def support_tree(path, files):
+    r.require(path.is_dir() and not path.is_symlink(), 'support.update.directory')
+    r.require({p.name for p in path.iterdir()} == {Path(k).name for k in SUPPORT_ASSETS},
+              'support.update.directory_contents')
+    for name in SUPPORT_ASSETS:
+        f = path / Path(name).name
+        r.require(f.is_file() and not f.is_symlink() and r.digest(f) == files[name],
+                  'support.update.asset_hash')
+
+
+def exchange_directories(left, right):
+    # Linux RENAME_EXCHANGE replaces the complete page set in one filesystem operation.
+    # No fallback to a non-atomic two-rename sequence is allowed on the live server.
+    r.require(sys.platform == 'linux', 'support.update.linux_exchange_required')
+    r.require(left.parent.stat().st_dev == right.parent.stat().st_dev,
+              'support.update.same_filesystem')
+    libc = ctypes.CDLL(None, use_errno=True)
+    r.require(hasattr(libc, 'renameat2'), 'support.update.renameat2_required')
+    fn = libc.renameat2
+    fn.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    fn.restype = ctypes.c_int
+    r.require(fn(-100, os.fsencode(left), -100, os.fsencode(right), 2) == 0,
+              'support.update.atomic_exchange_failed')
+
+
+def replace_manifest(path, data):
+    temp = path.with_name('.release-' + uuid.uuid4().hex + '.json')
+    with temp.open('xb') as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    temp.chmod(0o644)
+    temp.replace(path)
+
+
+def update_existing(a, old, api, before):
+    web = old / 'infra/public-staging/public-web'
+    manifest_path = web / '.release.json'
+    r.require(re.fullmatch('[a-f0-9]{64}', a.expected_manifest_sha256 or ''),
+              'support.update.manifest_pin_required')
+    original_manifest = manifest_path.read_bytes()
+    r.require(hashlib.sha256(original_manifest).hexdigest() == a.expected_manifest_sha256,
+              'support.update.manifest_pin')
+    original_config = (old / 'infra/public-staging/gateway.Caddyfile').read_bytes()
+    r.require(original_config.decode().count(BLOCK) == 1, 'support.update.existing_route')
+    manifest = r.public_files(old)
+    phone = public_contact((web / 'legal/privacy.html').read_text())
+    pages = {'support/' + lang + '.html': render(lang, phone) for lang in ('ru', 'kk', 'en')}
+    pages['support/style.css'] = (ROOT / 'infra/public-staging/support/style.css').read_text()
+    updated = update_manifest(manifest, pages)
+    support_tree(web / 'support', manifest['files'])
+    r.require(any(updated['files'][k] != manifest['files'][k] for k in SUPPORT_ASSETS),
+              'support.update.already_current')
+    baseline = {path: r.http(path)[:2] for path in
+                ['/v1/capabilities', '/roadmap/health', '/legal/privacy', '/legal/terms']}
+    r.require(all(status == 200 for status, _ in baseline.values()), 'support.update.baseline_http')
+    for name in SUPPORT_ASSETS:
+        r.verify_public_asset((name, manifest['files'][name]))
+    r.require(r.http('/support/')[0] == 200, 'support.update.existing_http')
+    outcome = {'source_sha': a.source_sha, 'mode': 'update-existing', 'validated': True,
+               'applied': False, 'public_sha': old.name, 'api_sha': api.name,
+               'manifest_before_sha256': a.expected_manifest_sha256,
+               'gateway_sha256': a.expected_gateway_sha256}
+    if not a.apply:
+        print(json.dumps(outcome)); return
+    with r.lock(a.source_sha):
+        r.require(r.baseline(a) == (old, api, before), 'support.update.baseline_after_lock')
+        r.require(manifest_path.read_bytes() == original_manifest, 'support.update.manifest_after_lock')
+        release = r.ROOT / 'support-updates' / a.source_sha
+        r.require(not release.exists(), 'support.update.immutable_journal_exists')
+        release.mkdir(parents=True, mode=0o700)
+        backup = release / 'before'
+        shutil.copytree(web / 'support', backup)
+        support_tree(backup, manifest['files'])
+        (release / 'manifest.before.json').write_bytes(original_manifest)
+        r.require((release / 'manifest.before.json').read_bytes() == original_manifest,
+                  'support.update.backup_manifest')
+        (release / 'gateway.before').write_bytes(original_config)
+        prepared = release / 'exchange'
+        prepared.mkdir(mode=0o755)
+        # main uses umask 077 for private backups. The exchanged public directory
+        # must remain traversable by the gateway, which drops DAC capabilities.
+        prepared.chmod(0o755)
+        for name, content in pages.items():
+            f = prepared / Path(name).name
+            f.write_text(content); f.chmod(0o644)
+        support_tree(prepared, updated['files'])
+        # Prove the exchange primitive on isolated copies before changing the public directory.
+        rehearsal = release / 'exchange-probe'
+        shutil.copytree(backup, rehearsal)
+        exchange_directories(prepared, rehearsal)
+        support_tree(prepared, manifest['files']); support_tree(rehearsal, updated['files'])
+        exchange_directories(prepared, rehearsal)
+        support_tree(prepared, updated['files']); support_tree(rehearsal, manifest['files'])
+        journal = release / 'result.json'
+        r.save(journal, {**outcome, 'status': 'prepared', 'backup_verified': True})
+        switched = False
+        try:
+            r.require(r.baseline(a) == (old, api, before), 'support.update.baseline_before_exchange')
+            r.require(manifest_path.read_bytes() == original_manifest, 'support.update.manifest_before_exchange')
+            exchange_directories(web / 'support', prepared)
+            switched = True
+            replace_manifest(manifest_path, (json.dumps(updated, indent=2) + '\n').encode())
+            r.require(r.public_files(old) == updated, 'support.update.manifest_after_exchange')
+            for name in sorted(SUPPORT_ASSETS):
+                try:
+                    r.verify_public_asset((name, updated['files'][name]))
+                except Exception:
+                    raise RuntimeError('support.update.http_asset.' + Path(name).name) from None
+            verify(updated, before, api, old, old, baseline)
+            r.require(r.containers() == before, 'support.update.any_container_changed')
+            r.require((old / 'infra/public-staging/gateway.Caddyfile').read_bytes() == original_config,
+                      'support.update.gateway_changed')
+            r.require(r.http('/support/')[1] == pages['support/ru.html'].encode(),
+                      'support.update.root_alias')
+            for lang in ('ru', 'kk', 'en'):
+                r.require('id="delete-account"' in pages['support/' + lang + '.html'],
+                          'support.update.deletion_section')
+            outcome.update(applied=True, status='PASS', backup_verified=True,
+                           all_containers_unchanged=True, gateway_unchanged=True,
+                           manifest_after_sha256=r.digest(manifest_path),
+                           files={k: updated['files'][k] for k in sorted(SUPPORT_ASSETS)})
+            r.save(journal, outcome)
+        except BaseException:
+            if switched:
+                # Refuse overwriting an intervening writer; preserve lock and evidence.
+                support_tree(web / 'support', updated['files'])
+                support_tree(prepared, manifest['files'])
+                exchange_directories(web / 'support', prepared)
+                replace_manifest(manifest_path, original_manifest)
+                r.require(r.public_files(old) == manifest, 'support.update.rollback_manifest')
+                r.require(r.baseline(a) == (old, api, before), 'support.update.rollback_baseline')
+                for name in SUPPORT_ASSETS:
+                    r.verify_public_asset((name, manifest['files'][name]))
+            r.save(journal, {**outcome, 'status': 'rolled_back' if switched else 'stopped',
+                             'lock_retained': True})
+            raise
+    print(json.dumps(outcome))
+
+
+def rollback_update(a, old, api, before):
+    release = r.ROOT / 'support-updates' / a.source_sha
+    result = json.loads((release / 'result.json').read_text())
+    r.require(result.get('status') == 'PASS' and result.get('source_sha') == a.source_sha,
+              'support.rollback.successful_update_required')
+    r.require(result.get('api_sha') == api.name and result.get('public_sha') == old.name,
+              'support.rollback.pointers')
+    web = old / 'infra/public-staging/public-web'
+    manifest_path = web / '.release.json'
+    r.require(r.digest(manifest_path) == result['manifest_after_sha256'] == a.expected_manifest_sha256,
+              'support.rollback.current_manifest')
+    current = r.public_files(old)
+    original_bytes = (release / 'manifest.before.json').read_bytes()
+    r.require(hashlib.sha256(original_bytes).hexdigest() == result['manifest_before_sha256'],
+              'support.rollback.backup_manifest')
+    original = json.loads(original_bytes)
+    support_tree(web / 'support', current['files'])
+    support_tree(release / 'exchange', original['files'])
+    support_tree(release / 'before', original['files'])
+    r.require((old / 'infra/public-staging/gateway.Caddyfile').read_bytes() ==
+              (release / 'gateway.before').read_bytes(), 'support.rollback.gateway')
+    r.require({k:v for k,v in current['files'].items() if k not in SUPPORT_ASSETS} ==
+              {k:v for k,v in original['files'].items() if k not in SUPPORT_ASSETS},
+              'support.rollback.unrelated_assets')
+    if not a.apply:
+        print(json.dumps({'validated': True, 'applied': False, 'mode': 'rollback-update'})); return
+    with r.lock(a.source_sha):
+        r.require(r.baseline(a) == (old, api, before), 'support.rollback.baseline_after_lock')
+        r.require(r.digest(manifest_path) == result['manifest_after_sha256'],
+                  'support.rollback.manifest_after_lock')
+        exchange_directories(web / 'support', release / 'exchange')
+        replace_manifest(manifest_path, original_bytes)
+        r.require(r.public_files(old) == original, 'support.rollback.restored_manifest')
+        for name in SUPPORT_ASSETS:
+            r.verify_public_asset((name, original['files'][name]))
+        r.require(r.baseline(a) == (old, api, before), 'support.rollback.restored_baseline')
+        result.update(status='rolled_back', applied=False, rollback_verified=True)
+        r.save(release / 'result.json', result)
+    print(json.dumps({'status': 'rolled_back', 'rollback_verified': True, 'source_sha': a.source_sha}))
+
+
 def main(a):
     os.umask(0o077)
     for value in (a.source_sha, a.expected_api_sha, a.expected_public_sha):
@@ -99,6 +296,10 @@ def main(a):
     a.expected_api_release = str(r.ROOT/'releases'/a.expected_api_sha)
     a.expected_public_release = str(r.ROOT/'public-https/releases'/a.expected_public_sha)
     old, api, before = r.baseline(a)
+    if getattr(a, 'rollback_update', False):
+        return rollback_update(a, old, api, before)
+    if getattr(a, 'update_existing', False):
+        return update_existing(a, old, api, before)
     original = old/'infra/public-staging/gateway.Caddyfile'
     new_text = candidate(original.read_text())
     manifest = r.public_files(old)
@@ -174,9 +375,13 @@ if __name__ == '__main__':
     for field in ('source-sha','expected-api-sha','expected-public-sha','expected-gateway-sha256'):
         parser.add_argument('--'+field,required=True)
     parser.add_argument('--ci-proof',type=Path,required=True)
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--update-existing',action='store_true')
+    mode.add_argument('--rollback-update',action='store_true')
+    parser.add_argument('--expected-manifest-sha256')
     parser.add_argument('--apply',action='store_true')
     try:main(parser.parse_args())
     except BaseException as error:
         if isinstance(error,SystemExit):raise
-        print(json.dumps({'status':'refused','reason':'Support publication failed; retained owned lock if acquired'}))
+        print(json.dumps({'status':'refused','check':str(error) if isinstance(error, RuntimeError) and str(error).startswith(('support.update.', 'support.rollback.')) else type(error).__name__, 'reason':'Support publication failed; retained owned lock if acquired'}))
         sys.exit(1)

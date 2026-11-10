@@ -60,6 +60,7 @@ import {
   routingSupportsKdsStations,
 } from '../../infra/windows/kds-upgrade-db.mjs';
 import { KDS_RUNTIME_ROLES, KDS_WORKER_ROLES } from '../../infra/windows/kds-switch.mjs';
+import { upgradeQueueRecoverySchema } from '../../infra/windows/queue-recovery-upgrade-db.mjs';
 import {
   BACKUP_ROLE,
   backupLayout,
@@ -1302,6 +1303,127 @@ test('C4 on a restored schema025 copy of a populated edge: the 026, 027 and 028 
         }
       },
       { edgeMigrationDirectory: edge025 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('night C4 chain on a populated 024 edge: the operator 025 database step, then the 026, 027 and 028 tools - each accepts what the previous one left, data kept', async () => {
+  // Round 4 of the integration: the 025 step comes from the queue recovery operator of the shared
+  // branch (infra/windows/queue-recovery-upgrade-db.mjs), the 026-028 tools from the cutover lanes.
+  // The other tests of this file start from a 025 built by plain migrations; the cashier gets its
+  // 025 from the operator, with the operator's own grants to the runtime role.
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-chain-'));
+  try {
+    const edge024 = await migrationsBefore(join(root, 'edge024'), '025');
+    await withSyncDatabases(
+      async (ctx) => {
+        const { pool, schema } = ctx.edge;
+        const day = await unpaidDay(ctx);
+        await pool.query(
+          "INSERT INTO local_staff_passwords(staff_id,branch_id,login,salt,verifier) VALUES($1,$2,'kitchen',$3,$4)",
+          [day.cook.staff_id, ctx.branch, 'a'.repeat(64), 'b'.repeat(64)],
+        );
+        const runtime = await loginRole(ctx, (role) =>
+          applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
+        );
+        const fulfillment = await loginRole(ctx, (role) =>
+          pool.query(fulfillmentWorkerGrants(role, schema, { restoreFence: true })),
+        );
+        const posSync = await loginRole(ctx, (role) =>
+          pool.query(posSyncWorkerGrants(role, schema)),
+        );
+        const tool = async (migration, options) => {
+          const client = await pool.connect();
+          try {
+            return await migration(client, {
+              appRoot: repoRoot,
+              branchId: ctx.branch,
+              schema,
+              ...options,
+            });
+          } finally {
+            client.release();
+          }
+        };
+        try {
+          const before = await stateRows(pool);
+          assert.equal((await ledger(pool)).length, 24);
+
+          // 025: the operator's database step on the live 024 with its installed runtime role.
+          const queue = { runtimeRole: runtime.role };
+          const inspected025 = await tool(upgradeQueueRecoverySchema, {
+            mode: 'inspect',
+            ...queue,
+          });
+          assert.equal(inspected025.migrations, 24);
+          const applied025 = await tool(upgradeQueueRecoverySchema, { mode: 'apply', ...queue });
+          assert.equal(applied025.migrations, 25);
+          assert.equal(applied025.fingerprint, inspected025.fingerprint);
+          const review = async (table, privilege) =>
+            (
+              await pool.query('SELECT has_table_privilege($1,$2,$3) AS allowed', [
+                runtime.role,
+                `${schema}.${table}`,
+                privilege,
+              ])
+            ).rows[0].allowed;
+          assert.equal(await review('fulfillment_restore_reviews', 'SELECT'), true);
+          assert.equal(await review('fulfillment_restore_decisions', 'INSERT'), true);
+
+          // 026 accepts the operator's 025 and the roles as the operator left them.
+          const pos = { runtimeRole: runtime.role, workerRole: posSync.role };
+          const inspected026 = await tool(posSalesMigration, { mode: 'inspect', ...pos });
+          assert.equal(inspected026.migrations, 25);
+          assert.equal(inspected026.applied, false);
+          const applied026 = await tool(posSalesMigration, { mode: 'apply', ...pos });
+          assert.equal(applied026.migrations, 26);
+          assert.deepEqual(applied026.posSalesGrantedTo, [runtime.role, posSync.role].sort());
+
+          // 027 and 028 on top.
+          const kds = { runtimeRole: runtime.role, workerRoles: [fulfillment.role] };
+          assert.equal((await tool(kdsMigration, { mode: 'inspect', ...kds })).applied, false);
+          assert.equal((await tool(kdsMigration, { mode: 'apply', ...kds })).applied, true);
+          const desk = { runtimeRole: runtime.role };
+          assert.equal(
+            (await tool(deskNumberMigration, { mode: 'inspect', ...desk })).applied,
+            false,
+          );
+          assert.equal((await tool(deskNumberMigration, { mode: 'apply', ...desk })).applied, true);
+
+          // The ledger is the reviewed 001-028 of the repository, byte for byte.
+          const pinned = JSON.parse(
+            await readFile(join(repoRoot, 'infra/windows/native-edge-backup-ledger.json'), 'utf8'),
+          );
+          assert.deepEqual(
+            await ledger(pool),
+            pinned.map(({ version, checksum }) => ({ version, checksum })),
+          );
+          assert.equal(pinned.length, 28);
+
+          // Every tool still verifies after the whole chain; the operator's grants survived it.
+          assert.equal((await tool(posSalesMigration, { mode: 'inspect', ...pos })).applied, true);
+          assert.equal((await tool(kdsMigration, { mode: 'inspect', ...kds })).applied, true);
+          assert.equal(
+            (await tool(deskNumberMigration, { mode: 'inspect', ...desk })).applied,
+            true,
+          );
+          assert.equal(await review('fulfillment_restore_reviews', 'SELECT'), true);
+          assert.equal(await review('fulfillment_restore_decisions', 'INSERT'), true);
+          assert.equal(await review('fulfillment_restore_decisions', 'UPDATE'), false);
+          await assert.rejects(
+            tool(upgradeQueueRecoverySchema, { mode: 'apply', ...queue }),
+            /Expected schema024/,
+          );
+
+          // The day of the cashier is untouched: orders, reservations, cashier reports.
+          assert.deepEqual(await stateRows(pool), before);
+        } finally {
+          for (const role of [runtime, fulfillment, posSync]) await role.drop();
+        }
+      },
+      { edgeMigrationDirectory: edge024 },
     );
   } finally {
     await rm(root, { recursive: true, force: true });

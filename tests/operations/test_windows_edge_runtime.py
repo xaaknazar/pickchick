@@ -100,7 +100,8 @@ class WindowsEdgePackageTests(unittest.TestCase):
         # Files the installer itself runs before the manifest check, and the operator guide.
         shipped = required + ['infra/windows/install-native-pos-sync.ps1',
                               'infra/windows/inspect-native-ssh.ps1',
-                              'infra/windows/native-pos-sync.md']
+                              'infra/windows/native-pos-sync.md',
+                              'infra/windows/pos-sync-backlog.mjs', 'scripts/edge-migrate.mjs']
         for relative in shipped:
             self.assertIn(relative, builder.ADMIN_FILES)
             self.assertTrue((SCRIPT.parents[1] / relative).is_file(), relative)
@@ -127,6 +128,8 @@ class WindowsEdgePackageTests(unittest.TestCase):
         tools = ['scripts/pos-sales-setup.mjs', 'infra/windows/pos-sales-upgrade-db.mjs',
                  'infra/windows/kds-upgrade-db.mjs', 'infra/windows/kds-switch.mjs',
                  'infra/windows/pos-sales-sync-release.mjs',
+                 # Issue #312 step 4: backlog report before the first POS sync Install.
+                 'infra/windows/pos-sync-backlog.mjs',
                  # Lane bo-ui: the roster scripts of backoffice-p1-cutover.md run on the server.
                  'scripts/staff-roster-apply.mjs', 'scripts/staff-pin-batch.mjs',
                  'scripts/edge-staff-id.mjs']

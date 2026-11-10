@@ -1,0 +1,20 @@
+{
+  "serverFolder": "/opt/pickchick-staging/maintenance/idrink-archive-20261105T211107Z",
+  "macFolder": "/Users/xaknazar/Documents/ChatGPT/PickChick/.local/idrink-archive-2026-11-06",
+  "files": [
+    {
+      "file": "database.dump.age",
+      "bytes": 62631,
+      "sha256": "11cee56c15c3b13699d250558fbf8cfde42238b25570d6b5a6e1298939b37698",
+      "hashMatch": true,
+      "streamListVerified": true
+    },
+    {
+      "file": "files.tar.gz.age",
+      "bytes": 707497,
+      "sha256": "1a2c30b93e9614d374ee999f61ee3bacc9c8a8d22027206de3555634285f4424",
+      "hashMatch": true,
+      "streamListVerified": true
+    }
+  ]
+}
