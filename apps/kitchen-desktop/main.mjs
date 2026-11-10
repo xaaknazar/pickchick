@@ -103,8 +103,11 @@ else {
           devTools: !app.isPackaged,
         },
       });
+      // The guest board (paired as display) fills its screen; staff screens stay maximized windows.
+      const board = config.terminalMode === 'display';
       window.once('ready-to-show', () => {
-        window.maximize();
+        if (board) window.setFullScreen(true);
+        else window.maximize();
         window.show();
       });
       window.on('close', () => isolatedSession.flushStorageData());

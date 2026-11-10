@@ -159,7 +159,11 @@ test('the package holds exactly the renderer modules app.js loads', async () => 
 // 0.4.0 first listed the KDS modules (and the three D0 lacked) in ASSETS only, so the packaged
 // app.asar still missed them and app.js could not start (found by verify:win on win-unpacked).
 test('electron-builder packages every renderer asset and nothing else of the renderer', async () => {
-  const yml = await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8');
+  // A Windows checkout with core.autocrlf has CRLF line ends; the files block is matched on LF.
+  const yml = (await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8')).replace(
+    /\r\n/g,
+    '\n',
+  );
   const block = /^files:\n((?: {2}- .+\n)+)/m.exec(yml);
   assert.ok(block, 'files list');
   const entries = block[1]
@@ -184,6 +188,13 @@ test('electron-builder packages every renderer asset and nothing else of the ren
     entries.filter((entry) => !entry.startsWith('renderer/')),
     ['main.mjs', 'security.mjs', 'gateway.mjs', 'terminal-cookie.mjs', 'package.json'],
   );
+});
+
+test('only the board paired as display opens full screen', async () => {
+  const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.match(main, /const board = config\.terminalMode === 'display';/);
+  assert.match(main, /if \(board\) window\.setFullScreen\(true\);\s*else window\.maximize\(\);/);
+  assert.doesNotMatch(main, /kiosk/);
 });
 
 // Cutover KDS-5: the renderer reaches the KDS routes of CR kds-5 through the same gateway rules.
