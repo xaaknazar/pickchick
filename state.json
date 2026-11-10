@@ -7651,23 +7651,6 @@
       "nextAction": "Д2 remains open pending real iiko access or current exports and organization/menu/price-category review. Check Foundation on exact92cc73f0; C8 Foundation42603865755 was still running last check. No release claimed. Preserve Claude cutover integration ownership from HANDOVER; no takeover of bo-ui2 merge."
     },
     {
-      "id": "offline-soak-1109",
-      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
-      "branch": "codex/offline-soak-1109",
-      "scopes": [
-        "docs/operations/offline-soak-1109.md",
-        "@cloud/offline-soak-1109",
-        "tests/offline-stand/run.mjs",
-        "tests/offline-stand/soak-progress.mjs",
-        "tests/offline-stand/soak-progress.test.mjs"
-      ],
-      "status": "available",
-      "head": "8945f86219b722a8edc81003f9efbf675e7f5891",
-      "updatedAt": "2026-11-10T13:37:26.271Z",
-      "summary": "PR336 source8945f862 published and clean. Harness checkpoints/continuous-duration plus relogin/shift race fixes; 32 unit tests PASS. Smoke6 PASS21/21, zero traffic errors, offline120479ms, reconvergence verified. Full8h retry running supervisor11694 runner12638 in .local/offline-stand/soak-1110-full; baseline17/17 PASS, WAN down2026-11-10T13:33:26.190Z. Prior failed controls and old interrupted1109 preserved. Foundation42820557929 still in progress. Hourly automatic follow-up configured. NOT full8h PASS; no production deployment or wholeK12 acceptance.",
-      "nextAction": "Do not alter live source/dependencies/containers or start another run. Read supervisor.json heartbeat10s and report checkpoints10m; earliest end21:33UTC Nov10 plus recovery. On completion claim task, validate actual28800000ms continuous coverage, restarts/shifts, zero traffic errors and all final invariants. Publish sanitized evidence and final doc/PR report; check CI and current shared before integration. Preserve unpaid_service/two-station and physical restaurant acceptance limits. If process lost or fails, record actual failure; never infer PASS from elapsed clock. Disable automatic follow-up after final report."
-    },
-    {
       "id": "iiko-archive-1110",
       "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
       "branch": "codex/iiko-archive-1110",
@@ -7710,6 +7693,23 @@
       "updatedAt": "2026-11-10T15:22:05.387Z",
       "summary": "PR345 / 898fe3fa: Cloud-1 STOP до окна. Свежий сервер API6630eb0f/schema071/64, compose3b6d2f55, ready200. JSON compose guard штатного helper отказал; отдельный подготовщик+GitHub gate,13 тестов PASS, реальный compose локально PREPARED_ONLY. Ночной encrypted backup на Mac, SHA60588185 совпал. restore-drill STOP: identity не соответствует backup recipient; владелец подтвердил ключ на другом Mac. Production/idrink не менялись, migration rehearsal не запускалась. PR343 открыт и CI неполная; PR345 fullCI ещё не подтверждена.",
       "nextAction": "Получить правильный age identity безопасным файлом в ~/.ssh/pickchick-cloud1-backup/identity.agekey и проверить recipient; восстановить backup. Дождаться PR343 и приёмки PR345/полной CI точной головы cutover; выполнить 072-075 на изолированном PG18.3, API на074/075 и rollback6630. Никакого автоматического продолжения после STOP. Живое окно только после закрытия/00:15 Алматы, свежий backup+restore, принять существующие резервы API/PG и штатный lease;072-074/APIfalse. Готового полного оператора пока нет. См. docs/operations/cloud-1-execution-1110.md."
+    },
+    {
+      "id": "offline-soak-1109",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/offline-soak-1109",
+      "scopes": [
+        "docs/operations/offline-soak-1109.md",
+        "@cloud/offline-soak-1109",
+        "tests/offline-stand/run.mjs",
+        "tests/offline-stand/soak-progress.mjs",
+        "tests/offline-stand/soak-progress.test.mjs"
+      ],
+      "status": "active",
+      "head": "8945f86219b722a8edc81003f9efbf675e7f5891",
+      "updatedAt": "2026-11-10T16:42:44.453Z",
+      "summary": "PR336 source8945f862 published and clean. Harness checkpoints/continuous-duration plus relogin/shift race fixes; 32 unit tests PASS. Smoke6 PASS21/21, zero traffic errors, offline120479ms, reconvergence verified. Full8h retry running supervisor11694 runner12638 in .local/offline-stand/soak-1110-full; baseline17/17 PASS, WAN down2026-11-10T13:33:26.190Z. Prior failed controls and old interrupted1109 preserved. Foundation42820557929 still in progress. Hourly automatic follow-up configured. NOT full8h PASS; no production deployment or wholeK12 acceptance.",
+      "nextAction": "Do not alter live source/dependencies/containers or start another run. Read supervisor.json heartbeat10s and report checkpoints10m; earliest end21:33UTC Nov10 plus recovery. On completion claim task, validate actual28800000ms continuous coverage, restarts/shifts, zero traffic errors and all final invariants. Publish sanitized evidence and final doc/PR report; check CI and current shared before integration. Preserve unpaid_service/two-station and physical restaurant acceptance limits. If process lost or fails, record actual failure; never infer PASS from elapsed clock. Disable automatic follow-up after final report."
     }
   ],
   "approvedScopeTransfers": [
