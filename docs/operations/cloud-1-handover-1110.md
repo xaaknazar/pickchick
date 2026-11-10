@@ -30,14 +30,15 @@
 
 ## 2. Кандидат
 
-- Ветка перехода `codex/cutover-1119`. Кандидатом становится её голова после слияния PR #343
-  (вторая волна бэк-офиса, 076) и зелёной полной Foundation CI на этом точном коммите.
+- Ветка перехода `codex/cutover-1119`, коммит `e7c9924a2e7b5d2d94fe8ef0eaaaac96d04a9fa5` (10.11): в него вошли PR #339
+  (внешнее меню), PR #343 (вторая волна бэк-офиса, 076), PR #346 (лимиты CI) и PR #347 (охраняемый
+  шаг 076). Кандидат действителен при зелёной полной Foundation CI на этом точном коммите; если
+  ветка сдвинулась, кандидатом становится её новая зелёная голова.
 - Архив исходников для образа API (те же пути, что у прежних релизов, плюс
   `infra/windows/pos-sales-grants.mjs`, который разрешён в `.dockerignore`):
-  архив в файлах проекта владельца (`install-kit-1110/api-src-afbd8e33….tar.gz`), SHA-256
-  `c1eaf411384de25e4b2c577f8c1eed6efce60ecb439ec3d52b78d7058496efb8`. Дерево `afbd8e33` равно
-  голове PR #343; после слияния архив пересобрать из точного коммита слияния командой
-  `git archive --format=tar <sha> .dockerignore package.json pnpm-lock.yaml pnpm-workspace.yaml patches tsconfig.base.json packages services db scripts infra/staging infra/windows/pos-sync-worker-grants.mjs infra/windows/pos-sales-grants.mjs`.
+  архив в файлах проекта владельца (`install-kit-1110/api-src-e7c9924a2e7b5d2d94fe8ef0eaaaac96d04a9fa5.tar.gz`),
+  SHA-256 `2a04c97d55a9ee3f12dbb446f642c6963d446da407ef8418dd6aa5f961fc229d`. Собран командой
+  `git archive --format=tar <sha> .dockerignore package.json pnpm-lock.yaml pnpm-workspace.yaml patches tsconfig.base.json packages services db scripts infra/staging infra/windows/pos-sync-worker-grants.mjs infra/windows/pos-sales-grants.mjs | gzip -n`.
 
 ## 3. Пробный прогон на копии базы (живую базу не трогает)
 
@@ -57,7 +58,8 @@
      `BACKOFFICE_ENABLED` на сервере заданы, значения проверить по окружению API.
    - `node infra/staging/cutover-cloud-owner.mjs inspect`, затем `deploy`.
    - `node infra/staging/cutover-cloud-owner.mjs inspect-075`, затем `deploy-075`.
-   - 076: отдельного охраняемого шага пока нет (см. раздел 6).
+   - `node infra/staging/cutover-cloud-owner.mjs inspect-076`, затем `deploy-076` (раздел «Вторая
+     волна бэк-офиса» мастер-инструкции). Права `supply-grants` в пробе не выдавать.
 6. Запустить образ кандидата как API на пробной базе и пробном redis на свободном порту
    `127.0.0.1`, проверить `/health/ready` и 404 на новых маршрутах при выключенных флагах.
 7. Записать в протокол все ответы JSON. Убрать пробные контейнеры, сеть и том.
@@ -102,9 +104,9 @@ API. Схему не откатывать: 072-074 только добавляю
 1. В установленном compose сервиса `provision` не видно среди запущенных. В файле репозитория
    он есть под профилем `tools`. Проверить, что в compose релиза `6630eb0f` он тоже есть: команда
    `owner` из мастер-инструкции запускается через него.
-2. Для миграции 076 нет охраняемого шага вида `inspect-076` / `deploy-076`. Документ второй
-   волны предлагает `provision.mjs`, а мастер-инструкция запрещает полный `provision.mjs` на
-   сервере. Нужен отдельный шаг по образцу `deploy-075`. Claude берёт это на себя до 17.11.
+2. Закрыто 10.11 (PR #347): для миграции 076 есть охраняемые шаги `inspect-076`, `deploy-076` и
+   `supply-grants`. Остаётся пробел: для переменных окружения compose с флагами второй волны
+   охраняемого шага нет, они правятся вручную по разделу второй волны мастер-инструкции.
 3. Готового сценария выпуска Cloud-1 (как `release-stage2-1024.py` для 06.11) в репозитории нет.
    Пункты раздела 4 выполняются по шагам вручную или оформляются таким сценарием.
 4. Копии базы лежат только на этом же сервере (пункт С6 трекера).
