@@ -1,0 +1,102 @@
+pickchick.185.129.51.103.nip.io {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	@order_watch {
+		method POST
+		path /v1/test/orders/watch
+	}
+	handle @order_watch {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+	# Menu availability long-poll (GET ?after=<signature>): the server holds an unchanged answer
+	# for 20 s. Under the default 8 s every wait ended in a 504 here, and the app showed
+	# "Нет связи с сервером" on builds 23-32 (owner 01.11.2026). Same 32 s as api.pickchick.kz.
+	@availability_watch {
+		method GET
+		path /v1/customer-checkout/availability
+	}
+	handle @availability_watch {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+	handle {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 8s
+			}
+		}
+	}
+}
+
+# BEGIN PICKCHICK DOMAIN ALIASES
+# Added after the unchanged existing shared ingress. No idrink route is edited.
+# One canonical staff origin; original nip.io access remains available.
+(pickchick_alias) {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+	@payment_callback path /v1/integrations/tiptoppay/*
+	handle @payment_callback {
+		respond "PAYMENT_INTEGRATION_PENDING" 503
+	}
+	@staff path /roadmap /roadmap/* /kitchen /kitchen/* /kitchen-live /kitchen-live/* /display /display/*
+	handle @staff {
+		redir https://pickchick.185.129.51.103.nip.io{uri} 308
+	}
+	handle {
+		reverse_proxy pickchick-public-gateway:8080 {
+			header_up Host pickchick.185.129.51.103.nip.io
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
+}
+pickchick.kz {
+	@cabinet_entry {
+		path /
+		method GET HEAD
+	}
+	handle @cabinet_entry {
+		redir * /backoffice/ 302
+	}
+	@office path /backoffice /backoffice/*
+	handle @office {
+		request_body {
+			max_size 300KB
+		}
+		reverse_proxy pickchick-staff-login:4177 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 20s
+			}
+		}
+	}
+	import pickchick_alias
+}
+api.pickchick.kz {
+	@office path /backoffice /backoffice/*
+	handle @office {
+		redir https://pickchick.kz{uri} 308
+	}
+	import pickchick_alias
+}
+www.pickchick.kz {
+	redir https://pickchick.kz{uri} 308
+}
+
+# END PICKCHICK DOMAIN ALIASES

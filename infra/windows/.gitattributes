@@ -1,0 +1,5 @@
+# Native operators verify reviewed helper bytes before importing/executing them.
+# A Windows checkout must preserve the LF bytes used for the published SHA256 pins.
+*.ps1 text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf

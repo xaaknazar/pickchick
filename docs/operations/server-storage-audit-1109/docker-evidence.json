@@ -1,0 +1,63 @@
+{
+  "syntheticOnly": true,
+  "image": "redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232",
+  "checks": {
+    "redis0644ProtectedParentStarts": true,
+    "readonlyBindDetected": true,
+    "initialStaffInstall30MiBPolicy": true,
+    "unboundedLogsDetected": true,
+    "noConfigurationContentsInReport": true,
+    "blind0600BreaksRedisStartup": true
+  },
+  "audit": {
+    "schemaVersion": 1,
+    "readOnly": true,
+    "scope": "selected_local_containers_only",
+    "needsAttention": true,
+    "redisFile": {
+      "status": "review",
+      "contentsRead": false,
+      "runtimeReadabilityVerified": false,
+      "mode": "0644",
+      "uid": 1000,
+      "gid": 1000,
+      "otherReadBit": true,
+      "otherTraverseAllParents": false,
+      "otherDacReadPath": false,
+      "acl": "no_acl_xattr_observed",
+      "reason": "shared_mode_review_container_uid_and_group_access"
+    },
+    "redisMount": {
+      "status": "read_only",
+      "running": true,
+      "runtimeReadabilityVerified": false
+    },
+    "containerLogs": [
+      {
+        "container": "pickchick-b10-fixture-b3edf9879282-redis",
+        "driver": "json-file",
+        "status": "bounded",
+        "maxSizeBytes": 10485760,
+        "maxFiles": 3,
+        "nominalCapacityBytes": 31457280,
+        "usesDriverDefaults": false
+      },
+      {
+        "container": "pickchick-b10-fixture-b3edf9879282-staff",
+        "driver": "json-file",
+        "status": "bounded",
+        "maxSizeBytes": 10485760,
+        "maxFiles": 3,
+        "nominalCapacityBytes": 31457280,
+        "usesDriverDefaults": false
+      },
+      {
+        "container": "pickchick-b10-fixture-b3edf9879282-unbounded",
+        "driver": "json-file",
+        "status": "unbounded",
+        "reason": "no_size_rotation"
+      }
+    ]
+  },
+  "fixturesRemoved": true
+}

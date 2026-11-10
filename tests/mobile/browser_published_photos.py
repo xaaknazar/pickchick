@@ -236,7 +236,9 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('product-burger')).to_be_visible(timeout=30000)
             burger = card_image(page, 'burger')
             expect(burger).to_have_count(1)
-            burger.scroll_into_view_if_needed()
+            # A failed remote image is replaced while lazy loading. Scroll the stable
+            # card, then assert the replacement image and its decoded pixels below.
+            page.get_by_test_id('product-burger').scroll_into_view_if_needed()
             expect(burger).to_have_attribute('src', re.compile(r'catalog-hd/burger'), timeout=15000)
             wait_loaded(burger)
             if images == 'missing':

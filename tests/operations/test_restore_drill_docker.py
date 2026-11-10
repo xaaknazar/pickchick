@@ -152,12 +152,13 @@ class RestoreDrill(unittest.TestCase):
         wal_dir = self.directory / 'wal'
         wal_dir.mkdir()
         base = None
-        for key, data in server.objects.items():
+        client = offsite.S3(offsite.parse_settings(env_file.read_text()))
+        for key in server.objects:
             if key.startswith('pickchick-staging/wal/'):
-                (wal_dir / key.rsplit('/', 1)[1]).write_bytes(data)
+                client.get_file(key, wal_dir / key.rsplit('/', 1)[1])
             elif key.startswith('pickchick-staging/base/'):
                 base = self.directory / key.rsplit('/', 1)[1]
-                base.write_bytes(data)
+                client.get_file(key, base)
         self.assertIsNotNone(base)
         result = self.drill('pitr', '--base', str(base), '--wal-dir', str(wal_dir), '--target-time', target,
                             '--show-counts', '--timeout', '180')

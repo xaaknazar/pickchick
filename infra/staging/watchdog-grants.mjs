@@ -239,14 +239,57 @@ export function readWatchdogDbEnv(text) {
   };
 }
 
+/** Read-only catalog inspection. No env/password input and no client rows. */
+export function watchdogInspectSql({ role = WATCHDOG_ROLE, database = WATCHDOG_DATABASE } = {}) {
+  identifier(role);
+  identifier(database);
+  return `BEGIN READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SELECT json_build_object(
+  'role_exists', EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ${literal(role)}),
+  'attributes', (SELECT json_build_object(
+    'login', rolcanlogin, 'superuser', rolsuper, 'create_db', rolcreatedb,
+    'create_role', rolcreaterole, 'inherit', rolinherit, 'replication', rolreplication,
+    'bypass_rls', rolbypassrls, 'connection_limit', rolconnlimit,
+    'read_only', (SELECT setting FROM unnest(rolconfig) setting
+      WHERE setting LIKE 'default_transaction_read_only=%'),
+    'statement_timeout', (SELECT setting FROM unnest(rolconfig) setting
+      WHERE setting LIKE 'statement_timeout=%'))
+    FROM pg_roles WHERE rolname = ${literal(role)}),
+  'memberships', (SELECT coalesce(json_agg(parent.rolname ORDER BY parent.rolname), '[]'::json)
+    FROM pg_auth_members m JOIN pg_roles child ON child.oid = m.member
+    JOIN pg_roles parent ON parent.oid = m.roleid WHERE child.rolname = ${literal(role)}),
+  'column_select', (SELECT coalesce(json_agg(json_build_object('table', c.relname,
+    'column', a.attname) ORDER BY c.relname, a.attnum), '[]'::json)
+    FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_attribute a ON a.attrelid = c.oid
+    WHERE r.rolname = ${literal(role)} AND n.nspname = 'public' AND c.relkind IN ('r','p','v','m','f')
+      AND a.attnum > 0 AND NOT a.attisdropped AND has_column_privilege(r.oid, c.oid, a.attnum, 'SELECT')),
+  'write_relation_count', (SELECT count(*) FROM pg_roles r CROSS JOIN pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE r.rolname = ${literal(role)} AND n.nspname = 'public' AND c.relkind IN ('r','p','v','m','f')
+      AND (has_table_privilege(r.oid, c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+        OR has_any_column_privilege(r.oid, c.oid, 'INSERT,UPDATE,REFERENCES'))),
+  'schema_create', (SELECT has_schema_privilege(oid, 'public', 'CREATE') FROM pg_roles
+    WHERE rolname = ${literal(role)}),
+  'database_create', (SELECT has_database_privilege(oid, ${literal(database)}, 'CREATE') FROM pg_roles
+    WHERE rolname = ${literal(role)})
+);
+COMMIT;`;
+}
+
 // psql treats empty input as success; a rejected input must still fail the pipeline.
 const REJECT_SQL =
   "DO $watchdog$ BEGIN RAISE EXCEPTION 'watchdog grants input rejected'; END $watchdog$;";
 
 async function main() {
   const mode = process.argv[2];
-  if (process.argv.length !== 3 || !['apply-sql', 'disable-sql'].includes(mode))
-    throw new Error('Usage: watchdog-grants.mjs apply-sql|disable-sql < watchdog.env');
+  if (process.argv.length !== 3 || !['apply-sql', 'disable-sql', 'inspect'].includes(mode))
+    throw new Error('Usage: watchdog-grants.mjs inspect | apply-sql|disable-sql < watchdog.env');
+  if (mode === 'inspect') {
+    process.stdout.write(watchdogInspectSql() + '\n');
+    return;
+  }
   let input = '';
   for await (const part of process.stdin) {
     input += part;

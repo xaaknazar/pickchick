@@ -203,9 +203,16 @@ class S3:
                 response = connection.getresponse()
                 if response.status < 300:
                     if sink is not None:
+                        if response.status != 200:
+                            raise OffsiteError('storage returned an incomplete GET response')
+                        expected_length = response.length
                         sink.seek(0)
                         sink.truncate()
                         shutil.copyfileobj(response, sink)
+                        # HTTPResponse.read(size), used by copyfileobj, can return
+                        # EOF without raising when Content-Length was not fulfilled.
+                        if expected_length is not None and sink.tell() != expected_length:
+                            raise http.client.HTTPException('incomplete response body')
                         return response.status, b''
                     return response.status, response.read()
                 response.read()
@@ -236,8 +243,24 @@ class S3:
         return size
 
     def get_file(self, key, destination):
-        with open(destination, 'wb') as sink:
-            self.request('GET', key, sink=sink)
+        destination = Path(destination)
+        if destination.exists() or destination.is_symlink():
+            raise OffsiteError('download destination already exists')
+        descriptor, temporary = tempfile.mkstemp(prefix='.pickchick-download-',
+                                                  suffix='.tmp', dir=destination.parent)
+        try:
+            with os.fdopen(descriptor, 'w+b') as sink:
+                self.request('GET', key, sink=sink)
+                sink.flush()
+                os.fsync(sink.fileno())
+            try:
+                # Same filesystem, atomic publication without replacing a file
+                # created by another download while the network request ran.
+                os.link(temporary, destination)
+            except FileExistsError:
+                raise OffsiteError('download destination already exists') from None
+        finally:
+            os.unlink(temporary)
 
     def list(self, prefix):
         keys, token = [], None

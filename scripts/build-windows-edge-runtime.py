@@ -82,6 +82,7 @@ ADMIN_FILES = (
     'infra/windows/install-native-pos-sync.ps1',
     'infra/windows/inspect-native-ssh.ps1',
     'infra/windows/native-pos-sync.md',
+    'infra/windows/pos-sync-backlog.mjs',
     'infra/windows/README.md',
     'infra/windows/native-staff-login.md',
     'infra/windows/local-pos-service.md',

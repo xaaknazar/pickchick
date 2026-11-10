@@ -1,0 +1,207 @@
+{
+  "date": "2026-11-05",
+  "sourceApplicationShared": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
+  "worktreeBase": "afaba7efc19ec6292582140b994625f32b5a2ad9",
+  "production": {
+    "schema": 20,
+    "servicesRunningAuto": 7,
+    "edgeReadiness": true,
+    "cloudTunnelReadiness": true,
+    "physicalDisks": 1,
+    "automaticBackupInstalled": false,
+    "automaticIdentityRotationInstalled": false,
+    "identityExpiresAt": "2026-11-20T07:34:54.977Z",
+    "noProductionMigrations": true,
+    "noServiceRestart": true,
+    "noRealOrderOrPayment": true,
+    "posSyncInstalled": false,
+    "posSetupRows": 0,
+    "localPosOrdersAwaitingReconciliation": 5,
+    "posSyncIssue": 312
+  },
+  "backup": {
+    "startedAt": "2026-11-05T11:04:49.053Z",
+    "finishedAt": "2026-11-05T11:04:52.227Z",
+    "expectedSchema": "schema020",
+    "archiveBytes": 445698,
+    "sha256": "0d258f58c45f3027571d2a8f20f199ab6c3f90f33eb14f541fcbdda3fc9210b6",
+    "backupVerified": true,
+    "restoreVerified": true,
+    "rehearsalDropped": true,
+    "completed": true
+  },
+  "encryptedMacCopies": [
+    {
+      "file": "pickchick_edge.dump.age",
+      "sha256": "c79f1f311d6622ad4d7910a7ea98075e5f8146228989e6a25a17717315194cbe",
+      "decryptVerified": true
+    },
+    {
+      "file": "backup-manifest.json.age",
+      "sha256": "cb1515237af486f2823dbeb0e50400128c8ce2ae3b64e7453b0833b345320992",
+      "decryptVerified": true
+    }
+  ],
+  "rehearsal": {
+    "sourceDumpVerified": true,
+    "tablesVerified": 47,
+    "historicalSource": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
+    "upgrade023": {
+      "migrations": 23,
+      "dataPreserved": true,
+      "fingerprint": "2bc83ebe0e51bb7391010638b20053adfd8de5411c56a056d7ff7b3b9201cfbc",
+      "replayRejected": true
+    },
+    "upgrade024": {
+      "mode": "apply",
+      "migrations": 24,
+      "stationPlanGrantedTo": ["pickchick_menu_sync"],
+      "workerRolePresent": true,
+      "dataPreserved": true,
+      "fingerprint": "d9fac4b50c4ab112d2eb3894e812d7f208af91dcbee4783c42fd5f58b6e74f60"
+    },
+    "productionChanged": false,
+    "upgrade025": {
+      "migrations": 25,
+      "dataPreserved": true,
+      "sourceSqlChecksum": "ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a",
+      "operatorInstallerTested": false,
+      "databaseHelper": {
+        "mode": "apply",
+        "migrations": 25,
+        "dataPreserved": true,
+        "fingerprint": "e49659dc1e3b6496cefe98cc529f309d3275b55efc6334431fb814ed3dce58d1",
+        "runtimeRole": "pickchick_edge_runtime",
+        "restoreFenceExecuted": false,
+        "replayRejected": true
+      }
+    },
+    "restores": [
+      {
+        "schema": 20,
+        "tables": 47,
+        "restored": true,
+        "dataFingerprintsMatch": true
+      },
+      {
+        "schema": 23,
+        "tables": 50,
+        "restored": true,
+        "dataFingerprintsMatch": true
+      },
+      {
+        "schema": 25,
+        "tables": 56,
+        "restored": true,
+        "dataFingerprintsMatch": true
+      }
+    ],
+    "httpChecks": [
+      {
+        "runtime": "historical023",
+        "readiness": 200,
+        "menuVersion": 200,
+        "restrictedLogin": true
+      },
+      {
+        "runtime": "current025",
+        "readiness": 200,
+        "menuVersion": 200,
+        "restrictedLogin": true
+      },
+      {
+        "runtime": "restored025",
+        "readiness": 200,
+        "menuVersion": 200,
+        "restrictedLogin": true
+      }
+    ],
+    "restoreReview": {
+      "liveTicketsHeld": 73,
+      "oneRestoreEpoch": true,
+      "pendingAndOutboxUnchanged": true
+    },
+    "limits": [
+      "macOS PostgreSQL18.4, not Windows service deployment",
+      "No cloud/API compatibility or WAN test in this real-copy rehearsal",
+      "025 applied to disposable copy directly; guarded Windows installer still required"
+    ]
+  },
+  "tests": {
+    "queueRecoveryUpgrade": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "windowsStage2Operator": {
+      "passed": 2,
+      "skipped": 1,
+      "skipReason": "Windows-only PowerShell test on macOS"
+    },
+    "workspaceBuild": "passed",
+    "targetedEslint": "passed",
+    "fullCheck": {
+      "status": "passed",
+      "unitPassed": 382,
+      "unitSkipped": 1,
+      "unitFailed": 0,
+      "build": "passed",
+      "typecheck": "passed",
+      "lint": "passed",
+      "format": "passed",
+      "contracts": "passed",
+      "design": "passed"
+    }
+  },
+  "checkpointEncryptionVerified": true,
+  "verifiedCandidate": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+  "ci": {
+    "foundation": {
+      "run": 42018966257,
+      "status": "success",
+      "jobsPassed": 11
+    },
+    "offline": {
+      "run": 42018966140,
+      "status": "success",
+      "mode": "ci",
+      "scenariosPassed": 9,
+      "knownIssues": [],
+      "skipped": 0
+    },
+    "windowsPos": {
+      "run": 42018966171,
+      "status": "success",
+      "artifactHashesVerified": true,
+      "installed": false
+    }
+  },
+  "runtime025Package": {
+    "source": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+    "bytes": 8649528,
+    "sha256": "77023bee7f67868acc4e56fa0256766be0de136d80163165761b86ce8a2bd41c",
+    "manifestFilesVerified": 8040,
+    "migrations": 25,
+    "windowsPathBudgetVerified": true,
+    "packagedDistRehearsal": {
+      "source": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+      "packagedRuntime": true,
+      "restrictedLogin": true,
+      "ready": true,
+      "menuVersionStatus": 200,
+      "restoredOrdersHeld": 73,
+      "productionChanged": false
+    }
+  },
+  "releaseGates": {
+    "ownerHasSecondSsd": false,
+    "currentServerCandidate": "fallback069-071 excludes072 and PR304",
+    "separateCloud072ReleaseRequired": true,
+    "windows025InstallerAcceptancePending": true,
+    "windowsServicesRollbackPending": true,
+    "posSyncAcceptancePending": true,
+    "physicalWanAcceptancePending": true,
+    "identityRotationDeadline": "2026-11-13"
+  },
+  "localRehearsalClusterStopped": true
+}

@@ -89,6 +89,7 @@ def main(args):
         image = 'pickchick-staff-login:'+args.source_sha
         run(['docker','build','--build-arg','RELEASE_SHA='+args.source_sha,'-t',image,'-f',str(root/'infra/backoffice-login/Dockerfile'),str(root/'apps/backoffice')])
         run(['docker','create','--name','pickchick-staff-login','--restart','unless-stopped',
+             '--log-driver','json-file','--log-opt','max-size=10m','--log-opt','max-file=3',
              '--network','deploy_default','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges:true',
              '--memory','512m','--cpus','1','--pids-limit','64', '--user',f'{private.stat().st_uid}:{private.stat().st_gid}',
              '--mount',f'type=bind,src={private},dst=/run/ceo.json,readonly',

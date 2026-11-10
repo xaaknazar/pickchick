@@ -1,0 +1,234 @@
+{
+  "date": "2026-11-06",
+  "status": "PASS",
+  "c1_preserved": true,
+  "runtime_sha": "6630eb0f676350341806b735b6877a36f017c673",
+  "operator_fix_sha": "818524ec8fdfebe7552864c5942948e22d11a496",
+  "runtime_foundation": "https://github.com/xaaknazar/pickchick/actions/runs/42008838570",
+  "runtime_offline": "https://github.com/xaaknazar/pickchick/actions/runs/42008838516",
+  "operator_foundation": "https://github.com/xaaknazar/pickchick/actions/runs/42249179575",
+  "operator_offline": "https://github.com/xaaknazar/pickchick/actions/runs/42249179604",
+  "image": "sha256:6b3e1accc6325bf78e6a0908af29b6ce83dfad92d706e4e8c5f5d389d2110492",
+  "applied_at_unix": 1793985837.9849012,
+  "migrations": [
+    "069_cloud_customer_notifications.sql",
+    "070_cloud_station_plans.sql",
+    "071_cloud_daily_reconciliation.sql"
+  ],
+  "ledger_count": 64,
+  "ledger_head": "071_cloud_daily_reconciliation.sql",
+  "migration072_applied": false,
+  "backup068_sha256": "150332ba8f11e89dab4a68fcd246a807367eead4df589a1827f232ae2fbcdfe5",
+  "backup071_sha256": "380f348f25e81cb72977bf2407dcd6e49998dbf0f49e3ad2bce677d395043a9b",
+  "restored_tables068": 167,
+  "restored_tables071": 186,
+  "backup071_copied_to_mac": true,
+  "candidate_startup": "passed",
+  "new_stage2_flags_enabled": false,
+  "push_enabled": false,
+  "domain_gate": {
+    "message": "Domain gate PASS",
+    "checks": 12,
+    "failed": 0,
+    "store_urls_checked": 3
+  },
+  "public_routes": [
+    {
+      "hsts": true,
+      "seconds": 0.05,
+      "status": 200,
+      "url": "https://api.pickchick.kz/health/live"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.05,
+      "status": 200,
+      "url": "https://pickchick.kz/"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.25,
+      "status": 200,
+      "url": "https://pickchick.185.129.51.103.nip.io/backoffice/"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.01,
+      "status": 200,
+      "url": "https://pickchick.185.129.51.103.nip.io/kitchen/prep"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.01,
+      "status": 200,
+      "url": "https://pickchick.185.129.51.103.nip.io/kitchen/assembly"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.01,
+      "status": 200,
+      "url": "https://pickchick.185.129.51.103.nip.io/display"
+    },
+    {
+      "hsts": true,
+      "seconds": 0.36,
+      "status": 200,
+      "url": "https://185.129.51.103.nip.io/"
+    }
+  ],
+  "observation_seconds": 906.0,
+  "observations": [
+    {
+      "elapsed_seconds": 299.4,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": [
+        {
+          "host": "domain",
+          "http": 200,
+          "seconds": 20.06
+        },
+        {
+          "host": "nip",
+          "http": 200,
+          "seconds": 20.06
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 349.4,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 399.3,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 451.0,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 501.8,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 553.4,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 606.0,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": []
+    },
+    {
+      "elapsed_seconds": 905.9,
+      "status": "PASS",
+      "work": {
+        "pending_payment_attempts": 0,
+        "unsettled_invoices": 0,
+        "unsettled_qr": 0,
+        "pending_refunds": 0,
+        "active_cloud_kitchen": 0,
+        "edge_active_total": 73,
+        "paid_open_total": 18,
+        "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+        "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+      },
+      "longpoll": [
+        {
+          "host": "domain",
+          "http": 200,
+          "seconds": 20.07
+        },
+        {
+          "host": "nip",
+          "http": 200,
+          "seconds": 20.08
+        }
+      ]
+    }
+  ],
+  "own_release_lock_released": true,
+  "online_roadmap_published": false
+}

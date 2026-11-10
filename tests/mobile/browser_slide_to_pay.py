@@ -337,7 +337,7 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(page.get_by_test_id('cart-shortcut-total')).to_have_text('4 190 ₸')
     # Owner 29.10: the chosen dining mode sits above the total, with the cart's icon.
     expect(page.get_by_test_id('cart-shortcut-dining-label')).to_have_text('С собой')
-    assert re.sub(r'[\ue000-\uf8ff\s]', '', page.get_by_test_id('open-cart').inner_text()) == 'Ссобой4190₸'
+    assert re.sub(r'[\ue000-\uf8ff\s]', '', page.get_by_test_id('open-cart').inner_text()) == 'Ссобой·AbayPlaza4190₸'
     expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
     expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
     box, bar, travel = geometry(page)
@@ -354,7 +354,7 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
-    assert bar['width'] <= 320.5 and bar['x'] >= 23, bar
+    assert abs(bar['width'] - min(width - 32, 390)) <= 0.5 and bar['x'] >= 15, bar
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
     # Its frame is level with the cart button (same top and height), the visible pill inside it.
@@ -1363,8 +1363,48 @@ def scenario_haptics(browser, width, height):
     release(state)
     ctx.close()
 
+def scenario_location(browser):
+    """Selected restaurant and dining mode remain readable; no checkout command is sent."""
+    labels = {'ru': ('С собой', 'В зале'), 'kk': ('Алып кету', 'Мейрамханада'),
+              'en': ('Takeaway', 'Dine in')}
+    for width, height in [(393, 852), (320, 568)]:
+        for lang, modes in labels.items():
+            state = new_state()
+            ctx, page = make_context(browser, state, width, height)
+            prefs = {'version': 1, 'catalogMode': 'server', 'diningMode': 'takeaway',
+                     'locale': lang, 'nickname': '', 'branchId': BRANCH, 'releaseId': None, 'lines': []}
+            ctx.add_init_script('if (!localStorage.getItem("pickchick.mobile.preferences.v1")) '
+                                'localStorage.setItem("pickchick.mobile.preferences.v1", '
+                                + json.dumps(json.dumps(prefs)) + ');')
+            page.goto(URL + '/menu')
+            add(page)
+            for mode in modes:
+                page.get_by_test_id('open-cart').click()
+                cart = page.get_by_test_id('screen-M09')
+                expect(cart).to_be_visible()
+                cart.get_by_role('radio', name=mode, exact=True).click()
+                page.go_back()
+                branch = page.get_by_test_id('cart-shortcut-location').filter(visible=True)
+                expect(branch).to_have_text('Abay Plaza')
+                expect(page.get_by_test_id('cart-shortcut-dining-label').filter(visible=True)).to_have_text(mode)
+                expect(page.get_by_test_id('open-cart').filter(visible=True)).to_have_accessible_name(re.compile('Abay Plaza'))
+                dining = page.get_by_test_id('cart-shortcut-dining-label').filter(visible=True)
+                assert dining.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'), (width, lang, mode)
+                row = page.get_by_test_id('cart-shortcut-dining').filter(visible=True)
+                metrics = row.evaluate("""e => {
+                    const r=e.getBoundingClientRect();
+                    return [...e.children].map(c=>{const b=c.getBoundingClientRect();
+                        return {left:b.left-r.left,right:b.right-r.right,width:b.width};});
+                }""")
+                assert all(m['left'] >= -1 and m['right'] <= 1 and m['width'] > 0 for m in metrics), (width, lang, mode, metrics)
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (width, lang)
+                page.screenshot(path=str(OUT / f'location-{lang}-{width}-{modes.index(mode)}.png'))
+            assert state['quotes'] == state['creates'] == state['payments'] == 0
+            release(state)
+            ctx.close()
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOPQ').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOPQR').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1409,6 +1449,8 @@ if __name__ == '__main__':
         if 'Q' in SELECTED:
             scenario_haptics(browser, 393, 852)
             scenario_haptics(browser, 320, 568)
+        if 'R' in SELECTED:
+            scenario_location(browser)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '

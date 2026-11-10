@@ -5,6 +5,7 @@ Default is read-only. An exact published source/CI, owned deployment lock,
 encrypted backup, isolated restore and candidate startup are required for apply.
 """
 import argparse
+import copy
 import importlib.util
 import json
 import os
@@ -21,20 +22,54 @@ spec.loader.exec_module(live)
 base, market = live.base, live.market
 require, digest, quote, REMOTE = live.require, live.digest, live.quote, live.REMOTE
 BASELINE = 'c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da'
-ACCEPTED = '549ef93e43065e56a6fa172da3ded49ff4c73ce0'
+# Owner fallback: exact reviewed 069-071 candidate, without 072/runtime PR304.
+ACCEPTED = 'ffb2fd231e08db43843816afb9cccb1e532375e0'
 # Inherited prepare/rollback use their module's pin; this private import does not change old tools.
 live.BASELINE = BASELINE
 SUPPORT = {'infra/staging/release-stage2-1024.py', 'tests/operations/test_stage2_release_1024.py',
            'infra/windows/update-runtime-stage2-1024.ps1', 'tests/operations/test_windows_stage2_release.py',
-           '.github/workflows/ci.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
+           '.github/workflows/ci.yml', '.github/workflows/offline-stand.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
            'docs/collaboration/handoff.md'}
+SECURITY_REF = '90f83a1dccc34df1c64c0786f93866e4be5563a0'
+SECURITY_FILES = {'pnpm-workspace.yaml','pnpm-lock.yaml','scripts/dependency-audit.mjs',
+                  'scripts/node-forge-security.mjs','tests/unit/node-forge-patch.test.mjs'}
+SUPPORT |= SECURITY_FILES
+FIXTURE_REF = 'a45fe6f82ed06312eddd5034c2da08b82746fa2f'
+FIXTURE_FILE = 'tests/backoffice/finance-browser.py'
+SUPPORT.add(FIXTURE_FILE)
 FLAGS = {'CATALOG_EDGE_COMBO_STOPS_ENABLED', 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED',
          'BACKOFFICE_RECONCILIATION_ENABLED'}
 LEDGER_HEAD = '071_cloud_daily_reconciliation.sql'
 
 
-def compose_candidate(text, expected):
+def unique_json(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, 'Duplicate compose JSON key')
+        result[key] = value
+    return result
+
+
+def compose_candidate(text, expected, candidate_sha=None):
     require(digest(text.encode()) == expected, 'Installed compose differs from reviewed hash')
+    if text.lstrip().startswith('{'):
+        require(candidate_sha is not None and re.fullmatch('[a-f0-9]{40}', candidate_sha)
+                and candidate_sha != BASELINE, 'Exact candidate SHA required')
+        before = json.loads(text, object_pairs_hook=unique_json)
+        after = copy.deepcopy(before)
+        api = after.get('services', {}).get('api', {})
+        require(api.get('image') == 'pickchick-api:'+BASELINE, 'Resolved baseline image differs')
+        env = api.get('environment')
+        require(isinstance(env, dict) and 'RELEASE_SHA' not in env,
+                'Resolved API environment differs from inspected baseline')
+        require(not any(k in env for k in FLAGS), 'Stage2 flags already present; inspect baseline')
+        api['image'] = 'pickchick-api:'+candidate_sha
+        env.update({k:'false' for k in sorted(FLAGS)})
+        verify = copy.deepcopy(after)
+        verify['services']['api']['image'] = 'pickchick-api:'+BASELINE
+        for key in FLAGS: del verify['services']['api']['environment'][key]
+        require(verify == before, 'Unrelated resolved compose change')
+        return json.dumps(after, indent=2)+'\n'
     require(not any(k in text for k in FLAGS), 'Stage2 flags already present; inspect baseline')
     original = text
     block = ''.join('      '+k+': "false"\n' for k in sorted(FLAGS))
@@ -62,7 +97,23 @@ def check_flags(env):
 
 
 def check_delta(paths):
-    require(all(p in SUPPORT or p.startswith('docs/operations/stage2-2026-10-24/') for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
+    require(all(p in SUPPORT or p.startswith(('docs/operations/stage2-2026-10-24/', 'docs/operations/server-window-1105/')) for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
+
+
+
+def check_offline_ci(proof, sha):
+    run, jobs = proof.get('run', {}), proof.get('jobs', {})
+    rows = jobs.get('jobs', [])
+    require(run.get('head_sha') == sha and run.get('status') == 'completed'
+            and run.get('conclusion') == 'success'
+            and run.get('path') == '.github/workflows/offline-stand.yml'
+            and run.get('head_repository', {}).get('full_name') == 'xaaknazar/pickchick',
+            'Full offline CI must pass on the exact candidate')
+    require(jobs.get('total_count') == 1 and len(rows) == 1
+            and rows[0].get('name') == 'Offline stand (ci)'
+            and rows[0].get('head_sha') == sha
+            and rows[0].get('status') == 'completed' and rows[0].get('conclusion') == 'success',
+            'Offline proof is incomplete, failed or for a different profile')
 
 
 def check_receipt(result):
@@ -94,6 +145,15 @@ class Release(live.Release):
             'stage2-release-1024', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
 
+    def ci(self):
+        foundation = super().ci()
+        proof_path = self.args.offline_ci_proof
+        require(proof_path and proof_path.is_file(), 'Full offline CI proof required')
+        proof = json.loads(proof_path.read_text())
+        check_offline_ci(proof, self.sha)
+        self.save('offline-ci-proof.json', proof)
+        return foundation
+
     def source_checks(self):
         require(re.fullmatch('[a-f0-9]{40}', self.sha) and self.sha != BASELINE, 'Full candidate SHA required')
         require(self.git('rev-parse', 'HEAD') == self.sha and not self.git('status', '--porcelain', '--untracked-files=all'),
@@ -105,6 +165,10 @@ class Release(live.Release):
         # Never remove already deployed legal/App Review behavior. Integration needs a new reviewed pin.
         self.execute(['git', 'merge-base', '--is-ancestor', BASELINE, self.sha])
         check_delta(self.git('diff', '--name-only', ACCEPTED, self.sha).splitlines())
+        require(not self.git('diff','--name-only',SECURITY_REF,self.sha,'--',*sorted(SECURITY_FILES)),
+                'Dependency files differ from owner-approved upstream security fix')
+        require(not self.git('diff','--name-only',FIXTURE_REF,self.sha,'--',FIXTURE_FILE),
+                'Finance fixture differs from the reviewed shared test fix')
 
     def baseline_migrations(self):
         names = sorted(p.name for p in (market.REPO/'db/cloud/migrations').glob('*.sql') if int(p.name[:3]) <= 71)
@@ -121,7 +185,7 @@ class Release(live.Release):
         self.runtime_acl(); self.verify_public()
         env = self.runtime_environment(); check_flags(env)
         text = self.read_text(self.compose_path(BASELINE))
-        text = compose_candidate(text, a.expected_compose_sha256)
+        text = compose_candidate(text, a.expected_compose_sha256, self.sha)
         return {'candidate':text, 'environment':env, 'rollback':self.rollback_artifacts(),
                 'neighbors':self.neighbors(), 'acl':self.acl(), 'capabilities':self.http_json('/v1/capabilities', public=False)}
 
@@ -284,7 +348,7 @@ def parse(argv=None):
     p.add_argument('action', choices=['prepare','apply','rollback'])
     for name in ('sha','branch','expected-api-sha','expected-public-sha','expected-api-image','expected-compose-sha256','expected-gateway-sha256'):
         p.add_argument('--'+name, required=True)
-    for name in ('ssh-key','backup-identity','ci-proof'):
+    for name in ('ssh-key','backup-identity','ci-proof','offline-ci-proof'):
         p.add_argument('--'+name, type=Path, required=name=='ssh-key')
     p.add_argument('--ci-run'); p.add_argument('--owner-id'); p.add_argument('--apply', action='store_true')
     return p.parse_args(argv)

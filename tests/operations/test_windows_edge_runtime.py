@@ -100,7 +100,8 @@ class WindowsEdgePackageTests(unittest.TestCase):
         # Files the installer itself runs before the manifest check, and the operator guide.
         shipped = required + ['infra/windows/install-native-pos-sync.ps1',
                               'infra/windows/inspect-native-ssh.ps1',
-                              'infra/windows/native-pos-sync.md']
+                              'infra/windows/native-pos-sync.md',
+                              'infra/windows/pos-sync-backlog.mjs', 'scripts/edge-migrate.mjs']
         for relative in shipped:
             self.assertIn(relative, builder.ADMIN_FILES)
             self.assertTrue((SCRIPT.parents[1] / relative).is_file(), relative)
