@@ -364,6 +364,20 @@ export class CatalogModel {
     if (errors.length) throw new Error(errors.slice(0, 8).join('\n'));
     this.stage(next);
   }
+  /** Several existing products at once (the external menu): one validation, one draft change. */
+  updateProducts(products: Product[]) {
+    if (!this.payload) throw new Error('INVALID_RESPONSE');
+    const next = copy(this.payload);
+    for (const product of products) {
+      const index = next.products.findIndex((p) => p.id === product.id);
+      if (index < 0) throw new Error('INVALID_RESPONSE');
+      next.products[index] = copy(product);
+    }
+    next.content_reviewed = false;
+    const errors = payloadIssues(next);
+    if (errors.length) throw new Error(errors.slice(0, 8).join('\n'));
+    this.stage(next);
+  }
   removeProduct(id: string) {
     if (!this.payload) return;
     const next = copy(this.payload);

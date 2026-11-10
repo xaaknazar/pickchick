@@ -442,6 +442,8 @@ const assets = new Map([
     // Lane bo-ui2 step 5 «Расстановка» (shown only with capabilities.staff_assignment).
     'assignment',
     'assignment-model',
+    // Cutover Аг4: «Внешнее меню» of «Меню и цены» (aggregator prices).
+    'external-menu',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
