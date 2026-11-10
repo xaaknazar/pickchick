@@ -1,0 +1,87 @@
+name: Windows Kitchen package
+
+on:
+  push:
+    branches: [main, 'codex/**', 'claude/project-thread-ntdsta']
+    paths:
+      - 'apps/kitchen/**'
+      - 'apps/kitchen-desktop/**'
+      - '.node-version'
+      - '.github/workflows/windows-kitchen.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-kitchen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package and launch Windows x64 Kitchen
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/kitchen-desktop
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned standalone package manager
+        run: npm install --global npm@11.13.0
+      - name: Install locked desktop toolchain
+        run: npm ci
+      - name: Typecheck renderer and desktop entry points
+        run: npm run typecheck
+      - name: Package contents and security tests
+        run: npm test
+      - name: Install Electron runtime
+        run: npm run runtime:install
+      - name: Real Electron acceptance on Windows (login, stations, board, lost response, restart)
+        shell: pwsh
+        run: |
+          $pw = Join-Path $env:RUNNER_TEMP 'playwright'
+          npm install --prefix $pw --no-save --ignore-scripts playwright@1.55.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:KITCHEN_TEST_PLAYWRIGHT = Join-Path $pw 'node_modules/playwright/index.mjs'
+          npm run test:electron
+          exit $LASTEXITCODE
+      - name: Package clean source for Windows x64
+        run: npm run dist:win
+      - name: Verify packaged source, AMD64 executable and security fuses
+        run: npm run verify:win
+      - name: Silent per-user install of the NSIS package
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release -Filter 'PickChick-Kitchen-Setup-*.exe' | Select-Object -First 1
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer exit code $($p.ExitCode)" }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChick Kitchen\PickChickKitchen.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not found: $exe" }
+          (Get-Item -LiteralPath $exe).VersionInfo | Format-List ProductVersion, FileVersion
+      - name: Record executable hashes
+        shell: pwsh
+        run: |
+          Get-ChildItem release/ -Filter *.exe | Sort-Object Name | ForEach-Object {
+            $digest = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$digest  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - name: Preserve unsigned pre-release packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pickchick-kitchen-windows-x64-${{ github.sha }}
+          path: |
+            apps/kitchen-desktop/release/PickChick-Kitchen-Setup-*.exe
+            apps/kitchen-desktop/release/PickChick-Kitchen-Portable-*.exe
+            apps/kitchen-desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+# Packaging and Electron shell tests on a GitHub Windows Server runner do not replace
+# installation on the restaurant monoblocks (Windows 10 Pro, touch, LAN gateway, iiko nearby).
