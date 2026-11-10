@@ -359,6 +359,8 @@ const assets = new Map([
     // Lane bo-ui step 7 «Скидки» (shown only with capabilities.discounts).
     'discounts',
     'discounts-model',
+    // Cutover Аг4: «Внешнее меню» of «Меню и цены» (aggregator prices).
+    'external-menu',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
