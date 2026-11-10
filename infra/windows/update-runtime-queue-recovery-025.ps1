@@ -195,8 +195,8 @@ function Wait-Stage2Backup([DateTime]$Since) {
 }
 
 $script:stage2Pins=@{
- 'native-edge-backup-ledger.json'='62e9912ab8483d1d892954f31b8c08ac6ef257221dd530828f12a2b56a6d0640'
- 'install-edge-backup.ps1'='e1357680d87583de54f21804e8b24ad5077cbdddf8eecb16009b4338035032eb'
+ 'native-edge-backup-ledger.json'='66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f'
+ 'install-edge-backup.ps1'='ef102045ea0320e2297f53de81c657c231ccb9dad78278b66f3c665e65eb7919'
  'queue-recovery-upgrade-db.mjs'='f5cce0b0a757b9c49dc173a120598ffd3cc28c42f30cf6b857c5b730a4032440'
 }
 
