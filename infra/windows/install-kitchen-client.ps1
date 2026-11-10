@@ -20,7 +20,7 @@ param(
     [Parameter(ParameterSetName='Install')][switch]$Replace,
     [Parameter(Mandatory=$true,ParameterSetName='Autostart')][ValidateSet('On','Off')][string]$Autostart,
     [datetime]$CutoverDate=[datetime]'2026-11-19',
-    [string]$AppPath=(Join-Path $env:LOCALAPPDATA 'Programs\PickChick Kitchen\PickChickKitchen.exe')
+    [string]$AppPath=(Join-Path $env:LOCALAPPDATA 'Programs\PickChickKitchen\PickChickKitchen.exe')
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
