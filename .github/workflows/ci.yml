@@ -17,8 +17,9 @@ jobs:
   foundation_core:
     name: Foundation static checks and transaction invariants
     runs-on: ubuntu-24.04
-    # Baseline 068 takes 39 minutes; notification migration/fixtures add work to every DB run.
-    timeout-minutes: 50
+    # Baseline 068 took 39 minutes; the cutover branch with the second back-office wave ran past
+    # 50 with every test still passing (run 42835416130, 10.11.2026).
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -72,7 +73,9 @@ jobs:
   foundation_operations:
     name: Foundation POS and backoffice integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # The backoffice browser suite on the cutover branch ran past 25 minutes with every test
+    # still passing (runs 42836766681 and 42835416130, 10.11.2026).
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
