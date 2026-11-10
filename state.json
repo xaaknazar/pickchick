@@ -7661,11 +7661,11 @@
         "tests/offline-stand/soak-progress.mjs",
         "tests/offline-stand/soak-progress.test.mjs"
       ],
-      "status": "active",
-      "head": "aeb2e46205bc2f576285fb4d66b027fc2efe2d85",
-      "updatedAt": "2026-11-10T12:37:51.296Z",
-      "summary": "10.11 проверен неполный итог, PR336 обновлён, commit aeb2e462. Процессы PID24041/24841 отсутствуют. Последний heartbeat 09.11 19:20:01 UTC, POS log 19:20:05.854 UTC: 7h33m16s от старта soak. Нет завершения, exit_code и итоговой сверки; running устарел. Подтверждён только baseline 17/17. К12 открыт, причина остановки не установлена.",
-      "nextAction": "Нужен новый полный 8h прогон и convergence на среде с обеспеченным временем жизни. Сохранить старые логи и базы; не дописывать недостающие 27 минут. Новый запуск сегодня не выполнялся. Проверить актуальный источник перед новым прогоном. PR336 draft, обезличенные факты и SHA256 в docs/operations/offline-soak-1109.md."
+      "status": "available",
+      "head": "8945f86219b722a8edc81003f9efbf675e7f5891",
+      "updatedAt": "2026-11-10T13:37:26.271Z",
+      "summary": "PR336 source8945f862 published and clean. Harness checkpoints/continuous-duration plus relogin/shift race fixes; 32 unit tests PASS. Smoke6 PASS21/21, zero traffic errors, offline120479ms, reconvergence verified. Full8h retry running supervisor11694 runner12638 in .local/offline-stand/soak-1110-full; baseline17/17 PASS, WAN down2026-11-10T13:33:26.190Z. Prior failed controls and old interrupted1109 preserved. Foundation42820557929 still in progress. Hourly automatic follow-up configured. NOT full8h PASS; no production deployment or wholeK12 acceptance.",
+      "nextAction": "Do not alter live source/dependencies/containers or start another run. Read supervisor.json heartbeat10s and report checkpoints10m; earliest end21:33UTC Nov10 plus recovery. On completion claim task, validate actual28800000ms continuous coverage, restarts/shifts, zero traffic errors and all final invariants. Publish sanitized evidence and final doc/PR report; check CI and current shared before integration. Preserve unpaid_service/two-station and physical restaurant acceptance limits. If process lost or fails, record actual failure; never infer PASS from elapsed clock. Disable automatic follow-up after final report."
     }
   ],
   "approvedScopeTransfers": [
