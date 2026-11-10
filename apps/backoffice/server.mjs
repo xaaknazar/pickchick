@@ -153,6 +153,10 @@ export const allowed = (method, path) => {
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/stock$`, 'i').test(pathname)
   ) {
     const q = new URLSearchParams(search ?? '');
+    // Lane bo-ui2 step 4: view=balances and view=reorder take no dates; the API decides by its
+    // flag (BACKOFFICE_STOCK_REPORTS_ENABLED) and answers INVALID_REQUEST without it.
+    if ([...q.keys()].length === 1 && /^(balances|reorder)$/.test(q.get('view') ?? ''))
+      return (search?.length ?? 0) <= 200 && q.getAll('view').length === 1;
     return (
       (search?.length ?? 0) <= 200 &&
       [...q.keys()].length === 3 &&
@@ -260,6 +264,77 @@ export const allowed = (method, path) => {
       (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
     );
   }
+  // Lane bo-ui2 step 2 (BACKOFFICE_SUPPLY_ENABLED): the suppliers, one with its prices, and the
+  // supply requests of an Almaty window (the server checks the 92 days), optionally one state,
+  // one kind and one request.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/suppliers$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
+    );
+  }
+  // Lane bo-ui2 step 3: the price imports of the branch, or one of them with its report.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/supplier-imports$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
+    );
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/supply-requests$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = ['start_date', 'end_date', 'state', 'kind', 'id'];
+    const value = (k, re) => q.get(k) === null || re.test(q.get(k));
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => keys.includes(k)) &&
+      keys.every((k) => q.getAll(k).length <= 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      value('state', /^(draft|submitted|received|cancelled)$/) &&
+      value('kind', /^(central_kitchen|bakery|household|supplier)$/) &&
+      value('id', new RegExp(`^${UUID}$`, 'i'))
+    );
+  }
+  // Lane bo-ui2 step 5 (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED): the staff assignment of one
+  // business day (or today), or the intervals of a window (the server checks the 92 days),
+  // optionally of one employee or one station.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/staff-assignments$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = ['date', 'start_date', 'end_date', 'employee_id', 'station_code'];
+    const day = (k) => q.get(k) === null || /^\d{4}-\d{2}-\d{2}$/.test(q.get(k));
+    const range = q.has('start_date') || q.has('end_date');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => keys.includes(k)) &&
+      keys.every((k) => q.getAll(k).length <= 1) &&
+      ['date', 'start_date', 'end_date'].every(day) &&
+      (range
+        ? !q.has('date') && q.has('start_date') && q.has('end_date')
+        : !q.has('employee_id') && !q.has('station_code')) &&
+      (q.get('employee_id') === null || new RegExp(`^${UUID}$`, 'i').test(q.get('employee_id'))) &&
+      (q.get('station_code') === null || /^[a-z][a-z0-9_]{1,39}$/.test(q.get('station_code')))
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -359,6 +434,14 @@ const assets = new Map([
     // Lane bo-ui step 7 «Скидки» (shown only with capabilities.discounts).
     'discounts',
     'discounts-model',
+    // Lane bo-ui2 step 2 «Закупки» (shown only with capabilities.supply).
+    'supply',
+    'supply-model',
+    // Lane bo-ui2 step 4 stock reports (used only with capabilities.stock_reports).
+    'stock-reports-model',
+    // Lane bo-ui2 step 5 «Расстановка» (shown only with capabilities.staff_assignment).
+    'assignment',
+    'assignment-model',
     // Cutover Аг4: «Внешнее меню» of «Меню и цены» (aggregator prices).
     'external-menu',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),

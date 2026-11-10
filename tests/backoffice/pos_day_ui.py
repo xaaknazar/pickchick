@@ -211,6 +211,9 @@ with sync_playwright() as pw:
         # ---- registry: cash desk column, one-line date, totals, CSV in tenge ----
         nav(page, 'orders')
         registry = page.locator('.op-panel').filter(has_text='Реестр заказов')
+        # all_inner_texts() does not wait: on a loaded machine the table was not drawn yet (step 6
+        # of bo-ui2 saw an empty list once in the full suite), so wait for its last column first.
+        expect(registry.locator('th').nth(7)).to_be_attached()
         heads = registry.locator('th').all_inner_texts()
         assert [h.strip().lower() for h in heads] == ['заказ', 'касса', 'дата', 'канал', 'сумма', 'оплата', 'кухня', ''], heads
         lines = registry.locator('tbody tr')

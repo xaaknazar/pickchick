@@ -86,6 +86,7 @@ import {
   Backoffice,
   backofficeOptions,
   backofficeP1Options,
+  backofficeP2Options,
 } from '@pickchick/backoffice-core';
 import {
   DeviceRegistryController,
@@ -363,6 +364,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             ...backofficeOptions(process.env),
             // Back-office P1 (bo-ui): validated by loadConfig, no key while a flag is off.
             ...backofficeP1Options(config),
+            // Back-office second wave (bo-ui2): the same rule.
+            ...backofficeP2Options(config),
           }),
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },

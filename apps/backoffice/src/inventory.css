@@ -163,3 +163,32 @@
 .autoconsume-link-line {
   align-items: end;
 }
+/* Lane bo-ui2 step 4 stock reports (capabilities.stock_reports only): the actions of «Остатки»
+   and «К заказу» in one row, a tappable checkbox per row and «Откуда» under the name. */
+.inventory .op-actions {
+  margin: 8px 0;
+}
+/* Step 6 pass: the buttons wrap on a phone; the checkbox keeps its own size (the generic
+   `.inventory input` rule made it a 44 px square stretched over its column). */
+.inventory .stock-reorder-tools {
+  flex-wrap: wrap;
+}
+.inventory .stock-reorder-pick {
+  width: 26px;
+  min-height: 26px;
+  height: 26px;
+  margin: 0;
+}
+.stock-reorder-from {
+  display: block;
+  margin-top: 2px;
+}
+/* An amount of the stock reports never breaks across lines. */
+.stock-money {
+  white-space: nowrap;
+}
+/* The checkbox column is as wide as its header, not the generic first column (34 %). */
+.stock-reorder-pickable .inventory-table td:first-child {
+  width: 1%;
+  min-width: 0;
+}

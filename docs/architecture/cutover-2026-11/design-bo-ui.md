@@ -23,7 +23,8 @@
 
 Не делается в этой полосе: расстановка (А9), импорт ZKTeco (А7), заявки (Ск6), методы сверки
 агрегаторов (У5), раскладка KDS из кабинета. Их таблицы (`bo_attendance_*`, `bo_supply_requests`,
-kind `assignment`) в 075 не входят.
+kind `assignment`) в 075 не входят. Расстановку, заявки, поставщиков с ценами и отчёты склада делает
+вторая волна (полоса bo-ui2, миграция 076) - §9.
 
 Опорные данные: продажи кассы - таблицы 073 (`cloud_pos_*`, приёмник CC-4), отчёт продаж - CC-7
 (`ops/sales`), роли - CC-5 (`roles.ts`), склад v2 - CC-6 (`stock-v2.ts`, `ops/stock`).
@@ -812,3 +813,576 @@ branches/:id?period=custom` этого дня, не трогая период д
     075 и права P1 стоят до 16.11. Умолчание runbook: 075 в Cloud-1 (14.11) вместе с 074 (CR
     `bo-ui-8` §1); если интеграция оставит её в Cloud-2, проверка на Т7/Т8 выпадает и режим остаётся
     «Проверка без списания» дольше.
+
+## 9. Вторая волна (полоса bo-ui2)
+
+Полоса: bo-ui2 (ветка `codex/cutover-bo-ui2`, от итога bo-ui `aff89ce6`). Основание: решение
+владельца 06.11 - вторая волна бэк-офиса (поставщики и их цены, заявки, отчёты склада, расстановка)
+делается сейчас, за флагами, которые по умолчанию выключены. Порядок важности - как в начале документа
+плюс дополнение для bo-ui2; где этот раздел молчит, действуют §2-§8. Миграция 075 и helper bo-ui для
+этой полосы заморожены; её миграция - 076, права - `infra/staging/backoffice-supply-grants.mjs`
+(CR `bo-ui2-1`). Синтетические имена поставщиков («Поставщик 1»); настоящий список - из выгрузки iiko
+владельца через скрипт импорта, не в коде, тестах и документах.
+
+### 9.1 Флаги и совместимость
+
+Env API, `true|false`, по умолчанию `false`, только облачный API с `BACKOFFICE_ENABLED=true`
+(`loadConfig`, список `BACKOFFICE_P2_FLAGS`; кабинету - `backofficeP2Options(config)`, `p2-flags.ts`).
+
+| Флаг                                  | `capabilities`     | Значение ключа                                                      | Нужен также                           | Откат                                      |
+| ------------------------------------- | ------------------ | ------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------ |
+| `BACKOFFICE_SUPPLY_ENABLED`           | `supply`           | `true` при складе v2 и правах 076 (helper bo-ui2), иначе `false`    | `BACKOFFICE_STOCK_V2_ENABLED`         | `false`; поставщики, цены, заявки остаются |
+| `BACKOFFICE_STOCK_REPORTS_ENABLED`    | `stock_reports`    | `true` при складе v2 и читаемых столбцах 074 (шаг 4), иначе `false` | `BACKOFFICE_STOCK_V2_ENABLED` (шаг 4) | `false`; поля карточки остаются            |
+| `BACKOFFICE_STAFF_ASSIGNMENT_ENABLED` | `staff_assignment` | `true` при должностях и правах 076, иначе `false`                   | `BACKOFFICE_STAFF_POSITIONS_ENABLED`  | `false`; интервалы остаются                |
+
+Поставка по заявке - приход склада v2 (откуда, поставщик, дата накладной), поэтому без склада v2
+`loadConfig` отказывает; станции расстановки - должности списка точки (§5.7), поэтому без должностей
+тоже. Ключи идут после всех ключей bo-ui, `stock_p1` включительно. Правила совместимости §2 действуют
+и здесь:
+
+1. **Все три флага выключены** - ответы API, поведение БД и кабинет байт-в-байт как у итога bo-ui.
+   Доказательство: `tests/integration/backoffice-p2-golden.test.mjs` против записанных выходов сборки
+   `aff89ce6` (`fixtures/backoffice-bo-ui-golden.json`: чтение четырёх ролей, карточки заказов, все виды
+   облачной полосы и bo-ui, виды и команды второй волны, строгое сохранение, запись; флаги bo-ui
+   выключены, флаги облачной полосы, все флаги bo-ui включены) на схеме с 076 и на схеме до 075;
+   `backoffice-p2-flags.test.mjs` (конфиг, ключи, строка в каждой таблице 076 не меняет чтение, HTTP);
+   `p2-schema.test.mjs` (076 не меняет ни одного прежнего объекта, строки и ответы bo-ui прежние).
+   Отдельно: сборка `aff89ce6` на схеме с 076 дала ровно эталон.
+2. Вид второй волны без флага - ровно 404 неизвестного вида, команда - ровно `INVALID_REQUEST`
+   неизвестного типа: команды разбираются своей схемой только при флаге, общие `Command` и `P1Request`
+   не меняются.
+3. Новые поля payload принимаются только при флаге (без флага строгая схема их отклоняет, эталон
+   «save with a P2 field»); откат флага поля не стирает (образец §5.7 и §5.11).
+4. Новый кабинет со старым API: ключа нет или вид отвечает 404 - раздел не показывается.
+5. `permissions[]` получает права §9.3 только при доступной функции.
+
+Сделано в шаге 1: флаги, ключи `capabilities`, 076, helper прав, эталон, CR `bo-ui2-1`, этот раздел.
+Шаг 2 (поставки): виды `suppliers` и `supply-requests`, шесть команд поставщиков и заявок (§9.4),
+права §9.3 и раздел кабинета «Закупки». Ключ `supply` теперь ещё требует, чтобы роль API писала
+столбцы прихода 074 (`supplyAvailable`, `p2-flags.ts`): приём заявки - это приход склада v2. Импорт
+цен (`supplier_prices_import`), отчёты склада и расстановка - следующие шаги; до них эти виды и
+команды при включённом флаге отвечают так же, как без него. Шаг 3 - импорт цен, шаг 4 - отчёты
+склада, шаг 5 - расстановка: вид `staff-assignments`, команды `staff_assign` и `staff_unassign`,
+ключ `staff_assignment` - при должностях и правах 076 (`staffAssignmentAvailable`, `p2-flags.ts`);
+без должностей вид отвечает `NOT_READY`, команды - неизвестные (`INVALID_REQUEST`).
+
+### 9.2 Миграция 076 (`db/cloud/migrations/076_cloud_backoffice_supply.sql`)
+
+Только новые таблицы со своими функциями, триггерами и индексами; ничего существующего не меняет
+(тест сверяет столбцы, умолчания, ограничения, индексы, триггеры, права и тела функций всех прежних
+объектов до и после 076). Без FK на `cloud_pos_*`, прав в файле нет. Ревизии - `guard_bo_revision()`
+из 075: удалений нет, первая ревизия 1, каждое изменение +1, ключевые колонки неизменны. Деньги -
+`bigint` целых тиын (в jsonb строк заявки - строка целых тиын), количества - целые учётные единицы
+позиции (`g`, `ml`, `pcs`), как в `bo_stock_balances`. DDL заморожен 10.11 18:00.
+
+| Объект                      | Содержание                                                                                                             | Инварианты (БД)                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bo_suppliers`              | поставщик точки: название 1..120, вид `supplier`/`central_kitchen`/`bakery`, `active`                                  | название без пробелов по краям и управляющих символов, одно на точку без учёта регистра (импорт сопоставляет по названию); вид неизменен                                                                                                                                                                                                                                           |
+| `bo_supplier_price_imports` | применённый импорт цен: источник `iiko_export`/`csv`, SHA-256 файла и плана, число строк 1..5000, итоги, автор, время  | план применяется на точке один раз (`UNIQUE(branch_id, plan_sha256)`); запись неизменна                                                                                                                                                                                                                                                                                            |
+| `bo_supplier_prices`        | цена одной закупочной единицы (`g`, `kg`, `ml`, `l`, `pcs`) позиции у поставщика с дня `valid_from`; `manual`/`import` | `price_minor > 0`; ключ `(supplier_id, ingredient_id, unit, valid_from)`; единица измеряет позицию (`kg`/`g` - граммы, `l`/`ml` - миллилитры, `pcs` - штуки; триггер); `import` ⇔ ссылка на импорт той же точки; поставщик и позиция той же точки                                                                                                                                  |
+| `bo_supply_requests`        | заявка в цех, пекарню, на хозтовары или поставщику: номер на точке, `needed_by`, примечание, строки, приход            | создаётся черновиком; после подачи строки, поставщик, дата и примечание неизменны, назад в черновик нельзя; `received` и `cancelled` конечны; `received` ⇔ один документ `receipt` той же точки, ставится один раз; подача - строки (1..100), дата и, у заявки поставщику, поставщик; цех и пекарня поставляют свои заявки, поставщик (`supplier`) - хозтовары и заявки поставщику |
+| `bo_staff_assignments`      | «сотрудник на станции с ЧЧ:ММ»: бизнес-день, сотрудник, код станции, начало, конец, кто поставил и закрыл              | один открытый интервал на сотрудника (частичный уникальный индекс), интервалы сотрудника не пересекаются (триггер, `[начало, конец)`); бизнес-день - день Алматы начала или предыдущий (после полуночи в смене, открытой вечером); закрытый интервал неизменен, изменение - только закрытие                                                                                        |
+
+Строка заявки (проверяется и в БД, jsonpath): `{ ingredient_id (uuid строчными), unit (единица
+позиции: g|ml|pcs), qty (целое > 0), balance_at_request (целое ≥ 0), hint? (целое ≥ 0 или null),
+price_minor? (целые тиын > 0, только при поставщике) }`; элементы - только объекты.
+
+**Расстановка - отдельная таблица, а не kind `assignment` в `bo_workforce_records`** (так предлагал
+`design-backoffice.md` §3). Проверено по коду табеля:
+
+1. Табель читает все записи точки разом и не считает начисления, если их больше 10000
+   (`packages/backoffice-core/src/workforce-store.ts:62-71`). Расстановка - несколько интервалов на
+   человека в день: около 15 человек × 2-3 перестановки × 365 дней = 11-16 тысяч записей в год, то есть
+   за год начисления перестали бы считаться.
+2. Табель - право `workforce.read`/`workforce.write`; начальнику смены весь табель отвечает
+   `ROLE_FORBIDDEN` (`workforce-store.ts:32-37`, матрица `roles.ts`), а расстановку ставит именно он во
+   время смены.
+3. «Один открытый интервал на сотрудника» и «без пересечений» должны держаться в БД (частичный
+   уникальный индекс, триггер). В jsonb `payload` записи табеля они были бы только в коде, как сейчас
+   проверки табеля (загрузка всех записей и сравнение).
+4. Совместимость: прежний рантайм отдаёт все записи `bo_workforce_records` в табель и в снимок закрытого
+   месяца (`workforce-store.ts:113-125`, `491-502`); новый kind попал бы в старый табель и снимки после
+   отката. Отдельная таблица прежнему рантайму не видна.
+5. Команды табеля идут своим конвертом (`bo_workforce_commands`, блокировка `workforce:<точка>`);
+   расстановка - общим конвертом бэк-офиса (`bo_commands`, `bo_audit`, `bo:branch:<id>`), как остальные
+   команды P1 и второй волны.
+
+В табеле расстановка показывается чтением интервалов по сотруднику и дню (шаг расстановки).
+
+**Payload без DDL.**
+
+- Минимальный уровень - существующее обязательное `Ingredient.minimum` (целое в учётных единицах,
+  «Минимальный запас в учётных единицах», `model.ts:83-88`, `apps/backoffice/src/operations.ts:995`).
+  Отдельное `min_level` не вводится: два минимума одной позиции расходились бы. Подсказка к заказу =
+  max(0, минимум - остаток).
+- `Ingredient.supply_kind?: 'central_kitchen'|'bakery'|'household'|'supplier'` (`design-backoffice.md`
+  §3) - откуда обычно приходит позиция (группировка подсказки и заявок). Принимается схемой карточки
+  второй волны только при `BACKOFFICE_SUPPLY_ENABLED`; без флага - как сегодня (отказ строгой схемы).
+- Шаг 4: `Ingredient.meat?: boolean` - цель «К заказу» - 3 дня расхода (§9.4 «Сделано в шаге 4»).
+  Принимается только при `BACKOFFICE_STOCK_REPORTS_ENABLED` (и складе v2), `supply_kind` - только при
+  `BACKOFFICE_SUPPLY_ENABLED` (и складе v2). Без флага сохранённое значение остаётся, а то же значение,
+  присланное обратно, не отклоняется (правило отката BOUI-R3, `ingredientP2Keys`, `index.ts`);
+  новое или изменённое - отказ строгой схемы, как раньше.
+
+### 9.3 Права (матрица §5.10, §4 + вторая волна)
+
+Чтение всех новых видов - `reports.read` (все четыре роли; цены поставщиков видны всем, как стоимость
+в отчётах склада, §9.6 в.1). Новые права - отдельный список (как `BACKOFFICE_P1_PERMISSIONS`), в
+`permissions[]` только при доступной функции; без `BACKOFFICE_ROLES_ENABLED` решает грант (manager -
+всё, analyst - `FORBIDDEN`).
+
+| Право                      | manager | shift_manager | accountant | analyst | Команды                                                             |
+| -------------------------- | ------- | ------------- | ---------- | ------- | ------------------------------------------------------------------- |
+| `suppliers.write`          | да      | -             | да         | -       | `supplier_save`, `supplier_price_save`, `supplier_prices_import`    |
+| `supply.write`             | да      | да            | -          | -       | `supply_request_save`, `supply_request_submit`                      |
+| `supply.close` (шаг 2)     | да      | -             | -          | -       | `supply_request_cancel`, `supply_request_receive`                   |
+| `stock.receipt` (есть, P0) | да      | да            | да         | -       | `supply_request_receive` (вторым условием, вместе с `supply.close`) |
+| `staff.assign`             | да      | да            | -          | -       | `staff_assign`, `staff_unassign`                                    |
+| `staff.assign_override`    | да      | -             | -          | -       | `staff_assign` на станцию не по должности (вторым условием, шаг 5)  |
+
+Отклонение шага 2 от предложения шага 1: по заданию шага («manager and shift manager create and
+submit; manager receives and cancels; accountant reads») принимает поставку по заявке и отменяет
+заявку только управляющий. Поэтому отдельное право `supply.close` (`BACKOFFICE_P2_PERMISSIONS`,
+`P2_ROLE_PERMISSIONS`, `roles.ts`), а `stock.receipt` остаётся вторым условием приёма
+(`P2_COMMAND_PERMISSIONS`, `p2-commands.ts`). Обычный приход склада (P0) по-прежнему проводят
+управляющий, начальник смены и бухгалтер. Если владелец решит, что начальник смены тоже принимает
+поставки по заявкам, - одна строка `supply.close` в `P2_ROLE_PERMISSIONS.shift_manager` и тест
+матрицы (§9.6 в.5). Права второй волны идут в `permissions[]` после всех прав P1 и только при
+`capabilities.supply === true`; без `BACKOFFICE_ROLES_ENABLED` решает грант (manager - всё, analyst -
+`FORBIDDEN` без причины).
+
+### 9.4 API (схемы - предложение шага 1; шаги видов уточняют их с отметкой отклонений)
+
+Как §5: чтение - `GET .../ops/<view>` (один снимок REPEATABLE READ, точные ключи запроса в allowlist
+прокси и регулярке шлюза), запись - `POST .../commands` (`request_id`, digest, `bo_audit` с
+`before_value`/`after_value`, блокировка `bo:branch:<id>`, `expected_revision`). Деньги - строки целых
+тиын, количества - строки целых учётных единиц, даты - `YYYY-MM-DD` Алматы, время - ISO UTC, CSV - в
+тенге с заголовком «Сумма, ₸». Эталон (§9.1, п. 1) проверяет, что эти виды и команды без флагов -
+неизвестный вид (404) и неизвестная команда (`INVALID_REQUEST`), как у bo-ui.
+
+**Поставщики и цены** (`BACKOFFICE_SUPPLY_ENABLED`):
+
+```text
+GET ops/suppliers[?id=uuid]
+  → { schema_version: 1, branch_id, view: 'suppliers', timezone: 'Asia/Almaty', as_of,
+      suppliers: [{ id, name, kind: 'supplier'|'central_kitchen'|'bakery', active, revision,
+                    prices: int, last_valid_from|null, created_by_name, created_at,
+                    updated_by_name, updated_at }],
+      limits: { suppliers: 500 }, truncated: { suppliers: bool },
+      // только с ?id=: цены поставщика (действующая на сегодня - in_force) и его импорты
+      id, prices: [{ ingredient_id, ingredient_name, ingredient_unit, unit, price_minor, valid_from,
+                     in_force: bool, source: 'manual'|'import', import_batch_id|null, revision,
+                     updated_by_name, updated_at }],
+      imports: [{ id, source, file_sha256, plan_sha256, row_count, summary, actor_name, applied_at }] }
+supplier_save          { id, expected_revision, payload: { name, kind, active } }    // 0 - новый; вид не меняется
+supplier_price_save    { supplier_id, ingredient_id, unit, valid_from, price_minor, expected_revision }
+supplier_prices_import { source: 'iiko_export'|'csv', file_sha256, plan_sha256,
+                         rows: [{ supplier_name, supplier_kind, ingredient_id, unit, price_minor,
+                                  valid_from }] (1..2000) }
+  → { batch_id, suppliers_created, prices_created, prices_changed, unchanged }
+```
+
+Цена - за одну закупочную единицу; `kg`/`l` = 1000 `g`/`ml`. Цена в силе на день D - строка с
+наибольшим `valid_from ≤ D` того же поставщика, позиции и единицы. Ожидаемая сумма строки заявки =
+половина вверх (количество в учётных единицах × цена / множитель единицы), одно округление на строку.
+`scripts/supplier-prices-import.mjs --file F --branch B --token-file C [--apply --expected-plan H]` -
+план с SHA-256, как `stock-opening-import.mjs`: поставщики по названию (регистр, пробелы и «ё» не
+различаются, новые создаются), позиции - однозначно по id или названию, план на точке применяется один
+раз (`CONFLICT/IMPORT_ALREADY_APPLIED`).
+
+**Заявки** (`BACKOFFICE_SUPPLY_ENABLED`):
+
+```text
+GET ops/supply-requests?start_date&end_date[&state=draft|submitted|received|cancelled][&kind=…][&id=uuid]
+  → { schema_version: 1, branch_id, view: 'supply-requests', timezone, as_of, start_date, end_date,
+      requests: [{ id, number, kind, state, supplier: { id, name, kind }|null, needed_by|null, note|null,
+                   lines: [{ ingredient_id, name, unit, qty, balance_at_request, hint|null,
+                             price_minor|null }],
+                   total_minor|null, receipt_document_id|null, revision, created_by_name, created_at,
+                   submitted_by_name|null, submitted_at|null, closed_by_name|null, closed_at|null }],
+      counts: { draft, submitted, received, cancelled }, limits: { requests: 200 },
+      truncated: { requests: bool },
+      // только с ?id=: текст для печати и копирования и приход по заявке
+      text|null, receipt: { id, reference, created_at, lines }|null }
+supply_request_save    { id, expected_revision, payload: { kind, supplier_id|null, needed_by|null,
+                         note|null, lines: [{ ingredient_id, qty }] (0..100) } }
+                         // сервер добавляет unit, balance_at_request, hint, price_minor
+supply_request_submit  { id, expected_revision }      // остаток и подсказка - на момент подачи
+supply_request_cancel  { id, expected_revision }      // причина - reason запроса
+supply_request_receive { id, expected_revision, reference, document_date,
+                         lines: [{ ingredient_id, quantity, value_minor, expected_revision }] (1..100) }
+  → { id, state: 'received', receipt_document_id }
+```
+
+Заявка сама ничего не отправляет: кабинет печатает и копирует текст. Получение сразу проводит приход
+(Ск6): в одной транзакции документ `receipt` с движениями, как команда `stock` (`meta`: откуда = вид
+заявки, поставщик, дата накладной), и заявка `received`; количества и суммы прихода - фактические
+(могут отличаться от заявки).
+
+**Отчёты склада** (`BACKOFFICE_STOCK_REPORTS_ENABLED`):
+
+```text
+GET ops/stock-balances[?date=YYYY-MM-DD]          // без даты - сейчас, с датой - на конец дня Алматы
+  → { schema_version: 1, branch_id, view: 'stock-balances', timezone, as_of, date|null,
+      rows: [{ ingredient_id, name, unit, group|null, supply_kind|null, quantity, value_minor,
+               average_cost_minor|null, minimum, below_minimum: bool, counted_at|null,
+               last_movement_at|null }],
+      totals: { items, value_minor, below_minimum }, consumption: Consumption,
+      limits: { rows: 1000 }, truncated: { rows: bool } }
+GET ops/stock-turnover?start_date&end_date[&ingredient_id=uuid]   // до 92 дней
+  → { schema_version: 1, branch_id, view: 'stock-turnover', timezone, as_of, start_date, end_date,
+      rows: [{ ingredient_id, name, unit, opening, receipts, waste, consumption, production_in,
+               production_out, counts, reversals, closing }],      // каждое - { quantity, value_minor } со знаком
+      totals: { … те же поля … }, consumption: Consumption }
+GET ops/order-hint?kind=central_kitchen|bakery|household|supplier[&supplier_id=uuid][&days=7]
+  → { schema_version: 1, branch_id, view: 'order-hint', timezone, as_of, kind, days,
+      rows: [{ ingredient_id, name, unit, balance, minimum, hint, used_per_day|null, days_left|null,
+               price: { supplier_id, unit, price_minor, valid_from }|null }],
+      consumption: Consumption }
+Consumption = { mode: 'off'|'dry_run'|'on'|'unavailable', start_at|null, backlog|null }
+```
+
+Честность: остатки и расход без автосписания не учитывают продажи. `consumption` - режим и `backlog`
+автосписания bo-ui (`consumptionBacklog`, §5.5 BOUI-R2; `unavailable` - флага или прав 075 нет). Пока
+режим не `on` или `backlog.stalled`, кабинет пишет «Продажи не списываются со склада автоматически:
+остатки и расход - без продаж» или «Списание по продажам не работает: N продаж не обработаны с ЧЧ:ММ».
+Начало периода - остаток после последнего движения до окна (движения неизменны, 017), конец = начало +
+сумма движений окна (тест); подсказка без цены - если у поставщика нет цены в силе.
+
+**Расстановка** (`BACKOFFICE_STAFF_ASSIGNMENT_ENABLED`):
+
+```text
+GET ops/staff-assignments?date=YYYY-MM-DD
+  → { schema_version: 1, branch_id, view: 'staff-assignments', timezone, as_of, date,
+      stations: [{ code, label, station|null }],        // должности списка точки в силе (§5.7)
+      employees: [{ employee_id, name, position_code|null, extra_position_codes }],   // работающие
+      open: [Assignment], intervals: [Assignment] }      // открытые сейчас и все интервалы бизнес-дня
+Assignment = { id, employee_id, employee_name, station_code, station_label, business_date,
+               started_at, ended_at|null, set_by_name, ended_by_name|null, revision }
+staff_assign   { employee_id, station_code, started_at, expected_revision }  // ревизия открытого интервала или 0
+staff_unassign { employee_id, ended_at, expected_revision }
+```
+
+Перестановка («Переставить с 13:30») в одной транзакции закрывает открытый интервал в момент начала
+нового и открывает новый; начало не раньше начала открытого интервала. Бизнес-день - день открытой
+смены менеджера, если она открыта, иначе день Алматы начала (правило 076). Станция - действующая
+должность списка. Расстановка видна в табеле и в чек-листе смены менеджера.
+
+Новые причины ошибок (`BackofficeErrorReasonSchema`, только при флагах, список уточняется в шагах):
+`SUPPLIER_NAME_TAKEN`, `SUPPLIER_INACTIVE`, `PRICE_UNIT_MISMATCH`, `IMPORT_ALREADY_APPLIED`,
+`IMPORT_STALE` (шаг 3), `REQUEST_LOCKED` (заявка не черновик), `ASSIGNMENT_OVERLAP`.
+
+**Сделано в шаге 2 и отклонения от схем выше** (`packages/backoffice-core/src/supply.ts`,
+`p2-commands.ts`; тесты `supply.test.mjs`, `supply-unit.test.mjs`):
+
+- Команды разбираются схемой `P2Request` только при флаге (`Backoffice.p2Request`, по образцу
+  `p1Request` и `P1_COMMAND_FLAGS`: `P2_COMMAND_FLAGS` - `supplyEnabled` и `stockV2Enabled`); со всеми
+  флагами второй волны выключенными ничего не разбирается, команда - `INVALID_REQUEST`, вид - 404.
+  Каждая команда - в общем конверте (`request_id`, digest, `bo_audit` с `before_value`/`after_value`,
+  блокировка `bo:branch:<id>`), `expected_revision` обязательна; изменение без разницы не поднимает
+  ревизию (как скидки).
+- `GET ops/suppliers`: в ответе ещё `today`, `limits.prices` (1000) и с `?id` - `prices_truncated`.
+  Цены поставщика упорядочены по позиции, единице и дню (новые выше) - это история цены по позиции;
+  исправление строки поднимает её ревизию, прежняя цена - в `before_value` аудита.
+- `GET ops/supply-requests`: `start_date` и `end_date` обязательны и с `?id`. Строки списка - без
+  `lines` (`line_count` и `line_names` первых трёх; кабинет принимает ответ до 1 МБ, а 200 заявок по
+  100 строк его превысили бы); у заявки ещё `unpriced_lines` и `cancel_reason` (из аудита команды
+  отмены). С `?id` - `request` (заявка в любой день), `text`, `receipt` (`document_date`,
+  `supplier_kind`, `supplier_name`, `total_minor`, фактические строки), `difference` (по каждой
+  позиции заявки и прихода: заказали, получили, разница со знаком). Общий `open` - черновики и
+  поданные заявки всех дней (кабинет говорит, что есть открытые заявки вне периода), и `today`.
+- `supply_request_save`: `supplier_id`, `needed_by`, `note` можно не передавать (null); вид не
+  меняется (`INVALID_REQUEST`); поставщик - этой точки, нужного вида (§9.2) и не в архиве
+  (`SUPPLIER_INACTIVE`); позиция - активная. Ожидаемая сумма строки - по цене в силе на сегодня
+  (день сохранения, при подаче - день подачи); если после округления 0, строка без цены.
+- `supply_request_submit`: строки, `needed_by` не раньше сегодняшнего дня Алматы и поставщик у
+  заявки поставщику, иначе `INVALID_REQUEST`/`REQUEST_INCOMPLETE` (новая причина).
+- `supply_request_cancel` - черновик или поданная заявка; `supply_request_receive` - только поданная;
+  иное состояние - `CONFLICT`/`REQUEST_LOCKED`. Ответ приёма - вся заявка и `difference`. Приход
+  проводится кодом команды `stock` (`Backoffice.stock`: те же движения и средняя себестоимость), с
+  `meta` (откуда = вид заявки, имя поставщика, дата накладной) и причиной запроса; неверная ревизия
+  остатка - `CONFLICT`, ничего не записано. Связь «один раз» держит 076 (`receipt_document_id`
+  UNIQUE, ставится один раз, `received` конечна); тест одновременного приёма двумя запросами даёт
+  ровно один документ.
+- `supplier_prices_import` и `scripts/supplier-prices-import.mjs` - не в шаге 2 (следующий шаг).
+
+**Сделано в шаге 3 (импорт цен, Д6) и отклонения от схем выше**
+(`packages/backoffice-core/src/supplier-import.ts`, `scripts/supplier-prices-import.mjs`; тесты
+`supplier-import.test.mjs`, `tests/backoffice/supplier-prices-import.test.mjs`,
+`tests/integration/backoffice-p2-supplier-prices-import.test.mjs`, `supplier-imports-ui.test.mjs`,
+`supplier-imports-browser.test.mjs`; runbook `docs/operations/backoffice-supply.md` §5):
+
+- Команда - частями. API принимает не больше 100 КБ JSON на команду
+  (`packages/platform/src/http.ts`, общий `json` 100 KiB), а план до 5000 строк (076
+  `row_count`) в одну команду не помещается. Поэтому вместо `rows: [...] (1..2000)` одна команда -
+  одна часть плана:
+
+  ```text
+  supplier_prices_import { batch_id, source: 'iiko_export'|'csv', file_sha256, plan_sha256,
+                           row_count (строк файла, 1..5000), part, parts (1..50),
+                           summary (только в части 1), suppliers: [{ id, name, kind }] (0..200, новые),
+                           prices: [{ supplier_id, ingredient_id, unit, price_minor, valid_from }] (1..500) }
+    → { batch_id, part, parts, supplier_ids, suppliers_created, prices_created, unchanged }
+  ```
+
+  Часть 1 создаёт запись импорта (`UNIQUE(branch_id, plan_sha256)`) с отчётом, каждая часть -
+  своих новых поставщиков и цены `source='import'`; каждая в общем конверте (`request_id`, digest,
+  `bo_audit` с результатом части, блокировка точки), право `suppliers.write`, флаги
+  `supplyEnabled` и `stockV2Enabled` (`P2_COMMAND_FLAGS`). `batch_id`, id новых поставщиков и
+  `request_id` частей скрипт выводит из SHA-256 плана, поэтому повтор после потерянного ответа
+  отправляет те же байты. Части проверяются по порядку: часть 2 без части 1 или от другого плана -
+  `CONFLICT/IMPORT_STALE`; часть, уже записанная под другим `request_id`, -
+  `CONFLICT/IMPORT_ALREADY_APPLIED` (новые причины `IMPORT_ALREADY_APPLIED`, `IMPORT_STALE`).
+
+- Импорт только добавляет. Цена того же поставщика, позиции, единицы и дня с той же суммой -
+  `unchanged`, без записи; с другой суммой, занятое название нового поставщика, поставщик в архиве,
+  выключенная или чужая позиция - `CONFLICT/IMPORT_STALE`, часть не записана. Поэтому
+  `prices_changed` из предложения шага 1 нет: импорт не меняет и не удаляет ни цен, ни поставщиков
+  (исправление - вручную, `supplier_price_save`). Единица, которая не измеряет позицию, -
+  `INVALID_REQUEST/PRICE_UNIT_MISMATCH`.
+- `summary` (отчёт в `bo_supplier_price_imports.summary`) - строгая схема `ImportSummarySchema`:
+  `{ schema: 'pickchick.supplier-prices-report/v1', file_name, profile: 'iiko'|'csv'|'custom',
+parts, counts: { rows, matched, new_prices, unchanged, new_suppliers, not_found, ambiguous,
+unit_mismatch, duplicates, conflicts, inactive, invalid, notes }, issues: [{ line, code, supplier,
+name, text }] (до 300), issues_total }`, не больше 24 КБ; полный список строк - в файле плана.
+  Коды строк - `IMPORT_ISSUE_CATEGORIES` (категория у каждого кода; скрипт и кабинет сверяются с
+  ними тестами).
+- Новый вид `GET ops/supplier-imports[?id=uuid]` (только при флаге, все роли, `reports.read`):
+  последние 20 импортов с частями (`parts_applied` из аудита команд, `complete`), итогами и
+  счётчиками отчёта; один (с `id` или последний) целиком - отчёт, поставщики импорта (создан ли
+  импортом, сколько цен из него осталось), `prices_corrected` - сколько его цен исправлено вручную.
+  Без флага - 404 неизвестного вида. Allowlist кабинета, прокси и регулярка шлюза дополнены.
+- Отклонение в `GET ops/suppliers?id`: `imports[]` теперь без полного `summary`, только
+  `file_name` и `counts`: 50 отчётов по 24 КБ превысили бы 1 МБ ответа кабинета; полный отчёт -
+  `ops/supplier-imports?id`.
+- Сопоставление позиций: «код» - это id позиции PickChick (uuid). Артикулы iiko в PickChick не
+  хранятся (ингредиенты заведены из ТТК без артикулов), поэтому колонка артикула iiko не
+  используется; без кода - точное название (регистр, пробелы, «ё» не важны), иначе отчёт.
+- Кабинет: в «Поставщики и цены» блок «Импорт цен из iiko» (последний импорт или выбранный из 20:
+  состояние словами, загружено, счётчики отчёта, строки с причиной и фильтром, поставщики импорта).
+  Сервер без вида (404) - блока нет.
+- `Ingredient.supply_kind` (§9.2) в шаге 3 не сделан: он нужен группировке подсказки к заказу и
+  переходит в шаг отчётов склада.
+
+**Сделано в шаге 4 (отчёты склада, Ск4) и отклонения от схем выше**
+(`packages/backoffice-core/src/stock-reports.ts`; кабинет `apps/backoffice/src/stock-reports-model.ts`,
+`inventory.ts`; тесты `stock-reports.test.mjs`, `stock-reports-unit.test.mjs`,
+`tests/backoffice/stock-reports-p2-ui.test.mjs`, `stock-reports-p2-browser.test.mjs`):
+
+- Отклонение: по заданию шага отчёты - виды существующего `GET ops/stock`, а не отдельные
+  `ops/stock-balances`, `ops/stock-turnover`, `ops/order-hint` из предложения шага 1:
+  `ops/stock?view=balances`, `ops/stock?view=reorder` (без других ключей запроса) и прежний
+  `ops/stock?view=movement&start_date&end_date` (до 92 дней), который при флаге получает
+  `turnover` и `consumption` после всех своих ключей bo-ui. Поэтому отчётам нужен склад v2:
+  `loadConfig` не запускает API с `BACKOFFICE_STOCK_REPORTS_ENABLED` без
+  `BACKOFFICE_STOCK_V2_ENABLED`, а `capabilities.stock_reports` - `true` только при складе v2 и
+  читаемых столбцах 074 (`stockReportsAvailable`; без них `ops/stock` - 404 `STOCK_V2_DISABLED`).
+  Без флага `view=balances|reorder` - `INVALID_REQUEST` строгой схемы bo-ui, `view=movement` -
+  ответ bo-ui байт-в-байт (эталон: «comparison can fail» допускает при флаге только чтения и
+  `ops stock movement` там, где склад v2 есть, и сверяет его без двух новых ключей). Имена
+  `stock-balances`, `stock-turnover`, `order-hint` остаются неизвестными видами (404).
+- `view=balances`: строки всех позиций (до 2000) - `ingredient_id, name, unit, active, group,
+supply_kind, meat, quantity, value_minor, minimum, below_minimum, counted_at, last_movement_at,
+last_purchase{quantity, value_minor, at, document_id}|null, value_last_price_minor|null, revision`;
+  `totals { items, active, below_minimum, value_minor, value_last_price_minor, unpriced }`,
+  `counted_at_known`, `consumption`. «Ниже минимума» - активная позиция с минимумом и остатком
+  меньше него. Последняя цена закупки - последняя строка документа `receipt` с суммой больше нуля,
+  не сторнированного; стоимость по ней - половина вверх (остаток × сумма / количество).
+  Без `?date` (на конец дня) - не нужно заданию шага.
+- `view=movement` + `turnover { rows, totals, mismatches, limits, truncated }`: по позиции
+  `opening`, `receipts`, `production_in`, `consumption`, `waste`, `production_out`, `counts`,
+  `reversals`, `transfers`, `in`, `out`, `closing` - каждое `{ quantity, value_minor }` со знаком;
+  `totals` - только суммы (единицы позиций разные). Начало - остаток после последнего движения до
+  окна (порядок `created_at`, `id`), конец = начало + движения окна, `in`/`out` - положительные и
+  отрицательные движения, так что начало + пришло - ушло = конец по количеству и сумме. Конец
+  сверяется с остатком после последнего движения окна: расхождение - id позиции в `mismatches`
+  (кабинет пишет «не сходится»; в тестах всегда пусто).
+- `view=reorder` (вместо `order-hint?kind&supplier_id&days`; фильтров нет, «Откуда» - поле
+  строки): активные позиции с целью больше нуля, у которых остаток ниже цели (`state: 'below'`) или
+  не больше цели плюс 20 % (`near`). Цель - минимум; у позиции «Мясо» - 3 дня расхода по большему
+  из средних за 7 и 14 полных дней (вверх), но не меньше минимума (`target_rule: 'meat_days'`).
+  `hint` = max(0, цель - остаток), `days_left` = остаток × дни / расход (вниз), `hint_value_minor` -
+  по последней цене закупки. Отклонение от «только документы списания по продажам»: расход = списание
+  по продажам (`consumption`, автоматические и ручные) + расход в производство (отрицательные
+  движения `production`), каждый за вычетом своего сторно в день сторно; списания и инвентаризации
+  не расход. Иначе сырое мясо, которое уходит в заготовку через «Производство», не имело бы расхода
+  и правило «3 дня» к нему не применялось бы. Периоды - полные дни Алматы до сегодняшнего; при
+  режиме `on` - не раньше первого полного дня после `start_at` (`periods.d7/d14` с днями), чтобы
+  свежий запуск не занижал средний расход. Сортировка: ниже цели, затем меньше дней, затем имя.
+- `consumption` (во всех трёх) = `{ mode: 'off'|'dry_run'|'on'|'unavailable', start_at, backlog,
+sales_included }`; `sales_included` = режим `on` и `backlog.stalled=false`. Пока его нет, кабинет
+  на каждой вкладке пишет, что цифры без продаж (или текст `stallText` о необработанных продажах).
+- Право чтения - `reports.read`, все четыре роли; новых прав нет, `permissions[]` прежний.
+  «Создать заявку» - право `supply.write` при `capabilities.supply` (кабинет), иначе кнопки нет или
+  она неактивна с причиной словами.
+- Объём: каждый отчёт читает движения всей истории точки (последнее движение до окна, последняя
+  поставка) без индекса по `(branch_id, ingredient_id)` - DDL заморожен. На объёме одной точки
+  (около миллиона движений за год) это доли секунды; если станет медленно - индекс отдельным CR.
+
+**Сделано в шаге 5 (расстановка, А9) и отклонения от схем выше**
+(`packages/backoffice-core/src/staff-assignments.ts`; кабинет `apps/backoffice/src/assignment.ts`,
+`assignment-model.ts`, `workforce.ts`, `manager-shift-model.ts`; тесты `staff-assignments.test.mjs`,
+`staff-assignments-unit.test.mjs`, `tests/backoffice/assignment-ui.test.mjs`,
+`assignment-browser.test.mjs`, `tests/integration/backoffice-p2-golden.test.mjs`):
+
+- **Станции - коды кухни.** Должность с функциями KDS даёт по станции на функцию с кодом функции и
+  названием экрана кухни (`KdsFunctionSchema`, `packages/contracts`): `issue` «Выдача (2)»,
+  `delivery_handover` «Выдача доставки (3)», `assembly_hall` «Сборка - зал (стол 1)»,
+  `assembly_delivery` «Сборка - доставка (стол 2)», `toasts` «Тосты и бургеры (5)», `breading`
+  «Панировка (6)». Должность с номером станции без экрана - станция с кодом должности: `cashier`
+  «Кассир (1)», `fryer` «Жарщик (7)», `prep` «Заготовщик (8)», `runner` «Раннер (9)». У менеджеров
+  станции нет. Отклонение от схемы шага 1 выше («станция - должность списка»): «Сборщик» даёт две
+  станции, стол 1 и стол 2, иначе ошибки КД9 по столу нельзя отнести к людям. Код подходит под
+  проверку 076 (`^[a-z][a-z0-9_]{1,39}$`), DDL не менялся. Список - из должностей в силе
+  (`readStaffPositions`); станция выключенной должности новых не принимает
+  (`INVALID_REQUEST/STATION_UNKNOWN`), но в истории остаётся со своим названием.
+- **Команды - день смены и время ЧЧ:ММ** вместо момента `started_at`/`ended_at` предложения шага 1:
+
+  ```text
+  staff_assign   { employee_id, station_code, business_date, time: 'ЧЧ:ММ', expected_revision,
+                   override_reason? (3..300) }   // ревизия открытого интервала сотрудника или 0
+  staff_unassign { employee_id, time: 'ЧЧ:ММ', expected_revision }   // ревизия открытого интервала
+    → { assignment: Assignment, closed: Assignment|null, changed: bool }
+  ```
+
+  Момент считает PostgreSQL (Asia/Almaty): время 00:00-05:59 - ночь после дня смены (следующий
+  календарный день), с 06:00 - сам день. Поэтому бизнес-день интервала - день Алматы его начала
+  минус 6 часов, и проверка 076 (день начала или предыдущий) держится по построению. Конец
+  `staff_unassign` - время того же дня смены, что у интервала: ночной интервал (начат до 06:00)
+  кончается до 06:00 того же утра. При часах точки 10:00-00:00 ночь кончается задолго до 06:00
+  (вопрос владельцу §9.6 в.7).
+
+- **Бизнес-день по умолчанию** (`today` вида, его берёт кабинет) - день Алматы «сейчас минус 6
+  часов». Отклонение от «день открытой смены менеджера, если она открыта»: при обычной работе (смена
+  открывается после 06:00, закрывается до 06:00) это один и тот же день, а забытая открытой смена
+  прошлых суток не уводит утреннюю расстановку в прошлый день. Открытая смена показана в виде
+  (`manager_shift`), её проверка «Расстановка заполнена» считает интервалы её дня.
+- **Правила.** Один открытый интервал сотрудника (076). Перестановка в одной транзакции закрывает
+  открытый интервал в момент нового начала и открывает новый. Начало не раньше начала открытого
+  интервала и не внутри прежнего (`CONFLICT/ASSIGNMENT_OVERLAP`; проверка до записи, триггер 076 -
+  страховка). Перестановка - в том же дне смены, что открытый интервал, иначе
+  `CONFLICT/ASSIGNMENT_PREVIOUS_DAY` (сначала «Закончить» интервал прошлого дня). Время не позже
+  часов БД плюс 5 минут, конец не раньше начала (`INVALID_REQUEST/ASSIGNMENT_TIME`). Та же станция -
+  ничего не меняется (`changed: false`, ревизия прежняя). Карточка - работающая
+  (`INVALID_REQUEST/EMPLOYEE_NOT_WORKING`), чужая - `NOT_FOUND`. Чужая ревизия - `CONFLICT`. Каждая
+  команда - в общем конверте (`request_id`, digest, `bo_audit` действия `staff_assign` или
+  `staff_unassign` с `before_value` = открытый интервал, блокировка точки).
+- **Только по должности.** Станция должна входить в `position_code` или `extra_position_codes`
+  карточки; иначе `INVALID_REQUEST/STATION_NOT_ALLOWED`. С причиной `override_reason` (3-300
+  символов) и правом `staff.assign_override` (только управляющий; начальнику смены -
+  `FORBIDDEN/ROLE_FORBIDDEN`) интервал открывается; причина хранится в
+  `bo_audit.after_value.assignment.override_reason` команды, которая открыла интервал (без DDL), вид
+  читает её оттуда и показывает в истории.
+- **Вид** `GET ops/staff-assignments` (читают все роли кабинета; без флага - 404 неизвестного вида):
+
+  ```text
+  ?date=ГГГГ-ММ-ДД | без ключей (день по умолчанию)
+    → { schema_version: 1, branch_id, view: 'staff-assignments', timezone, as_of, today,
+        night_end: '06:00', manager_shift: { id, business_date, opened_at }|null, mode: 'day', date,
+        stations: [{ code, label, number, kds|null, positions, active }],
+        employees: [{ employee_id, name, position_code, extra_position_codes, stations }],
+        intervals: [Assignment] (до 500, по началу),
+        earlier_open: [Assignment] (открытые с прошлых дней),
+        counts: { intervals, open, employees }, limits, truncated }
+  ?start_date&end_date[&employee_id][&station_code]   // окно до 92 дней по дню смены
+    → { ...та же шапка, mode: 'range', start_date, end_date, employee_id|null, station_code|null,
+        stations, employees: [{ employee_id, name }],
+        intervals: [{ id, employee_id, station_code, business_date, started_at, ended_at }],
+        // до 3000
+        limits, truncated }
+  Assignment = { id, employee_id, employee_name, station_code, station_label, business_date,
+                 started_at, ended_at|null, set_by_name, set_at, ended_by_name|null, revision,
+                 override_reason|null }
+  ```
+
+- **Табель.** При `capabilities.staff_assignment` вкладка «Табель» (раздел «Смены») берёт окно
+  месяца и показывает в списках «День» и «Неделя» колонку «Станции» («Сборка - зал (стол 1)
+  10:00 - 13:30; Выдача (2) с 13:30»), в сетке месяца - станции в подписи ячейки и точку после
+  часов, и строку «По «Расстановке» работали, но в табеле нет записи». Часы табеля расстановка не
+  меняет.
+- **Чек-лист смены менеджера.** Пункт «Расстановка заполнена» в закрытии (обязательный, проверка
+  `staff_assignment`) есть только при доступной расстановке и не входит в шаблон: вид
+  `ops/manager-shifts` отдаёт `extra_items: { opening: [], closing: [пункт] }` последним ключом и
+  `checks.staff_assignment` последней проверкой, команды закрытия проверяют его после пунктов
+  шаблона. Схема шаблона точки прежняя (пункт с этой проверкой в шаблон не сохранить). Проверка -
+  `problem`, пока за день смены нет ни одного интервала, пока кто-то из опубликованного графика дня
+  без интервала или пока открыт интервал прошлого дня; факты: `intervals`, `employees`, `open`,
+  `stations`, `missing` (до 10 имён), `missing_count`, `earlier_open`. Без флага вид и команды
+  смены - как у bo-ui (эталон); кабинет не отправляет из черновика ответ на пункт, которого нет.
+- **Эталон.** Тест «comparison can fail» для расстановки: при флаге меняются ровно чтения (ключ
+  `staff_assignment`, при ролях - два права в конце `permissions[]`), `ops/staff-assignments`
+  (без должностей - `NOT_READY`) и, где есть смена менеджера и должности, `ops/manager-shifts`. Тела
+  команд эталона (предложение шага 1 с `started_at`) остаются неизвестными командами.
+
+**Чтение для КД9 (ошибки сборки по людям; КД9 не строится в этой полосе).** Учёт возвратов
+«Вернуть на сборку» ведётся по столу (`assembly_hall` - стол 1, `assembly_delivery` - стол 2) и по
+дню (`design-kds.md` КД9). Кто стоял за столом, отвечает расстановка:
+
+- HTTP: `GET .../ops/staff-assignments?start_date&end_date&station_code=assembly_hall` (окно до 92
+  дней по дню смены, до 3000 интервалов, `truncated`). Событие в момент `t` на станции `S` относится
+  к интервалам этой станции с `started_at <= t < ended_at` (открытый - до «сейчас»). На одной
+  станции могут стоять несколько человек: ошибка относится ко всем, кто стоял, или делится - решает
+  КД9. Интервал нулевой длины (исправлен в ту же минуту) никому не относится.
+- На сервере: `assignedAt(db, branch, station, at)` из `@pickchick/backoffice-core` - те же
+  интервалы одним запросом (индекс 076 `(branch_id, business_date, started_at)` для окна; для точки
+  во времени - отбор по станции и началу).
+- Станции кухни - коды функций KDS, те же, что `details.kds.function` задач и
+  `fulfillment_returns`; станции без экрана (касса, жарка, заготовка, раннер) в КД9 не участвуют.
+- День смены интервала - `business_date`; момент события сравнивается с моментами, не с днём.
+
+### 9.5 Порядок работ полосы bo-ui2 (шаги 2-6 - предложение)
+
+1. Шаг 1 (сделан): 076, `backoffice-supply-grants.mjs`, флаги и ключи, эталон `aff89ce6`, CR `bo-ui2-1`,
+   этот раздел. `p1-schema.test.mjs` bo-ui ждёт теперь 075 и все следующие файлы (CR `bo-ui2-1` §3).
+2. Поставщики, цены и импорт (`scripts/supplier-prices-import.mjs`), `supply_kind`.
+3. Заявки и приход по заявке.
+4. Отчёты склада и расстановка.
+5. Кабинет: разделы, печать и копирование, CSV, телефон 390 px.
+6. Проход браузером по всем экранам и ролям, runbook `docs/operations/backoffice-supply.md`, полный прогон.
+
+Каждый шаг: тест «флаг выключен - прежний ответ» (эталон §9.1), права по §9.3 с отказом для каждой
+роли, идемпотентность команд, деньги целыми тиынами.
+
+Как вышло: шаг 2 - поставщики, цены и заявки с приходом по заявке; шаг 3 - импорт цен; шаг 4 -
+отчёты склада и `supply_kind`/`meat`; шаг 5 - расстановка; шаг 6 (сделан) - проход браузером
+(`tests/backoffice/p2-pass-browser.test.mjs`: четыре роли, 1440 и 390 px, все флаги, 102 экрана) с
+исправлениями кабинета, открытые пункты прошлых шагов и runbook `docs/operations/backoffice-supply.md`
+(«Коротко»: флаги, порядок 13.11-19.11, роли, откат; §10 проход и тесты; §11 чего пока нет).
+Пункты прошлых шагов, закрытые в шаге 6:
+
+- `supplyAvailable` требует и чтения столбцов прихода 074 (`stockV2Readable`): карточка заявки
+  читает приход обратно; роль без чтения получает `supply=false` и `NOT_READY`, а не ошибку.
+- Откат расстановки проверен: после закрытия смены с пунктом «Расстановка заполнена» бэк-офис без
+  флага читает закрытую смену ровно так, как она сохранена (PostgreSQL), и кабинет показывает ответ,
+  комментарий и авто-проверку (Chromium).
+- Старый API без `ops/supplier-imports` (404) скрывает только блок импорта; ошибка 503 - словами в
+  блоке, остальная страница работает (Chromium).
+- Остаток на конец прошлого дня отдельным видом не делается: это «На конец» в «Движении» за период,
+  который кончается этим днём. Цена поставщика в «К заказу» не дублируется: её показывает редактор
+  заявки с выбранным поставщиком.
+
+### 9.6 Вопросы владельцу (с умолчанием)
+
+1. **Цены поставщиков видят все роли** (начальник смены, аналитик) - как стоимость в отчётах склада.
+   Если цены закупки нужно скрыть от начальника смены - отдельное право чтения.
+2. **Поставщиков и цены ведут** управляющий и бухгалтер; заявки - управляющий и начальник смены;
+   принимают поставку все, кому разрешён приход (управляющий, начальник смены, бухгалтер).
+3. **Хозтовары** - заявка без поставщика (свой хоз склад) или поставщику вида «поставщик».
+4. **Расстановка после полуночи** относится к бизнес-дню открытой смены менеджера.
+5. **Приём поставки по заявке и отмена заявки** - только управляющий (шаг 2). Если вечернюю поставку
+   принимает начальник смены без управляющего, он проводит обычную «Поставку» на странице «Остатки»
+   (P0), а заявку закрывает управляющий; либо владелец выдаёт начальнику смены `supply.close`.
+6. **«К заказу»** (шаг 4): цель мяса - 3 дня расхода, «рядом» - до цели плюс 20 %, расход -
+   продажи и расход в производство за 7 и 14 полных дней. Если владелец хочет другое число дней или
+   отдельную цель для каждой позиции - поле карточки вместо флажка «Мясо» (без DDL).
+7. **Ночь расстановки** (шаг 5): время 00:00-05:59 относится к дню смены накануне. При часах
+   10:00-00:00 и уборке до 01:00-02:00 это безопасно; если смена начинается раньше 06:00 или
+   кончается позже, граница - одна константа `NIGHT_END` (`staff-assignments.ts`) и тест.
+8. **Не по должности ставит только управляющий** (шаг 5, по заданию: «unless the manager confirms an
+   override with a reason»). Если начальник смены в вечерний час пик тоже должен ставить не по
+   должности - одна строка `staff.assign_override` в `P2_ROLE_PERMISSIONS.shift_manager` и тест
+   матрицы; без этого он ставит сотрудника по его должности или просит управляющего добавить ему
+   доп. станцию в карточке.
+9. **«Расстановка заполнена» - пункт закрытия смены**, не открытия: к открытию люди ещё приходят, к
+   закрытию день виден целиком (для КД9 важна полнота дня). Если пункт нужен и при открытии - тот же
+   механизм (`extra_items.opening`).

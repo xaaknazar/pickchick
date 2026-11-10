@@ -34,6 +34,32 @@ import {
   type StockLine,
   type StockV2Draft,
 } from './inventory-model.js';
+import {
+  REORDER_STATE_LABELS,
+  SUPPLY_KIND_LABELS,
+  TURNOVER_KINDS,
+  TURNOVER_LABELS,
+  balanceRows,
+  balanceState,
+  balancesCsv,
+  daysLeftText,
+  defaultSelection,
+  perDayText,
+  reorderCsv,
+  reorderRequest,
+  reorderRuleText,
+  rowReconciles,
+  salesBanner,
+  salesSince,
+  targetText,
+  turnoverCsv,
+  turnoverOf,
+  type BalanceFilter,
+  type StockBalancesView,
+  type StockConsumption,
+  type StockReorderView,
+} from './stock-reports-model.js';
+import type { RequestForm } from './supply-model.js';
 const money = (value: unknown) => {
   // Lane bo-ui audit F19: one money format with the rest of the cabinet.
   if (ui.fixes) return tenge(value);
@@ -64,6 +90,17 @@ function download(name: string, rows: string[][]) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+/**
+ * Lane bo-ui2 step 6 pass: a note of a stock report whose amounts never break across lines
+ * («59 880 ₸» used to end a phone line as «59»). Strings are text, `{ minor }` is an amount.
+ */
+function moneyNote(testId: string, ...parts: (string | { minor: unknown })[]): HTMLElement {
+  const p = el('p', 'op-note');
+  for (const part of parts)
+    p.append(typeof part === 'string' ? part : el('span', 'stock-money', tenge(part.minor)));
+  p.dataset.testid = testId;
+  return p;
 }
 /** `p1`: a stock P1 table, labelled for the phone without the audit fixes (labelledCards). */
 function table(head: string[], rows: (string | Node)[][], p1 = false) {
@@ -417,7 +454,110 @@ export type InventoryCallbacks = {
    * the role may count, at least one such position). Absent otherwise.
    */
   keyCount?: { open: () => void; items: number };
+  /**
+   * Lane bo-ui2 step 4 (capabilities.stock_reports): «Остатки» from GET .../ops/stock?view=
+   * balances, «Движение» by position (the turnover of view=movement) and «К заказу». With
+   * «Закупки» on the server, `createRequest` opens a request prefilled from «К заказу» (null:
+   * this role may not create one, `requestRights` says who may); without them there is no button.
+   */
+  reports?: {
+    balances: () => Promise<StockBalancesView>;
+    reorder: () => Promise<StockReorderView>;
+    today: () => string;
+    createRequest?: ((form: RequestForm, mixed: boolean) => void) | null;
+    requestRights?: string | null;
+  };
 };
+/**
+ * Stock reports (lane bo-ui2 step 4): the banner while sales are not in the numbers, or the time
+ * since when they are written off.
+ */
+function salesState(consumption: StockConsumption, asOf: string, testId: string) {
+  const warning = salesBanner(consumption, asOf);
+  const since = salesSince(consumption);
+  if (!warning && !since) return null;
+  const n = el('p', warning ? 'notice op-stock-sales' : 'op-note', warning ?? since ?? '');
+  n.setAttribute('role', 'status');
+  n.dataset.testid = testId;
+  return n;
+}
+/**
+ * «Движение по позициям» of a view=movement answer (opening, in, out, closing and of what), or
+ * nothing on a server without the stock reports.
+ */
+function turnoverBlock(report: unknown): Node[] {
+  let moved: ReturnType<typeof turnoverOf>;
+  try {
+    moved = turnoverOf(report);
+  } catch {
+    const n = el(
+      'p',
+      'notice error',
+      'Движение по позициям пришло в неверном виде. Обновите страницу.',
+    );
+    n.setAttribute('role', 'alert');
+    return [n];
+  }
+  if (!moved) return [];
+  const { turnover, consumption } = moved;
+  const asOf = String((report as Data)['as_of'] ?? '');
+  const out: Node[] = [];
+  const banner = salesState(consumption, asOf, 'stock-turnover-sales');
+  if (banner) out.push(banner);
+  out.push(
+    el('h3', '', 'Движение по позициям'),
+    el(
+      'p',
+      'op-note',
+      'На начало + пришло - ушло = на конец. «На начало» - остаток после последнего документа до периода, «На конец» - после последнего документа периода. Количество - в учётной единице позиции, сумма - по средней себестоимости на момент документа.',
+    ),
+  );
+  if (turnover.mismatches.length) {
+    const n = el(
+      'p',
+      'notice error',
+      `У ${turnover.mismatches.length} поз. остаток на конец не сходится с историей документов. Сообщите владельцу: это ошибка учёта, остатки этих позиций проверьте инвентаризацией.`,
+    );
+    n.setAttribute('role', 'alert');
+    n.dataset.testid = 'stock-turnover-mismatch';
+    out.push(n);
+  }
+  const t = turnover.totals;
+  out.push(
+    moneyNote(
+      'stock-turnover-totals',
+      'Стоимость запасов: на начало ',
+      { minor: t.opening.value_minor },
+      ', пришло ',
+      { minor: t.in.value_minor },
+      ', ушло ',
+      { minor: t.out.value_minor },
+      ', на конец ',
+      { minor: t.closing.value_minor },
+      '.',
+    ),
+  );
+  const wrap = table(
+    ['Ингредиент', 'На начало', 'Пришло', 'Ушло', 'На конец', 'Сумма на конец', 'Из чего'],
+    turnover.rows.map((r) => [
+      String(r.name),
+      displayQuantity(r.opening.quantity, r.unit),
+      displayQuantity(r.in.quantity, r.unit),
+      displayQuantity(r.out.quantity, r.unit),
+      displayQuantity(r.closing.quantity, r.unit) + (rowReconciles(r) ? '' : ' (не сходится)'),
+      tenge(r.closing.value_minor),
+      TURNOVER_KINDS.filter((k) => r[k].quantity !== '0' || r[k].value_minor !== '0')
+        .map((k) => `${TURNOVER_LABELS[k]} ${signedQuantity(r[k].quantity, r.unit)}`)
+        .join('; ') || '-',
+    ]),
+    true,
+  );
+  wrap.dataset.testid = 'stock-turnover';
+  out.push(wrap);
+  if (turnover.truncated.rows)
+    out.push(el('p', 'op-note', 'Показаны первые 2000 позиций. Итоги посчитаны по всем.'));
+  return out;
+}
 const REPORT_TABS: readonly StockReportView[] = ['waste', 'movement', 'variance', 'consumption'];
 const isReportTab = (tab: string): tab is StockReportView =>
   (REPORT_TABS as readonly string[]).includes(tab);
@@ -456,6 +596,14 @@ export class InventoryView {
     consumption: '',
   };
   private sales = new AutoconsumeView();
+  /** Stock reports (lane bo-ui2 step 4): the last answers, reloaded for every new snapshot. */
+  private serverBalances: StockBalancesView | null = null;
+  private serverBalancesFor = '';
+  private serverBalancesError = '';
+  private reorderView: StockReorderView | null = null;
+  private reorderFor = '';
+  private reorderError = '';
+  private reorderSelected: Set<string> | null = null;
   render(data: Snapshot, callbacks: InventoryCallbacks) {
     const root = el('section', 'inventory'),
       toolbar = el('div', 'inventory-toolbar'),
@@ -466,6 +614,8 @@ export class InventoryView {
       tabs.replaceChildren();
       body.replaceChildren();
       const p1 = callbacks.stockP1 && callbacks.report ? callbacks.stockP1 : null;
+      // Lane bo-ui2 step 4: «К заказу» after «Движение» while the stock reports answer.
+      const reorder = callbacks.reports ? [['reorder', 'К заказу']] : [];
       for (const [key, label] of [
         ['balances', 'Остатки'],
         ['documents', 'Документы'],
@@ -473,12 +623,13 @@ export class InventoryView {
           ? [
               ['waste', 'Списания'],
               ['movement', 'Движение'],
+              ...reorder,
               // Step 8: what the counts found and what the sales wrote off.
               ['variance', 'Расхождения подсчёта'],
               ['consumption', 'Расход по продажам'],
             ]
           : callbacks.report
-            ? [['report', 'Списания и поставки']]
+            ? [['report', 'Списания и поставки'], ...reorder]
             : []),
         ...(callbacks.autoconsume ? [['sales', 'Списание по продажам']] : []),
         ['recipe', 'Техкарты'],
@@ -495,7 +646,11 @@ export class InventoryView {
         b.setAttribute('aria-pressed', String(this.tab === key));
         tabs.append(b);
       }
-      if (this.tab === 'balances') this.balances(body, data, Boolean(p1));
+      if (this.tab === 'balances' && callbacks.reports)
+        this.balancesReport(body, data, callbacks.reports);
+      else if (this.tab === 'balances') this.balances(body, data, Boolean(p1));
+      else if (this.tab === 'reorder' && callbacks.reports)
+        this.reorderReport(body, data, callbacks.reports);
       else if (this.tab === 'documents' && p1) this.documentsP1(body, data, p1);
       else if (this.tab === 'documents') this.documents(body, data);
       else if (isReportTab(this.tab) && p1 && callbacks.report)
@@ -506,7 +661,12 @@ export class InventoryView {
         body.append(
           this.sales.render(callbacks.autoconsume.stamp, callbacks.autoconsume.callbacks),
         );
-      else if (isReportTab(this.tab) || this.tab === 'sales' || (this.tab === 'report' && p1)) {
+      else if (
+        isReportTab(this.tab) ||
+        this.tab === 'sales' ||
+        this.tab === 'reorder' ||
+        (this.tab === 'report' && p1)
+      ) {
         // The server lost (or gained) stock P1 since the tab was chosen: back to the balances.
         this.tab = 'balances';
         draw();
@@ -765,6 +925,7 @@ export class InventoryView {
         );
       } else
         result.append(
+          ...turnoverBlock(r),
           table(
             ['Тип', 'Документов', 'Изменение стоимости'],
             summary('by_kind').map((v) => [
@@ -1043,6 +1204,8 @@ export class InventoryView {
         );
       else
         result.append(
+          // Lane bo-ui2 step 4: opening, movements and closing by position, when the server has it.
+          ...turnoverBlock(r),
           el(
             'p',
             'op-note',
@@ -1100,6 +1263,16 @@ export class InventoryView {
             () => download(`pickchick-${view}-${span}.csv`, totals(r)),
             'button',
             `inventory-${view}-csv`,
+          ),
+        );
+      const moved = view === 'movement' ? turnoverOf(r) : null;
+      if (moved)
+        files.append(
+          button(
+            'CSV движения по позициям',
+            () => download(`pickchick-stock-turnover-${span}.csv`, turnoverCsv(moved.turnover, r)),
+            'button',
+            'inventory-turnover-csv',
           ),
         );
       files.append(
@@ -1162,6 +1335,341 @@ export class InventoryView {
     );
     body.append(el('p', 'op-note', REPORT_NOTES[view]), controls, result);
     show();
+  }
+  /** The draw of the shown «Остатки» or «К заказу», called again when its answer arrives. */
+  private reportsDraw: (() => void) | null = null;
+  /**
+   * Lane bo-ui2 step 4 «Остатки» from the server: the balance, minimum and its state in words,
+   * the last count and movement, the value at average cost and at the last purchase price.
+   */
+  private balancesReport(
+    body: HTMLElement,
+    data: Snapshot,
+    reports: NonNullable<InventoryCallbacks['reports']>,
+  ) {
+    const host = el('div', 'inventory-report');
+    host.dataset.testid = 'stock-balances';
+    const draw = () => {
+      host.replaceChildren();
+      if (this.serverBalancesError) {
+        const n = el('p', 'notice error', this.serverBalancesError);
+        n.setAttribute('role', 'alert');
+        host.append(n);
+        return;
+      }
+      const v = this.serverBalances;
+      if (!v) {
+        host.append(el('p', 'op-note', 'Загружаем остатки...'));
+        return;
+      }
+      const banner = salesState(v.consumption, v.as_of, 'stock-balances-sales');
+      if (banner) host.append(banner);
+      const rows = balanceRows(v, this.query, this.filter as BalanceFilter);
+      const atAverage = rows.reduce((n, r) => n + BigInt(r.value_minor), 0n);
+      const atLast = rows.reduce((n, r) => n + BigInt(r.value_last_price_minor ?? '0'), 0n);
+      const unpriced = rows.filter((r) => r.value_last_price_minor === null && r.quantity !== '0');
+      const summary = moneyNote(
+        'stock-balances-summary',
+        `Показано ${rows.length} из ${v.rows.length}. Стоимость выбранных запасов: `,
+        { minor: atAverage },
+        ' по средней себестоимости, ',
+        { minor: atLast },
+        ` по последней цене закупки${unpriced.length ? ` (без цены закупки: ${unpriced.length} поз.)` : ''}. Ниже минимума: ${v.totals.below_minimum}.`,
+      );
+      host.append(
+        summary,
+        table(
+          [
+            'Ингредиент',
+            'Остаток',
+            'Минимум',
+            'Состояние',
+            'Последний подсчёт',
+            'Последнее движение',
+            'Стоимость',
+            'По последней цене',
+          ],
+          rows.map((r) => {
+            const state = el('span', 'op-badge' + (r.below_minimum ? ' bad' : ''), balanceState(r));
+            return [
+              r.name,
+              displayQuantity(r.quantity, r.unit),
+              r.minimum === '0' ? 'не задан' : displayQuantity(r.minimum, r.unit),
+              state,
+              v.counted_at_known
+                ? r.counted_at
+                  ? almatyStamp(r.counted_at)
+                  : 'Подсчёта не было'
+                : '-',
+              r.last_movement_at ? almatyStamp(r.last_movement_at) : 'Движений не было',
+              tenge(r.value_minor),
+              r.value_last_price_minor === null ? 'нет закупки' : tenge(r.value_last_price_minor),
+            ];
+          }),
+          true,
+        ),
+        el(
+          'p',
+          'op-note',
+          '«Стоимость» - по средней себестоимости, как её держит склад. «По последней цене» - остаток по цене последней поставки позиции (без сторнированных); без поставки цены нет. «Ниже минимума» - остаток меньше минимального запаса из карточки позиции. Подсказку к заказу смотрите во вкладке «К заказу».',
+        ),
+      );
+      if (v.truncated.rows) host.append(el('p', 'op-note', 'Показаны первые 2000 позиций склада.'));
+    };
+    const load = () => {
+      this.serverBalancesFor = data.as_of;
+      reports
+        .balances()
+        .then((v) => {
+          this.serverBalances = v;
+          this.serverBalancesError = '';
+        })
+        .catch(() => {
+          this.serverBalances = null;
+          this.serverBalancesError =
+            'Остатки не загрузились. Проверьте связь и нажмите «Обновить».';
+        })
+        .finally(() => this.reportsDraw?.());
+    };
+    this.reportsDraw = draw;
+    if (this.serverBalancesFor !== data.as_of) load();
+    const controls = el('div', 'inventory-filters');
+    controls.append(
+      field(
+        'Найти ингредиент',
+        this.query,
+        (v) => {
+          this.query = v;
+          draw();
+        },
+        { id: 'inventory-search', type: 'search' },
+      ),
+      select(
+        'Показать',
+        this.filter,
+        [
+          { value: 'active', label: 'Используемые' },
+          { value: 'low', label: 'Ниже минимума' },
+          { value: 'zero', label: 'Без остатка' },
+          { value: 'inactive', label: 'Не используются' },
+          { value: 'all', label: 'Все ингредиенты' },
+        ],
+        (v) => {
+          this.filter = v;
+          draw();
+        },
+        'inventory-filter',
+      ),
+    );
+    const actions = el('div', 'op-actions');
+    actions.append(
+      button(
+        'Скачать CSV',
+        () => {
+          const v = this.serverBalances;
+          if (v)
+            download(
+              `pickchick-stock-${almatyDay(new Date(v.as_of))}.csv`,
+              balancesCsv(balanceRows(v, this.query, this.filter as BalanceFilter), v.as_of),
+            );
+        },
+        'button',
+        'stock-balances-csv',
+      ),
+      button(
+        'Обновить',
+        () => {
+          this.serverBalancesFor = '';
+          load();
+        },
+        'button subtle',
+        'stock-balances-refresh',
+      ),
+    );
+    body.append(controls, actions, host);
+    draw();
+  }
+  /**
+   * Lane bo-ui2 step 4 «К заказу»: what is below or near its target with the average use, the
+   * days it lasts, the suggested quantity and its value, the rule in words, CSV and «Создать
+   * заявку» (a supply request prefilled from the selected rows; the system sends nothing).
+   */
+  private reorderReport(
+    body: HTMLElement,
+    data: Snapshot,
+    reports: NonNullable<InventoryCallbacks['reports']>,
+  ) {
+    const host = el('div', 'inventory-report');
+    host.dataset.testid = 'stock-reorder';
+    const draw = () => {
+      host.replaceChildren();
+      if (this.reorderError) {
+        const n = el('p', 'notice error', this.reorderError);
+        n.setAttribute('role', 'alert');
+        host.append(n);
+        return;
+      }
+      const v = this.reorderView;
+      if (!v) {
+        host.append(el('p', 'op-note', 'Считаем подсказку к заказу...'));
+        return;
+      }
+      const selected = (this.reorderSelected ??= defaultSelection(v));
+      const banner = salesState(v.consumption, v.as_of, 'stock-reorder-sales');
+      if (banner) host.append(banner);
+      const rule = el('p', 'op-note', reorderRuleText(v));
+      rule.dataset.testid = 'stock-reorder-rule';
+      const totals = v.rows.length
+        ? moneyNote(
+            'stock-reorder-totals',
+            `Ниже цели: ${v.totals.below}, рядом с минимумом: ${v.totals.near}. Заказать на `,
+            { minor: v.totals.hint_value_minor },
+            ` по последним ценам${v.totals.unpriced ? ` (без цены: ${v.totals.unpriced} поз.)` : ''}.`,
+          )
+        : moneyNote(
+            'stock-reorder-totals',
+            'Все позиции с минимумом или отметкой «Мясо» выше цели: заказывать нечего.',
+          );
+      const tools = el('div', 'op-actions stock-reorder-tools');
+      // Step 6 pass: the rights note goes under the buttons (inside the row it pushed «Обновить»
+      // out of a 390 px phone), and only a role that can create a request gets the checkboxes.
+      let rights: HTMLElement | null = null;
+      const pickable = typeof reports.createRequest === 'function';
+      if (reports.createRequest) {
+        const create = reports.createRequest;
+        const count = v.rows.filter((r) => selected.has(r.ingredient_id)).length;
+        const b = button(
+          `Создать заявку (${count})`,
+          () => {
+            const out = reorderRequest(v, selected, reports.today());
+            create(out.form, out.mixed);
+          },
+          'button primary',
+          'stock-reorder-request',
+        );
+        b.disabled = count === 0;
+        if (!count) b.title = 'Отметьте позиции для заявки.';
+        tools.append(b);
+      } else if (reports.createRequest === null) {
+        const why = reports.requestRights ?? 'Заявки создают управляющий и начальник смены.';
+        const b = button(
+          'Создать заявку',
+          () => undefined,
+          'button subtle',
+          'stock-reorder-request',
+        );
+        b.disabled = true;
+        b.title = why;
+        b.setAttribute('aria-describedby', 'stock-reorder-request-why');
+        rights = el('p', 'op-note op-rights', why);
+        rights.id = 'stock-reorder-request-why';
+        tools.append(b);
+      }
+      tools.append(
+        button(
+          'Скачать CSV',
+          () => download(`pickchick-reorder-${v.today}.csv`, reorderCsv(v)),
+          'button',
+          'stock-reorder-csv',
+        ),
+        button(
+          'Обновить',
+          () => {
+            this.reorderFor = '';
+            load();
+          },
+          'button subtle',
+          'stock-reorder-refresh',
+        ),
+      );
+      host.append(totals, tools);
+      if (rights) host.append(rights);
+      host.classList.toggle('stock-reorder-pickable', pickable);
+      host.append(
+        table(
+          [
+            ...(pickable ? ['В заявку'] : []),
+            'Ингредиент',
+            'Остаток',
+            'Расход в день (7 / 14 дней)',
+            'Хватит на',
+            'Цель',
+            'Заказать',
+            'Состояние',
+          ],
+          v.rows.map((r) => {
+            // A bare checkbox with its name for screen readers (the column says what it does).
+            const pick = el('input', 'stock-reorder-pick');
+            pick.type = 'checkbox';
+            pick.checked = selected.has(r.ingredient_id);
+            pick.dataset.testid = 'stock-reorder-pick-' + r.ingredient_id;
+            pick.setAttribute('aria-label', `В заявку: ${r.name}`);
+            pick.addEventListener('change', () => {
+              if (pick.checked) selected.add(r.ingredient_id);
+              else selected.delete(r.ingredient_id);
+              draw();
+            });
+            const name = el('div');
+            name.append(
+              el('strong', '', r.name + (r.meat ? ' (мясо)' : '')),
+              el(
+                'span',
+                'op-note stock-reorder-from',
+                `Откуда: ${r.supply_kind ? (SUPPLY_KIND_LABELS[r.supply_kind] ?? r.supply_kind) : 'не задано'}`,
+              ),
+            );
+            const order = el('span', '', r.hint === '0' ? 'ничего' : '');
+            if (r.hint !== '0')
+              // The amount stays on one line («20 ₸», not «20» and «₸» under it).
+              order.append(
+                `${displayQuantity(r.hint, r.unit)} · `,
+                el(
+                  'span',
+                  'stock-money',
+                  r.hint_value_minor === null ? 'нет цены' : tenge(r.hint_value_minor),
+                ),
+              );
+            const state = el(
+              'span',
+              'op-badge' + (r.state === 'below' ? ' bad' : ''),
+              REORDER_STATE_LABELS[r.state],
+            );
+            return [
+              ...(pickable ? [pick] : []),
+              name,
+              displayQuantity(r.balance, r.unit),
+              `${perDayText(r.use.d7, r.unit)} / ${perDayText(r.use.d14, r.unit)}`,
+              daysLeftText(r.days_left),
+              targetText(r, v.rule.meat_days),
+              order,
+              state,
+            ];
+          }),
+          true,
+        ),
+        rule,
+      );
+    };
+    const load = () => {
+      this.reorderFor = data.as_of;
+      reports
+        .reorder()
+        .then((v) => {
+          this.reorderView = v;
+          this.reorderSelected = null;
+          this.reorderError = '';
+        })
+        .catch(() => {
+          this.reorderView = null;
+          this.reorderError =
+            'Подсказка к заказу не загрузилась. Проверьте связь и нажмите «Обновить».';
+        })
+        .finally(() => this.reportsDraw?.());
+    };
+    this.reportsDraw = draw;
+    if (this.reorderFor !== data.as_of) load();
+    body.append(host);
+    draw();
   }
   /** Stock P1 «Документы»: reason or supplier, storno state and the storno of a whole document. */
   private documentsP1(

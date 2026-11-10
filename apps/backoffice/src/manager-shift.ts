@@ -455,11 +455,14 @@ export class ManagerShiftView {
   private closeDialog(v: ManagerShiftsView, shift: ManagerShift) {
     const items = shiftChecklist(v).closing;
     const saved = shift.closing?.draft ? shift.closing : null;
-    const answers: Answer[] = (saved?.items ?? []).map((a) => ({
-      code: a.code,
-      status: a.status,
-      comment: a.comment,
-    }));
+    // Only answers to the items shown (a draft may hold an item of a feature switched off since).
+    const answers: Answer[] = (saved?.items ?? [])
+      .filter((a) => items.some((i) => i.code === a.code))
+      .map((a) => ({
+        code: a.code,
+        status: a.status,
+        comment: a.comment,
+      }));
     let handover = saved?.handover ?? '';
     const d = shiftDialog(
       'Закрыть смену',

@@ -115,6 +115,20 @@ export function commandPermission(command: Data): string {
     case 'discount_save':
     case 'discount_state':
       return 'discounts.write';
+    // Lane bo-ui2 step 2: suppliers and supply requests (receive also needs stock.receipt).
+    case 'supplier_save':
+    case 'supplier_price_save':
+      return 'suppliers.write';
+    case 'supply_request_save':
+    case 'supply_request_submit':
+      return 'supply.write';
+    case 'supply_request_cancel':
+    case 'supply_request_receive':
+      return 'supply.close';
+    // Lane bo-ui2 step 5: the staff assignment (an override also needs staff.assign_override).
+    case 'staff_assign':
+    case 'staff_unassign':
+      return 'staff.assign';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -207,6 +221,28 @@ export const discountsAvailable = (data: { capabilities?: unknown } | null | und
     (data.capabilities as Data)['discounts'] === true,
   );
 /**
+ * Suppliers and supply requests (lane bo-ui2 step 2, BACKOFFICE_SUPPLY_ENABLED with stock v2 and
+ * the cloud076 rights): the server answers GET .../ops/suppliers and .../ops/supply-requests and
+ * takes the supplier and supply request commands.
+ */
+export const supplyAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['supply'] === true,
+  );
+/**
+ * Staff assignment «Расстановка» (lane bo-ui2 step 5, BACKOFFICE_STAFF_ASSIGNMENT_ENABLED with the
+ * staff positions and the cloud076 rights): the server answers GET .../ops/staff-assignments and
+ * takes staff_assign and staff_unassign.
+ */
+export const staffAssignmentAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['staff_assignment'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -249,6 +285,11 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'manager_shifts.template': 'Чек-лист смены меняет управляющий.',
   'staff.positions': 'Должности, доступ к кассе и выгрузку состава ведёт управляющий.',
   'discounts.write': 'Скидки создаёт и меняет только управляющий точки.',
+  'suppliers.write': 'Поставщиков и их цены ведут управляющий и бухгалтер.',
+  'supply.write': 'Заявки создают и подают управляющий и начальник смены.',
+  'supply.close': 'Принять поставку по заявке и отменить заявку может только управляющий.',
+  'staff.assign': 'Расстановку ведут управляющий и начальник смены.',
+  'staff.assign_override': 'Поставить сотрудника не по должности может только управляющий.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -596,6 +637,24 @@ export class OperationsModel {
     );
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return discountsView(value, branch);
+  }
+  /**
+   * One second-wave view (lane bo-ui2: GET .../ops/suppliers, .../ops/supply-requests and, step
+   * 3, .../ops/supplier-imports), as
+   * the server answered it; the page checks the shape (supply-model.ts).
+   */
+  async opsView(
+    // Lane bo-ui2 step 4: 'stock' with view=balances|reorder (stock-reports-model.ts).
+    // Step 5: 'staff-assignments' (assignment-model.ts).
+    view: 'suppliers' | 'supply-requests' | 'supplier-imports' | 'stock' | 'staff-assignments',
+    query: Record<string, string> = {},
+  ) {
+    const generation = this.generation;
+    const branch = this.branch;
+    const search = new URLSearchParams(query).toString();
+    const value = await this.api(`branches/${branch}/ops/${view}${search ? '?' + search : ''}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return { value, branch };
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {
