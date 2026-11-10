@@ -7666,6 +7666,19 @@
       "updatedAt": "2026-11-10T13:37:26.271Z",
       "summary": "PR336 source8945f862 published and clean. Harness checkpoints/continuous-duration plus relogin/shift race fixes; 32 unit tests PASS. Smoke6 PASS21/21, zero traffic errors, offline120479ms, reconvergence verified. Full8h retry running supervisor11694 runner12638 in .local/offline-stand/soak-1110-full; baseline17/17 PASS, WAN down2026-11-10T13:33:26.190Z. Prior failed controls and old interrupted1109 preserved. Foundation42820557929 still in progress. Hourly automatic follow-up configured. NOT full8h PASS; no production deployment or wholeK12 acceptance.",
       "nextAction": "Do not alter live source/dependencies/containers or start another run. Read supervisor.json heartbeat10s and report checkpoints10m; earliest end21:33UTC Nov10 plus recovery. On completion claim task, validate actual28800000ms continuous coverage, restarts/shifts, zero traffic errors and all final invariants. Publish sanitized evidence and final doc/PR report; check CI and current shared before integration. Preserve unpaid_service/two-station and physical restaurant acceptance limits. If process lost or fails, record actual failure; never infer PASS from elapsed clock. Disable automatic follow-up after final report."
+    },
+    {
+      "id": "iiko-archive-1110",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/iiko-archive-1110",
+      "scopes": [
+        "scripts/iiko-archive.py",
+        "tests/operations/test_iiko_archive.py",
+        "docs/operations/iiko-archive-1110.md"
+      ],
+      "status": "active",
+      "head": "81329d980c4550a40484b22e6867fe82f6f249d5",
+      "updatedAt": "2026-11-10T13:41:12.305Z"
     }
   ],
   "approvedScopeTransfers": [
