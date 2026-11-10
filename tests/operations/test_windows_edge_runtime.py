@@ -128,6 +128,8 @@ class WindowsEdgePackageTests(unittest.TestCase):
         tools = ['scripts/pos-sales-setup.mjs', 'infra/windows/pos-sales-upgrade-db.mjs',
                  'infra/windows/kds-upgrade-db.mjs', 'infra/windows/kds-switch.mjs',
                  'infra/windows/pos-sales-sync-release.mjs',
+                 # Issue #312 step 4: backlog report before the first POS sync Install.
+                 'infra/windows/pos-sync-backlog.mjs',
                  # Lane bo-ui: the roster scripts of backoffice-p1-cutover.md run on the server.
                  'scripts/staff-roster-apply.mjs', 'scripts/staff-pin-batch.mjs',
                  'scripts/edge-staff-id.mjs']
