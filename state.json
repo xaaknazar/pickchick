@@ -7689,9 +7689,11 @@
       "scopes": [
         "codex-reports/2026-11-10-android-testers.md"
       ],
-      "status": "active",
-      "head": "81329d980c4550a40484b22e6867fe82f6f249d5",
-      "updatedAt": "2026-11-10T14:13:17.674Z"
+      "status": "available",
+      "head": "cc49fb8dac6cad61d12e048effb7a5ed0e38b0a6",
+      "updatedAt": "2026-11-10T14:15:14.378Z",
+      "summary": "П7: список из19 адресов сохранён для активного Alpha1.0.1(7), единственное изменение на проверке Google. Письмо отправлено19 адресатам, Gmail SENT и To/Bcc подтверждены. Report cc49fb8d опубликован, remote SHA совпал; Prettier/diff/privacy checks PASS. Частных email в Git нет. Доступ новых4 и установки не подтверждены.",
+      "nextAction": "После Google review проверить допуск новых участников и фактическое вступление/установки. Включить отчёт при продолжении android-play-1106/PR322 в status/roadmap и исходный журнал; онлайн-пульт не обновлён. CI документального PR не подтверждена. Production только по отдельному да; Windows не менять до завершения Claude."
     }
   ],
   "approvedScopeTransfers": [
