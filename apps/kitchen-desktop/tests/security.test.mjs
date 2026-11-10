@@ -190,6 +190,13 @@ test('electron-builder packages every renderer asset and nothing else of the ren
   );
 });
 
+test('only the board paired as display opens full screen', async () => {
+  const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.match(main, /const board = config\.terminalMode === 'display';/);
+  assert.match(main, /if \(board\) window\.setFullScreen\(true\);\s*else window\.maximize\(\);/);
+  assert.doesNotMatch(main, /kiosk/);
+});
+
 // Cutover KDS-5: the renderer reaches the KDS routes of CR kds-5 through the same gateway rules.
 test('renderer may call the KDS routes with their exact query rules only', () => {
   for (const [path, method] of [
