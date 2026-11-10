@@ -84,7 +84,7 @@ jobs:
           $found = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'PickChickKitchen.exe' -ErrorAction SilentlyContinue)
           $found | ForEach-Object { "Installed: $($_.FullName)" }
           # install-kitchen-client.ps1 expects this default -AppPath.
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChick Kitchen\PickChickKitchen.exe'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChickKitchen\PickChickKitchen.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not at the install-kitchen-client.ps1 default: $exe" }
           (Get-Item -LiteralPath $exe).VersionInfo | Format-List ProductVersion, FileVersion
 
@@ -118,6 +118,9 @@ jobs:
           $found = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'PickChickPOS.exe' -ErrorAction SilentlyContinue)
           $found | ForEach-Object { "Installed: $($_.FullName)" }
           if ($found.Count -ne 1) { throw 'PickChickPOS.exe not found exactly once' }
+          # install-pos-client.ps1 expects this default -AppPath.
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChickPOS\PickChickPOS.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not at the install-pos-client.ps1 default: $exe" }
 
 # Packaging and Electron shell tests on a GitHub Windows Server runner do not replace
 # installation on the restaurant monoblocks (Windows 10 Pro, touch, LAN gateway, iiko nearby).
