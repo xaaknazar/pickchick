@@ -7656,11 +7656,14 @@
       "branch": "codex/offline-soak-1109",
       "scopes": [
         "docs/operations/offline-soak-1109.md",
-        "@cloud/offline-soak-1109"
+        "@cloud/offline-soak-1109",
+        "tests/offline-stand/run.mjs",
+        "tests/offline-stand/soak-progress.mjs",
+        "tests/offline-stand/soak-progress.test.mjs"
       ],
-      "status": "available",
+      "status": "active",
       "head": "aeb2e46205bc2f576285fb4d66b027fc2efe2d85",
-      "updatedAt": "2026-11-10T12:35:48.122Z",
+      "updatedAt": "2026-11-10T12:37:51.296Z",
       "summary": "10.11 проверен неполный итог, PR336 обновлён, commit aeb2e462. Процессы PID24041/24841 отсутствуют. Последний heartbeat 09.11 19:20:01 UTC, POS log 19:20:05.854 UTC: 7h33m16s от старта soak. Нет завершения, exit_code и итоговой сверки; running устарел. Подтверждён только baseline 17/17. К12 открыт, причина остановки не установлена.",
       "nextAction": "Нужен новый полный 8h прогон и convergence на среде с обеспеченным временем жизни. Сохранить старые логи и базы; не дописывать недостающие 27 минут. Новый запуск сегодня не выполнялся. Проверить актуальный источник перед новым прогоном. PR336 draft, обезличенные факты и SHA256 в docs/operations/offline-soak-1109.md."
     }
