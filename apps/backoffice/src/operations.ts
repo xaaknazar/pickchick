@@ -79,6 +79,7 @@ import {
   stockFixes,
   stockP1,
   stockV2,
+  supplyAvailable,
   stationPlanReason,
   stationPlanStatus,
   stationPlanSummary,
@@ -90,6 +91,13 @@ import {
   type StopList,
   type StationPlanStatus,
 } from './operations-model.js';
+import {
+  SUPPLY_KIND_LABELS,
+  stockBalancesView,
+  stockReorderView,
+  stockReportsAvailable,
+} from './stock-reports-model.js';
+import type { RequestForm } from './supply-model.js';
 
 export const sections = [
   ['dash', 'Главная', 'Продажи, заказы и состояние точки'],
@@ -566,6 +574,11 @@ export class OperationsView {
     private navigate: (section: string) => void,
     readonly stops: StopsModel | null = null,
   ) {}
+  /**
+   * Lane bo-ui2 step 4: «Создать заявку» of «К заказу» opens the request editor of «Закупки»
+   * (app.ts sets it while the supply page exists); null keeps the button away.
+   */
+  requestFromHint: ((form: RequestForm, mixed: boolean) => void) | null = null;
   /**
    * Whether this person may send stop commands. Servers with BACKOFFICE_ROLES_ENABLED send
    * permissions[] (a designated shift manager has an analyst grant); otherwise the stop list's
@@ -1364,6 +1377,49 @@ export class OperationsView {
           'Отмеченные позиции попадают в «Подсчёт на закрытии» в «Остатках», а смена менеджера при закрытии проверяет, что их посчитали.',
         ),
         count,
+      );
+    }
+    // Lane bo-ui2 step 4: where the position comes from (with «Закупки») and «Мясо» (with the
+    // stock reports). Without the capability the fields are not shown and stay as stored.
+    const reorderFields =
+      kind === 'ingredient' &&
+      (stockReportsAvailable(this.model.data) || supplyAvailable(this.model.data));
+    if (reorderFields) {
+      const box = el('div', 'form-grid');
+      if (supplyAvailable(this.model.data))
+        box.append(
+          select(
+            'Откуда обычно приходит',
+            typeof p['supply_kind'] === 'string' ? p['supply_kind'] : '',
+            [
+              { value: '', label: 'Не задано' },
+              ...Object.entries(SUPPLY_KIND_LABELS).map(([value, label]) => ({ value, label })),
+            ],
+            (value) => {
+              if (value) p['supply_kind'] = value;
+              else delete p['supply_kind'];
+            },
+            'op-supply-kind',
+          ),
+        );
+      if (stockReportsAvailable(this.model.data))
+        box.append(
+          check(
+            'Мясо: заказывать на 3 дня среднего расхода',
+            p['meat'] === true,
+            (on) => {
+              if (on) p['meat'] = true;
+              else delete p['meat'];
+            },
+            'op-meat',
+          ),
+        );
+      d.append(
+        el('h3', '', 'Заказ'),
+        note(
+          'Во вкладке «К заказу» цель позиции - её минимальный запас. Для мяса цель - 3 дня среднего расхода, но не меньше минимума. «Откуда обычно приходит» подставляется в заявку.',
+        ),
+        box,
       );
     }
     // Stock P1 (step 8): how the automatic consumption treats the output of this recipe.
@@ -3502,6 +3558,32 @@ export class OperationsView {
                       rightsText(d, permission) ??
                       'У вас доступ только для просмотра. Это действие выполняет управляющий точки.',
                   },
+                },
+              }
+            : {}),
+          // Lane bo-ui2 step 4: «Остатки» from the server, «Движение» by position, «К заказу».
+          ...(stockReportsAvailable(d)
+            ? {
+                reports: {
+                  balances: async () => {
+                    const out = await this.model.opsView('stock', { view: 'balances' });
+                    return stockBalancesView(out.value, out.branch);
+                  },
+                  reorder: async () => {
+                    const out = await this.model.opsView('stock', { view: 'reorder' });
+                    return stockReorderView(out.value, out.branch);
+                  },
+                  today: () => almatyDay(new Date()),
+                  // A request from «К заказу» only where «Закупки» runs; disabled with the reason
+                  // for a role that may not create one.
+                  ...(supplyAvailable(d) && this.requestFromHint
+                    ? {
+                        createRequest: permitted(d, 'supply.write') ? this.requestFromHint : null,
+                        requestRights: permitted(d, 'supply.write')
+                          ? null
+                          : rightsText(d, 'supply.write'),
+                      }
+                    : {}),
                 },
               }
             : {}),

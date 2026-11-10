@@ -57,6 +57,17 @@ export interface BackofficeOptions {
   staffPositionsEnabled?: boolean;
   /** BACKOFFICE_DISCOUNTS_ENABLED: discount editor (cloud075); never published to the edge. */
   discountsEnabled?: boolean;
+  /**
+   * Back-office second wave (lane bo-ui2, design-bo-ui.md «Вторая волна»), set from the API
+   * ServiceConfig by backofficeP2Options (p2-flags.ts), never from backofficeOptions(env). All
+   * default off; with every one off nothing of the second wave runs and no response gains a key.
+   * BACKOFFICE_SUPPLY_ENABLED: suppliers, their prices and import, supply requests (cloud076).
+   */
+  supplyEnabled?: boolean;
+  /** BACKOFFICE_STOCK_REPORTS_ENABLED: stock balances, stock turnover, the order hint. */
+  stockReportsEnabled?: boolean;
+  /** BACKOFFICE_STAFF_ASSIGNMENT_ENABLED: staff at stations (cloud076 bo_staff_assignments). */
+  staffAssignmentEnabled?: boolean;
 }
 function flag(env: Record<string, string | undefined>, name: string) {
   const value = env[name] ?? 'false';

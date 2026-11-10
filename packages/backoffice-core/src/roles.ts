@@ -91,7 +91,32 @@ export const BACKOFFICE_P1_PERMISSIONS = [
   'discounts.write',
 ] as const;
 export type BackofficeP1Permission = (typeof BACKOFFICE_P1_PERMISSIONS)[number];
-export type BackofficeAnyPermission = BackofficePermission | BackofficeP1Permission;
+/**
+ * Back-office second-wave permissions (lane bo-ui2, design-bo-ui «Вторая волна» §9.3), apart
+ * from the P0 and P1 lists for the same reason: checked only by a second-wave command and listed
+ * in permissions[] only while its feature is available, after every P1 permission.
+ */
+export const BACKOFFICE_P2_PERMISSIONS = [
+  /** Suppliers and their prices: create, edit, archive, enter a price (BACKOFFICE_SUPPLY_ENABLED). */
+  'suppliers.write',
+  /** Supply requests: create and edit a draft, submit it (BACKOFFICE_SUPPLY_ENABLED). */
+  'supply.write',
+  /**
+   * Close a supply request: receive it (together with stock.receipt: it posts the stock receipt
+   * of the request) or cancel it with a reason (BACKOFFICE_SUPPLY_ENABLED).
+   */
+  'supply.close',
+  /**
+   * Staff assignment: put an employee on a station from HH:MM, move him, end his interval
+   * (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED, step 5).
+   */
+  'staff.assign',
+  /** Put an employee on a station his positions do not allow, with a reason (step 5). */
+  'staff.assign_override',
+] as const;
+export type BackofficeP2Permission = (typeof BACKOFFICE_P2_PERMISSIONS)[number];
+export type BackofficeAnyPermission =
+  BackofficePermission | BackofficeP1Permission | BackofficeP2Permission;
 
 /**
  * P0 matrix (contracts 5.10): manager - everything; shift_manager - cancellations of cloud
@@ -145,6 +170,22 @@ export const P1_ROLE_PERMISSIONS: Readonly<
   accountant: Object.freeze(['stock.reverse'] as const),
   analyst: Object.freeze([] as const),
 });
+/**
+ * Second-wave matrix (design-bo-ui §9.3 with the rules of step 2): suppliers and their prices by
+ * the manager and the accountant; supply requests created and submitted by the manager and the
+ * shift manager, received and cancelled by the manager only; the accountant and the analyst read
+ * the requests. Step 5: the staff assignment by the manager and the shift manager; a station
+ * outside the employee's positions only by the manager (the task of step 5: «unless the manager
+ * confirms an override with a reason»); the accountant and the analyst read it.
+ */
+export const P2_ROLE_PERMISSIONS: Readonly<
+  Record<BackofficeEffectiveRole, readonly BackofficeP2Permission[]>
+> = Object.freeze({
+  manager: BACKOFFICE_P2_PERMISSIONS,
+  shift_manager: Object.freeze(['supply.write', 'staff.assign'] as const),
+  accountant: Object.freeze(['suppliers.write'] as const),
+  analyst: Object.freeze([] as const),
+});
 
 export function effectiveRole(
   grant: BackofficeGrantRole,
@@ -156,21 +197,27 @@ export function effectiveRole(
 export function can(role: BackofficeEffectiveRole, permission: BackofficeAnyPermission): boolean {
   return (
     (ROLE_PERMISSIONS[role] as readonly string[]).includes(permission) ||
-    (P1_ROLE_PERMISSIONS[role] as readonly string[]).includes(permission)
+    (P1_ROLE_PERMISSIONS[role] as readonly string[]).includes(permission) ||
+    (P2_ROLE_PERMISSIONS[role] as readonly string[]).includes(permission)
   );
 }
 /**
  * permissions[] of GET branches/:id, in BACKOFFICE_PERMISSIONS order, then the P1 permissions of
- * the features listed in `p1` (none by default: the cloud lane's list).
+ * the features listed in `p1`, then the second-wave permissions listed in `p2` (none by default:
+ * the cloud lane's list).
  */
 export function permissionsOf(
   role: BackofficeEffectiveRole,
   p1: readonly BackofficeP1Permission[] = [],
+  p2: readonly BackofficeP2Permission[] = [],
 ): BackofficeAnyPermission[] {
   return [
     ...BACKOFFICE_PERMISSIONS.filter((permission) => can(role, permission)),
     ...BACKOFFICE_P1_PERMISSIONS.filter(
       (permission) => p1.includes(permission) && can(role, permission),
+    ),
+    ...BACKOFFICE_P2_PERMISSIONS.filter(
+      (permission) => p2.includes(permission) && can(role, permission),
     ),
   ];
 }

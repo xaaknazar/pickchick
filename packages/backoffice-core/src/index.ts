@@ -36,6 +36,26 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
+import { p2Capabilities, staffAssignmentAvailable, supplyAvailable } from './p2-flags.js';
+import {
+  P2Request,
+  P2_COMMAND_FLAGS,
+  P2_COMMAND_PERMISSIONS,
+  STAFF_ASSIGNMENT_PERMISSIONS,
+  SUPPLY_PERMISSIONS,
+  type P2RequestInput,
+} from './p2-commands.js';
+import { readStaffAssignments, staffAssignmentCommand } from './staff-assignments.js';
+import { readSuppliers, readSupplyRequests, supplyCommand } from './supply.js';
+import { importSupplierPrices, readSupplierImports } from './supplier-import.js';
+import {
+  ingredientP2Keys,
+  readStockBalances,
+  readStockReorder,
+  readStockTurnover,
+  stockConsumption,
+  withIngredientP2,
+} from './stock-reports.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
@@ -91,6 +111,12 @@ export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
 export * from './p1-flags.js';
+export * from './p2-flags.js';
+export * from './p2-commands.js';
+export * from './supply.js';
+export * from './supplier-import.js';
+export * from './stock-reports.js';
+export * from './staff-assignments.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -493,22 +519,33 @@ export class Backoffice {
       const staffPositions = this.options.staffPositionsEnabled === true;
       // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
       const p1 = await p1Capabilities(db, this.options, stockP1);
+      // Back-office second wave (bo-ui2): {} without a query while its three flags are off.
+      const p2 = await p2Capabilities(db, this.options);
       const roles =
         this.options.rolesEnabled === true
           ? {
               effective_role: actor.effective,
-              permissions: permissionsOf(actor.effective, [
-                ...(stockP1
-                  ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
-                  : []),
-                ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
-                ...(managerShifts
-                  ? (['manager_shifts.write', 'manager_shifts.template'] as const)
-                  : []),
-                ...(staffPositions ? (['staff.positions'] as const) : []),
-                // Discounts (step 7): the editor, while the 075 rights are there.
-                ...(p1.discounts === true ? (['discounts.write'] as const) : []),
-              ]),
+              permissions: permissionsOf(
+                actor.effective,
+                [
+                  ...(stockP1
+                    ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
+                    : []),
+                  ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
+                  ...(managerShifts
+                    ? (['manager_shifts.write', 'manager_shifts.template'] as const)
+                    : []),
+                  ...(staffPositions ? (['staff.positions'] as const) : []),
+                  // Discounts (step 7): the editor, while the 075 rights are there.
+                  ...(p1.discounts === true ? (['discounts.write'] as const) : []),
+                ],
+                // Second wave (bo-ui2): suppliers and requests, while the 076 rights are there;
+                // step 5: the staff assignment, while it is available.
+                [
+                  ...(p2.supply === true ? SUPPLY_PERMISSIONS : []),
+                  ...(p2.staff_assignment === true ? STAFF_ASSIGNMENT_PERMISSIONS : []),
+                ],
+              ),
             }
           : {};
       const stockV2 =
@@ -643,6 +680,8 @@ export class Backoffice {
           // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
           ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
           ...p1,
+          // Second wave (bo-ui2): after every bo-ui key, stock_p1 included.
+          ...p2,
         },
       };
     });
@@ -660,6 +699,14 @@ export class Backoffice {
    *   exactly the 404 of an unknown view.
    * - `discounts` (bo-ui step 7, discounts.ts): only while BACKOFFICE_DISCOUNTS_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
+   * - `suppliers`, `supply-requests` and `supplier-imports` (bo-ui2 steps 2-3, supply.ts and
+   *   supplier-import.ts): only while BACKOFFICE_SUPPLY_ENABLED is on; otherwise exactly the 404
+   *   of an unknown view.
+   * - `stock?view=balances|reorder` and the `turnover` of `stock?view=movement` (bo-ui2 step 4,
+   *   stock-reports.ts): only while BACKOFFICE_STOCK_REPORTS_ENABLED is on; otherwise the query
+   *   is refused (INVALID_REQUEST) and view=movement answers exactly as before.
+   * - `staff-assignments` (bo-ui2 step 5, staff-assignments.ts): only while
+   *   BACKOFFICE_STAFF_ASSIGNMENT_ENABLED is on; otherwise exactly the 404 of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -702,12 +749,55 @@ export class Backoffice {
         if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
         return readDiscounts(db, branch, input, new Date());
       }
+      // Second wave (bo-ui2 step 2, supply.ts): suppliers with their prices and the supply
+      // requests, only while BACKOFFICE_SUPPLY_ENABLED is on; every role reads.
+      // Step 3 (supplier-import.ts): the price imports with their reports.
+      if (
+        (view === 'suppliers' || view === 'supply-requests' || view === 'supplier-imports') &&
+        this.options.supplyEnabled === true
+      ) {
+        if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return view === 'suppliers'
+          ? readSuppliers(db, branch, input, new Date())
+          : view === 'supplier-imports'
+            ? readSupplierImports(db, branch, input, new Date())
+            : readSupplyRequests(db, branch, input, new Date());
+      }
+      // Second wave (bo-ui2 step 5, staff-assignments.ts): the staff assignment of a business day
+      // or of a window, only while BACKOFFICE_STAFF_ASSIGNMENT_ENABLED is on; every role reads.
+      if (view === 'staff-assignments' && this.options.staffAssignmentEnabled === true) {
+        if (!(await staffAssignmentAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readStaffAssignments(db, branch, input, new Date(), this.options);
+      }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+      const now = new Date();
+      // Second wave (bo-ui2 step 4, stock-reports.ts): the balances and the reorder hint, only
+      // while BACKOFFICE_STOCK_REPORTS_ENABLED is on; without it their query stays invalid.
+      const reports = this.options.stockReportsEnabled === true;
+      const asked =
+        input !== null && typeof input === 'object'
+          ? (input as Record<string, unknown>)['view']
+          : null;
+      if (reports && asked === 'balances')
+        return readStockBalances(db, branch, input, this.options, now);
+      if (reports && asked === 'reorder')
+        return readStockReorder(db, branch, input, this.options, now);
       // Stock P1 (bo-ui): storno in the reports and the storno links of the documents.
-      if (await stockP1Ready(db)) return readStockOpsP1(db, branch, input, new Date());
-      return readStockOps(db, branch, input, new Date());
+      const answer = (await stockP1Ready(db))
+        ? await readStockOpsP1(db, branch, input, now)
+        : await readStockOps(db, branch, input, now);
+      // The movement of the window gains its turnover per ingredient (opening, kinds, closing).
+      if (!reports || answer.view !== 'movement') return answer;
+      return {
+        ...answer,
+        turnover: await readStockTurnover(db, branch, {
+          start: new Date(answer.period_start),
+          end: new Date(answer.period_end),
+        }),
+        consumption: await stockConsumption(db, branch, this.options, now),
+      };
     });
   }
   /** Stop list v2 (catalog names, edge versions, open commands); analysts may read it. */
@@ -906,18 +996,45 @@ export class Backoffice {
     if (P1_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
     return parsed.data;
   }
+  /**
+   * A second-wave command (p2-commands.ts): parsed by its own schema and only while one of the
+   * second-wave flags is on, so with all three off nothing is parsed here and every such command
+   * is exactly an unknown command (INVALID_REQUEST), as in bo-ui.
+   */
+  private p2Request(input: unknown): P2RequestInput | null {
+    const o = this.options;
+    if (!(
+      o.supplyEnabled === true ||
+      o.stockReportsEnabled === true ||
+      o.staffAssignmentEnabled === true
+    ))
+      return null;
+    const parsed = P2Request.safeParse(input);
+    if (!parsed.success) return null;
+    if (P2_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
+    return parsed.data;
+  }
   async command(token: string, branch: string, input: unknown) {
-    const req: z.infer<typeof Request> | P1RequestInput =
-      this.p1Request(input) ?? parse(Request, input);
+    const req: z.infer<typeof Request> | P1RequestInput | P2RequestInput =
+      this.p1Request(input) ?? this.p2Request(input) ?? parse(Request, input);
     const manualRefund = req.command.type === 'manual_refund';
     const c0 = req.command;
-    const permission: BackofficeAnyPermission =
-      c0.type in P1_COMMAND_PERMISSIONS
+    // A second-wave command checks every permission of its list (receive: supply.close and
+    // stock.receipt); the first one is the scope check.
+    const p2Permissions =
+      c0.type in P2_COMMAND_PERMISSIONS
+        ? P2_COMMAND_PERMISSIONS[c0.type as keyof typeof P2_COMMAND_PERMISSIONS]
+        : null;
+    const permission: BackofficeAnyPermission = p2Permissions
+      ? p2Permissions[0]!
+      : c0.type in P1_COMMAND_PERMISSIONS
         ? P1_COMMAND_PERMISSIONS[c0.type as keyof typeof P1_COMMAND_PERMISSIONS]
         : commandPermission(c0 as z.infer<typeof Request>['command']);
     try {
       return await transaction(this.pool, async (db) => {
         const actor = await this.scope(db, token, branch, permission);
+        for (const extra of p2Permissions?.slice(1) ?? [])
+          requirePermission(actor.effective, extra);
         await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           'bo:actor:' + actor.id + ':' + req.request_id,
         ]);
@@ -939,7 +1056,50 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (c.type === 'stock_reverse') {
+        if (c.type === 'staff_assign' || c.type === 'staff_unassign') {
+          // Staff assignment (staff-assignments.ts): the flag, the positions and the 076 rights.
+          // A station outside the employee's positions also checks staff.assign_override.
+          if (!(await staffAssignmentAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await staffAssignmentCommand(db, branch, actor.id, actor.effective, c);
+          result = done.result;
+          before = done.before;
+          entity = done.entity;
+        } else if (c.type === 'supplier_prices_import') {
+          // The price import of scripts/supplier-prices-import.mjs (supplier-import.ts): one part
+          // of a plan, only adding suppliers and prices; the flag, stock v2 and the 076 rights.
+          if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await importSupplierPrices(db, branch, actor.id, c);
+          result = done.result;
+          entity = done.entity;
+        } else if (
+          c.type === 'supplier_save' ||
+          c.type === 'supplier_price_save' ||
+          c.type === 'supply_request_save' ||
+          c.type === 'supply_request_submit' ||
+          c.type === 'supply_request_cancel' ||
+          c.type === 'supply_request_receive'
+        ) {
+          // Suppliers and supply requests (supply.ts): the flag, stock v2 and the 076 rights. A
+          // received request posts its receipt with the stock command's own code, in this
+          // transaction.
+          if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await supplyCommand(
+            db,
+            branch,
+            actor.id,
+            req.reason,
+            c,
+            new Date(),
+            (reference, lines, meta) =>
+              this.stock(db, branch, actor, req.reason, 'receipt', reference, lines, {
+                reason_code: null,
+                meta,
+              }),
+          );
+          result = done.result;
+          before = done.before;
+          entity = done.entity;
+        } else if (c.type === 'stock_reverse') {
           // Stock P1 storno (stock-p1.ts): flag on, cloud075 and its rights, or not at all.
           if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
           result = await reverseStockDocument(db, branch, actor.id, req.reason, c);
@@ -1009,10 +1169,17 @@ export class Backoffice {
           // Review BOUI-R3: while stock P1 is not available an ingredient or a recipe keeps its
           // P1 fields (the employee pattern): sent back unchanged they are not refused, left out
           // they are not wiped.
-          const keptP1 =
-            (c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
+          // Second wave (bo-ui2 step 4, stock-reports.ts): an ingredient may carry supply_kind
+          // (supply) and meat (stock reports) while their flag is on; otherwise it keeps them the
+          // same way, so with the flags off a bo-ui card is saved exactly as before.
+          const p2 = c.kind === 'ingredient' ? ingredientP2Keys(this.options) : { on: [], off: [] };
+          const keptKeys: readonly string[] = [
+            ...((c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
               ? STOCK_P1_RECORD_KEYS[c.kind]
-              : null;
+              : []),
+            ...p2.off,
+          ];
+          const keptP1 = keptKeys.length ? keptKeys : null;
           const sentP1 =
             keptP1 !== null &&
             typeof c.payload === 'object' &&
@@ -1029,13 +1196,13 @@ export class Backoffice {
           // read before the payload check (its kept fields); every other record after it.
           let old = c.kind === 'employee' || sentP1 ? await lockOld() : undefined;
           const parsed = parse(
-            (p1Record
-              ? c.kind === 'ingredient'
-                ? IngredientP1
-                : RecipeP1
-              : positions
-                ? EmployeeP1
-                : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            (c.kind === 'ingredient'
+              ? withIngredientP2(p1Record ? IngredientP1 : Schemas.ingredient, p2.on)
+              : p1Record
+                ? RecipeP1
+                : positions
+                  ? EmployeeP1
+                  : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
             // A card that already has position fields keeps them with the flag off: a cabinet
             // that sends them back unchanged is not refused (positions.ts).
             c.kind === 'employee' && !positions

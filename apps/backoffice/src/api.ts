@@ -127,6 +127,10 @@ export function allowedPath(path: string): boolean {
   // Cutover CC-6: stock v2 report; cutover read views live under ops/<view>.
   if (new RegExp(`^operations/branches/${UUID}/ops/stock$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
+    // Lane bo-ui2 step 4: the balances and the reorder hint take no dates (the API decides by
+    // its flag BACKOFFICE_STOCK_REPORTS_ENABLED).
+    if ([...q.keys()].length === 1 && /^(balances|reorder)$/.test(q.get('view') ?? ''))
+      return q.getAll('view').length === 1;
     return (
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
@@ -197,12 +201,67 @@ export function allowedPath(path: string): boolean {
       (id === null || new RegExp(`^${UUID}$`).test(id))
     );
   }
+  // Lane bo-ui2 step 2: the suppliers (one with its prices) and the supply requests of a window.
+  if (new RegExp(`^operations/branches/${UUID}/ops/suppliers$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
+    );
+  }
+  // Lane bo-ui2 step 3: the price imports, or one of them with its report.
+  if (new RegExp(`^operations/branches/${UUID}/ops/supplier-imports$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
+    );
+  }
+  if (new RegExp(`^operations/branches/${UUID}/ops/supply-requests$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = ['start_date', 'end_date', 'state', 'kind', 'id'];
+    const value = (k: string, re: RegExp) => q.get(k) === null || re.test(q.get(k) ?? '');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => keys.includes(k)) &&
+      keys.every((k) => q.getAll(k).length <= 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      value('state', /^(draft|submitted|received|cancelled)$/) &&
+      value('kind', /^(central_kitchen|bakery|household|supplier)$/) &&
+      value('id', new RegExp(`^${UUID}$`))
+    );
+  }
+  // Lane bo-ui2 step 5: the staff assignment of one business day (or today), or the intervals of
+  // a window (the server checks the 92 days), optionally of one employee or one station.
+  if (new RegExp(`^operations/branches/${UUID}/ops/staff-assignments$`).test(pathname))
+    return (search?.length ?? 0) <= 200 && assignmentQuery(new URLSearchParams(search ?? ''));
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
     new RegExp(
       `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
+  );
+}
+/** The query of GET .../ops/staff-assignments: a day, or a window with optional filters. */
+function assignmentQuery(q: URLSearchParams) {
+  const keys = ['date', 'start_date', 'end_date', 'employee_id', 'station_code'];
+  const day = (k: string) => q.get(k) === null || /^\d{4}-\d{2}-\d{2}$/.test(q.get(k) ?? '');
+  if (![...q.keys()].every((k) => keys.includes(k)) || keys.some((k) => q.getAll(k).length > 1))
+    return false;
+  const range = q.has('start_date') || q.has('end_date');
+  return (
+    ['date', 'start_date', 'end_date'].every(day) &&
+    (range
+      ? !q.has('date') && q.has('start_date') && q.has('end_date')
+      : !q.has('employee_id') && !q.has('station_code')) &&
+    (q.get('employee_id') === null || new RegExp(`^${UUID}$`).test(q.get('employee_id') ?? '')) &&
+    (q.get('station_code') === null || /^[a-z][a-z0-9_]{1,39}$/.test(q.get('station_code') ?? ''))
   );
 }
 export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {
@@ -512,6 +571,29 @@ const reasons: Record<string, string> = {
   DISCOUNT_NAME_TAKEN: 'Скидка с таким названием уже есть. Выберите другое название.',
   DISCOUNT_ARCHIVED: 'Скидка в архиве: её нельзя изменить или включить. Создайте новую.',
   DISCOUNT_PERIOD_ENDED: 'Период скидки уже закончился. Измените даты и включите её снова.',
+  // Lane bo-ui2 step 2 (servers with capabilities.supply).
+  SUPPLIER_NAME_TAKEN:
+    'Поставщик с таким названием уже есть (возможно, в архиве). Выберите другое название.',
+  SUPPLIER_INACTIVE:
+    'Поставщик в архиве: на него нельзя оформить заявку или новую цену. Верните его из архива или выберите другого.',
+  PRICE_UNIT_MISMATCH:
+    'Единица цены не подходит к позиции: для граммов - г или кг, для миллилитров - мл или л, для штук - шт.',
+  REQUEST_LOCKED:
+    'Заявку уже подали, приняли или отменили в другом окне. Обновите список и проверьте её.',
+  REQUEST_INCOMPLETE:
+    'Чтобы подать заявку, нужны строки, дата «Нужно к» не раньше сегодняшней и, для заявки поставщику, поставщик.',
+  // Lane bo-ui2 step 5 (servers with capabilities.staff_assignment).
+  STATION_UNKNOWN:
+    'Такой станции нет в списке должностей точки или она выключена. Обновите страницу.',
+  STATION_NOT_ALLOWED:
+    'Эта станция не входит в должность сотрудника. Поставить не по должности может управляющий, указав причину.',
+  EMPLOYEE_NOT_WORKING: 'Сотрудник не работает или удалён. Обновите страницу.',
+  ASSIGNMENT_TIME:
+    'Время не подходит: оно позже текущего больше чем на 5 минут или раньше начала интервала. Время с 00:00 до 05:59 - ночь после дня смены.',
+  ASSIGNMENT_OVERLAP:
+    'В это время сотрудник уже стоял на станции: интервалы не пересекаются. Укажите время позже начала текущего интервала.',
+  ASSIGNMENT_PREVIOUS_DAY:
+    'У сотрудника не закрыт интервал прошлого дня смены. Сначала нажмите «Закончить» у этого интервала.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];
