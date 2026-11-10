@@ -1148,7 +1148,9 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
     assert.match(text, /ParameterSetName -ceq 'Autostart'\) \{\n\s+Set-LanAutostart '/);
     assert.match(text, /\[datetime\]\$CutoverDate=\[datetime\]'2026-11-19'/);
     assert.ok(text.includes(`[version]'${minimum}'`));
-    // The default app path is where the per-user NSIS installer of that app puts it.
+    // The default app path is where the per-user NSIS installer of that app puts it: a silent
+    // install on a Windows runner (windows-kitchen.yml) put both apps in Programs\<executableName>,
+    // not Programs\<productName> (10.11.2026).
     const builder = await readFile(
       new URL(`../../apps/${app}/electron-builder.yml`, import.meta.url),
       'utf8',
@@ -1156,7 +1158,8 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
     const product = /^productName: (.+)$/m.exec(builder)[1];
     const exe = /^\s+executableName: (.+)$/m.exec(builder)[1];
     assert.match(builder, /perMachine: false/);
-    assert.ok(text.includes(`'Programs\\${product}\\${exe}.exe'`), `${app} path`);
+    assert.ok(text.includes(`'Programs\\${exe}\\${exe}.exe'`), `${app} path`);
+    assert.ok(!text.includes(`'Programs\\${product}\\`), `${app} old path`);
   }
   const desk = JSON.parse(
     await readFile(new URL('../../apps/pos-desktop/package.json', import.meta.url), 'utf8'),
