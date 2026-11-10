@@ -47,15 +47,22 @@ import {
   P1_MIGRATION,
   P1_TABLES,
   PROVISION_KEYS,
+  SUPPLY_CHECKSUM,
+  SUPPLY_FLAGS,
+  SUPPLY_MIGRATION,
+  SUPPLY_TABLES,
   composeCandidate,
   composeFlag,
   cutoverPrivileges,
   deployBackofficeP1,
+  deployBackofficeSupply,
   deployCutover,
   p1Privileges,
   parseArguments,
   setBackofficeP1,
+  setBackofficeSupply,
   setCutoverFlag,
+  supplyPrivileges,
 } from '../../infra/staging/cutover-cloud-owner.mjs';
 import { loadConfig } from '../../packages/platform/dist/index.js';
 
@@ -303,8 +310,45 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
     'BACKOFFICE_ENABLED grants are required first',
     'autoconsume requires stock-v2',
     'Back-office P1 grants differ from every known flag state: run inspect-075',
+    // The second-wave step (lane bo-ui2, 076).
+    'owner inspect-076',
+    'owner deploy-076',
+    'owner supply-grants supply,staff-assignment',
+    SUPPLY_CHECKSUM,
+    'Cloud 076 is already applied: deploy-076 runs once',
+    'Exact 076 candidate file required',
+    `Reviewed migration bytes differ: ${SUPPLY_MIGRATION}`,
+    'Run deploy-076 (076 with the reviewed bytes) first',
+    'staff-assignment requires the staff-positions grants of p1-grants first',
+    'Back-office second-wave grants differ from every known flag state: run inspect-076',
   ])
     assert.ok(runbook.includes(text), text);
+  assert.equal(
+    sha256(await readFile(join(source, SUPPLY_MIGRATION))),
+    SUPPLY_CHECKSUM,
+    SUPPLY_MIGRATION,
+  );
+  assert.equal(SUPPLY_MIGRATION, '076_cloud_backoffice_supply.sql');
+  for (const command of ['inspect-076', 'deploy-076'])
+    assert.deepEqual(parseArguments([command]), { command });
+  assert.deepEqual(parseArguments(['supply-grants', 'none']), {
+    command: 'supply-grants',
+    enabled: [],
+  });
+  assert.deepEqual(parseArguments(['supply-grants', 'supply,staff-assignment']), {
+    command: 'supply-grants',
+    enabled: ['supply', 'staff-assignment'],
+  });
+  for (const bad of [
+    ['deploy-076', '--force'],
+    ['supply-grants'],
+    ['supply-grants', ''],
+    ['supply-grants', 'supply,supply'],
+    ['supply-grants', 'stock-reports'],
+    ['supply-grants', 'none', 'supply'],
+  ])
+    assert.throws(() => parseArguments(bad), OwnerGuardError, bad.join(' '));
+  assert.deepEqual(Object.keys(SUPPLY_FLAGS), ['supply', 'staff-assignment']);
   const usage = await run(process.execPath, [tool, 'flag', 'roles'], {
     env: { PATH: process.env.PATH },
   }).catch((error) => error);
@@ -772,6 +816,144 @@ const COMPOSE = [
   '      CLOUD_DATABASE_URL: postgresql://pickchick_owner:${DB_OWNER_PASSWORD}@cloud-db:5432/pickchick_cloud',
   '',
 ].join('\n');
+
+test('deploy-076 on exact schema075: 076 with every second-wave flag off, data and ACL kept; wrong ledger, bytes and repeat refused; supply-grants exact deltas', () =>
+  withCloud072(true, async ({ ctx, client, role }) => {
+    const candidate = await copyMigrations('cutover-owner-supply-', (f) => number(f) <= 76);
+    const tampered = await copyMigrations('cutover-owner-supply-tampered-', (f) => number(f) <= 76);
+    await writeFile(
+      join(tampered, SUPPLY_MIGRATION),
+      (await readFile(join(source, SUPPLY_MIGRATION), 'utf8')) + '\n-- changed\n',
+    );
+    const without = await copyMigrations('cutover-owner-supply-missing-', (f) => number(f) <= 75);
+    await writeFile(join(candidate, '077_cloud_later_lane.sql'), 'SELECT 1;');
+    try {
+      const pool = ctx.cloud.pool;
+      const inspect = (directory) =>
+        owner(
+          client,
+          () => deployBackofficeSupply(client, { directory, role, inspect: true }),
+          false,
+        );
+      const deploy = () =>
+        owner(client, () => deployBackofficeSupply(client, { directory: candidate, role }));
+      const grants = (enabled) =>
+        owner(client, () => setBackofficeSupply(client, { role, enabled }));
+      // Before 073/074 and before 075 the ledger is not the one 076 needs.
+      await assert.rejects(inspect(candidate), guardError(/Exact schema075 ledger required/));
+      await owner(client, () => deployCutover(client, { directory: candidate, role }));
+      await assert.rejects(deploy(), guardError(/Exact schema075 ledger required/));
+      await owner(client, () => deployBackofficeP1(client, { directory: candidate, role }));
+      const deployed = await runtimePrivileges(pool, role);
+      await assert.rejects(grants([]), guardError(/Run deploy-076/));
+      await assert.rejects(inspect(tampered), guardError(/Reviewed migration bytes differ: 076_/));
+      await assert.rejects(inspect(without), guardError(/Exact 076 candidate file required/));
+      assert.deepEqual(await inspect(candidate), {
+        ledger: 'schema075',
+        pending: [SUPPLY_MIGRATION],
+        reviewedBytes: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        supplyPrivileges: [],
+      });
+      // inspect changes nothing.
+      for (const table of SUPPLY_TABLES)
+        assert.equal(
+          (await pool.query('SELECT to_regclass($1) IS NOT NULL AS ok', [table])).rows[0].ok,
+          false,
+        );
+      const ledgerBefore = (await pool.query('SELECT version FROM schema_migrations')).rows.length;
+      assert.deepEqual(await deploy(), {
+        applied: [SUPPLY_MIGRATION],
+        existingDataPreserved: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        privilegesRemoved: [],
+        supplyFlags: [],
+      });
+      const ledger = (
+        await pool.query('SELECT version,checksum FROM schema_migrations ORDER BY version')
+      ).rows;
+      assert.equal(ledger.length, ledgerBefore + 1);
+      assert.deepEqual(ledger.at(-1), { version: SUPPLY_MIGRATION, checksum: SUPPLY_CHECKSUM });
+      for (const table of SUPPLY_TABLES)
+        assert.equal(
+          (await pool.query('SELECT to_regclass($1) IS NOT NULL AS ok', [table])).rows[0].ok,
+          true,
+        );
+      // The standard runner accepts the ledger through 076; the later file is not applied here.
+      const through076 = await copyMigrations(
+        'cutover-owner-supply-runner-',
+        (f) => number(f) <= 76,
+      );
+      try {
+        assert.deepEqual(await migrate(pool, through076, 'cloud'), []);
+      } finally {
+        await rm(through076, { recursive: true, force: true });
+      }
+      assert.deepEqual(await runtimePrivileges(pool, role), deployed);
+      await assert.rejects(deploy(), guardError(/already applied/));
+      assert.deepEqual(await inspect(candidate), {
+        ledger: 'schema076',
+        pending: [],
+        reviewedBytes: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        supplyPrivileges: [],
+      });
+      // The earlier steps are untouched by 076: their repeats are still refused.
+      await assert.rejects(
+        owner(client, () => deployBackofficeP1(client, { directory: candidate, role })),
+        guardError(/Exact schema074 ledger required|already applied/),
+      );
+
+      // staff-assignment needs the positions list of p1-grants first.
+      await assert.rejects(
+        grants(['staff-assignment']),
+        guardError(/staff-assignment requires the staff-positions grants/),
+      );
+      const supply = await grants(['supply']);
+      assert.deepEqual(supply.supplyFlags, ['supply']);
+      assert.deepEqual(supply.environment, ['BACKOFFICE_SUPPLY_ENABLED']);
+      assert.deepEqual(supply.privilegesRemoved, []);
+      assert.deepEqual(supply.privilegesAdded, supplyPrivileges(true, ['supply']));
+      assert.ok(supply.privilegesAdded.includes('bo_supply_requests||UPDATE'));
+      assert.ok(!supply.privilegesAdded.some((p) => /DELETE|TRUNCATE/.test(p)));
+      assert.ok(!supply.privilegesAdded.includes('bo_supplier_price_imports||UPDATE'));
+      assert.ok(!supply.privilegesAdded.some((p) => p.startsWith('bo_staff_assignments')));
+
+      await owner(client, () => setBackofficeP1(client, { role, enabled: ['staff-positions'] }));
+      const both = await grants(['supply', 'staff-assignment']);
+      assert.deepEqual(both.supplyFlags, ['supply', 'staff-assignment']);
+      assert.deepEqual(both.environment, [
+        'BACKOFFICE_SUPPLY_ENABLED',
+        'BACKOFFICE_STAFF_ASSIGNMENT_ENABLED',
+      ]);
+      assert.deepEqual(both.privilegesRemoved, []);
+      assert.deepEqual(both.privilegesAdded, supplyPrivileges(true, ['staff-assignment']));
+      // Narrowing removes exactly the other flag's rights; none restores the deployed state of 076.
+      const narrowed = await grants(['staff-assignment']);
+      assert.deepEqual(narrowed.privilegesAdded, []);
+      assert.deepEqual(narrowed.privilegesRemoved, supplyPrivileges(true, ['supply']));
+      const none = await grants([]);
+      assert.deepEqual(none.supplyFlags, []);
+      assert.deepEqual(none.privilegesRemoved, supplyPrivileges(true, ['staff-assignment']));
+      assert.deepEqual(
+        (await runtimePrivileges(pool, role)).filter((p) =>
+          SUPPLY_TABLES.includes(p.split('|')[0]),
+        ),
+        [],
+      );
+      // A right nobody declared on a 076 table is refused, not silently reset.
+      await pool.query(`GRANT DELETE ON bo_suppliers TO "${role}"`);
+      await assert.rejects(grants(['supply']), guardError(/differ from every known flag state/));
+      await pool.query(`REVOKE DELETE ON bo_suppliers FROM "${role}"`);
+      await assert.rejects(grants(['supply', 'supply']), guardError(/Invalid second-wave flags/));
+    } finally {
+      for (const directory of [candidate, tampered, without])
+        await rm(directory, { recursive: true, force: true });
+    }
+  }));
 
 test('API environment step: the candidate adds only the cutover keys, all off; each run flips one key; wrong hash, repeats and other states refused', async () => {
   const candidate = composeCandidate(COMPOSE, sha256(COMPOSE));
