@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -57,6 +58,32 @@ def status(path):
             return response.status
     except urllib.error.HTTPError as error:
         return error.code
+
+
+def stalled_read(path, pause, size):
+    """Asks for a whole file, stops reading for `pause` seconds, then reads what is still coming.
+
+    A response the gateway ends after its write limit arrives short; pieces of 4 MB never get there.
+    """
+    connection = socket.socket()
+    connection.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+    connection.connect(('127.0.0.1', PORT))
+    connection.sendall(('GET %s HTTP/1.1\r\nHost: rehearsal\r\nConnection: close\r\n\r\n' % path).encode())
+    received = len(connection.recv(65536))
+    time.sleep(pause)
+    connection.settimeout(60)
+    started = time.time()
+    try:
+        while chunk := connection.recv(1024 * 1024):
+            received += len(chunk)
+        ended = 'closed'
+    except OSError as error:
+        ended = type(error).__name__
+    finally:
+        connection.close()
+    # The count includes a few hundred bytes of response headers.
+    return {'received': received, 'of': size, 'complete': received >= size, 'ended': ended,
+            'paused_seconds': pause, 'drain_seconds': round(time.time() - started, 1)}
 
 
 def fake_installer(directory, app, version, size, prefix):
@@ -202,14 +229,10 @@ def main():
         client('pos', versions['pos'], 'current')
         summary['program_read_feed_in_pieces'] = pos['pieces']
 
-        step('a whole installer in one slow response: the gateway write limit')
-        started = time.time()
-        slow = subprocess.run(['curl', '-s', '-o', '/dev/null', '--limit-rate', '400k', '--max-time', '90',
-                               '-w', '%{size_download}', ORIGIN + '/desktop-updates/pos/' + d.APPS['pos'] +
-                               versions['pos'] + '-x64.exe'], text=True, capture_output=True)
-        summary['slow_whole_response'] = {'curl_exit': slow.returncode, 'bytes': int(slow.stdout or 0),
-                                          'of': POS_BYTES, 'seconds': round(time.time() - started)}
-        step(json.dumps(summary['slow_whole_response']))
+        step('one whole installer to a reader that stalls for 50 seconds: the gateway write limit')
+        summary['stalled_whole_response'] = stalled_read(
+            '/desktop-updates/pos/' + d.APPS['pos'] + versions['pos'] + '-x64.exe', 50, POS_BYTES)
+        step(json.dumps(summary['stalled_whole_response']))
 
         step('publish: one pointer, no container restarts')
         before = {name: identity(name) for name in ['pickchick-public-gateway', d.SIDECAR, OUTER]}
