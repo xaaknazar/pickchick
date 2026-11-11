@@ -52,7 +52,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       # Axe WCAG 2.1 AA over every story. Owner-approved exception (2026-10-10): the design
       # orange #FF6900 under white text on CTAs and active controls marked data-owner-orange
       # (apps/kiosk/src/components/ownerOrange.ts); browser_mobbin.py excuses only that pair.
