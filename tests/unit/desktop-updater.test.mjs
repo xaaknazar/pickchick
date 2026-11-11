@@ -116,7 +116,7 @@ async function fixture(run, options = {}) {
   }
 }
 
-test('both desktop clients ship the same updater and an inert feed', () => {
+test('both desktop clients ship the same updater and the same feed address', () => {
   assert.equal(
     text('apps/pos-desktop/updater.mjs'),
     text('apps/kitchen-desktop/updater.mjs'),
