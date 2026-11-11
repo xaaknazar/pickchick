@@ -7703,11 +7703,13 @@
         "@cloud/offline-soak-1109",
         "tests/offline-stand/run.mjs",
         "tests/offline-stand/soak-progress.mjs",
-        "tests/offline-stand/soak-progress.test.mjs"
+        "tests/offline-stand/soak-progress.test.mjs",
+        "tests/offline-stand/diagnostics.mjs",
+        "tests/offline-stand/diagnostics.test.mjs"
       ],
       "status": "active",
       "head": "b21cd4bfc2871712cb0f3f273bfebd8a6ba5031a",
-      "updatedAt": "2026-11-11T04:51:56.288Z",
+      "updatedAt": "2026-11-11T04:53:48.599Z",
       "summary": "Confirmed full retry FAILED: exit1/reportfailed, baseline17/17 PASS, soakerror DBconnectiontimeout at16:23:46UTC Nov10. Only16 observations through160min2.905s; no8h/restart/shift/reconnect/final invariants. 12 traffic errors: kitchen4, bank statementtimeout5/connectiontimeout3. PostgreSQL logs corroborate timeout; rootcause unknown. Evidence hashes and sanitized report published b21cd4bf in PR336, remote SHA verified, docformat/diff PASS. Source8945f862 Foundation42820557929 success does not override failed soak. All DBs/logs retained; no cleanup/retry. Monitoring disabled after final result.",
       "nextAction": "Diagnose retained cloud/edge query and pool timeout evidence16:17-16:23UTC. Do not assume OOM or environment restart. Only after proven cause/fix run new full8h separately with strict error/coverage/restart/shift/recovery checks. К12 open; unpaid_service/two stations excludes physical restaurant acceptance. PRdraft, no merge or finish; globalstatus/roadmap held by Android."
     }
