@@ -7707,11 +7707,11 @@
         "docs/operations/cloud-1-execution-1110.md",
         "@vps/rehearsal/cloud1"
       ],
-      "status": "active",
+      "status": "available",
       "head": "d9e165b7fea791a2a5f401d2f8be11b8bc53f369",
-      "updatedAt": "2026-11-11T09:19:11.087Z",
-      "summary": "11 Nov: PR345 updated with cutover 337f2e73 by normal merge 16a2ab9b; preflight 13/13 PASS; no production changes. Cutover Foundation 42880500796 failed in backoffice PostgreSQL integration. Correct age identity remains on other Mac; restore not verified.",
-      "nextAction": "Obtain matching backup identity securely, inspect exact-head CI; resume Cloud-1 only with full green CI and successful backup restoration/rehearsal. K12 diagnosis continues separately."
+      "updatedAt": "2026-11-11T09:19:16.555Z",
+      "summary": "11 Nov: PR345 merged to cutover1271b5de; source16a2ab9b Foundation42962912430 11/11 PASS, local13/13 PASS. Preparation branch subsequently integrated fresh cutover/shared incl accepted archive helperPR340; no product code changes. No VPS writes; backup identity absent locally.",
+      "nextAction": "Check exact current cutover CI then restore/rehearse only with matching age key from other Mac. PR345 is accepted software, not live deployment. Preserve after00:15 closed-restaurant gate, restore and migration guards. K12 running independently; no runtime changes there."
     }
   ],
   "approvedScopeTransfers": [
