@@ -8,9 +8,18 @@ on:
       - 'apps/kitchen-desktop/**'
       - 'apps/pos-desktop/**'
       - 'infra/windows/install-*-client.ps1'
+      - 'scripts/desktop-update-feed.mjs'
+      - 'tests/desktop-update/**'
+      - 'tests/unit/desktop-updater.test.mjs'
       - '.node-version'
       - '.github/workflows/windows-kitchen.yml'
   workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Update feed: idle = at program start or at night, now = as soon as the device is free'
+        type: choice
+        options: [idle, now]
+        default: idle
 
 permissions:
   contents: read
@@ -75,6 +84,20 @@ jobs:
             apps/kitchen-desktop/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+      - name: Lay out the update feed of this build (docs/operations/desktop-updates.md)
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $setup = Get-ChildItem apps/kitchen-desktop/release -Filter 'PickChick-Kitchen-Setup-*.exe' | Select-Object -First 1
+          node scripts/desktop-update-feed.mjs --app kitchen --installer $setup.FullName --out apps/kitchen-desktop/release/feed --apply ${{ inputs.apply || 'idle' }}
+          exit $LASTEXITCODE
+      - name: Preserve the update feed
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pickchick-kitchen-update-feed-${{ github.sha }}
+          path: apps/kitchen-desktop/release/feed/
+          if-no-files-found: error
+          retention-days: 14
       - name: Silent per-user install of the NSIS package
         shell: pwsh
         run: |
@@ -121,6 +144,51 @@ jobs:
           # install-pos-client.ps1 expects this default -AppPath.
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\PickChickPOS\PickChickPOS.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable not at the install-pos-client.ps1 default: $exe" }
+
+  self_update:
+    name: Installed Kitchen updates itself from a feed
+    runs-on: windows-2022
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/kitchen-desktop
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned standalone package manager
+        run: npm install --global npm@11.13.0
+      - name: Install locked desktop toolchain
+        run: npm ci
+      - name: Updater rules (feed, manifest, hash, when a restart is allowed)
+        run: node --test ../../tests/unit/desktop-updater.test.mjs
+      - name: Package this commit (the build a device already has)
+        run: npm run dist:win
+      - name: Package the next version from the same source
+        shell: pwsh
+        run: |
+          $previous = Join-Path $env:RUNNER_TEMP 'previous'
+          New-Item -ItemType Directory -Force $previous | Out-Null
+          Move-Item release/PickChick-Kitchen-Setup-*.exe $previous
+          npm version patch --no-git-tag-version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Release packaging takes a clean committed checkout only; this commit never leaves the runner.
+          git -c user.name=ci -c user.email=ci@pickchick.invalid commit -qam 'ci: next version for the self-update check'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run dist:win
+          exit $LASTEXITCODE
+      - name: The installed build becomes the next version without anyone touching it
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $old = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'previous') -Filter 'PickChick-Kitchen-Setup-*.exe' | Select-Object -First 1
+          $new = Get-ChildItem apps/kitchen-desktop/release -Filter 'PickChick-Kitchen-Setup-*.exe' | Select-Object -First 1
+          node tests/desktop-update/self-update-win.mjs --app kitchen --old $old.FullName --new $new.FullName
+          exit $LASTEXITCODE
 
 # Packaging and Electron shell tests on a GitHub Windows Server runner do not replace
 # installation on the restaurant monoblocks (Windows 10 Pro, touch, LAN gateway, iiko nearby).

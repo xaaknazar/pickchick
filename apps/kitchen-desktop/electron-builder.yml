@@ -12,6 +12,8 @@ files:
   - security.mjs
   - gateway.mjs
   - terminal-cookie.mjs
+  - updater.mjs
+  - update-feed.json
   - renderer/index.html
   - renderer/styles.css
   - renderer/logo.png

@@ -1,8 +1,13 @@
-import { app, BrowserWindow, Menu, session, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, Menu, session, dialog, safeStorage, net } from 'electron';
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+import { networkInterfaces } from 'node:os';
+import { clearInterval, setInterval } from 'node:timers';
 import { isAbsolute, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { APP_URL, isAllowedRendererRequest, startGateway, validateConfig } from './security.mjs';
+import { createUpdater, readFeed } from './updater.mjs';
 
 app.enableSandbox();
 app.setName('PickChick Kitchen');
@@ -13,6 +18,22 @@ app.setPath('userData', testProfile || join(app.getPath('appData'), 'PickChickKi
 app.setAppUserModelId('kz.pickchick.kitchen');
 const ownsInstance = app.requestSingleInstanceLock();
 let window, gateway;
+// What stands in the window title: the build and the address the point server knows this
+// device by (docs/operations/lan-clients.md), so that nobody has to look it up in Windows.
+function windowTitle() {
+  const addresses = Object.values(networkInterfaces())
+    .flat()
+    .filter(
+      (entry) =>
+        entry?.family === 'IPv4' && !entry.internal && !entry.address.startsWith('169.254.'),
+    )
+    .map((entry) => entry.address)
+    .slice(0, 2);
+  return (
+    `PickChick Kitchen ${app.getVersion()} · ` +
+    (addresses.length ? `адрес моноблока ${addresses.join(', ')}` : 'нет сети')
+  );
+}
 if (!ownsInstance) app.quit();
 else {
   app.on('second-instance', () => {
@@ -46,6 +67,32 @@ else {
         if (error.code !== 'ENOENT') throw error;
       }
       config = validateConfig(config);
+      // Self-update (docs/operations/desktop-updates.md): the installed Windows build with a
+      // feed only. Nothing here may stop the screen from opening.
+      let updater = null;
+      try {
+        const feed =
+          app.isPackaged && process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE
+            ? readFeed({
+                packagedPath: fileURLToPath(new URL('./update-feed.json', import.meta.url)),
+                overridePath: join(profile, 'update.json'),
+              })
+            : null;
+        if (feed)
+          updater = createUpdater({
+            app: 'kitchen',
+            currentVersion: app.getVersion(),
+            feed,
+            directory: join(profile, 'updates'),
+            fetchImpl: (url, init) => net.fetch(url, init),
+            spawnImpl: spawn,
+            quit: () => app.quit(),
+          });
+        // An installer verified during the previous run goes in before the screen opens.
+        if (updater && (await updater.apply())) return;
+      } catch {
+        updater = null;
+      }
       let terminalKey;
       if (config.terminalMode) {
         if (!safeStorage.isEncryptionAvailable()) throw new Error('PRIVATE_STORAGE_UNAVAILABLE');
@@ -84,7 +131,7 @@ else {
         height: 900,
         minWidth: 1024,
         minHeight: 600,
-        title: 'PickChick Kitchen',
+        title: windowTitle(),
         backgroundColor: '#08224f',
         show: false,
         autoHideMenuBar: true,
@@ -111,7 +158,12 @@ else {
         window.show();
       });
       window.on('close', () => isolatedSession.flushStorageData());
+      // The page does not rename the window; the address follows the network.
+      window.on('page-title-updated', (event) => event.preventDefault());
+      const retitle = setInterval(() => window.setTitle(windowTitle()), 30000);
+      window.on('closed', () => clearInterval(retitle));
       await window.loadURL(APP_URL);
+      updater?.start();
     })
     .catch(() => {
       // Do not expose arbitrary config values or imported staff credentials.

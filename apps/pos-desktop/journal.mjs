@@ -341,6 +341,33 @@ export function validateJournal(key, raw, scope) {
   return raw;
 }
 
+/**
+ * True when no stored journal of this desk holds an unanswered command ("Проверить результат").
+ * A journal that cannot be read counts as unanswered: the caller must not restart the desk.
+ */
+export function journalsSettled(directory, fsImpl = fs) {
+  if (!isAbsolute(directory)) fail();
+  let names;
+  try {
+    names = fsImpl.readdirSync(directory);
+  } catch (error) {
+    return error.code === 'ENOENT';
+  }
+  for (const name of names) {
+    if (!/^[a-f0-9]{64}\.json$/.test(name)) continue;
+    try {
+      const path = join(directory, name);
+      const stat = fsImpl.lstatSync(path);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > JOURNAL_LIMIT) return false;
+      const journal = JSON.parse(fsImpl.readFileSync(path, 'utf8'));
+      if (!journal || typeof journal !== 'object' || journal.pending !== null) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** A bounded Store for the existing controller. No token, path, delete, or network API. */
 export function createJournalStore({
   directory,
@@ -372,6 +399,10 @@ export function createJournalStore({
     }
   }
   return {
+    /** A signed-in cashier or shift manager holds this desk right now. */
+    hasSession() {
+      return Boolean(authority && now() < authority.expiresAt);
+    },
     setSession(value, expectedSessionId) {
       authority = null;
       try {

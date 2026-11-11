@@ -51,6 +51,8 @@ assert.deepEqual(
     '/security.mjs',
     '/gateway.mjs',
     '/terminal-cookie.mjs',
+    '/updater.mjs',
+    '/update-feed.json',
     '/renderer/components',
     '/package.json',
     '/renderer',
@@ -65,7 +67,7 @@ for (const name of ASSETS) {
   assert.equal(hash(data), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(data.byteLength, manifest.files[name].bytes);
 }
-for (const name of ['main.mjs', 'security.mjs']) {
+for (const name of ['main.mjs', 'security.mjs', 'updater.mjs', 'update-feed.json']) {
   assert.equal(hash(readEntry(name)), manifest.inputs[`apps/kitchen-desktop/${name}`].sha256);
 }
 assert.equal(hash(readEntry('gateway.mjs')), manifest.inputs['apps/kitchen/server.mjs'].sha256);
