@@ -15,7 +15,7 @@
  */
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -28,6 +28,8 @@ import { pendingWork, backlogMark } from './checks.mjs';
 import { distinguishable, LABELS } from './staff-view.mjs';
 import { seededRandom } from './fault-proxy.mjs';
 import { renderMarkdown } from './report.mjs';
+import { atomicSnapshot, continuousSoak } from './soak-progress.mjs';
+import { Diagnostics } from './diagnostics.mjs';
 
 const MINUTE = 60000,
   HOUR = 60 * MINUTE;
@@ -168,24 +170,34 @@ async function gitHead() {
 }
 
 /** Long runs: hours without WAN with a realistic restaurant, then reconnect under chaos. */
-async function soak(ctx, report) {
+async function soak(ctx, report, save) {
   const { stand, r, traffic, profile } = ctx;
   const notes = { samples: [] };
   stand.wan.set(profile.wanFault);
   const started = Date.now();
+  notes.offline_started_at = new Date(started).toISOString();
+  report.scenarios.at(-1).notes = notes;
+  await save();
   const before = { pos_sales: r.counters.pos_sales, kitchen_actions: r.counters.kitchen_actions };
   let nextShift = started + profile.shiftEveryMs,
     nextStaff = started + profile.staffEveryMs,
     restarted = false;
   while (Date.now() - started < profile.durationMs && !profile.signal?.aborted) {
     await ctx.hold(Math.min(profile.checkEveryMs, profile.durationMs - (Date.now() - started)));
-    if (Date.now() >= nextStaff) {
-      await stand.refreshStaff();
-      nextStaff += profile.staffEveryMs;
-    }
-    if (Date.now() >= nextShift) {
-      await r.closeAndReopenShift().catch((error) => traffic.record('shift', error));
-      nextShift += profile.shiftEveryMs;
+    if (Date.now() >= nextStaff || Date.now() >= nextShift) {
+      // Relogin replaces credentials; shift turnover briefly leaves no open shift.
+      // Drain actor commands before either operation, as staff cannot sell while logging
+      // in or closing the register. Keep unexpected 401/shift errors as test failures.
+      await traffic.stop();
+      if (Date.now() >= nextStaff) {
+        await stand.refreshStaff();
+        nextStaff += profile.staffEveryMs;
+      }
+      if (Date.now() >= nextShift) {
+        await r.closeAndReopenShift().catch((error) => traffic.record('shift', error));
+        nextShift += profile.shiftEveryMs;
+      }
+      traffic.start();
     }
     if (!restarted && Date.now() - started >= profile.durationMs * profile.edgeRestartAtShare) {
       // A Windows reboot in the middle of the offline day.
@@ -197,6 +209,8 @@ async function soak(ctx, report) {
     const view = await ctx.observe('wan_loss');
     const pending = await pendingWork(stand);
     notes.samples.push({
+      observed_at: new Date().toISOString(),
+      elapsed_ms: Date.now() - started,
       minute: Math.round((Date.now() - started) / MINUTE),
       pos_sales: r.counters.pos_sales,
       kitchen_actions: r.counters.kitchen_actions,
@@ -207,9 +221,15 @@ async function soak(ctx, report) {
       cloud_link: view.cloud_link,
     });
     report.progress = notes.samples.at(-1);
+    report.restarts = stand.restarts;
+    ctx.log({ event: 'soak_progress', ...report.progress });
+    await save();
   }
   notes.offline_minutes = Math.round((Date.now() - started) / MINUTE);
   notes.backlog_at_reconnect = await pendingWork(stand);
+  notes.offline_finished_at = new Date().toISOString();
+  notes.coverage = continuousSoak(notes.samples, profile.durationMs, profile.checkEveryMs);
+  await save();
   // Reconnect through a weak link: occasional lost answers, duplicates, late and reordered requests.
   const mark = await backlogMark(stand);
   stand.wan.set('chaos', profile.reconnectChaos);
@@ -227,6 +247,16 @@ async function soak(ctx, report) {
   return {
     notes,
     checks: [
+      {
+        id: 'soak_continuous_duration',
+        title: 'Полная длительность подтверждена без длительных пропусков наблюдения',
+        ok: notes.coverage.ok,
+        expected: {
+          duration_ms: profile.durationMs,
+          max_interval_ms: profile.checkEveryMs + 90000,
+        },
+        actual: notes.coverage,
+      },
       {
         id: 'soak_kept_working',
         title: 'Касса и кухня работали всё время без интернета',
@@ -393,16 +423,20 @@ export async function main(argv = process.argv.slice(2)) {
     log,
   });
   let traffic;
+  let diagnostics;
   const save = async () => {
-    await writeFile(resolve(out, 'report.json'), JSON.stringify(report, null, 2) + '\n', {
-      mode: 0o600,
-    });
-    await writeFile(resolve(out, 'report.md'), renderMarkdown(report), { mode: 0o600 });
+    report.checkpoint_at = new Date().toISOString();
+    await atomicSnapshot(resolve(out, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+    await atomicSnapshot(resolve(out, 'report.md'), renderMarkdown(report));
   };
   try {
     log({ event: 'stand_starting', out });
     const created = Date.now();
     await stand.create();
+    if (options.mode === 'soak') {
+      diagnostics = new Diagnostics(stand);
+      await diagnostics.start();
+    }
     report.stand = {
       schema: stand.schema,
       seconds_to_ready: Math.round((Date.now() - created) / 1000),
@@ -415,7 +449,7 @@ export async function main(argv = process.argv.slice(2)) {
       if (abort.signal.aborted) break;
       const scenario =
         id === 'soak'
-          ? { title: 'Длительная работа без интернета', run: (c) => soak(c, report) }
+          ? { title: 'Длительная работа без интернета', run: (c) => soak(c, report, save) }
           : id === 'backlog'
             ? { title: 'AC-17: большой накопленный поток событий', run: backlog }
             : SCENARIOS[id];
@@ -423,6 +457,7 @@ export async function main(argv = process.argv.slice(2)) {
       log({ event: 'scenario_started', id });
       const entry = { id, title: scenario.title, started_at: new Date().toISOString() };
       report.scenarios.push(entry);
+      await save();
       try {
         if (!traffic.running) traffic.start();
         const result = (await scenario.run(ctx)) ?? {};
@@ -470,6 +505,7 @@ export async function main(argv = process.argv.slice(2)) {
             : 'passed'
           : 'failed';
       } catch (error) {
+        await diagnostics?.sample('scenario_error');
         Object.assign(entry, {
           status: 'error',
           error: { code: error.code ?? error.name, message: String(error.message).slice(0, 500) },
@@ -555,6 +591,7 @@ export async function main(argv = process.argv.slice(2)) {
     report.status = 'error';
     report.error = { code: error.code ?? error.name, message: String(error.message).slice(0, 500) };
   } finally {
+    if (diagnostics) report.diagnostics = await diagnostics.stop();
     await traffic?.stop().catch(() => {});
     report.cleanup = await stand
       .close({ keep: options.keep })
