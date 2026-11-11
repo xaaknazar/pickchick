@@ -1270,7 +1270,7 @@ export class ExpensesView {
       tr.tabIndex = 0;
       tr.append(
         el('td', '', dayText(e.date) + (e.monthly ? ' (за месяц)' : '')),
-        el('td', '', e.pl_month),
+        el('td', '', monthName(e.pl_month)),
         el('td', '', m.locationName(e.location_id)),
         el('td', '', m.category(e.category)?.name ?? e.category),
         el('td', '', meta.sources.find((s) => s.code === e.source)?.short ?? e.source),
