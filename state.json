@@ -7679,25 +7679,6 @@
       "nextAction": "После Google review проверить допуск новых участников и фактическое вступление/установки. Включить отчёт при продолжении android-play-1106/PR322 в status/roadmap и исходный журнал; онлайн-пульт не обновлён. CI документального PR не подтверждена. Production только по отдельному да; Windows не менять до завершения Claude."
     },
     {
-      "id": "offline-soak-1109",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/offline-soak-1109",
-      "scopes": [
-        "docs/operations/offline-soak-1109.md",
-        "@cloud/offline-soak-1109",
-        "tests/offline-stand/run.mjs",
-        "tests/offline-stand/soak-progress.mjs",
-        "tests/offline-stand/soak-progress.test.mjs",
-        "tests/offline-stand/diagnostics.mjs",
-        "tests/offline-stand/diagnostics.test.mjs"
-      ],
-      "status": "available",
-      "head": "82cbea1775bdc80830e767bb0538f06a6edf9117",
-      "updatedAt": "2026-11-11T05:07:44.572Z",
-      "summary": "11 Nov checkpoint 82cbea17 in draft PR336. Independent read-only DB/runner diagnostics added. Build PASS, unit36/36, lint/format PASS; real PG blocker probe PASS. Native local smoke baseline17/17, soak21/21,120057ms offline,recovery37.7s,final reconciliation PASS,0 traffic errors. Root cause of prior 160min failure remains unknown; K12 OPEN. No production writes.",
-      "nextAction": "Obtain original cloud logs 16:17-16:23 UTC; Mac requires AC power for >8h run. Diagnose cause before acceptance rerun; keep all previous evidence. Local fixture data/env/binaries retained under .local/soak1111, own services stopped to save battery. Do not claim short smoke as eight-hour PASS."
-    },
-    {
       "id": "cloud1-window-1110",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/cloud1-window-1110",
@@ -7712,6 +7693,25 @@
       "updatedAt": "2026-11-11T05:04:26.192Z",
       "summary": "11 Nov: PR345 updated with cutover 337f2e73 by normal merge 16a2ab9b; preflight 13/13 PASS; no production changes. Cutover Foundation 42880500796 failed in backoffice PostgreSQL integration. Correct age identity remains on other Mac; restore not verified.",
       "nextAction": "Obtain matching backup identity securely, inspect exact-head CI; resume Cloud-1 only with full green CI and successful backup restoration/rehearsal. K12 diagnosis continues separately."
+    },
+    {
+      "id": "offline-soak-1109",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/offline-soak-1109",
+      "scopes": [
+        "docs/operations/offline-soak-1109.md",
+        "@cloud/offline-soak-1109",
+        "tests/offline-stand/run.mjs",
+        "tests/offline-stand/soak-progress.mjs",
+        "tests/offline-stand/soak-progress.test.mjs",
+        "tests/offline-stand/diagnostics.mjs",
+        "tests/offline-stand/diagnostics.test.mjs"
+      ],
+      "status": "active",
+      "head": "82cbea1775bdc80830e767bb0538f06a6edf9117",
+      "updatedAt": "2026-11-11T05:21:48.293Z",
+      "summary": "11 Nov checkpoint 82cbea17 in draft PR336. Independent read-only DB/runner diagnostics added. Build PASS, unit36/36, lint/format PASS; real PG blocker probe PASS. Native local smoke baseline17/17, soak21/21,120057ms offline,recovery37.7s,final reconciliation PASS,0 traffic errors. Root cause of prior 160min failure remains unknown; K12 OPEN. No production writes.",
+      "nextAction": "Obtain original cloud logs 16:17-16:23 UTC; Mac requires AC power for >8h run. Diagnose cause before acceptance rerun; keep all previous evidence. Local fixture data/env/binaries retained under .local/soak1111, own services stopped to save battery. Do not claim short smoke as eight-hour PASS."
     }
   ],
   "approvedScopeTransfers": [
