@@ -7712,6 +7712,17 @@
       "updatedAt": "2026-11-11T09:19:16.555Z",
       "summary": "11 Nov: PR345 merged to cutover1271b5de; source16a2ab9b Foundation42962912430 11/11 PASS, local13/13 PASS. Preparation branch subsequently integrated fresh cutover/shared incl accepted archive helperPR340; no product code changes. No VPS writes; backup identity absent locally.",
       "nextAction": "Check exact current cutover CI then restore/rehearse only with matching age key from other Mac. PR345 is accepted software, not live deployment. Preserve after00:15 closed-restaurant gate, restore and migration guards. K12 running independently; no runtime changes there."
+    },
+    {
+      "id": "launch-checklist-1111",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/launch-checklist-1111",
+      "scopes": [
+        "docs/operations/launch-checklist-1111.md"
+      ],
+      "status": "active",
+      "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
+      "updatedAt": "2026-11-11T09:58:38.911Z"
     }
   ],
   "approvedScopeTransfers": [
