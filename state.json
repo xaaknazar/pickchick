@@ -7707,11 +7707,11 @@
         "tests/operations/test_iiko_archive.py",
         "docs/operations/iiko-archive-1110.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "f944a53a795ff4ca01b146d3b5e01ba914a5b383",
-      "updatedAt": "2026-11-11T09:13:41.657Z",
-      "summary": "PR340 published f944a53a, remote SHA verified, clean worktree. Д1 local archive seal/verify CLI for five required categories, independent manifest SHA, no-clobber inventory, exact file/hash checks; Linux/macOS Python3.10+. 12/12 synthetic tests PASS; prettier/diff checks PASS. Foundation42827482910 in progress. No real exports or production access; Д1 not fully closed. PR335 Foundation42608362751 and PR336 Foundation42820557929 confirmed success. Live8h source8945 untouched; first10min checkpoint recorded.",
-      "nextAction": "Check Foundation42827482910 exact f944a53a, review and integrate into fresh shared without force, then finish software stage. Real Д1 requires full period/organization/register/warehouse exports, independent protected copy, retrieval verification and accountant acceptance. Do not store actual exports/manifests in Git/chat. Global status/roadmap retained by Android task; online board not updated. Follow eight-hour run through existing automation, no duplicate or live source change."
+      "updatedAt": "2026-11-11T09:14:48.338Z",
+      "summary": "11 Nov: software stage reviewed and integrated via PR340, shared merge8f2abe2d contains f944a53a. Exact-head Foundation42827482910 all11 jobs PASS plus photo2. Local synthetic unittest12/12 PASS, diff checked. CLI seal/verify checks five sections and independent copy SHA; no actual exports accessed.",
+      "nextAction": "Д1 accounting acceptance remains OPEN: obtain agreed full-period exports, independent protected storage and retrieval, then accountant coverage/totals acceptance. Software task finished only; no production change, no real archive certified."
     }
   ],
   "approvedScopeTransfers": [
