@@ -138,6 +138,7 @@ export function navigationIcon(name: string) {
     shifts: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2',
     reports: 'M4 3v18h17M8 16v-5M13 16V7M18 16v-8',
     finance: 'M3 6h18v14H3zM3 6l15-3v3M16 11h5v4h-5z',
+    expenses: 'M3 6h18v14H3zM3 6l15-3v3M16 11h5v4h-5zM7 11h5M7 15h3',
     stock: 'M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10',
     settlements: 'M5 3h14v18l-4-2-3 2-3-2-4 2zM8 8h8M8 12h6',
     promo: 'M3 10v5h4l10 4V5L7 10zM7 15l2 6M21 9v6',

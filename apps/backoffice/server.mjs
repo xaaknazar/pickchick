@@ -71,6 +71,22 @@ function reportQuery(search) {
 export const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  // «Расходы» (cloud077): organization-wide, GET reads with a short plain query, POST writes.
+  if (
+    method === 'GET' &&
+    /^\/v1\/admin\/backoffice\/expenses\/(meta|entry|journal|pnl|analytics|log|access)$/.test(
+      pathname,
+    )
+  )
+    return search === undefined || (search.length <= 600 && /^[A-Za-z0-9_=&%.,:+-]*$/.test(search));
+  if (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(
+      `^/v1/admin/backoffice/expenses/(cell|row|cash|access|entries(/${UUID}(/delete)?)?|months/\\d{4}-\\d{2}/(close|open))$`,
+    ).test(pathname)
+  )
+    return true;
   if (new RegExp(`^/v1/admin/backoffice/branches/${UUID}/restore-reviews$`).test(pathname)) {
     if (method === 'POST') return search === undefined;
     if (method !== 'GET') return false;
@@ -387,10 +403,9 @@ export const allowed = (method, path) => {
 const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
-  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center', 'audit-fixes'].map((n) => [
-    `/${n}.css`,
-    [`${n}.css`, 'text/css; charset=utf-8'],
-  ]),
+  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center', 'audit-fixes', 'expenses'].map(
+    (n) => [`/${n}.css`, [`${n}.css`, 'text/css; charset=utf-8']],
+  ),
   ...[
     'app',
     'api',
@@ -410,6 +425,9 @@ const assets = new Map([
     'components/ReconciliationView',
     'finance',
     'finance-model',
+    // «Расходы» (cloud077, shown only while GET expenses/meta answers for this login).
+    'expenses',
+    'expenses-model',
     'workforce',
     'workforce-model',
     'finance-report',

@@ -60,6 +60,11 @@ export interface ServiceConfig {
    * BACKOFFICE_STAFF_POSITIONS_ENABLED: the stations are the positions of the branch list.
    */
   backofficeStaffAssignmentEnabled?: boolean;
+  /**
+   * BACKOFFICE_EXPENSES_ENABLED: section «Расходы» (cloud077, owner request 11.11.2026). Cloud API
+   * only, needs BACKOFFICE_ENABLED, default off and present here only when on.
+   */
+  backofficeExpensesEnabled?: boolean;
   workforceEnabled?: boolean;
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
@@ -173,6 +178,14 @@ export function loadConfig(
       (value === 'true' && (service !== 'api' || backoffice !== 'true'))
     )
       throw new Error(`${name} requires the cloud backoffice`);
+  }
+  {
+    const value = env.BACKOFFICE_EXPENSES_ENABLED ?? 'false';
+    if (
+      !['true', 'false'].includes(value) ||
+      (value === 'true' && (service !== 'api' || backoffice !== 'true'))
+    )
+      throw new Error('BACKOFFICE_EXPENSES_ENABLED requires the cloud backoffice');
   }
   if (env.BACKOFFICE_SUPPLY_ENABLED === 'true' && env.BACKOFFICE_STOCK_V2_ENABLED !== 'true')
     throw new Error('BACKOFFICE_SUPPLY_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
@@ -315,6 +328,7 @@ export function loadConfig(
     ...(env.BACKOFFICE_STAFF_ASSIGNMENT_ENABLED === 'true'
       ? { backofficeStaffAssignmentEnabled: true }
       : {}),
+    ...(env.BACKOFFICE_EXPENSES_ENABLED === 'true' ? { backofficeExpensesEnabled: true } : {}),
     ...(workforce === 'true' ? { workforceEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
     ...(fulfillment === 'true'
