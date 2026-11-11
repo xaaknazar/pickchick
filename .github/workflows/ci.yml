@@ -98,7 +98,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Export native and web JavaScript bundles
         env:
           EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
@@ -165,7 +172,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Export native and web JavaScript bundles
         env:
           EXPO_PUBLIC_PUBLISHED_CATALOG: '0'
@@ -250,7 +264,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Browser recovery regressions (isolated HTTP fixtures)
         run: |
           # Run every isolated regression and fail the step if any failed. This
@@ -326,7 +347,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Verify opt-in server account screens and recovery
         run: |
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
@@ -416,7 +444,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Check kiosk against isolated API fixtures
         run: |
           PICKCHICK_PREVIEW_APP=kiosk KIOSK_PREVIEW_PORT=4184 node scripts/mobile/preview-server.mjs > .local/kiosk-preview.log 2>&1 &
@@ -514,7 +549,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Verify local queue, command recovery and display
         env:
           PICKCHICK_BROWSER_PYTHON: .local/design-venv/bin/python
@@ -576,7 +618,14 @@ jobs:
         run: |
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
-          .local/design-venv/bin/python -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The browser tests still run in it; a missing library fails them, it is not hidden.
+          if ! timeout 150 .local/design-venv/bin/python -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); browser tests run on the libraries of the runner image"
+            .local/design-venv/bin/python -m playwright install chromium
+          fi
       - name: Start isolated design server and exercise all screens
         run: |
           node scripts/design-server.mjs > .local/design-server.log 2>&1 &
