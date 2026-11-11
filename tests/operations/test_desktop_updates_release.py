@@ -783,6 +783,15 @@ class ServerSteps(unittest.TestCase):
             _, report = call(['inspect'])
             self.assertEqual((report['deployment_lock_present'], report['deployment_lock_owner']),
                              (True, {'action': 'roadmap', 'sha': 'e' * 40}))
+            # The other scripts of the server name their step in other fields of the same record.
+            for record, shown in [
+                    ({'id': 'x', 'operation': 'C1'}, {'operation': 'C1'}),
+                    ({'id': 'x', 'task': 'ceo-login', 'source_sha': 'f' * 40},
+                     {'task': 'ceo-login', 'source_sha': 'f' * 40}),
+                    ({'id': 'x', 'action': 'pickchick-ingress', 'pid': 4242}, {'action': 'pickchick-ingress'}),
+                    (['not', 'a', 'record'], None)]:
+                (lock / 'owner.json').write_text(json.dumps(record))
+                self.assertEqual(call(['inspect'])[1]['deployment_lock_owner'], shown, record)
             (lock / 'owner.json').unlink()
             lock.rmdir()
             self.install()
@@ -797,23 +806,39 @@ class ServerSteps(unittest.TestCase):
             self.assertIsNone(report['deployment_lock_owner'])
 
     def test_the_lock_names_this_step_while_it_runs(self):
-        seen = []
+        seen, early, answers = [], [], []
         real = d.verify_refusals
+        real_open = d.open_journal
+
+        def owner_now():
+            return json.loads((self.world.root / '.market-release.lock/owner.json').read_text())
+
+        def open_journal(journal, outcome, phase):
+            # What a process killed during the checks after the lock leaves: a lock that names a
+            # journal which is not there, so the reader knows nothing was changed.
+            early.append((owner_now()['journal'] == str(journal), journal.exists()))
+            return real_open(journal, outcome, phase)
 
         def refusals(origin, manifests):
-            seen.append(json.loads((self.world.root / '.market-release.lock/owner.json').read_text()))
+            seen.append(owner_now())
+            self.assertTrue(Path(seen[-1]['journal']).is_file())
             return real(origin, manifests)
 
-        with self.world.active(), patch.object(d, 'verify_refusals', refusals):
-            self.install()
+        with self.world.active(), patch.object(d, 'verify_refusals', refusals), \
+                patch.object(d, 'open_journal', open_journal):
+            answers.append(self.install())
             second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
-            call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply'])
-            call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
-                  '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
+            answers.append(call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0')
+                                + ['--apply'])[1])
+            answers.append(call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                                 '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])[1])
         self.assertEqual([(owner['action'], owner['sha'], owner['feed_release']) for owner in seen[-3:]],
                          [('desktop-updates-install', 'c' * 40, 'kitchen-0.4.0-pos-0.5.0'),
                           ('desktop-updates-publish', 'c' * 40, 'kitchen-0.4.0-pos-0.5.1'),
                           ('desktop-updates-withdraw', 'c' * 40, 'kitchen-0.4.0-pos-0.5.0')])
+        self.assertEqual(early, [(True, False)] * 3)
+        # One journal per run: the lock named the file the answer names.
+        self.assertEqual([owner['journal'] for owner in seen[-3:]], [answer['journal'] for answer in answers])
         self.assertTrue(all(re.fullmatch('[0-9a-f-]{36}', owner['id']) for owner in seen))
         self.assertFalse((self.world.root / '.market-release.lock').exists())
 
@@ -956,7 +981,7 @@ class ServerSteps(unittest.TestCase):
             _, report = call(['inspect'])
             self.assertEqual((report['deployment_lock_present'], report['deployment_lock_owner']),
                              (True, {'action': 'desktop-updates-install', 'sha': 'c' * 40,
-                                     'feed_release': 'kitchen-0.4.0-pos-0.5.0'}))
+                                     'feed_release': 'kitchen-0.4.0-pos-0.5.0', 'journal': outcome['journal']}))
             # A repeat is refused, and a refusal prints no outcome: its error line is the whole answer.
             self.assertIsNone(stopped(self, self.install_arguments() + ['--apply'],
                                       'A feed installation already exists'))
@@ -994,7 +1019,7 @@ class ServerSteps(unittest.TestCase):
             _, report = call(['inspect'])
             self.assertEqual(report['deployment_lock_owner'],
                              {'action': 'desktop-updates-publish', 'sha': 'c' * 40,
-                              'feed_release': 'kitchen-0.4.0-pos-0.5.1'})
+                              'feed_release': 'kitchen-0.4.0-pos-0.5.1', 'journal': outcome['journal']})
 
     def test_a_step_whose_lock_was_touched_still_says_how_it_ended(self):
         lock = self.world.root / '.market-release.lock'
@@ -1317,6 +1342,25 @@ class ServerSteps(unittest.TestCase):
                                           'Interrupted: KeyboardInterrupt; nothing was changed and the '
                                           'release lock is free'))
             self.assertFalse(lock.exists())
+            # The step is stopped right after the first line of its journal: still a refusal, and a
+            # refusal leaves no journal that would read like a run that was cut off.
+            real_open = d.open_journal
+            journals = []
+
+            def open_journal(journal, outcome, phase):
+                real_open(journal, outcome, phase)
+                journals.append(journal)
+                self.assertTrue(journal.is_file())
+                raise KeyboardInterrupt
+
+            with patch.object(d, 'open_journal', open_journal):
+                self.assertIsNone(stopped(self, self.install_arguments() + ['--apply'],
+                                          'Interrupted: KeyboardInterrupt; nothing was changed and the '
+                                          'release lock is free'))
+            self.assertFalse(lock.exists())
+            self.assertEqual((len(journals), journals[0].exists()), (1, False))
+            self.assertEqual(list((self.world.root / 'desktop-updates/deployments').iterdir()), [])
+            self.assertIsNone(self.world.sidecar)
             self.install()
 
     def test_package_holds_exactly_the_reviewed_files(self):

@@ -280,10 +280,22 @@ def main():
         publish = ['publish', *signed, '--feed', str(feed2), '--expected-current', first,
                    '--expected-kitchen-sha256', kitchen_hash]
         assert run(publish)['status'] == 'inspected' and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
-        d.copy_release = while_copying(lambda: sh(['docker', 'rm', '-f', JOB]))
+        named = []
+
+        def job_ends():
+            # What a process killed here would leave: a lock that names the step and its journal.
+            owner = d.lock_owner()
+            record = json.loads(Path(owner['journal']).read_text())
+            assert (owner['action'], owner['feed_release'], record['status'], record['phase']) == (
+                'desktop-updates-publish', second, 'preparing', 'copy'), (owner, record)
+            named.append(owner['journal'])
+            sh(['docker', 'rm', '-f', JOB])
+
+        d.copy_release = while_copying(job_ends)
         report = run(publish + ['--apply'])
         d.copy_release = real_copy
         assert report['status'] == 'deployed' and report['feed_release'] == second, report
+        assert named == [str(journal_of(report))], named
         assert JOB not in listed()
         assert before == {name: identity(name) for name in before}
         summary['one_off_job_came_and_went'] = True
@@ -293,6 +305,7 @@ def main():
         summary['publish'] = report['published']
 
         step('refusals')
+        journals = sorted((root / 'desktop-updates/deployments').iterdir())
         for arguments, reason in [
                 (publish + ['--apply'], 'not --expected-current'),
                 (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
@@ -301,6 +314,8 @@ def main():
                   '--expected-kitchen-sha256', 'f' * 64], 'operator named'),
                 (install + ['--apply'], 'Current public pointer changed')]:
             refused(arguments, reason)
+        # A refusal leaves neither a journal nor the lock.
+        assert sorted((root / 'desktop-updates/deployments').iterdir()) == journals and not d.b.LOCK.exists()
         for path in ['/desktop-updates/', '/desktop-updates/pos/', '/desktop-updates/releases/',
                      '/desktop-updates/current/pos/latest.json', '/desktop-updates/pos/latest.json.tmp']:
             assert status(path) == 404, path

@@ -111,22 +111,26 @@ b.containers = containers
 
 
 @contextmanager
-def locked(sha, action, release):
-    """The shared release lock under this step's own name.
+def locked(sha, action, release, journal):
+    """The shared release lock under this step's own name, with the journal the step will write.
 
     Untouched means the server is as it was: the lock is given back and the step can be repeated.
-    Any other exception keeps the lock, as the base helper does.
+    Any other exception keeps the lock, as the base helper does. A lock that names a journal
+    which does not exist was left by a process that ended before its first change.
     """
     refusal = None
     lock_is_free()
     with b.lock(sha) as owner:
         try:
             with before_any_change():
-                owner.update(action='desktop-updates-' + action, feed_release=release)
+                owner.update(action='desktop-updates-' + action, feed_release=release, journal=str(journal))
                 replace_json(b.LOCK / 'owner.json', owner)
             yield
         except Untouched as error:
             refusal = error
+            # A refusal leaves no journal: the first line may have been written just before a stop.
+            with suppress(OSError):
+                journal.unlink()
     if refusal is not None:
         raise RuntimeError(str(refusal) + '; nothing was changed and the release lock is free')
 
@@ -567,10 +571,15 @@ def installed(before):
 
 
 def lock_owner():
-    """Which step holds the shared lock: the fields the scripts of this server write, nothing else."""
+    """Which step holds the shared lock: the fields the scripts of this server write, nothing else.
+
+    This script and the roadmap one write `action` and `sha`; the Cloud-1 window writes `operation`,
+    the cabinet and domain releases write `task` and `source_sha`.
+    """
     try:
         owner = json.loads((b.LOCK / 'owner.json').read_text())
-        return {key: owner[key] for key in ('action', 'sha', 'feed_release') if isinstance(owner.get(key), str)}
+        return {key: owner[key] for key in ('action', 'task', 'operation', 'sha', 'source_sha',
+                                            'feed_release', 'journal') if isinstance(owner.get(key), str)}
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -640,7 +649,7 @@ def install(a, expected):
     outcome['status'] = 'preparing'
     journal = state() / 'deployments' / ('install-' + sha + '-' + uuid.uuid4().hex + '.json')
     started_sidecar = switched_gateway = False
-    with told(outcome), locked(sha, 'install', name):
+    with told(outcome), locked(sha, 'install', name, journal):
         with before_any_change():
             require(b.baseline(a) == (old_public, api, before), 'Baseline drift after lock')
             require(not sidecar_release.exists() and not new_public.exists() and not feed_release.exists(), free)
@@ -775,7 +784,7 @@ def move_pointer(a, action, name, sources, final, old_release, old):
     outcome['status'] = 'preparing'
     journal = state() / 'deployments' / (action + '-' + name + '-' + uuid.uuid4().hex + '.json')
     switched = False
-    with told(outcome), locked(a.expected_source_sha, action, name):
+    with told(outcome), locked(a.expected_source_sha, action, name, journal):
         with before_any_change():
             require(published() == (old_release, old) and b.containers() == before, 'Drift after lock')
             require(not sources or not target.exists(), 'Feed release appeared after the lock: ' + name)
