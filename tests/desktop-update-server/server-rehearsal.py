@@ -4,8 +4,10 @@
 Builds a throw-away copy of the server layout: the public gateway of infra/public-staging and a
 stand-in for the outer HTTPS proxy. Then runs what the operator runs: a failed install that must
 roll back, the install, the updater of the programs reading the feed through the gateway, a publish
-that must not restart anything, refusals and a withdraw. Linux with Docker and a clean committed
-checkout only (CI); nothing outside the temporary directory and four named containers/networks.
+that must not restart anything, refusals and a withdraw. A one-off Compose job, like the cleanup the
+server starts every 15 minutes, comes during the install and goes during the publish. Linux with
+Docker and a clean committed checkout only (CI); nothing outside the temporary directory and the
+containers and networks named here.
 
     python3 tests/desktop-update-server/server-rehearsal.py
 """
@@ -31,6 +33,7 @@ REPO = Path(__file__).resolve().parents[2]
 PORT = 18443
 ORIGIN = 'http://127.0.0.1:%d' % PORT
 OUTER = 'pickchick-rehearsal-outer'
+JOB = 'pickchick-rehearsal-jobs-job-run-1'
 NETWORKS = ['deploy_default', 'pickchick-staging_ingress']
 POS_BYTES = 64 * 1024 * 1024 + 123
 KITCHEN_BYTES = 9_500_000
@@ -155,6 +158,22 @@ def main():
         d.b.ROOT, d.b.LOCK, d.b.ORIGIN, d.FEED_ORIGIN = root, root / '.market-release.lock', ORIGIN, ORIGIN
         d.os.getuid = lambda: 1000
 
+        # `docker compose run`, as infra/staging/identity-cleanup-cron.sh starts its job.
+        jobs = temporary / 'jobs.yaml'
+        jobs.write_text('name: pickchick-rehearsal-jobs\nservices:\n  job:\n    image: %s\n'
+                        '    network_mode: none\n    command: [sleep, "600"]\n' % image)
+        real_copy = d.copy_release
+
+        def while_copying(change):
+            """The step copies a feed release after its first snapshot and before its last check."""
+            def copy(sources, target):
+                change()
+                return real_copy(sources, target)
+            return copy
+
+        def listed():
+            return sh(['docker', 'ps', '-a', '--format', '{{.Names}}']).splitlines()
+
         made = temporary / 'made'
         feed1, hashes1 = temporary / 'feed-1', {}
         for app, size, package_directory in [('pos', POS_BYTES, 'apps/pos-desktop'),
@@ -214,9 +233,13 @@ def main():
         assert (root / 'public-https/current').resolve() == old_public and not d.b.LOCK.exists()
         summary['failed_install_rolled_back'] = True
 
-        step('install')
+        step('install, and a one-off job starts while it runs')
+        d.copy_release = while_copying(lambda: sh(
+            ['docker', 'compose', '-f', str(jobs), 'run', '-d', '--name', JOB, 'job']))
         report = run(install + ['--apply'])
+        d.copy_release = real_copy
         assert report['status'] == 'deployed', report
+        assert JOB in listed() and JOB not in d.containers(), 'The job is not told apart from a service'
         summary['install'] = report['published']
         assert status('/kiosk') == 200 and status('/assets/app.js') == 200 and status('/health/live') == 200
         inspected = json.loads(sh(['docker', 'inspect', d.SIDECAR]))[0]
@@ -234,15 +257,19 @@ def main():
             '/desktop-updates/pos/' + d.APPS['pos'] + versions['pos'] + '-x64.exe', 50, POS_BYTES)
         step(json.dumps(summary['stalled_whole_response']))
 
-        step('publish: one pointer, no container restarts')
+        step('publish: one pointer, no container restarts; the one-off job ends while it runs')
         before = {name: identity(name) for name in ['pickchick-public-gateway', d.SIDECAR, OUTER]}
         signed = ['--package', str(package), '--expected-source-sha', packaged['source_sha']]
         publish = ['publish', *signed, '--feed', str(feed2), '--expected-current', first,
                    '--expected-kitchen-sha256', kitchen_hash]
         assert run(publish)['status'] == 'inspected' and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
+        d.copy_release = while_copying(lambda: sh(['docker', 'rm', '-f', JOB]))
         report = run(publish + ['--apply'])
+        d.copy_release = real_copy
         assert report['status'] == 'deployed' and report['feed_release'] == second, report
+        assert JOB not in listed()
         assert before == {name: identity(name) for name in before}
+        summary['one_off_job_came_and_went'] = True
         client('kitchen', versions['kitchen'], kitchen_next, kitchen_hash)
         client('pos', versions['pos'], 'current')
         assert status('/desktop-updates/kitchen/' + d.APPS['kitchen'] + versions['kitchen'] + '-x64.exe') == 404
@@ -280,9 +307,10 @@ def main():
     finally:
         step('cleanup')
         for command in [
-                ['docker', 'rm', '-f', OUTER],
+                ['docker', 'rm', '-f', OUTER, JOB],
                 ['docker', 'rm', '-f', 'pickchick-public-gateway', 'pickchick-desktop-updates'],
-                ['docker', 'network', 'rm', 'pickchick-desktop-updates_ingress'] + NETWORKS]:
+                ['docker', 'network', 'rm', 'pickchick-desktop-updates_ingress',
+                 'pickchick-rehearsal-jobs_default'] + NETWORKS]:
             sh(command, check=False)
         shutil.rmtree(temporary, ignore_errors=True)
     print(json.dumps(summary, indent=2))

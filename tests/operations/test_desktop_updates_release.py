@@ -68,6 +68,11 @@ class World:
         self.commands = []
         self.fail = None
         self.break_feed = False
+        # `docker compose run` jobs: listed by Docker, never part of a snapshot of the step.
+        self.oneoff = set()
+        # Names Docker lists once and no longer has when they are inspected.
+        self.vanishing = []
+        self.signals = {}
 
     def compose_json(self):
         return {'name': 'pickchick-public', 'services': {'gateway': {
@@ -83,9 +88,14 @@ class World:
             self.fail = None
             raise RuntimeError('Command failed: docker (output withheld)')
         if command[:3] == ['docker', 'ps', '-a']:
-            return '\n'.join(self.generation)
+            if 'label=com.docker.compose.oneoff=True' in command:
+                return '\n'.join(sorted(self.oneoff))
+            gone = [self.vanishing.pop()] if self.vanishing else []
+            return '\n'.join([*self.generation, *sorted(self.oneoff), *gone])
         if command[:2] == ['docker', 'inspect']:
             name = command[-1]
+            if name not in self.generation and name not in self.oneoff:
+                raise RuntimeError('Command failed: docker (output withheld)')
             if '{{json .Mounts}}' in command:
                 mounts = self.gateway if name == b.GATEWAY else self.sidecar
                 return json.dumps([{'Destination': k, 'Source': v} for k, v in mounts.items()])
@@ -167,6 +177,8 @@ class World:
             stack.enter_context(patch.object(d, 'fetch', self.fetch))
             stack.enter_context(patch.object(d, 'RESERVE_BYTES', 0))
             stack.enter_context(patch.object(d.os, 'getuid', lambda: 1000))
+            # The handlers an --apply run sets are recorded, not given to the test process.
+            stack.enter_context(patch.object(d.signal, 'signal', self.signals.__setitem__))
             yield self
 
 
@@ -518,6 +530,17 @@ class ServerSteps(unittest.TestCase):
             with patch.object(d, 'alias_reaches_gateway', lambda: False):
                 with self.assertRaisesRegex(RuntimeError, 'does not reach'):
                     call(self.install_arguments())
+            # The proxy in front of the feed host answers the feed path by itself (a redirect).
+            real = self.world.fetch
+
+            def front(url, headers=None, method='GET', limit=d.CHUNK_BYTES):
+                if url == d.FEED_ORIGIN + '/desktop-updates/pos/latest.json':
+                    return 308, b'', {}
+                return real(url, headers, method, limit)
+
+            with patch.object(d, 'fetch', front):
+                with self.assertRaisesRegex(RuntimeError, 'feed path already answers'):
+                    call(self.install_arguments())
         self.assertFalse((self.world.root / 'desktop-updates').exists())
 
     def test_publish_moves_one_pointer_and_restarts_nothing(self):
@@ -623,6 +646,228 @@ class ServerSteps(unittest.TestCase):
                           ['withdraw', *self.signed, '--to', 'x', '--expected-current', 'y', '--feed', 'z']]:
             with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
                 d.main(arguments)
+
+    def after_the_lock(self, change):
+        """Runs `change` right after the step took the shared lock, before its own re-check."""
+        real = b.lock
+
+        @contextlib.contextmanager
+        def lock(sha):
+            with real(sha) as owner:
+                change()
+                yield owner
+
+        return patch.object(b, 'lock', lock)
+
+    def test_a_refusal_after_the_lock_gives_the_lock_back_and_the_step_repeats(self):
+        lock = self.world.root / '.market-release.lock'
+        with self.world.active():
+            # install: another service appears between the first snapshot and the lock.
+            with self.after_the_lock(lambda: self.world.generation.update({'neighbour-1': 1})):
+                with self.assertRaisesRegex(RuntimeError, 'Baseline drift after lock; nothing was changed '
+                                                          'and the release lock is free'):
+                    call(self.install_arguments() + ['--apply'])
+            self.assertFalse(lock.exists())
+            self.assertFalse((self.world.root / 'desktop-updates').exists())
+            self.assertIsNone(self.world.sidecar)
+            self.assertEqual(self.world.generation[b.GATEWAY], 1)
+            # install: the release directory of this commit appears after the dry-run checks.
+            taken = self.world.root / 'public-https/releases' / ('c' * 40)
+            with self.after_the_lock(taken.mkdir):
+                with self.assertRaisesRegex(RuntimeError, 'Immutable release already exists.*lock is free'):
+                    call(self.install_arguments() + ['--apply'])
+            self.assertFalse(lock.exists())
+            taken.rmdir()
+            self.install()
+            # publish and withdraw: the same for a container and for the published release.
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            arguments = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']
+            with self.after_the_lock(lambda: self.world.generation.update({'neighbour-2': 1})):
+                with self.assertRaisesRegex(RuntimeError, 'Drift after lock; nothing was changed'):
+                    call(arguments)
+            self.assertFalse(lock.exists())
+            self.assertEqual(os.readlink(self.world.root / 'desktop-updates/feed/current'),
+                             'releases/kitchen-0.4.0-pos-0.5.0')
+            self.assertFalse((self.world.root / 'desktop-updates/feed/releases/kitchen-0.4.0-pos-0.5.1').exists())
+            # An interruption (Ctrl+C) in the same place is such a refusal too.
+            def interrupt():
+                raise KeyboardInterrupt
+
+            with self.after_the_lock(lambda: None), patch.object(d, 'published', interrupt):
+                with self.assertRaisesRegex(RuntimeError, 'Interrupted: KeyboardInterrupt; nothing was changed'):
+                    with patch.object(d, 'current_release', lambda a: (
+                            self.world.root / 'desktop-updates/feed/releases/kitchen-0.4.0-pos-0.5.0', self.first)):
+                        call(arguments)
+            self.assertFalse(lock.exists())
+            code, outcome = call(arguments)
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+
+    def test_a_held_lock_or_a_taken_release_name_is_refused_by_the_dry_run_too(self):
+        with self.world.active():
+            taken = self.world.root / 'public-https/releases' / ('c' * 40)
+            taken.mkdir()
+            with self.assertRaisesRegex(RuntimeError, 'Immutable release already exists'):
+                call(self.install_arguments())
+            taken.rmdir()
+            lock = self.world.root / '.market-release.lock'
+            lock.mkdir()
+            (lock / 'owner.json').write_text(json.dumps(
+                {'id': 'x', 'sha': 'e' * 40, 'action': 'roadmap', 'token': 'not printed'}))
+            with self.assertRaisesRegex(RuntimeError, 'release lock is held'):
+                call(self.install_arguments())
+            _, report = call(['inspect'])
+            self.assertEqual((report['deployment_lock_present'], report['deployment_lock_owner']),
+                             (True, {'action': 'roadmap', 'sha': 'e' * 40}))
+            (lock / 'owner.json').unlink()
+            lock.rmdir()
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            lock.mkdir()
+            for arguments in [self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0'),
+                              self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']]:
+                with self.assertRaisesRegex(RuntimeError, 'release lock is held'):
+                    call(arguments)
+            self.assertTrue(lock.is_dir())
+            _, report = call(['inspect'])
+            self.assertIsNone(report['deployment_lock_owner'])
+
+    def test_the_lock_names_this_step_while_it_runs(self):
+        seen = []
+        real = d.verify_refusals
+
+        def refusals(origin, manifests):
+            seen.append(json.loads((self.world.root / '.market-release.lock/owner.json').read_text()))
+            return real(origin, manifests)
+
+        with self.world.active(), patch.object(d, 'verify_refusals', refusals):
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply'])
+            call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                  '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
+        self.assertEqual([(owner['action'], owner['sha'], owner['feed_release']) for owner in seen[-3:]],
+                         [('desktop-updates-install', 'c' * 40, 'kitchen-0.4.0-pos-0.5.0'),
+                          ('desktop-updates-publish', 'c' * 40, 'kitchen-0.4.0-pos-0.5.1'),
+                          ('desktop-updates-withdraw', 'c' * 40, 'kitchen-0.4.0-pos-0.5.0')])
+        self.assertTrue(all(re.fullmatch('[0-9a-f-]{36}', owner['id']) for owner in seen))
+        self.assertFalse((self.world.root / '.market-release.lock').exists())
+
+    def test_one_off_jobs_of_the_server_are_not_services(self):
+        job = 'pickchick-staging-provision-run-0a1b2c3d4e5f'
+        with self.world.active():
+            # Present at the first snapshot, gone when the gateway is switched.
+            self.world.oneoff.add(job)
+            real = self.world.run
+
+            def run(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                    self.world.oneoff.discard(job)
+                return real(command, timeout)
+
+            with patch.object(b, 'run', run):
+                outcome = self.install()
+            self.assertEqual(outcome['unchanged_services'], ['pickchick-staging-api-1'])
+            # Appears while the installers of a new version are read, and one more is listed by
+            # Docker and already removed when the step asks about it.
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1', 'kitchen': '0.4.1'})
+            served = d.verify_served
+
+            def verify(origin, manifests, installers=True):
+                self.world.oneoff.add(job)
+                self.world.vanishing.append('pickchick-staging-provision-run-ffffffffffff')
+                return served(origin, manifests, installers)
+
+            with patch.object(d, 'verify_served', verify):
+                code, outcome = call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+            self.assertNotIn(job, d.containers())
+            # A service that is not a one-off job still stops the step.
+            third = write_feed(self.temporary / 'feed-3', {'pos': '0.5.2'})
+
+            def restart(origin, manifests, installers=True):
+                if installers:
+                    self.world.generation['pickchick-staging-api-1'] += 1
+                return served(origin, manifests, installers)
+
+            with patch.object(d, 'verify_served', restart):
+                code, outcome = call(self.publish_arguments('feed-3', third, 'kitchen-0.4.1-pos-0.5.1')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['detail']),
+                             (1, 'rolled_back', 'A container changed during a file-only step'))
+            self.assertFalse((self.world.root / '.market-release.lock').exists())
+
+    def test_a_container_that_stays_missing_is_an_error_not_a_guess(self):
+        with self.world.active():
+            self.world.vanishing = ['ghost'] * 3
+            with self.assertRaisesRegex(RuntimeError, 'Command failed'):
+                d.containers()
+            self.world.vanishing = ['ghost'] * 2
+            self.assertEqual(sorted(d.containers()), ['pickchick-public-gateway', 'pickchick-staging-api-1'])
+
+            def slow(command, timeout=90):
+                raise b.Uncertain('Command timed out; inspect Docker before any retry')
+
+            with patch.object(b, 'run', slow), self.assertRaises(b.Uncertain):
+                d.containers()
+
+    def test_an_apply_run_outlives_its_terminal_and_a_stop_request_goes_the_way_back(self):
+        with self.world.active():
+            call(self.install_arguments())
+            self.assertEqual(self.world.signals, {})
+            real = self.world.run
+
+            def run(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway' and \
+                        Path(command[command.index('-f') + 1]).read_text() != 'installed':
+                    # What the SIGTERM handler raises, in the middle of the gateway switch.
+                    self.world.signals[d.signal.SIGTERM](d.signal.SIGTERM, None)
+                return real(command, timeout)
+
+            with patch.object(b, 'run', run):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['reason']), (1, 'rolled_back', 'SystemExit'))
+            self.assertIs(self.world.signals[d.signal.SIGHUP], d.signal.SIG_IGN)
+            self.assertFalse((self.world.root / '.market-release.lock').exists())
+            self.assertIsNone(self.world.sidecar)
+            self.install()
+
+    def test_the_journal_names_how_far_a_run_came(self):
+        deployments = self.world.root / 'desktop-updates/deployments'
+        seen = []
+
+        def note(real):
+            def hook(*arguments, **options):
+                # What would be left on disk if the process were killed at this point.
+                owner = json.loads((self.world.root / '.market-release.lock/owner.json').read_text())
+                (path,) = deployments.glob(owner['action'].removeprefix('desktop-updates-') + '-*.json')
+                record = json.loads(path.read_text())
+                seen.append((record['action'], record['status'], record['phase']))
+                return real(*arguments, **options)
+            return hook
+
+        def last(action):
+            (path,) = deployments.glob(action + '-*.json')
+            record = json.loads(path.read_text())
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            return record['status'], record['phase'], record['feed_release']
+
+        with self.world.active(), patch.object(d, 'copy_release', note(d.copy_release)), \
+                patch.object(d, 'sidecar_serves', note(d.sidecar_serves)), \
+                patch.object(d, 'verify_refusals', note(d.verify_refusals)):
+            self.install()
+            self.assertEqual(last('install'), ('deployed', 'publish_pointers', 'kitchen-0.4.0-pos-0.5.0'))
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply'])
+            self.assertEqual(last('publish'), ('deployed', 'verify', 'kitchen-0.4.0-pos-0.5.1'))
+            call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                  '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
+            self.assertEqual(last('withdraw'), ('deployed', 'verify', 'kitchen-0.4.0-pos-0.5.0'))
+        self.assertEqual(seen, [('install', 'preparing', 'prepare'),
+                                ('install', 'preparing', 'start_feed_container'),
+                                ('install', 'preparing', 'verify'), ('install', 'preparing', 'verify'),
+                                ('publish', 'preparing', 'copy'), ('publish', 'preparing', 'verify'),
+                                ('withdraw', 'preparing', 'verify')])
 
     def test_package_holds_exactly_the_reviewed_files(self):
         source = (ROOT / 'infra/desktop-updates/package.py').read_text()
