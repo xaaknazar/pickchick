@@ -236,7 +236,9 @@ def main():
 
         step('publish: one pointer, no container restarts')
         before = {name: identity(name) for name in ['pickchick-public-gateway', d.SIDECAR, OUTER]}
-        publish = ['publish', '--feed', str(feed2), '--expected-current', first, '--expected-kitchen-sha256', kitchen_hash]
+        signed = ['--package', str(package), '--expected-source-sha', packaged['source_sha']]
+        publish = ['publish', *signed, '--feed', str(feed2), '--expected-current', first,
+                   '--expected-kitchen-sha256', kitchen_hash]
         assert run(publish)['status'] == 'inspected' and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
         report = run(publish + ['--apply'])
         assert report['status'] == 'deployed' and report['feed_release'] == second, report
@@ -249,9 +251,9 @@ def main():
         step('refusals')
         for arguments, reason in [
                 (publish + ['--apply'], 'not --expected-current'),
-                (['publish', '--feed', str(feed2), '--expected-current', second,
+                (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
                   '--expected-kitchen-sha256', kitchen_hash, '--apply'], 'higher than the published'),
-                (['publish', '--feed', str(feed2), '--expected-current', second,
+                (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
                   '--expected-kitchen-sha256', 'f' * 64], 'operator named'),
                 (install + ['--apply'], 'Current public pointer changed')]:
             try:
@@ -266,7 +268,7 @@ def main():
         assert before == {name: identity(name) for name in before}
 
         step('withdraw')
-        report = run(['withdraw', '--to', first, '--expected-current', second, '--apply'])
+        report = run(['withdraw', *signed, '--to', first, '--expected-current', second, '--apply'])
         assert report['status'] == 'deployed'
         client('kitchen', versions['kitchen'], 'current')
         assert before == {name: identity(name) for name in before}

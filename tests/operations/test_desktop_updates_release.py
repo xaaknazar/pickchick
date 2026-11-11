@@ -377,11 +377,14 @@ class ServerSteps(unittest.TestCase):
         (self.package / 'desktop-updates-package.json').write_text(
             json.dumps({'source_sha': 'c' * 40, 'files': files}))
         self.first = write_feed(self.temporary / 'feed-1', {'pos': '0.5.0', 'kitchen': '0.4.0'})
+        self.signed = ['--package', str(self.package), '--expected-source-sha', 'c' * 40]
+        running = patch.object(d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py'))
+        running.start()
+        self.addCleanup(running.stop)
 
     def install_arguments(self, feed='feed-1', manifests=None):
         manifests = manifests or self.first
-        return ['install', '--package', str(self.package), '--feed', str(self.temporary / feed),
-                '--expected-source-sha', 'c' * 40,
+        return ['install', *self.signed, '--feed', str(self.temporary / feed),
                 '--expected-public-release', str(self.world.public),
                 '--expected-api-release', str(self.world.api),
                 '--expected-gateway-sha256', hashlib.sha256(
@@ -390,13 +393,12 @@ class ServerSteps(unittest.TestCase):
                 '--expected-kitchen-sha256', manifests['kitchen']['sha256']]
 
     def install(self):
-        with patch.object(d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
-            code, outcome = call(self.install_arguments() + ['--apply'])
+        code, outcome = call(self.install_arguments() + ['--apply'])
         self.assertEqual((code, outcome['status']), (0, 'deployed'))
         return outcome
 
     def publish_arguments(self, feed, manifests, current):
-        arguments = ['publish', '--feed', str(self.temporary / feed), '--expected-current', current]
+        arguments = ['publish', *self.signed, '--feed', str(self.temporary / feed), '--expected-current', current]
         for app, manifest in manifests.items():
             arguments += ['--expected-%s-sha256' % app, manifest['sha256']]
         return arguments
@@ -417,8 +419,7 @@ class ServerSteps(unittest.TestCase):
         self.assertTrue(all(c[:2] != ['docker', 'compose'] for c in self.world.commands))
 
     def test_install_without_apply_only_checks(self):
-        with self.world.active(), patch.object(
-                d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
+        with self.world.active():
             code, outcome = call(self.install_arguments())
         self.assertEqual((code, outcome['status'], outcome['applied']), (0, 'inspected', False))
         self.assertFalse((self.world.root / 'desktop-updates').exists())
@@ -448,17 +449,15 @@ class ServerSteps(unittest.TestCase):
             mode = (root / 'desktop-updates/feed/releases/kitchen-0.4.0-pos-0.5.0/pos/latest.json').stat().st_mode
             self.assertEqual(mode & 0o777, 0o644)
             # A second install is refused before anything is touched.
-            with patch.object(d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
-                with self.assertRaisesRegex(RuntimeError, 'Current public pointer changed'):
-                    call(self.install_arguments() + ['--apply'])
+            with self.assertRaisesRegex(RuntimeError, 'Current public pointer changed'):
+                call(self.install_arguments() + ['--apply'])
 
     def test_failed_install_puts_the_old_gateway_back_and_can_be_repeated(self):
         for failure in ['break_feed', 'gateway_up', 'feed_up']:
             with self.subTest(failure):
                 world = World(self.temporary / ('server-' + failure))
                 self.world = world
-                with world.active(), patch.object(
-                        d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
+                with world.active():
                     if failure == 'break_feed':
                         world.break_feed = True
                     else:
@@ -477,8 +476,7 @@ class ServerSteps(unittest.TestCase):
                     self.assertEqual((code, outcome['status']), (0, 'deployed'))
 
     def test_unconfirmed_rollback_keeps_the_lock(self):
-        with self.world.active(), patch.object(
-                d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
+        with self.world.active():
             self.world.break_feed = True
             real = self.world.run
 
@@ -493,27 +491,33 @@ class ServerSteps(unittest.TestCase):
 
     def test_install_refuses_a_foreign_package_feed_or_baseline(self):
         with self.world.active():
-            with self.assertRaisesRegex(RuntimeError, 'script of the package'):
+            with patch.object(d, '__file__', str(ROOT / 'infra/desktop-updates/remote-deploy.py')):
+                for arguments in [self.install_arguments(),
+                                  ['publish', *self.signed, '--feed', 'x', '--expected-current', 'y'],
+                                  ['withdraw', *self.signed, '--to', 'x', '--expected-current', 'y']]:
+                    with self.assertRaisesRegex(RuntimeError, 'script of the package'):
+                        call(arguments)
+            with self.assertRaisesRegex(RuntimeError, 'source SHA mismatch'):
+                call(['withdraw', '--package', str(self.package), '--expected-source-sha', 'd' * 40,
+                      '--to', 'x', '--expected-current', 'y'])
+            (self.package / 'infra/desktop-updates/compose.yaml').write_text('changed')
+            with self.assertRaisesRegex(RuntimeError, 'hash mismatch'):
                 call(self.install_arguments())
-            with patch.object(d, '__file__', str(self.package / 'infra/desktop-updates/remote-deploy.py')):
-                (self.package / 'infra/desktop-updates/compose.yaml').write_text('changed')
-                with self.assertRaisesRegex(RuntimeError, 'hash mismatch'):
+            (self.package / 'infra/desktop-updates/compose.yaml').write_bytes(
+                (ROOT / 'infra/desktop-updates/compose.yaml').read_bytes())
+            only_pos = write_feed(self.temporary / 'feed-pos', {'pos': '0.5.0'})
+            arguments = self.install_arguments('feed-pos', {**self.first, **only_pos})
+            with self.assertRaisesRegex(RuntimeError, 'exactly the applications'):
+                call(arguments)
+            with self.assertRaisesRegex(RuntimeError, 'both pos/ and kitchen/'):
+                call(arguments[:-2])
+            arguments = self.install_arguments()
+            arguments[arguments.index('--expected-gateway-sha256') + 1] = 'e' * 64
+            with self.assertRaisesRegex(RuntimeError, 'gateway configuration changed'):
+                call(arguments)
+            with patch.object(d, 'alias_reaches_gateway', lambda: False):
+                with self.assertRaisesRegex(RuntimeError, 'does not reach'):
                     call(self.install_arguments())
-                (self.package / 'infra/desktop-updates/compose.yaml').write_bytes(
-                    (ROOT / 'infra/desktop-updates/compose.yaml').read_bytes())
-                only_pos = write_feed(self.temporary / 'feed-pos', {'pos': '0.5.0'})
-                arguments = self.install_arguments('feed-pos', {**self.first, **only_pos})
-                with self.assertRaisesRegex(RuntimeError, 'exactly the applications'):
-                    call(arguments)
-                with self.assertRaisesRegex(RuntimeError, 'both pos/ and kitchen/'):
-                    call(arguments[:-2])
-                arguments = self.install_arguments()
-                arguments[arguments.index('--expected-gateway-sha256') + 1] = 'e' * 64
-                with self.assertRaisesRegex(RuntimeError, 'gateway configuration changed'):
-                    call(arguments)
-                with patch.object(d, 'alias_reaches_gateway', lambda: False):
-                    with self.assertRaisesRegex(RuntimeError, 'does not reach'):
-                        call(self.install_arguments())
         self.assertFalse((self.world.root / 'desktop-updates').exists())
 
     def test_publish_moves_one_pointer_and_restarts_nothing(self):
@@ -546,7 +550,7 @@ class ServerSteps(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, reason):
                     call(self.publish_arguments(feed, made, current) + ['--apply'])
             with self.assertRaisesRegex(RuntimeError, 'exactly the applications'):
-                call(['publish', '--feed', str(self.temporary / 'feed-5'),
+                call(['publish', *self.signed, '--feed', str(self.temporary / 'feed-5'),
                       '--expected-current', 'kitchen-0.4.1-pos-0.5.0', '--apply'])
             self.assertEqual(os.readlink(self.world.root / 'desktop-updates/feed/current'),
                              'releases/kitchen-0.4.1-pos-0.5.0')
@@ -589,8 +593,8 @@ class ServerSteps(unittest.TestCase):
                     ('../releases/kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.1', 'another published release'),
                     ('kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.0', 'not --expected-current')]:
                 with self.assertRaisesRegex(RuntimeError, reason):
-                    call(['withdraw', '--to', to, '--expected-current', current, '--apply'])
-            code, outcome = call(['withdraw', '--to', 'kitchen-0.4.0-pos-0.5.0',
+                    call(['withdraw', *self.signed, '--to', to, '--expected-current', current, '--apply'])
+            code, outcome = call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
                                   '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
             self.assertEqual((code, outcome['status'], outcome['action']), (0, 'deployed', 'withdraw'))
             self.assertEqual(self.world.generation, before)
@@ -615,7 +619,8 @@ class ServerSteps(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'UID 1000'):
                 call(['inspect'])
         for arguments in [['publish'], ['withdraw', '--to', 'x'], ['inspect', '--apply'], ['install', '--apply'],
-                          ['withdraw', '--to', 'x', '--expected-current', 'y', '--feed', 'z']]:
+                          ['publish', '--feed', 'x', '--expected-current', 'y'],
+                          ['withdraw', *self.signed, '--to', 'x', '--expected-current', 'y', '--feed', 'z']]:
             with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
                 d.main(arguments)
 

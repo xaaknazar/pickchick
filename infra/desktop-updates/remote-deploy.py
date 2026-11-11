@@ -404,9 +404,7 @@ def inspect(a, expected):
 
 def install(a, expected):
     sha = a.expected_source_sha
-    require(re.fullmatch('[a-f0-9]{40}', sha or ''), 'Expected full source SHA')
     require(re.fullmatch('[a-f0-9]{64}', a.expected_gateway_sha256 or ''), 'Expected gateway SHA-256')
-    verify_package(a.package, sha)
     manifests = verify_feed(a.feed, expected)
     require(set(manifests) == set(APPS), 'The first feed must hold both pos/ and kitchen/')
     old_public, api, before = b.baseline(a)
@@ -627,9 +625,12 @@ def main(argv=None):
         parser.add_argument('--' + name)
     parser.add_argument('--apply', action='store_true')
     a = parser.parse_args(argv)
-    needs = {'inspect': [], 'install': ['feed', 'package', 'expected_source_sha', 'expected_public_release',
-                                        'expected_api_release', 'expected_gateway_sha256'],
-             'publish': ['feed', 'expected_current'], 'withdraw': ['to', 'expected_current']}[a.mode]
+    signed = ['package', 'expected_source_sha']
+    needs = {'inspect': [],
+             'install': signed + ['feed', 'expected_public_release', 'expected_api_release',
+                                  'expected_gateway_sha256'],
+             'publish': signed + ['feed', 'expected_current'],
+             'withdraw': signed + ['to', 'expected_current']}[a.mode]
     missing = [name for name in needs if getattr(a, name) is None]
     if missing or (a.mode == 'inspect' and a.apply) or (a.mode == 'withdraw' and a.feed):
         parser.error(a.mode + ' needs: ' + ', '.join('--' + name.replace('_', '-') for name in needs))
@@ -643,6 +644,9 @@ def main(argv=None):
             'Expected installer SHA-256 in lower-case hex')
     if a.mode == 'inspect':
         return inspect(a, expected)
+    # Every changing mode runs only as the reviewed files of one commit.
+    require(re.fullmatch('[a-f0-9]{40}', a.expected_source_sha), 'Expected full source SHA')
+    verify_package(a.package, a.expected_source_sha)
     if a.mode == 'install':
         return install(a, expected)
     if a.mode == 'publish':
