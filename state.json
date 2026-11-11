@@ -7747,9 +7747,11 @@
       "scopes": [
         "docs/operations/cloud-expenses-live-1112.md"
       ],
-      "status": "active",
-      "head": "d5dc88b147903e6b2d612ac81964ab4190f21da0",
-      "updatedAt": "2026-11-11T21:12:39.129Z"
+      "status": "available",
+      "head": "61271bbb15c1fc81f9171799c6d4fb20329ae8f8",
+      "updatedAt": "2026-11-11T21:16:23.370Z",
+      "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
+      "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
     }
   ],
   "approvedScopeTransfers": [
