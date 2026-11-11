@@ -11,8 +11,10 @@
 - Флаг API `BACKOFFICE_EXPENSES_ENABLED` (по умолчанию `false`), нужен `BACKOFFICE_ENABLED`.
 - Права роли API: `infra/staging/backoffice-expenses-grants.mjs` (сброс прав только на
   таблицы 077; при выключенном флаге только отзывает).
-- Не входит в окна 14.11, 14→15.11 и 17→18.11. Ставится после перехода 19.11 отдельным
-  окном после 075 и 076, с копией базы перед миграцией.
+- Установка: охраняемые шаги `cutover-cloud-owner.mjs inspect-077`, `deploy-077`,
+  `expenses-grants on|off`, `compose-expenses` и `compose-flag expenses`. 077 идёт после
+  072-076. Владелец 11.11 решил ставить сразу, не дожидаясь 19.11: порядок в
+  [cloud-expenses-now-1111.md](cloud-expenses-now-1111.md), копия базы перед миграцией.
 
 ## Данные
 
