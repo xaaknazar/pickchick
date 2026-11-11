@@ -86,32 +86,6 @@ class Untouched(RuntimeError):
     """A refusal after the lock was taken and before the first change."""
 
 
-def run(command, timeout=90):
-    """The base helper's `run`, with the command in a session of its own.
-
-    A Ctrl+C typed in a terminal goes to every process of the foreground group, and the way back
-    must not lose its Docker command to it. And a command this process gives up on (a stop
-    request, a timeout) is ended together with its helpers, the Compose plugin of `docker` among
-    them, so that none of them keeps working on the server behind the way back. What the Docker
-    Engine was already asked to do goes on; the way back reckons with that.
-    """
-    with subprocess.Popen(command, text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, start_new_session=True) as process:
-        try:
-            output = process.communicate(timeout=timeout)[0]
-        except BaseException as error:
-            with suppress(OSError):
-                os.killpg(process.pid, signal.SIGKILL)
-            if isinstance(error, subprocess.TimeoutExpired):
-                raise b.Uncertain('Command timed out; inspect Docker before any retry') from None
-            raise
-    require(process.returncode == 0, 'Command failed: ' + command[0] + ' (output withheld)')
-    return output.strip()
-
-
-# Every Docker command of this script and of the base helpers it calls.
-b.run = run
-
 # Stop requests of an --apply run: whether one is answered right now, and one that waits.
 STOP = {'held': False, 'noted': None}
 
@@ -144,6 +118,47 @@ def interruptible():
         yield
     finally:
         STOP['held'] = True
+
+
+def run(command, timeout=90):
+    """The base helper's `run`, with the command in a session of its own.
+
+    A Ctrl+C typed in a terminal goes to every process of the foreground group, and the way back
+    must not lose its Docker command to it. And a command this process gives up on (a stop
+    request, a timeout) is ended together with its helpers, the Compose plugin of `docker` among
+    them, so that none of them keeps working on the server behind the way back. What the Docker
+    Engine was already asked to do goes on; the way back reckons with that.
+    """
+    answers = not STOP['held']
+    # A stop request that comes while the command is being started waits until the command can
+    # be ended with it: answered in between, it would leave the command at work with no owner.
+    STOP['held'] = True
+    try:
+        process = subprocess.Popen(command, text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+    except BaseException:
+        STOP['held'] = not answers
+        raise
+    with process:
+        try:
+            if answers:
+                STOP['held'] = False
+                noted, STOP['noted'] = STOP['noted'], None
+                if noted is not None:
+                    stop(noted)
+            output = process.communicate(timeout=timeout)[0]
+        except BaseException as error:
+            with suppress(OSError):
+                os.killpg(process.pid, signal.SIGKILL)
+            if isinstance(error, subprocess.TimeoutExpired):
+                raise b.Uncertain('Command timed out; inspect Docker before any retry') from None
+            raise
+    require(process.returncode == 0, 'Command failed: ' + command[0] + ' (output withheld)')
+    return output.strip()
+
+
+# Every Docker command of this script and of the base helpers it calls.
+b.run = run
 
 
 def containers():

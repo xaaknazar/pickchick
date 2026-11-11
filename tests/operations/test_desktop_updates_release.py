@@ -2160,6 +2160,51 @@ class Runner(unittest.TestCase):
         self.assertEqual(output, 'done')
         self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGINT})
 
+    def a_request_while_the_command_starts(self, number):
+        """The handler of a signal that came during the start runs when the starting call returns."""
+        started, start = [], subprocess.Popen
+
+        def popen(*arguments, **options):
+            process = start(*arguments, **options)
+            started.append(process)
+            self.addCleanup(process.wait)
+            self.addCleanup(process.kill)
+            d.stop(number)
+            return process
+
+        patcher = patch.object(subprocess, 'Popen', popen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return started
+
+    def test_a_stop_request_that_comes_while_a_command_starts_ends_that_command(self):
+        # Answered at once, the request would leave a command at work that nobody can end.
+        started = self.a_request_while_the_command_starts(signal.SIGTERM)
+        d.STOP.update(held=False, noted=None)
+        with self.assertRaises(SystemExit) as raised:
+            d.run([sys.executable, '-c', 'import time; time.sleep(60)'], timeout=45)
+        self.assertEqual(raised.exception.code, 128 + signal.SIGTERM)
+        self.assertEqual([process.returncode for process in started], [-signal.SIGKILL])
+        self.assertEqual(d.STOP, {'held': True, 'noted': None})
+
+    def test_a_stop_request_while_a_command_of_the_way_back_starts_only_waits(self):
+        started = self.a_request_while_the_command_starts(signal.SIGINT)
+        d.STOP.update(held=True, noted=None)
+        self.assertEqual(d.run([sys.executable, '-c', 'print("done")'], timeout=45), 'done')
+        self.assertEqual([process.returncode for process in started], [0])
+        self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGINT})
+
+    def test_a_command_that_cannot_start_leaves_the_stretch_as_it_was(self):
+        for held in (False, True):
+            d.STOP.update(held=held, noted=None)
+            with self.assertRaises(OSError):
+                d.run([str(self.temporary / 'no-such-command')])
+            self.assertEqual(d.STOP, {'held': held, 'noted': None})
+        # A stretch that answers goes on answering after a command of it has ended.
+        d.STOP.update(held=False, noted=None)
+        self.assertEqual(d.run([sys.executable, '-c', 'print("done")']), 'done')
+        self.assertEqual(d.STOP, {'held': False, 'noted': None})
+
 
 if __name__ == '__main__':
     unittest.main()
