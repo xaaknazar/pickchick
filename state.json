@@ -7723,6 +7723,17 @@
       "status": "active",
       "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
       "updatedAt": "2026-11-11T09:58:38.911Z"
+    },
+    {
+      "id": "desktop-updates-install-1111",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/desktop-updates-install-1111",
+      "scopes": [
+        "docs/operations/desktop-updates-install-1111.md"
+      ],
+      "status": "active",
+      "head": "4eb89e3a13cfff8f517285a565a7d52900ac2063",
+      "updatedAt": "2026-11-11T14:55:36.999Z"
     }
   ],
   "approvedScopeTransfers": [
