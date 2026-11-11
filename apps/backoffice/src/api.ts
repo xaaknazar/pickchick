@@ -63,6 +63,26 @@ function reportQuery(search: string) {
     Date.parse(end) - Date.parse(start) <= 365 * 86400000
   );
 }
+/**
+ * «Расходы» (cloud077, BACKOFFICE_EXPENSES_ENABLED): organization-wide, not under a branch. GET
+ * reads with a short plain query, POST writes without one; the API checks every value.
+ */
+export function expensesPath(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET'): boolean {
+  const [pathname = '', search, extra] = path.split('?');
+  if (extra !== undefined || path.includes('#')) return false;
+  if (method === 'GET')
+    return (
+      /^operations\/expenses\/(meta|entry|journal|pnl|analytics|log|access)$/.test(pathname) &&
+      (search === undefined || (search.length <= 600 && /^[A-Za-z0-9_=&%.,:+-]*$/.test(search)))
+    );
+  return (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(
+      `^operations/expenses/(cell|row|cash|access|entries(/${UUID}(/delete)?)?|months/\\d{4}-\\d{2}/(close|open))$`,
+    ).test(pathname)
+  );
+}
 export function allowedPath(path: string): boolean {
   if (/^branches(?:\/[a-f0-9-]{36}(?:\/(?:draft|draft\/seed|publish|assets))?)?$/.test(path))
     return true;
@@ -329,7 +349,10 @@ export function failure(status: number, value: unknown): ApiError {
     : new ApiError(error.code, status);
 }
 export const transport: Transport = async (path, token, options = {}) => {
-  if (!allowedPath(path) || (token !== 'session' && !/^[a-f0-9]{64}$/.test(token)))
+  if (
+    !(allowedPath(path) || expensesPath(path, options.method ?? 'GET')) ||
+    (token !== 'session' && !/^[a-f0-9]{64}$/.test(token))
+  )
     throw new ApiError('INVALID_REQUEST');
   let response: Response;
   try {

@@ -52,15 +52,22 @@ import {
   SUPPLY_FLAGS,
   SUPPLY_MIGRATION,
   SUPPLY_TABLES,
+  EXPENSES_CHECKSUM,
+  EXPENSES_MIGRATION,
+  EXPENSES_TABLES,
   composeCandidate,
+  composeExpenses,
   composeFlag,
   composeSupply,
   cutoverPrivileges,
+  deployBackofficeExpenses,
   deployBackofficeP1,
   deployBackofficeSupply,
   deployCutover,
   p1Privileges,
   parseArguments,
+  expensesPrivileges,
+  setBackofficeExpenses,
   setBackofficeP1,
   setBackofficeSupply,
   setCutoverFlag,
@@ -958,6 +965,160 @@ test('deploy-076 on exact schema075: 076 with every second-wave flag off, data a
         await rm(directory, { recursive: true, force: true });
     }
   }));
+
+test('deploy-077 on exact schema076: «Расходы» with the flag off, data and ACL kept; wrong ledger, bytes and repeat refused; expenses-grants exact deltas', () =>
+  withCloud072(true, async ({ ctx, client, role }) => {
+    const candidate = await copyMigrations('cutover-owner-expenses-', (f) => number(f) <= 77);
+    const tampered = await copyMigrations(
+      'cutover-owner-expenses-tampered-',
+      (f) => number(f) <= 77,
+    );
+    await writeFile(
+      join(tampered, EXPENSES_MIGRATION),
+      (await readFile(join(source, EXPENSES_MIGRATION), 'utf8')) + '\n-- changed\n',
+    );
+    const without = await copyMigrations('cutover-owner-expenses-missing-', (f) => number(f) <= 76);
+    await writeFile(join(candidate, '078_cloud_later_lane.sql'), 'SELECT 1;');
+    try {
+      const pool = ctx.cloud.pool;
+      const inspect = (directory) =>
+        owner(
+          client,
+          () => deployBackofficeExpenses(client, { directory, role, inspect: true }),
+          false,
+        );
+      const deploy = () =>
+        owner(client, () => deployBackofficeExpenses(client, { directory: candidate, role }));
+      const grants = (enabled) =>
+        owner(client, () => setBackofficeExpenses(client, { role, enabled }));
+      // 073/074, 075 and 076 come first, each by its own step.
+      await owner(client, () => deployCutover(client, { directory: candidate, role }));
+      await owner(client, () => deployBackofficeP1(client, { directory: candidate, role }));
+      await assert.rejects(inspect(candidate), guardError(/Exact schema076 ledger required/));
+      await owner(client, () => deployBackofficeSupply(client, { directory: candidate, role }));
+      const deployed = await runtimePrivileges(pool, role);
+      await assert.rejects(grants(true), guardError(/Run deploy-077/));
+      await assert.rejects(inspect(tampered), guardError(/Reviewed migration bytes differ: 077_/));
+      await assert.rejects(inspect(without), guardError(/Exact 077 candidate file required/));
+      assert.deepEqual(await inspect(candidate), {
+        ledger: 'schema076',
+        pending: [EXPENSES_MIGRATION],
+        reviewedBytes: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        expensesPrivileges: [],
+      });
+      for (const table of EXPENSES_TABLES)
+        assert.equal(
+          (await pool.query('SELECT to_regclass($1) IS NOT NULL AS ok', [table])).rows[0].ok,
+          false,
+        );
+      const rows = Number((await pool.query('SELECT count(*) AS n FROM branches')).rows[0].n);
+      assert.deepEqual(await deploy(), {
+        applied: [EXPENSES_MIGRATION],
+        existingDataPreserved: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        privilegesRemoved: [],
+        expenses: false,
+      });
+      assert.equal(
+        Number((await pool.query('SELECT count(*) AS n FROM branches')).rows[0].n),
+        rows,
+      );
+      const ledger = (
+        await pool.query('SELECT version,checksum FROM schema_migrations ORDER BY version')
+      ).rows;
+      assert.deepEqual(ledger.at(-1), { version: EXPENSES_MIGRATION, checksum: EXPENSES_CHECKSUM });
+      for (const table of EXPENSES_TABLES)
+        assert.equal(
+          (await pool.query('SELECT to_regclass($1) IS NOT NULL AS ok', [table])).rows[0].ok,
+          true,
+        );
+      // The standard runner accepts the ledger through 077; the later file is not applied here.
+      const through077 = await copyMigrations(
+        'cutover-owner-expenses-runner-',
+        (f) => number(f) <= 77,
+      );
+      try {
+        assert.deepEqual(await migrate(pool, through077, 'cloud'), []);
+      } finally {
+        await rm(through077, { recursive: true, force: true });
+      }
+      assert.deepEqual(await runtimePrivileges(pool, role), deployed);
+      await assert.rejects(deploy(), guardError(/already applied/));
+      await assert.rejects(
+        owner(client, () => deployBackofficeSupply(client, { directory: candidate, role })),
+        guardError(/already applied|Exact schema075 ledger required/),
+      );
+      assert.equal((await inspect(candidate)).ledger, 'schema077');
+
+      const on = await grants(true);
+      assert.deepEqual(on.privilegesRemoved, []);
+      assert.deepEqual(on.privilegesAdded, expensesPrivileges(true, true));
+      assert.deepEqual(on.environment, ['BACKOFFICE_EXPENSES_ENABLED']);
+      assert.ok(on.privilegesAdded.includes('bo_expense_entries||DELETE'));
+      assert.ok(!on.privilegesAdded.includes('bo_expense_log||UPDATE'));
+      assert.ok(!on.privilegesAdded.includes('bo_expense_log||DELETE'));
+      assert.ok(!on.privilegesAdded.includes('bo_expense_access||DELETE'));
+      assert.ok(!on.privilegesAdded.some((p) => /TRUNCATE/.test(p)));
+      // Repeat is an exact no-op.
+      const again = await grants(true);
+      assert.deepEqual([again.privilegesAdded, again.privilegesRemoved], [[], []]);
+      // A right nobody declared on a 077 table is refused, not silently reset.
+      await pool.query(`GRANT TRUNCATE ON bo_expense_log TO "${role}"`);
+      await assert.rejects(grants(false), guardError(/differ from every known flag state/));
+      await pool.query(`REVOKE TRUNCATE ON bo_expense_log FROM "${role}"`);
+      const off = await grants(false);
+      assert.deepEqual(off.privilegesAdded, []);
+      assert.deepEqual(off.privilegesRemoved, expensesPrivileges(true, true));
+      assert.deepEqual(await runtimePrivileges(pool, role), deployed);
+      await assert.rejects(
+        owner(client, () => setBackofficeExpenses(client, { role, enabled: 'yes' })),
+        guardError(/Invalid expenses flag/),
+      );
+    } finally {
+      for (const directory of [candidate, tampered, without])
+        await rm(directory, { recursive: true, force: true });
+    }
+  }));
+
+test('API environment step of «Расходы»: compose-expenses adds one key to the api service, off; compose-flag flips it', () => {
+  const hex = 'a'.repeat(64);
+  assert.deepEqual(parseArguments(['expenses-grants', 'on']), {
+    command: 'expenses-grants',
+    enabled: true,
+  });
+  assert.deepEqual(parseArguments(['expenses-grants', 'off']), {
+    command: 'expenses-grants',
+    enabled: false,
+  });
+  assert.throws(() => parseArguments(['expenses-grants', 'true']), /Usage/);
+  for (const command of ['inspect-077', 'deploy-077'])
+    assert.deepEqual(parseArguments([command]), { command });
+  assert.deepEqual(
+    parseArguments(['compose-expenses', '--compose', 'c', '--sha256', hex, '--out', 'o']),
+    { command: 'compose-expenses', compose: 'c', sha256: hex, out: 'o' },
+  );
+  const candidate = composeCandidate(COMPOSE, sha256(COMPOSE));
+  assert.throws(() => composeExpenses(candidate, sha256(candidate)), /run compose-supply first/);
+  const wave = composeSupply(candidate, sha256(candidate));
+  assert.throws(() => composeExpenses(wave, 'f'.repeat(64)), /reviewed hash/);
+  const withKey = composeExpenses(wave, sha256(wave));
+  assert.deepEqual(
+    withKey.split('\n').filter((row) => !wave.split('\n').includes(row)),
+    ['      BACKOFFICE_EXPENSES_ENABLED: "false"'],
+  );
+  assert.ok(withKey.indexOf('BACKOFFICE_EXPENSES_ENABLED') < withKey.indexOf('  provision:'));
+  assert.throws(() => composeExpenses(withKey, sha256(withKey)), /already mentions/);
+  const on = composeFlag(withKey, sha256(withKey), 'expenses', true);
+  assert.deepEqual(
+    on.split('\n').filter((row, i) => row !== withKey.split('\n')[i]),
+    ['      BACKOFFICE_EXPENSES_ENABLED: "true"'],
+  );
+  assert.throws(() => composeFlag(on, sha256(on), 'expenses', true), /not in the expected state/);
+  assert.equal(composeFlag(on, sha256(on), 'expenses', false), withKey);
+});
 
 test('API environment step: the candidate adds only the cutover keys, all off; each run flips one key; wrong hash, repeats and other states refused', async () => {
   const candidate = composeCandidate(COMPOSE, sha256(COMPOSE));

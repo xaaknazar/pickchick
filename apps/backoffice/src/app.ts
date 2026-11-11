@@ -34,6 +34,8 @@ import { AssignmentPage } from './assignment.js';
 import { ASSIGNMENT_SECTION, assignmentRangeView } from './assignment-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
+import { EXPENSES_SECTION, ExpensesModel } from './expenses-model.js';
+import { ExpensesView } from './expenses.js';
 import { OperationsView, POS_SECTION, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { ApiError, transport, message, staffAuth } from './api.js';
@@ -68,6 +70,8 @@ let wantDiscounts = location.hash === '#discounts';
 let wantSupply = location.hash === '#supply';
 // Lane bo-ui2 step 5 «Расстановка»: #assignment opens once the server reports staff_assignment.
 let wantAssignment = location.hash === '#assignment';
+// «Расходы» (cloud077): #expenses opens once the server answers GET expenses/meta for this login.
+let wantExpenses = location.hash === '#expenses';
 /**
  * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on,
  * «Закупки» after «Остатки» while supply is on, «Расстановка» after «Смены» while the staff
@@ -85,6 +89,9 @@ const allSections = (): readonly (readonly [string, string, string])[] => {
     const at = list.findIndex((s) => s[0] === 'shifts') + 1;
     list = [...list.slice(0, at), ASSIGNMENT_SECTION, ...list.slice(at)];
   }
+  // «Расходы» takes the place of «Финансы» while the server has it for this login; the former
+  // ledger stays readable inside it (tab «Прежние «Финансы»»).
+  if (expenses.available) list = list.map((s) => (s[0] === 'finance' ? EXPENSES_SECTION : s));
   if (!discountsAvailable(operations.data)) return list;
   const at = list.findIndex((s) => s[0] === 'promo') + 1;
   return [...list.slice(0, at), DISCOUNTS_SECTION, ...list.slice(at)];
@@ -140,6 +147,21 @@ const finance = new FinanceModel(
   window.sessionStorage,
   render,
 );
+// «Расходы» redraws at once (the save indicator and totals follow each cell) and keeps the
+// field being typed in with its caret; elsewhere it waits like every background refresh.
+const expensesChanged = () => {
+  // Off (no section, «Финансы» stays): nothing visible changes, so no redraw (a redraw would
+  // close the phone menu the user may be opening).
+  if (page !== 'expenses' && expenses.available === false) return;
+  if (page !== 'expenses') return softRender();
+  expensesView.capture();
+  render();
+};
+const expenses = new ExpensesModel(
+  (path, request) => model.operations(path, request),
+  expensesChanged,
+);
+const expensesView = new ExpensesView(expenses, expensesChanged);
 const financeView = new FinanceView(finance, render, () => {
   page = 'settlements';
   history.replaceState(null, '', '#settlements');
@@ -312,6 +334,7 @@ function syncOperations() {
   // Cutover CC-5: a shift manager sees neither the finance ledger nor rates and payroll.
   const reads = (permission: string) => !operations.data || permitted(operations.data, permission);
   if (branch && reads('finance.read')) void finance.scope(model.actor.id, branch);
+  if (branch) void expenses.probe(model.actor.id);
   if (branch && (page === 'shifts' || workforce.actor) && reads('workforce.read'))
     void workforce.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
@@ -563,6 +586,12 @@ function render() {
   }
   if (page === 'assignment' && operations.data && !staffAssignmentAvailable(operations.data))
     page = 'dash';
+  if (wantExpenses && expenses.available !== null) {
+    wantExpenses = false;
+    if (expenses.available) page = 'expenses';
+  }
+  if (page === 'finance' && expenses.available) page = 'expenses';
+  if (page === 'expenses' && expenses.available === false) page = 'finance';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
@@ -578,6 +607,7 @@ function render() {
     'assignment',
     'reports',
     'finance',
+    'expenses',
   ];
   const navigation = el('nav', 'navigation');
   navigation.setAttribute('aria-label', 'Разделы кабинета');
@@ -597,6 +627,14 @@ function render() {
             !window.confirm('Сохранённый на сервере журнал останется. Отменить незавершённый ввод?')
           )
             return;
+          if (
+            page === 'expenses' &&
+            id !== 'expenses' &&
+            expensesView.dirty &&
+            !window.confirm('Последняя сумма ещё сохраняется. Уйти со страницы?')
+          )
+            return;
+          if (id === 'expenses' && page !== 'expenses') expensesView.open(expenses.tab);
           if (workforce.pending) return;
           if (
             workforceView.dirty &&
@@ -757,6 +795,7 @@ function render() {
   if (
     page !== 'items' &&
     page !== 'finance' &&
+    page !== 'expenses' &&
     page !== 'pos' &&
     page !== 'discounts' &&
     page !== 'supply' &&
@@ -968,6 +1007,11 @@ function render() {
     operationView.render('shifts', cashierContent);
     cashier.append(cashierContent);
     content.append(cashier);
+    return;
+  }
+  if (page === 'expenses') {
+    expensesView.legacy = hidden('finance.read') ? null : (target) => financeView.render(target);
+    expensesView.render(content);
     return;
   }
   if (page === 'finance') {

@@ -5,6 +5,8 @@ import {
 } from '../../packages/backoffice-core/dist/index.js';
 import { FINANCE, Finance } from '../../packages/backoffice-core/dist/finance.js';
 import { FinanceController } from '../../services/api/dist/finance-controller.js';
+import { EXPENSES, Expenses } from '../../packages/backoffice-core/dist/expenses.js';
+import { ExpensesController } from '../../services/api/dist/expenses-controller.js';
 import {
   RECONCILIATION,
   Reconciliation,
@@ -76,6 +78,9 @@ export async function withCatalog(run, options = {}) {
     stockReports = false,
     staffAssignment = false,
     workforce = false,
+    /** «Расходы» (cloud077, BACKOFFICE_EXPENSES_ENABLED); `now` fixes its clock. */
+    expenses = false,
+    expensesNow,
     cloudMigrationDirectory,
     ...serverOptions
   } = options;
@@ -120,6 +125,7 @@ export async function withCatalog(run, options = {}) {
           FinanceController,
           ...(reconciliation ? [ReconciliationController] : []),
           ...(workforce ? [WorkforceController] : []),
+          ...(expenses ? [ExpensesController] : []),
           ...(media ? [CatalogMediaController] : []),
         ],
         providers: [
@@ -140,6 +146,9 @@ export async function withCatalog(run, options = {}) {
             useValue: new Finance(cloud.pool, true, roles ? { rolesEnabled: true } : {}),
           },
           { provide: RECONCILIATION, useValue: new Reconciliation(cloud.pool, reconciliation) },
+          ...(expenses
+            ? [{ provide: EXPENSES, useValue: new Expenses(cloud.pool, true, expensesNow) }]
+            : []),
           ...(workforce
             ? [
                 {

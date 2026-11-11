@@ -10,6 +10,8 @@ import { FarmController } from './farm-controller.js';
 import { Workforce } from '@pickchick/backoffice-core/workforce';
 import { WorkforceController, WORKFORCE } from './workforce-controller.js';
 import { FinanceController } from './finance-controller.js';
+import { ExpensesController } from './expenses-controller.js';
+import { EXPENSES, Expenses } from '@pickchick/backoffice-core/expenses';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import {
   RECONCILIATION,
@@ -279,6 +281,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     controllers: [
       WorkforceController,
       FinanceController,
+      ExpensesController,
       ReconciliationController,
       KioskIncidentController,
       FarmController,
@@ -324,6 +327,15 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
           new Workforce(resources.pool, config.workforceEnabled === true, {
             rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
           }),
+      },
+      {
+        provide: EXPENSES,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Expenses(
+            resources.pool,
+            config.backofficeEnabled === true && config.backofficeExpensesEnabled === true,
+          ),
       },
       {
         provide: FINANCE,

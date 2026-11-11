@@ -105,6 +105,16 @@ async function stock(bo, c, token, kind, id, extra = {}, quantity = '100', value
     }),
   );
 }
+/** The migrations up to 076 only: later additive ones (077 «Расходы») are not this upgrade. */
+let upTo076;
+async function through076() {
+  if (upTo076) return upTo076;
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-cloud-076-'));
+  for (const file of await readdir(MIGRATIONS))
+    if (/^\d{3}_[a-z_]+\.sql$/.test(file) && file < '077')
+      await cp(join(MIGRATIONS, file), join(directory, file));
+  return (upTo076 = directory);
+}
 async function olderSchema(run) {
   const directory = await mkdtemp(join(tmpdir(), 'pickchick-cloud-075-'));
   try {
@@ -286,7 +296,7 @@ test('upgrade from 075 with data: no existing relation changes, every row and ev
         );
         assert.equal(before.read.capabilities.stock_p1, true);
 
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [P2]);
+        assert.deepEqual(await migrate(c.cloud.pool, await through076(), 'cloud'), [P2]);
         const catalogAfter = await catalog(c);
         // Every relation and function of 075 is exactly as it was: columns, defaults,
         // constraints (validated), indexes, triggers, rights and bodies.
@@ -363,7 +373,7 @@ test('upgrade from 075 with data: no existing relation changes, every row and ev
         assert.deepEqual(Object.keys(state.capabilities), Object.keys(before.read.capabilities));
         assert.equal(state.documents.length, 8);
         // Applying the directory again is a no-op.
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), []);
+        assert.deepEqual(await migrate(c.cloud.pool, await through076(), 'cloud'), []);
       },
       { cloudMigrationDirectory: directory },
     ),

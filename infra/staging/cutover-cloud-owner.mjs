@@ -14,8 +14,12 @@
  *   node infra/staging/cutover-cloud-owner.mjs inspect-076
  *   node infra/staging/cutover-cloud-owner.mjs deploy-076
  *   node infra/staging/cutover-cloud-owner.mjs supply-grants <none|supply,staff-assignment>
+ *   node infra/staging/cutover-cloud-owner.mjs inspect-077
+ *   node infra/staging/cutover-cloud-owner.mjs deploy-077
+ *   node infra/staging/cutover-cloud-owner.mjs expenses-grants <on|off>
  *   node infra/staging/cutover-cloud-owner.mjs compose-candidate --compose <file> --sha256 <hex> --out <file>
  *   node infra/staging/cutover-cloud-owner.mjs compose-supply --compose <file> --sha256 <hex> --out <file>
+ *   node infra/staging/cutover-cloud-owner.mjs compose-expenses --compose <file> --sha256 <hex> --out <file>
  *   node infra/staging/cutover-cloud-owner.mjs compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>
  *
  * inspect/deploy/flag run inside the candidate API image as the cloud owner (CLOUD_DATABASE_URL
@@ -56,6 +60,15 @@
  *   helper backofficeSupplyGrants with its exact check); nothing outside 076 changes.
  *   staff-assignment needs the staff-positions rights of p1-grants first. stock reports have no
  *   grant of their own. Enable = grants first, then the API environment; disable = the reverse.
+ * - inspect-077 / deploy-077 («Расходы», owner request 11.11.2026, docs/operations/
+ *   backoffice-expenses.md): cloud 077_cloud_backoffice_expenses.sql as its own step on an exact
+ *   schema076 ledger (every file 001-076 byte for byte), the reviewed bytes of 077 (SHA-256
+ *   below), then the expenses helper with the flag off: no right on any 077 relation, nothing
+ *   else on the role changes; existing tables keep their columns and rows (077 only creates).
+ *   A repeat is refused; later files are not touched.
+ * - expenses-grants on|off: the rights of BACKOFFICE_EXPENSES_ENABLED on the 077 relations (the
+ *   helper backofficeExpensesGrants), exact delta, nothing outside 077 changes. Needs
+ *   BACKOFFICE_ENABLED grants. On = grants first, then the API environment; off = the reverse.
  * - compose-candidate / compose-flag: the guarded API environment step on a copy of the installed
  *   compose (no database): the installed file must have the reviewed SHA-256; the candidate adds
  *   only the literal cutover flag lines, all "false" (api and provision services, like the
@@ -65,6 +78,8 @@
  *   cutover keys gets the three second-wave keys in the api service, all "false". compose-flag
  *   then flips supply, stock-reports or staff-assignment, only after the cutover flag the API
  *   itself requires (stock-v2, staff-positions), and refuses to turn that one off before them.
+ * - compose-expenses: a compose that already carries the second-wave keys gets
+ *   BACKOFFICE_EXPENSES_ENABLED "false" in the api service; compose-flag expenses flips it.
  * Output is names, booleans and hashes, never row data or the connection string.
  */
 import { createHash } from 'node:crypto';
@@ -100,6 +115,12 @@ import {
   backofficeSupplyGrants,
   backofficeSupplyPrivileges,
 } from './backoffice-supply-grants.mjs';
+import {
+  BACKOFFICE_EXPENSES_RELATIONS,
+  MIGRATION as EXPENSES_MIGRATION,
+  backofficeExpensesGrants,
+  backofficeExpensesPrivileges,
+} from './backoffice-expenses-grants.mjs';
 
 export const BASELINE = '072_cloud_kitchen_restore_review.sql';
 export const MIGRATIONS = Object.freeze([
@@ -197,6 +218,12 @@ export const SUPPLY_COMPOSE = Object.freeze({
     requires: 'staff-positions',
   }),
 });
+/** Cloud 077 «Расходы» (SHA-256 of the reviewed file) and the tables it creates. */
+export { EXPENSES_MIGRATION };
+export const EXPENSES_CHECKSUM = 'af585ccadaed5ea51e416a904e2e729308904a949a16ae34d88a7aee076b6988';
+export const EXPENSES_TABLES = Object.freeze([...BACKOFFICE_EXPENSES_RELATIONS]);
+/** The API environment key of the section (compose-expenses adds it, compose-flag flips it). */
+export const EXPENSES_COMPOSE = Object.freeze({ expenses: 'BACKOFFICE_EXPENSES_ENABLED' });
 export const API_ROLE = 'pickchick_app';
 /** Back-office grants on (backofficeGrants(role, true)), as in stage2-cloud-owner.mjs. */
 const BACKOFFICE_MARKER = 'bo_commands||INSERT';
@@ -281,10 +308,10 @@ const ledgerOf = async (c) =>
   (await c.query('SELECT version,checksum,scope FROM schema_migrations ORDER BY version')).rows;
 
 /**
- * Repository files up to 074 (or up to 075 with `p1`, up to 076 with `supply`) with the reviewed
- * bytes of 072/073/074 (and 075, 076); later files are ignored.
+ * Repository files up to 074 (or up to 075 with `p1`, up to 076 with `supply`, up to 077 with
+ * `expenses`) with the reviewed bytes of 072/073/074 (and 075, 076, 077); later files are ignored.
  */
-async function candidate(directory, p1 = false, supply = false) {
+async function candidate(directory, p1 = false, supply = false, expenses = false) {
   const all = (await readdir(directory)).filter((n) => /^\d{3}_[a-z0-9_]+\.sql$/.test(n)).sort();
   const at = all.indexOf(MIGRATIONS[0]);
   guard(
@@ -293,7 +320,8 @@ async function candidate(directory, p1 = false, supply = false) {
   );
   if (p1) guard(all[at + 2] === P1_MIGRATION, 'Exact 075 candidate file required');
   if (supply) guard(all[at + 3] === SUPPLY_MIGRATION, 'Exact 076 candidate file required');
-  const files = all.slice(0, at + (supply ? 4 : p1 ? 3 : 2));
+  if (expenses) guard(all[at + 4] === EXPENSES_MIGRATION, 'Exact 077 candidate file required');
+  const files = all.slice(0, at + (expenses ? 5 : supply ? 4 : p1 ? 3 : 2));
   const sql = new Map(
     await Promise.all(files.map(async (n) => [n, await readFile(join(directory, n), 'utf8')])),
   );
@@ -308,6 +336,11 @@ async function candidate(directory, p1 = false, supply = false) {
     guard(
       sha256(sql.get(SUPPLY_MIGRATION)) === SUPPLY_CHECKSUM,
       'Reviewed migration bytes differ: ' + SUPPLY_MIGRATION,
+    );
+  if (expenses)
+    guard(
+      sha256(sql.get(EXPENSES_MIGRATION)) === EXPENSES_CHECKSUM,
+      'Reviewed migration bytes differ: ' + EXPENSES_MIGRATION,
     );
   return { files, sql, baseline: at };
 }
@@ -771,6 +804,133 @@ export async function setBackofficeSupply(c, { role = API_ROLE, enabled }) {
   };
 }
 
+// ------------------------------------------------------------ «Расходы» (cloud 077, 11.11) ----
+const expensesPrivilege = (privilege) => EXPENSES_TABLES.includes(privilege.split('|')[0]);
+/** The exact rights of the API role on the 077 relations. */
+export function expensesPrivileges(backoffice, expenses) {
+  return privilegeStrings(backofficeExpensesPrivileges({ backoffice, expenses })).sort();
+}
+const knownExpenses = (acl) =>
+  [true, false].some((on) =>
+    equal(acl.filter(expensesPrivilege).sort(), expensesPrivileges(true, on)),
+  );
+
+/** inspect-077 / deploy-077: cloud 077 on exact schema076 with the expenses flag off. */
+export async function deployBackofficeExpenses(c, { directory, role = API_ROLE, inspect = false }) {
+  guard(ROLE.test(role), 'Invalid runtime role');
+  await c.query("SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='300s'");
+  if (!inspect) await c.query('SELECT pg_advisory_xact_lock($1)', [LOCK]);
+  const schema = await currentSchema(c);
+  const { files, sql } = await candidate(directory, true, true, true);
+  const ledger = await ledgerOf(c);
+  const at076 =
+    ledger.length === files.length - 1 && exactPrefix(ledger, files, sql, files.length - 1);
+  const at077 = ledger.length === files.length && exactPrefix(ledger, files, sql, files.length);
+  guard(
+    at076 || at077,
+    'Exact schema076 ledger required (076 by deploy-076 first; do not replay a partial apply)',
+  );
+  const acl = await runtimePrivileges(c, role);
+  const backoffice = acl.includes(BACKOFFICE_MARKER);
+  if (inspect)
+    return {
+      ledger: at076 ? 'schema076' : 'schema077',
+      pending: at076 ? [EXPENSES_MIGRATION] : [],
+      reviewedBytes: true,
+      backofficeGrants: backoffice,
+      privilegesAdded: [],
+      expensesPrivileges: acl.filter(expensesPrivilege),
+    };
+  guard(at076, 'Cloud 077 is already applied: deploy-077 runs once');
+  const before = await columns(c);
+  guard(
+    EXPENSES_TABLES.every((t) => !(t in before)),
+    'Back-office expenses tables already exist',
+  );
+  guard(!acl.some(expensesPrivilege), 'Unexpected back-office expenses privileges before deploy');
+  const existing = Object.fromEntries(
+    Object.entries(before).filter(([n]) => n !== 'schema_migrations'),
+  );
+  const data = await fingerprint(c, existing);
+  const rolesBefore = await roles(c);
+  await c.query(sql.get(EXPENSES_MIGRATION));
+  const row = {
+    version: EXPENSES_MIGRATION,
+    checksum: sha256(sql.get(EXPENSES_MIGRATION)),
+    scope: 'cloud',
+  };
+  await c.query('INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)', [
+    row.version,
+    row.checksum,
+    row.scope,
+  ]);
+  // The flag off: the helper only revokes (077 grants nothing by itself).
+  await c.query(backofficeExpensesGrants(role, { backoffice, expenses: false }, schema));
+  const after = await columns(c);
+  guard(
+    equal(Object.keys(after).sort(), [...Object.keys(before), ...EXPENSES_TABLES].sort()),
+    'Unexpected tables',
+  );
+  for (const [t, cols] of Object.entries(before))
+    guard(equal(after[t], cols), 'Existing columns changed');
+  guard(equal(await fingerprint(c, existing), data), 'Existing rows changed');
+  guard(equal(await roles(c), rolesBefore), 'Role attributes changed');
+  guard(equal(await runtimePrivileges(c, role), acl), 'Unexpected privilege delta');
+  guard(equal(await ledgerOf(c), [...ledger, row]), 'Ledger changed');
+  return {
+    applied: [EXPENSES_MIGRATION],
+    existingDataPreserved: true,
+    backofficeGrants: backoffice,
+    privilegesAdded: [],
+    privilegesRemoved: [],
+    expenses: false,
+  };
+}
+
+/** expenses-grants on|off: the 077 rights of BACKOFFICE_EXPENSES_ENABLED; exact delta. */
+export async function setBackofficeExpenses(c, { role = API_ROLE, enabled }) {
+  guard(ROLE.test(role) && typeof enabled === 'boolean', 'Invalid expenses flag');
+  await c.query("SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='60s'");
+  await c.query('SELECT pg_advisory_xact_lock($1)', [LOCK]);
+  const schema = await currentSchema(c);
+  const applied = new Map((await ledgerOf(c)).map((r) => [r.version, r.checksum]));
+  guard(
+    applied.get(SUPPLY_MIGRATION) === SUPPLY_CHECKSUM &&
+      applied.get(EXPENSES_MIGRATION) === EXPENSES_CHECKSUM,
+    'Run deploy-077 (077 with the reviewed bytes) first',
+  );
+  const acl = await runtimePrivileges(c, role);
+  const backoffice = acl.includes(BACKOFFICE_MARKER);
+  guard(!enabled || backoffice, 'BACKOFFICE_ENABLED grants are required first');
+  guard(
+    !acl.some(expensesPrivilege) || knownExpenses(acl),
+    'Back-office expenses grants differ from every known flag state: run inspect-077',
+  );
+  const rolesBefore = await roles(c);
+  await c.query(backofficeExpensesGrants(role, { backoffice, expenses: enabled }, schema));
+  const now = await runtimePrivileges(c, role);
+  guard(
+    equal(
+      now,
+      union(
+        acl.filter((p) => !expensesPrivilege(p)),
+        expensesPrivileges(backoffice, enabled),
+      ),
+    ),
+    'Unexpected privilege delta',
+  );
+  guard(equal(await roles(c), rolesBefore), 'Role attributes changed');
+  return {
+    expenses: enabled,
+    privilegesAdded: minus(now, acl),
+    privilegesRemoved: minus(acl, now),
+    environment: enabled ? [EXPENSES_COMPOSE.expenses] : [],
+    order: enabled
+      ? 'grants set; now set BACKOFFICE_EXPENSES_ENABLED "true" in the API environment (restart the API)'
+      : 'grants removed; BACKOFFICE_EXPENSES_ENABLED must already be "false"',
+  };
+}
+
 // --------------------------------------------------------------- API environment (compose) ----
 const API_ANCHOR = '      CLOUD_DATABASE_URL: postgresql://pickchick_app:';
 const OWNER_ANCHOR = '      CLOUD_DATABASE_URL: postgresql://pickchick_owner:';
@@ -830,6 +990,25 @@ export function composeSupply(text, expectedSha256) {
 }
 
 /**
+ * Compose that already carries the second-wave keys (compose-supply) plus
+ * BACKOFFICE_EXPENSES_ENABLED "false" in the api service; nothing else changes.
+ */
+export function composeExpenses(text, expectedSha256) {
+  installed(text, expectedSha256);
+  const key = EXPENSES_COMPOSE.expenses;
+  guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
+  for (const { key: supply } of Object.values(SUPPLY_COMPOSE))
+    guard(
+      text.split(supply + ':').length === 2,
+      'Installed compose lacks the second-wave keys: run compose-supply first',
+    );
+  guard(text.split('\n' + API_ANCHOR).length === 2, 'Compose database anchors differ');
+  const result = text.replace('\n' + API_ANCHOR, '\n' + line(key, 'false') + API_ANCHOR);
+  guard(result.replace(line(key, 'false'), '') === text, 'Compose changed more than the flag line');
+  return result;
+}
+
+/**
  * One cutover key flipped in the api service (and in provision where it is carried). A
  * second-wave key (SUPPLY_COMPOSE) lives in the api service only and follows the order the API
  * itself enforces at start: it turns on only after its cutover flag, and that cutover flag
@@ -838,10 +1017,11 @@ export function composeSupply(text, expectedSha256) {
 export function composeFlag(text, expectedSha256, flag, enabled) {
   installed(text, expectedSha256);
   guard(
-    (flag in COMPOSE_FLAGS || flag in SUPPLY_COMPOSE) && typeof enabled === 'boolean',
+    (flag in COMPOSE_FLAGS || flag in SUPPLY_COMPOSE || flag in EXPENSES_COMPOSE) &&
+      typeof enabled === 'boolean',
     'Invalid flag',
   );
-  const key = COMPOSE_FLAGS[flag] ?? SUPPLY_COMPOSE[flag].key;
+  const key = COMPOSE_FLAGS[flag] ?? SUPPLY_COMPOSE[flag]?.key ?? EXPENSES_COMPOSE[flag];
   if (flag in SUPPLY_COMPOSE && enabled) {
     const needed = COMPOSE_FLAGS[SUPPLY_COMPOSE[flag].requires];
     guard(text.includes(line(needed, 'true')), `${key} requires ${needed} "true" first`);
@@ -866,7 +1046,7 @@ export function composeFlag(text, expectedSha256, flag, enabled) {
 
 // ------------------------------------------------------------------------------- command line ----
 const USAGE =
-  'Usage: cutover-cloud-owner.mjs inspect | deploy | flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false> | inspect-075 | deploy-075 | p1-grants <none|pos-day,stock-v2,autoconsume,manager-shifts,staff-positions,discounts> | inspect-076 | deploy-076 | supply-grants <none|supply,staff-assignment> | compose-candidate --compose <file> --sha256 <hex> --out <file> | compose-supply --compose <file> --sha256 <hex> --out <file> | compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>';
+  'Usage: cutover-cloud-owner.mjs inspect | deploy | flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false> | inspect-075 | deploy-075 | p1-grants <none|pos-day,stock-v2,autoconsume,manager-shifts,staff-positions,discounts> | inspect-076 | deploy-076 | supply-grants <none|supply,staff-assignment> | inspect-077 | deploy-077 | expenses-grants <on|off> | compose-candidate --compose <file> --sha256 <hex> --out <file> | compose-supply --compose <file> --sha256 <hex> --out <file> | compose-expenses --compose <file> --sha256 <hex> --out <file> | compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>';
 function composeOptions(rest) {
   const options = {};
   for (let i = 0; i < rest.length; i += 2) {
@@ -884,12 +1064,21 @@ function composeOptions(rest) {
 export function parseArguments(argv) {
   const [command, ...rest] = argv;
   if (
-    ['inspect', 'deploy', 'inspect-075', 'deploy-075', 'inspect-076', 'deploy-076'].includes(
-      command,
-    ) &&
+    [
+      'inspect',
+      'deploy',
+      'inspect-075',
+      'deploy-075',
+      'inspect-076',
+      'deploy-076',
+      'inspect-077',
+      'deploy-077',
+    ].includes(command) &&
     rest.length === 0
   )
     return { command };
+  if (command === 'expenses-grants' && rest.length === 1 && ['on', 'off'].includes(rest[0]))
+    return { command, enabled: rest[0] === 'on' };
   if (command === 'supply-grants' && rest.length === 1) {
     const enabled = rest[0] === 'none' ? [] : rest[0].split(',');
     guard(
@@ -913,11 +1102,15 @@ export function parseArguments(argv) {
     ['true', 'false'].includes(rest[1])
   )
     return { command, flag: rest[0], enabled: rest[1] === 'true' };
-  if (command === 'compose-candidate' || command === 'compose-supply')
+  if (
+    command === 'compose-candidate' ||
+    command === 'compose-supply' ||
+    command === 'compose-expenses'
+  )
     return { command, ...composeOptions(rest) };
   if (
     command === 'compose-flag' &&
-    (rest[0] in COMPOSE_FLAGS || rest[0] in SUPPLY_COMPOSE) &&
+    (rest[0] in COMPOSE_FLAGS || rest[0] in SUPPLY_COMPOSE || rest[0] in EXPENSES_COMPOSE) &&
     ['true', 'false'].includes(rest[1])
   )
     return {
@@ -936,7 +1129,9 @@ async function compose(args) {
       ? composeCandidate(text, args.sha256)
       : args.command === 'compose-supply'
         ? composeSupply(text, args.sha256)
-        : composeFlag(text, args.sha256, args.flag, args.enabled);
+        : args.command === 'compose-expenses'
+          ? composeExpenses(text, args.sha256)
+          : composeFlag(text, args.sha256, args.flag, args.enabled);
   await writeFile(args.out, result, { flag: 'wx', mode: 0o600 }).catch(() => {
     throw new OwnerGuardError('Output file exists or is not writable');
   });
@@ -945,7 +1140,10 @@ async function compose(args) {
     composeAfter: sha256(result),
     ...(args.flag
       ? {
-          environment: COMPOSE_FLAGS[args.flag] ?? SUPPLY_COMPOSE[args.flag].key,
+          environment:
+            COMPOSE_FLAGS[args.flag] ??
+            SUPPLY_COMPOSE[args.flag]?.key ??
+            EXPENSES_COMPOSE[args.flag],
           enabled: args.enabled,
         }
       : {}),
@@ -978,17 +1176,24 @@ async function main(argv) {
           ? await setBackofficeP1(c, { enabled: args.enabled })
           : args.command === 'supply-grants'
             ? await setBackofficeSupply(c, { enabled: args.enabled })
-            : args.command.endsWith('-076')
-              ? await deployBackofficeSupply(c, {
-                  directory,
-                  inspect: args.command === 'inspect-076',
-                })
-              : args.command.endsWith('-075')
-                ? await deployBackofficeP1(c, {
+            : args.command === 'expenses-grants'
+              ? await setBackofficeExpenses(c, { enabled: args.enabled })
+              : args.command.endsWith('-077')
+                ? await deployBackofficeExpenses(c, {
                     directory,
-                    inspect: args.command === 'inspect-075',
+                    inspect: args.command === 'inspect-077',
                   })
-                : await deployCutover(c, { directory, inspect: args.command === 'inspect' });
+                : args.command.endsWith('-076')
+                  ? await deployBackofficeSupply(c, {
+                      directory,
+                      inspect: args.command === 'inspect-076',
+                    })
+                  : args.command.endsWith('-075')
+                    ? await deployBackofficeP1(c, {
+                        directory,
+                        inspect: args.command === 'inspect-075',
+                      })
+                    : await deployCutover(c, { directory, inspect: args.command === 'inspect' });
     await c.query(args.command.startsWith('inspect') ? 'ROLLBACK' : 'COMMIT');
     console.log(JSON.stringify(result));
   } catch (e) {
