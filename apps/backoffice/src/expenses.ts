@@ -765,7 +765,7 @@ export class ExpensesView {
     if (place.revenue)
       pair(
         'Расходы к выручке',
-        place.expense_percent ? place.expense_percent.replace('.', ',') + '%' : '—',
+        place.expense_percent ? place.expense_percent.replace('.', ',') + '%' : '-',
       );
     for (const s of meta.sources)
       if (place.expenses_by_source[s.code])
@@ -1191,7 +1191,7 @@ export class ExpensesView {
     const xls = button(
       'Выгрузить в Excel',
       () =>
-        download(`Журнал расходов ${f.start_date} — ${f.end_date}.csv`, [
+        download(`Журнал расходов ${f.start_date} - ${f.end_date}.csv`, [
           [
             'Дата',
             'Месяц ОПУ',
@@ -1420,7 +1420,7 @@ export class ExpensesView {
       t.append(el('small', '', label), el('strong', '', value));
       tiles.append(t);
     };
-    const pc = (v: string) => (v ? v.replace('.', ',') + '%' : '—');
+    const pc = (v: string) => (v ? v.replace('.', ',') + '%' : '-');
     tile('Выручка', tenge(r.tiles.revenue_minor));
     tile('Фудкост', pc(r.tiles.foodcost_percent ?? ''));
     tile('ФОТ', pc(r.tiles.payroll_percent ?? ''));
@@ -1450,12 +1450,12 @@ export class ExpensesView {
       for (const c of r.columns) {
         const td = el('td', 'num');
         const v = line.values[c] ?? '0';
-        if (line.kind === 'percent') td.textContent = v ? v.replace('.', ',') + '%' : '—';
+        if (line.kind === 'percent') td.textContent = v ? v.replace('.', ',') + '%' : '-';
         else {
           const amount = el(
             line.categories && v !== '0' ? 'button' : 'span',
             'pnl-amount',
-            v === '0' ? '—' : amountText(v),
+            v === '0' ? '-' : amountText(v),
           );
           if (amount instanceof HTMLButtonElement) {
             amount.type = 'button';
@@ -1478,7 +1478,7 @@ export class ExpensesView {
       button(
         'Выгрузить ОПУ в Excel',
         () => {
-          download(`ОПУ ${f.from} — ${f.to}.csv`, [
+          download(`ОПУ ${f.from} - ${f.to}.csv`, [
             ['Статья', ...r.columns.map(colName)],
             ...r.lines.map((l) => [
               l.label,
@@ -1514,7 +1514,7 @@ export class ExpensesView {
           el('td', '', d.name),
           el('td', 'num', amountText(d.revenue_minor)),
           el('td', 'num', amountText(d.cogs_minor)),
-          el('td', 'num', d.foodcost_percent ? d.foodcost_percent.replace('.', ',') + '%' : '—'),
+          el('td', 'num', d.foodcost_percent ? d.foodcost_percent.replace('.', ',') + '%' : '-'),
         );
         dt.append(tr);
       }
@@ -1623,7 +1623,7 @@ export class ExpensesView {
     for (const s of a.series) {
       const tr = el('tr');
       tr.append(el('td', '', monthName(s.month!)));
-      for (const [k] of SERIES) tr.append(el('td', 'num', amountText(s[k] ?? '0') || '—'));
+      for (const [k] of SERIES) tr.append(el('td', 'num', amountText(s[k] ?? '0') || '-'));
       st.append(tr);
     }
     area.append(st);
@@ -1657,11 +1657,11 @@ export class ExpensesView {
       const tr = el('tr');
       tr.append(
         el('td', '', m.locationName(c.location === 'company' ? null : c.location!)),
-        el('td', 'num', amountText(c.revenue_minor!) || '—'),
-        el('td', 'num', amountText(c.cogs_minor!) || '—'),
-        el('td', 'num', amountText(c.expenses_minor!) || '—'),
-        el('td', 'num', amountText(c.ebitda_minor!) || '—'),
-        el('td', 'num', c.margin_percent ? c.margin_percent.replace('.', ',') + '%' : '—'),
+        el('td', 'num', amountText(c.revenue_minor!) || '-'),
+        el('td', 'num', amountText(c.cogs_minor!) || '-'),
+        el('td', 'num', amountText(c.expenses_minor!) || '-'),
+        el('td', 'num', amountText(c.ebitda_minor!) || '-'),
+        el('td', 'num', c.margin_percent ? c.margin_percent.replace('.', ',') + '%' : '-'),
       );
       ct.append(tr);
     }
@@ -1676,10 +1676,10 @@ export class ExpensesView {
       const tr = el('tr');
       tr.append(
         el('td', '', meta.sources.find((x) => x.code === s.source)?.name ?? s.source!),
-        el('td', 'num', amountText(s.income_minor!) || '—'),
-        el('td', 'num', amountText(s.expenses_minor!) || '—'),
-        el('td', 'num', amountText(s.withdrawal_minor!) || '—'),
-        el('td', 'num', amountText(s.collection_minor!) || '—'),
+        el('td', 'num', amountText(s.income_minor!) || '-'),
+        el('td', 'num', amountText(s.expenses_minor!) || '-'),
+        el('td', 'num', amountText(s.withdrawal_minor!) || '-'),
+        el('td', 'num', amountText(s.collection_minor!) || '-'),
       );
       mt.append(tr);
     }
@@ -1837,14 +1837,14 @@ export class ExpensesView {
       const after = l.after_value as Record<string, string> | null;
       const c = this.m.category(String(v['category']))?.name ?? String(v['category']);
       const amount = (x: Record<string, string> | null) =>
-        x ? amountText(x['amount_minor']) : '—';
+        x ? amountText(x['amount_minor']) : '-';
       return l.action === 'entry.update'
         ? `${c}: ${amount(before)} → ${amount(after)}`
         : `${c}: ${amount(after ?? before)}`;
     }
     if (l.action === 'access') return `${ROLES[String(v['role'])] ?? 'Нет доступа'}`;
     if (l.action === 'cash')
-      return `по отчёту кассира ${amountText((v['counted_minor'] as string) ?? null) || '—'}`;
+      return `по отчёту кассира ${amountText((v['counted_minor'] as string) ?? null) || '-'}`;
     if (l.action === 'row')
       return `месяц ОПУ ${String(v['pl_month'] ?? '')}${v['comment'] ? ', ' + String(v['comment']) : ''}`;
     return '';

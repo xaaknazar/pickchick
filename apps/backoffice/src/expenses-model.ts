@@ -180,7 +180,7 @@ export function amountText(minor: string | null | undefined): string {
   return `${neg ? '−' : ''}${whole}${cents ? ',' + cents.toString().padStart(2, '0') : ''}`;
 }
 export const tenge = (minor: string | null | undefined) =>
-  minor === null || minor === undefined ? '—' : `${amountText(minor) || '0'} ₸`;
+  minor === null || minor === undefined ? '-' : `${amountText(minor) || '0'} ₸`;
 
 const query = (q: Record<string, string>) =>
   Object.entries(q)
