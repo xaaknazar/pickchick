@@ -45,6 +45,13 @@ jobs:
       - name: Install browser test runtime
         run: |
           python3 -m pip install -r tests/design/requirements.txt
-          python3 -m playwright install --with-deps chromium
+          # --with-deps adds system packages through apt. The runner image already holds the
+          # libraries Chromium starts with, so when the package mirror does not answer
+          # (11.11.2026: hours of "Temporary failure resolving") the browser alone is installed.
+          # The test below still runs in it; a missing library fails that test, it is not hidden.
+          if ! timeout 150 python3 -m playwright install --with-deps chromium; then
+            echo "::warning::System packages were not installed (package mirror); the browser test runs on the libraries of the runner image"
+            python3 -m playwright install chromium
+          fi
       - name: Desktop, mobile, concurrent reviews and connection recovery
         run: node apps/roadmap/test/run-browser.mjs

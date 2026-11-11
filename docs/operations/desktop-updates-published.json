@@ -1,0 +1,16 @@
+{
+  "feed": "https://api.pickchick.kz/desktop-updates/",
+  "release": "kitchen-0.4.0-pos-0.5.0",
+  "programs": {
+    "kitchen": {
+      "version": "0.4.0",
+      "sha256": "554341cc062d30cdb3e5a457ac54f0fe7f25870273269197a03b6f3159b59679",
+      "build": "b922fc1ec248d08f4cdae3e915c33c57bf9f771a"
+    },
+    "pos": {
+      "version": "0.5.0",
+      "sha256": "1edcee5f760dd8c29ed5e3e37e5ca1fb95723227b11a96a5c74fc2cbc080f65c",
+      "build": "b922fc1ec248d08f4cdae3e915c33c57bf9f771a"
+    }
+  }
+}
