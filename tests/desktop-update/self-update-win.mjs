@@ -17,7 +17,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { APPS, parseManifest } from '../../apps/pos-desktop/updater.mjs';
+import { APPS, CHUNK_BYTES, parseManifest } from '../../apps/pos-desktop/updater.mjs';
 
 const CLIENTS = {
   pos: { exe: 'PickChickPOS', profile: 'PickChickPOS' },
@@ -96,17 +96,35 @@ assert.equal(layout.status, 0, layout.stderr);
 const manifest = parseManifest(readFileSync(join(feed, args.app, 'latest.json'), 'utf8'), args.app);
 assert.equal(manifest.version, newVersion);
 const requests = [];
+// Like the gateway: GET of the two known files only, the installer in ranges.
 const server = createServer((request, response) => {
   const name = request.url.replace(/^\/+/, '');
-  const path = join(feed, ...name.split('/'));
   const known = [`${args.app}/latest.json`, `${args.app}/${manifest.file}`].includes(name);
-  requests.push(`${request.method} ${request.url} ${known ? 200 : 404}`);
-  if (request.method !== 'GET' || !known) {
+  const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers.range ?? '');
+  const status = request.method !== 'GET' || !known ? 404 : range ? 206 : 200;
+  requests.push(`${request.method} ${request.url} ${status}`);
+  if (status === 404) {
     response.writeHead(404).end();
     return;
   }
-  response.writeHead(200, { 'content-length': statSync(path).size });
-  createReadStream(path).pipe(response);
+  const path = join(feed, ...name.split('/'));
+  const size = statSync(path).size;
+  if (!range) {
+    response.writeHead(200, { 'content-length': size });
+    createReadStream(path).pipe(response);
+    return;
+  }
+  const start = Number(range[1]);
+  const end = Math.min(Number(range[2]), size - 1);
+  if (start > end) {
+    response.writeHead(416).end();
+    return;
+  }
+  response.writeHead(206, {
+    'content-length': end - start + 1,
+    'content-range': `bytes ${start}-${end}/${size}`,
+  });
+  createReadStream(path, { start, end }).pipe(response);
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const address = `http://127.0.0.1:${server.address().port}/`;
@@ -147,15 +165,16 @@ while (Date.now() < deadline) {
     break;
   }
 }
-log('Feed requests: ' + JSON.stringify(requests));
+log('Feed requests: ' + JSON.stringify([...new Set(requests)]) + ` (${requests.length} in all)`);
 powershell(`Get-Process -Name '${exe}' -ErrorAction SilentlyContinue | Stop-Process -Force`);
 server.closeAllConnections();
 server.close();
 assert.ok(done, `the desk did not become ${newVersion}: ${seen}`);
 assert.ok(requests.includes(`GET /${args.app}/latest.json 200`), 'manifest was read');
-assert.ok(requests.includes(`GET /${args.app}/${manifest.file} 200`), 'installer was downloaded');
+const pieces = requests.filter((line) => line === `GET /${args.app}/${manifest.file} 206`).length;
+assert.equal(pieces, Math.ceil(manifest.bytes / CHUNK_BYTES), 'installer was read in pieces');
 assert.ok(
-  requests.every((line) => line.endsWith(' 200')),
+  requests.every((line) => / 20[06]$/.test(line)),
   'nothing but the manifest and the installer was requested',
 );
 assert.deepEqual(leftovers(), [], 'the new version removed the used installer');

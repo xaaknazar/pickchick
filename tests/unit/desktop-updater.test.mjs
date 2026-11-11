@@ -51,6 +51,9 @@ async function fixture(run, options = {}) {
     quits: 0,
     safe: true,
     spawnFails: false,
+    // Feed server behaviour: no Range support, or a connection cut after this many body bytes.
+    noRange: false,
+    cutAfter: null,
   };
   const updater = createUpdater({
     app: 'pos',
@@ -59,6 +62,7 @@ async function fixture(run, options = {}) {
     directory,
     now: () => state.clock,
     canApply: () => state.safe,
+    chunkBytes: 500_000,
     quit: () => {
       state.quits += 1;
     },
@@ -71,7 +75,27 @@ async function fixture(run, options = {}) {
       const name = url.slice(FEED.length);
       if (!url.startsWith(FEED) || !Object.hasOwn(state.files, name))
         return new Response('missing', { status: 404 });
-      return new Response(state.files[name], { status: 200 });
+      const file = Buffer.from(state.files[name]);
+      const range = /^bytes=(\d+)-(\d+)$/.exec(init.headers.range ?? '');
+      assert.equal(Boolean(range), name.endsWith('.exe'), 'only the installer is read in pieces');
+      let body = file;
+      let answer = { status: 200 };
+      if (range && !state.noRange) {
+        const first = Number(range[1]);
+        if (first >= file.byteLength) return new Response('range', { status: 416 });
+        const last = Math.min(Number(range[2]), file.byteLength - 1);
+        body = file.subarray(first, last + 1);
+        answer = {
+          status: 206,
+          headers: { 'content-range': `bytes ${first}-${last}/${file.byteLength}` },
+        };
+      }
+      if (range && state.cutAfter !== null) {
+        // The link drops: the client gets only the first bytes of this answer.
+        body = body.subarray(0, state.cutAfter);
+        state.cutAfter = null;
+      }
+      return new Response(body, answer);
     },
     spawnImpl: (file, args, spawnOptions) => {
       state.spawned.push({ file, args, options: spawnOptions });
@@ -246,8 +270,13 @@ test('a newer version is downloaded, verified and installed silently, then the p
     assert.equal(await updater.apply(), false, 'nothing staged yet');
     assert.equal(await updater.check(), 'staged');
     assert.deepEqual(
-      state.requests.map((request) => request.url),
-      [FEED + 'pos/latest.json', FEED + 'pos/PickChick-POS-Setup-0.5.1-x64.exe'],
+      state.requests.map((request) => [request.url.slice(FEED.length), request.init.headers.range]),
+      [
+        ['pos/latest.json', undefined],
+        ['pos/PickChick-POS-Setup-0.5.1-x64.exe', 'bytes=0-499999'],
+        ['pos/PickChick-POS-Setup-0.5.1-x64.exe', 'bytes=500000-999999'],
+        ['pos/PickChick-POS-Setup-0.5.1-x64.exe', 'bytes=1000000-1199999'],
+      ],
     );
     assert.deepEqual(readdirSync(directory).sort(), [
       'PickChick-POS-Setup-0.5.1-x64.exe',
@@ -258,7 +287,7 @@ test('a newer version is downloaded, verified and installed silently, then the p
     assert.equal(read().last.current, '0.5.0');
     // Checked again: the verified file is kept, not downloaded twice.
     assert.equal(await updater.check(), 'staged');
-    assert.equal(state.requests.length, 3);
+    assert.equal(state.requests.length, 5);
     assert.equal(await updater.apply(), true);
     assert.equal(state.quits, 1);
     assert.deepEqual(state.spawned, [
@@ -310,7 +339,7 @@ test('a file that differs from the manifest is never kept or started', async () 
     [
       'longer',
       (s) => (s.files[`pos/${manifest().file}`] = Buffer.alloc(1_300_000, 7)),
-      'UPDATE_TOO_LARGE',
+      'UPDATE_FILE_MISMATCH',
     ],
     ['missing', (s) => delete s.files[`pos/${manifest().file}`], 'UPDATE_HTTP_404'],
     ['no manifest', (s) => delete s.files['pos/latest.json'], 'UPDATE_HTTP_404'],
@@ -366,6 +395,95 @@ test('a file that differs from the manifest is never kept or started', async () 
   });
 });
 
+test('an interrupted download continues from where it stopped, on any kind of server', async () => {
+  const pieces = (state) =>
+    state.requests.filter((r) => r.url.endsWith('.exe')).map((r) => r.init.headers.range);
+  // The link drops in the second piece; the same check asks for the rest and finishes.
+  await fixture(async ({ updater, state, directory }) => {
+    state.requests.length = 0;
+    const original = state.files[`pos/${manifest().file}`];
+    let calls = 0;
+    Object.defineProperty(state.files, `pos/${manifest().file}`, {
+      get() {
+        calls += 1;
+        if (calls === 2) state.cutAfter = 100_000;
+        return original;
+      },
+      enumerable: true,
+    });
+    assert.equal(await updater.check(), 'staged');
+    assert.deepEqual(pieces(state), [
+      'bytes=0-499999',
+      'bytes=500000-999999',
+      'bytes=600000-1099999',
+      'bytes=1100000-1199999',
+    ]);
+    assert.deepEqual(readFileSync(join(directory, manifest().file)), installer);
+  });
+  // The feed goes away mid-file: the piece on disk is kept and the next check continues it.
+  await fixture(async ({ updater, state, directory, read }) => {
+    assert.equal(await updater.check(), 'staged');
+    const first = readFileSync(join(directory, manifest().file)).subarray(0, 700_000);
+    const next = Buffer.alloc(1_300_000, 5);
+    const newer = manifest({
+      version: '0.5.2',
+      file: 'PickChick-POS-Setup-0.5.2-x64.exe',
+      sha256: sha(next),
+      bytes: next.byteLength,
+    });
+    state.files['pos/latest.json'] = JSON.stringify(newer);
+    assert.equal(await updater.check(), 'UPDATE_HTTP_404', 'the installer is not uploaded yet');
+    assert.deepEqual(readdirSync(directory), ['state.json'], 'the older installer is gone');
+    assert.equal(read().staged.version, '0.5.1', 'recorded until the next successful check');
+    assert.equal(await updater.apply(), false, 'and its missing file is never started');
+    const part = sha(next).slice(0, 32) + '.part';
+    writeFileSync(join(directory, part), next.subarray(0, 700_000));
+    assert.equal(first.byteLength, 700_000);
+    state.files['pos/PickChick-POS-Setup-0.5.2-x64.exe'] = next;
+    state.requests.length = 0;
+    assert.equal(await updater.check(), 'staged');
+    assert.deepEqual(pieces(state), ['bytes=700000-1199999', 'bytes=1200000-1299999']);
+    assert.deepEqual(readFileSync(join(directory, newer.file)), next);
+    assert.deepEqual(readdirSync(directory).sort(), [newer.file, 'state.json']);
+  });
+  // A piece left by an interrupted run that is not the beginning of this installer.
+  await fixture(async ({ updater, directory, read }) => {
+    mkdirSync(directory, { recursive: true });
+    const part = sha(installer).slice(0, 32) + '.part';
+    writeFileSync(join(directory, part), Buffer.alloc(700_000, 1));
+    assert.equal(await updater.check(), 'UPDATE_FILE_MISMATCH');
+    assert.deepEqual(readdirSync(directory), ['state.json']);
+    assert.equal(read().staged, null);
+    assert.equal(await updater.check(), 'staged', 'the next check starts from zero');
+  });
+  // A server that ignores Range sends the whole file; a cut one starts again from zero.
+  await fixture(async ({ updater, state, directory }) => {
+    state.noRange = true;
+    state.requests.length = 0;
+    state.cutAfter = 300_000;
+    assert.equal(await updater.check(), 'staged');
+    assert.deepEqual(pieces(state), ['bytes=0-499999', 'bytes=300000-799999']);
+    assert.deepEqual(readFileSync(join(directory, manifest().file)), installer);
+  });
+  // A link that keeps dropping gives up for this check and keeps what it has.
+  await fixture(async ({ updater, state, directory, read }) => {
+    const original = state.files[`pos/${manifest().file}`];
+    Object.defineProperty(state.files, `pos/${manifest().file}`, {
+      get() {
+        state.cutAfter = 50_000;
+        return original;
+      },
+      enumerable: true,
+    });
+    assert.equal(await updater.check(), 'UPDATE_INCOMPLETE');
+    assert.equal(read().staged, null);
+    const [part] = readdirSync(directory).filter((name) => name.endsWith('.part'));
+    assert.equal(readFileSync(join(directory, part)).byteLength, 150_000);
+    assert.equal(await updater.apply(), false);
+    assert.equal(state.spawned.length, 0);
+  });
+});
+
 test('an ordinary update waits for the start of the program or the night; an urgent one does not', async () => {
   await fixture(async ({ updater, state, read }) => {
     assert.equal(await updater.check(), 'staged');
@@ -389,7 +507,7 @@ test('an ordinary update waits for the start of the program or the night; an urg
     state.files['pos/latest.json'] = JSON.stringify(manifest({ apply: 'now' }));
     assert.equal(await updater.check(), 'staged');
     assert.equal(read().staged.apply, 'now');
-    assert.equal(state.requests.filter((r) => r.url.endsWith('.exe')).length, 1);
+    assert.equal(state.requests.filter((r) => r.url.endsWith('.exe')).length, 3);
     assert.equal(await updater.apply(), true);
   });
 });
@@ -421,7 +539,7 @@ test('an installer that does not bring the new version up is tried twice and the
     assert.equal(await updater.apply(), false);
     assert.equal(state.spawned.length, MAX_ATTEMPTS);
     assert.equal(await updater.check(), 'gave_up');
-    assert.equal(state.requests.filter((r) => r.url.endsWith('.exe')).length, 1);
+    assert.equal(state.requests.filter((r) => r.url.endsWith('.exe')).length, 3);
     assert.equal(await updater.apply(), false);
     // A rebuilt 0.5.1 or a newer version starts again from zero.
     const next = Buffer.alloc(1_300_000, 5);
