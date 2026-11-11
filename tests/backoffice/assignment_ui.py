@@ -12,8 +12,22 @@ off). Screenshots at 1440x900 and 390x844, scale 1, Asia/Almaty. Synthetic data 
 """
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
+
+
+def assignment_check_text():
+    """What the closing check of the fixture's shift says at the hour of the run.
+
+    The shift takes the Almaty calendar day of its opening, the intervals the business day (a time
+    before 06:00 is the night after it). A real shift is opened in the morning, where the two
+    agree, and business_date is immutable, so the fixture cannot move it. In a run between 00:00
+    and 05:59 Almaty the shift is a day later than its intervals and the check says so.
+    """
+    night = (datetime.now(timezone.utc) + timedelta(hours=5)).hour < 6
+    return 'Расстановка за день не заполнена' if night else 'Расставлено:'
+
 
 config = json.loads(Path(sys.argv[1]).read_text())
 output = Path(config['output'])
@@ -98,7 +112,7 @@ with sync_playwright() as pw:
         item = d.get_by_test_id('ms-item-staff_assignment')
         if present:
             expect(item).to_contain_text('Расстановка заполнена')
-            expect(item.get_by_test_id('ms-check-staff_assignment')).to_contain_text('Расставлено:')
+            expect(item.get_by_test_id('ms-check-staff_assignment')).to_contain_text(assignment_check_text())
         else:
             expect(item).to_have_count(0)
         d.get_by_role('button', name='Закрыть', exact=True).click()
