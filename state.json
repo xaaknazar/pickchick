@@ -7739,6 +7739,17 @@
       "updatedAt": "2026-11-11T15:18:33.857Z",
       "summary": "DEPLOYED 11.11 20:10 UTC+5: POS 0.5.0/Kitchen 0.4.0, source46453717, external200/no-store and root404; Cloud-1 candidate gate PASS; foreign SSH key revoked; receipt c505e012.",
       "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step."
+    },
+    {
+      "id": "cloud-expenses-live-1112",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-expenses-live-1112",
+      "scopes": [
+        "docs/operations/cloud-expenses-live-1112.md"
+      ],
+      "status": "active",
+      "head": "d5dc88b147903e6b2d612ac81964ab4190f21da0",
+      "updatedAt": "2026-11-11T21:12:39.129Z"
     }
   ],
   "approvedScopeTransfers": [
