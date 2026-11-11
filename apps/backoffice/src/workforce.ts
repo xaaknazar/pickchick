@@ -17,6 +17,7 @@ import {
   type StaffPositions,
 } from './staff-positions-model.js';
 import { almatyDateTime, cards, isoMonth, ui, yearOptions } from './ui-fixes.js';
+import { monthWindow, placedOn, stationStrip, type AssignmentRange } from './assignment-model.js';
 import {
   WorkforceModel,
   type WorkRecord,
@@ -136,12 +137,43 @@ export class WorkforceView {
    * app.ts sets it; null keeps the cabinet's silent disabled buttons.
    */
   rights: () => string | null = () => null;
+  /**
+   * Lane bo-ui2 step 5: the staff assignment of a window (GET .../ops/staff-assignments), the
+   * stations of each employee and day in «Табель». null without capabilities.staff_assignment:
+   * the time sheet is then exactly bo-ui's.
+   */
+  assignments: () => ((start: string, end: string) => Promise<AssignmentRange>) | null = () => null;
+  private placement: { month: string; range: AssignmentRange | null } | null = null;
+  private placementLoading = '';
   clear() {
     this.form = null;
     this.formError = '';
     this.positionsForm = null;
     this.positionsError = '';
     this.rosterNote = '';
+    this.placement = null;
+    this.placementLoading = '';
+  }
+  /**
+   * Step 5: the assignment of the shown month, loaded once per month; undefined while it loads,
+   * null when it failed (the time sheet then says so and shows nothing made up).
+   */
+  private placementOf(): AssignmentRange | null | undefined {
+    const load = this.assignments();
+    if (!load) return null;
+    const month = this.model.month;
+    if (this.placement?.month === month) return this.placement.range;
+    if (this.placementLoading !== month) {
+      this.placementLoading = month;
+      const { start, end } = monthWindow(month);
+      const done = (range: AssignmentRange | null) => {
+        if (this.placementLoading !== month) return;
+        this.placement = { month, range };
+        this.changed();
+      };
+      void load(start, end).then(done, () => done(null));
+    }
+    return undefined;
   }
   private name(id: unknown) {
     return (
@@ -484,6 +516,23 @@ export class WorkforceView {
             `BioCheck пока не подключён. Вводите фактические часы или интервалы вручную. Пустая ячейка не означает выходной. ${data.period.closed ? 'Месячный табель закрыт.' : 'Табель открыт.'}`,
           ),
         );
+      // Step 5: the stations of the day from «Расстановка» (only with the staff assignment).
+      const stations = this.tab === 'time' && this.assignments() !== null;
+      const placement = stations ? this.placementOf() : null;
+      if (stations) {
+        const note = el(
+          'p',
+          'wf-note',
+          placement === undefined
+            ? 'Загружаем станции из «Расстановки»...'
+            : placement === null
+              ? 'Станции из «Расстановки» не загрузились. Табель показан без них.'
+              : // Step 6 pass: the month grid says what its dot means.
+                `Станции - из «Расстановки», по дню смены.${this.range === 'month' ? ' Точка в ячейке - сотрудник стоял на станции в этот день, какие станции - в подсказке ячейки.' : ''}${placement.truncated.intervals ? ' Показаны не все интервалы месяца.' : ''}`,
+        );
+        note.dataset.testid = 'wf-stations-note';
+        root.append(note);
+      }
       const records = data.records
         .filter((r) => r.kind === this.tab && this.matching(r))
         .sort((a, b) =>
@@ -492,7 +541,7 @@ export class WorkforceView {
           ),
         );
       if (this.range === 'month') {
-        this.monthGrid(root, records);
+        this.monthGrid(root, records, placement);
         return;
       }
       const rows = records.map((r) => {
@@ -511,6 +560,9 @@ export class WorkforceView {
         const actions = this.recordActions(r.kind, r);
         if (this.tab === 'plan')
           actions.append(this.button('+7 дней', () => this.edit('plan', r, true)));
+        const strip = placement
+          ? stationStrip(placement, String(p['employee_id']), date) || 'Не расставлен'
+          : '-';
         return [
           dateText(date),
           this.name(p['employee_id']),
@@ -519,25 +571,64 @@ export class WorkforceView {
             : spans.length
               ? spanText(spans)
               : status(p['attendance']),
+          ...(stations ? [strip] : []),
           hours(total),
           status(p['status']),
           actions,
         ];
       });
+      const headers = [
+        'Дата',
+        'Сотрудник',
+        'Интервалы',
+        ...(stations ? ['Станции'] : []),
+        'Часы',
+        'Статус',
+      ];
       root.append(
         this.table(
-          ['Дата', 'Сотрудник', 'Интервалы', 'Часы', 'Статус', 'Действия'],
+          [...headers, 'Действия'],
           rows,
           this.tab === 'plan'
             ? 'В этом периоде ещё нет смен. Добавьте первую смену сотрудника.'
             : 'Явки ещё не внесены. Плановые смены не считаются отработанными.',
         ),
       );
+      // Step 5: placed on a station that day but without a time sheet entry.
+      if (placement) {
+        const shown =
+          this.range === 'day'
+            ? [this.day]
+            : Array.from({ length: 7 }, (_, i) =>
+                addDays(
+                  addDays(this.day, -((new Date(this.day + 'T12:00:00Z').getUTCDay() + 6) % 7)),
+                  i,
+                ),
+              );
+        const missing = shown.flatMap((day) =>
+          [...placedOn(placement, day)]
+            .filter(
+              (id) =>
+                (!this.employee || id === this.employee) &&
+                !records.some((r) => r.payload['employee_id'] === id && r.payload['date'] === day),
+            )
+            .map((id) => `${this.name(id)} (${dateText(day)})`),
+        );
+        if (missing.length) {
+          const n = el(
+            'p',
+            'wf-note',
+            `По «Расстановке» работали, но в табеле нет записи: ${missing.join(', ')}.`,
+          );
+          n.dataset.testid = 'wf-stations-missing';
+          root.append(n);
+        }
+      }
       root.append(
         button('Скачать CSV', () =>
           this.download(this.tab, [
-            ['Дата', 'Сотрудник', 'Интервалы', 'Часы', 'Статус'],
-            ...rows.map((r) => r.slice(0, 5).map(String)),
+            headers,
+            ...rows.map((r) => r.slice(0, headers.length).map(String)),
           ]),
         ),
       );
@@ -874,7 +965,11 @@ export class WorkforceView {
       ),
     );
   }
-  private monthGrid(root: HTMLElement, records: WorkRecord[]) {
+  private monthGrid(
+    root: HTMLElement,
+    records: WorkRecord[],
+    placement: AssignmentRange | null | undefined = null,
+  ) {
     const month = this.model.month;
     const count = new Date(
       Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0),
@@ -938,11 +1033,16 @@ export class WorkforceView {
           'wf-day-cell',
         );
         b.disabled = !this.model.writable || this.model.data!.period.closed;
+        // Step 5: the stations of the day from «Расстановка», in the label and the hint.
+        const strip = placement ? stationStrip(placement, e.id, date) : '';
         b.setAttribute(
           'aria-label',
-          `${e.payload.name}, ${dateText(date)}: ${entries.length ? decimalHours(duration) + ' ч' : 'нет записи'}`,
+          `${e.payload.name}, ${dateText(date)}: ${entries.length ? decimalHours(duration) + ' ч' : 'нет записи'}${strip ? '. Станции: ' + strip : ''}`,
         );
-        b.title = entries.map((r) => status(r.payload['status'])).join(', ') || 'Добавить запись';
+        b.title =
+          (entries.map((r) => status(r.payload['status'])).join(', ') || 'Добавить запись') +
+          (strip ? `\nСтанции: ${strip}` : '');
+        if (strip) b.classList.add('wf-placed');
         if (entries.some((r) => r.payload['status'] === 'draft')) {
           b.classList.add('wf-draft');
           b.append(el('span', 'wf-cell-note', 'черн.'));

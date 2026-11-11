@@ -30,6 +30,13 @@ export const MANAGER_SHIFT_AUTO = [
   'blocked_consumption',
 ] as const;
 export type ManagerShiftAuto = (typeof MANAGER_SHIFT_AUTO)[number];
+/**
+ * Lane bo-ui2: checks of a second-wave feature. They exist only while the feature is available,
+ * never in a branch template (ChecklistItemSchema keeps MANAGER_SHIFT_AUTO), and their item is
+ * added by the server after the template's (manager-shifts-store.ts extraItems).
+ */
+export const MANAGER_SHIFT_AUTO_P2 = ['staff_assignment'] as const;
+export type ManagerShiftAutoAny = ManagerShiftAuto | (typeof MANAGER_SHIFT_AUTO_P2)[number];
 export const ANSWER_STATUSES = ['done', 'problem', 'not_applicable'] as const;
 export type CheckStatus = 'ok' | 'problem' | 'no_data' | 'off';
 export type ManagerShiftCheck = { status: CheckStatus; facts: Record<string, unknown> };
@@ -42,6 +49,18 @@ export const ChecklistItemSchema = z.strictObject({
   required: z.boolean(),
 });
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
+/** An item of the template or of a second-wave feature (its check may be a P2 one). */
+export type ChecklistItemAny = Omit<ChecklistItem, 'auto'> & { auto: ManagerShiftAutoAny | null };
+/**
+ * «Расстановка заполнена» (А9, lane bo-ui2 step 5): the closing item of the staff assignment,
+ * only while BACKOFFICE_STAFF_ASSIGNMENT_ENABLED runs; its check is staffAssignmentCheck.
+ */
+export const STAFF_ASSIGNMENT_ITEM: Readonly<ChecklistItemAny> = Object.freeze({
+  code: 'staff_assignment',
+  label: 'Расстановка заполнена',
+  auto: 'staff_assignment',
+  required: true,
+});
 const phaseItems = z.array(ChecklistItemSchema).min(1).max(30);
 /** A checklist: item codes unique over both phases, each check read at most once per phase. */
 export const ChecklistTemplateSchema = z
@@ -149,9 +168,9 @@ const commented = (a: ChecklistAnswer) => (a.comment ?? '').trim().length >= 3;
  * `partial` (a saved draft of a closing) reports unknown items only.
  */
 export function checklistProblems(
-  items: readonly ChecklistItem[],
+  items: readonly ChecklistItemAny[],
   given: readonly ChecklistAnswer[],
-  checks: Readonly<Partial<Record<ManagerShiftAuto, ManagerShiftCheck>>>,
+  checks: Readonly<Partial<Record<ManagerShiftAutoAny, ManagerShiftCheck>>>,
   partial = false,
 ): ChecklistProblem[] {
   const known = new Map(items.map((i) => [i.code, i]));
@@ -174,16 +193,16 @@ export function checklistProblems(
 export type StoredAnswer = {
   code: string;
   label: string;
-  auto: ManagerShiftAuto | null;
+  auto: ManagerShiftAutoAny | null;
   status: ChecklistAnswer['status'];
   comment: string | null;
   check: ManagerShiftCheck | null;
 };
 /** Answers in checklist order with the label and the check as they were (history). */
 export function storedAnswers(
-  items: readonly ChecklistItem[],
+  items: readonly ChecklistItemAny[],
   given: readonly ChecklistAnswer[],
-  checks: Readonly<Partial<Record<ManagerShiftAuto, ManagerShiftCheck>>>,
+  checks: Readonly<Partial<Record<ManagerShiftAutoAny, ManagerShiftCheck>>>,
 ): StoredAnswer[] {
   const out: StoredAnswer[] = [];
   for (const i of items) {

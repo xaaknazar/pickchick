@@ -115,6 +115,20 @@ export function commandPermission(command: Data): string {
     case 'discount_save':
     case 'discount_state':
       return 'discounts.write';
+    // Lane bo-ui2 step 2: suppliers and supply requests (receive also needs stock.receipt).
+    case 'supplier_save':
+    case 'supplier_price_save':
+      return 'suppliers.write';
+    case 'supply_request_save':
+    case 'supply_request_submit':
+      return 'supply.write';
+    case 'supply_request_cancel':
+    case 'supply_request_receive':
+      return 'supply.close';
+    // Lane bo-ui2 step 5: the staff assignment (an override also needs staff.assign_override).
+    case 'staff_assign':
+    case 'staff_unassign':
+      return 'staff.assign';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -207,6 +221,28 @@ export const discountsAvailable = (data: { capabilities?: unknown } | null | und
     (data.capabilities as Data)['discounts'] === true,
   );
 /**
+ * Suppliers and supply requests (lane bo-ui2 step 2, BACKOFFICE_SUPPLY_ENABLED with stock v2 and
+ * the cloud076 rights): the server answers GET .../ops/suppliers and .../ops/supply-requests and
+ * takes the supplier and supply request commands.
+ */
+export const supplyAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['supply'] === true,
+  );
+/**
+ * Staff assignment «Расстановка» (lane bo-ui2 step 5, BACKOFFICE_STAFF_ASSIGNMENT_ENABLED with the
+ * staff positions and the cloud076 rights): the server answers GET .../ops/staff-assignments and
+ * takes staff_assign and staff_unassign.
+ */
+export const staffAssignmentAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['staff_assignment'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -249,6 +285,11 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'manager_shifts.template': 'Чек-лист смены меняет управляющий.',
   'staff.positions': 'Должности, доступ к кассе и выгрузку состава ведёт управляющий.',
   'discounts.write': 'Скидки создаёт и меняет только управляющий точки.',
+  'suppliers.write': 'Поставщиков и их цены ведут управляющий и бухгалтер.',
+  'supply.write': 'Заявки создают и подают управляющий и начальник смены.',
+  'supply.close': 'Принять поставку по заявке и отменить заявку может только управляющий.',
+  'staff.assign': 'Расстановку ведут управляющий и начальник смены.',
+  'staff.assign_override': 'Поставить сотрудника не по должности может только управляющий.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -596,6 +637,24 @@ export class OperationsModel {
     );
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return discountsView(value, branch);
+  }
+  /**
+   * One second-wave view (lane bo-ui2: GET .../ops/suppliers, .../ops/supply-requests and, step
+   * 3, .../ops/supplier-imports), as
+   * the server answered it; the page checks the shape (supply-model.ts).
+   */
+  async opsView(
+    // Lane bo-ui2 step 4: 'stock' with view=balances|reorder (stock-reports-model.ts).
+    // Step 5: 'staff-assignments' (assignment-model.ts).
+    view: 'suppliers' | 'supply-requests' | 'supplier-imports' | 'stock' | 'staff-assignments',
+    query: Record<string, string> = {},
+  ) {
+    const generation = this.generation;
+    const branch = this.branch;
+    const search = new URLSearchParams(query).toString();
+    const value = await this.api(`branches/${branch}/ops/${view}${search ? '?' + search : ''}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return { value, branch };
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {
@@ -1116,4 +1175,59 @@ export function stationPlanSummary(status: StationPlanStatus): StationPlanSummar
     edgeVersion,
     canDeliver: true,
   };
+}
+
+/** Aggregators whose own apps take no stops from PickChick yet (no direct API, tracker Аг5/Аг7/Аг8). */
+export const STOP_AGGREGATORS = [
+  ['yandex_eda', 'Яндекс Еда'],
+  ['glovo', 'Glovo'],
+] as const;
+export type StopAggregator = (typeof STOP_AGGREGATORS)[number][0];
+export type AggregatorStopReminder = {
+  variant_id: string;
+  name: string;
+  aggregators: StopAggregator[];
+};
+/**
+ * Stopped positions that are also sold on an aggregator (the product has its Yandex Eda / Glovo
+ * price in the published catalog). The PickChick stop already blocks such an order on the cashier,
+ * but the aggregator's own app keeps selling the dish until the manager stops it in its cabinet.
+ * An option stop is listed under its product's aggregators. Pure; the order of the stop list stays.
+ */
+export function aggregatorStopReminders(
+  items: readonly Pick<
+    StopItem,
+    | 'catalog_ref'
+    | 'variant_id'
+    | 'kind'
+    | 'name_ru'
+    | 'product_name_ru'
+    | 'listed'
+    | 'sales_blocked'
+  >[],
+  products: readonly {
+    id: string;
+    channel_prices_minor?: Partial<Record<string, string | undefined>> | undefined;
+  }[],
+): AggregatorStopReminder[] {
+  const sold = new Map<string, StopAggregator[]>();
+  for (const p of products) {
+    const prices = p.channel_prices_minor ?? {};
+    const channels = STOP_AGGREGATORS.map(([key]) => key).filter(
+      (key) => typeof prices[key] === 'string',
+    );
+    if (channels.length) sold.set(p.id, channels);
+  }
+  const result: AggregatorStopReminder[] = [];
+  for (const item of items) {
+    if (!item.listed || !item.sales_blocked) continue;
+    const aggregators = sold.get(item.catalog_ref.product_id);
+    if (!aggregators) continue;
+    result.push({
+      variant_id: item.variant_id,
+      name: item.kind === 'option' ? `${item.product_name_ru}: ${item.name_ru}` : item.name_ru,
+      aggregators,
+    });
+  }
+  return result;
 }

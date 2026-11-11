@@ -10,15 +10,19 @@ import {
   readStockSettings,
 } from './consumption-store.js';
 import { branchTemplatesWritable, latestTemplate } from './positions.js';
+import { staffAssignmentAvailable } from './p2-flags.js';
+import { staffAssignmentCheck } from './staff-assignments.js';
 import {
   ChecklistTemplateSchema,
   MANAGER_SHIFT_AUTO,
   MANAGER_SHIFT_TEMPLATE_V1,
+  STAFF_ASSIGNMENT_ITEM,
   checklistProblems,
   storedAnswers,
-  type ChecklistItem,
+  type ChecklistItemAny,
   type ChecklistTemplate,
   type ManagerShiftAuto,
+  type ManagerShiftAutoAny,
   type ManagerShiftCheck,
   ManagerShiftCloseCommand,
   ManagerShiftOpenCommand,
@@ -103,7 +107,8 @@ async function checklistVersion(db: Db, branch: string, version: number) {
 
 // ------------------------------------------------------------------------ checks ----
 
-type Checks = Record<ManagerShiftAuto, ManagerShiftCheck>;
+type Checks = Record<ManagerShiftAuto, ManagerShiftCheck> &
+  Partial<Record<ManagerShiftAutoAny, ManagerShiftCheck>>;
 const check = (status: ManagerShiftCheck['status'], facts: Record<string, unknown> = {}) => ({
   status,
   facts,
@@ -111,7 +116,8 @@ const check = (status: ManagerShiftCheck['status'], facts: Record<string, unknow
 /**
  * The automatic checks of the business day `day`, computed now (design-bo-ui 5.6). Every source
  * that is missing or not readable gives `no_data` (or `off` for a feature that is not running),
- * never a made-up zero.
+ * never a made-up zero. Lane bo-ui2 step 5: `staff_assignment` comes last and only while the
+ * staff assignment is available; otherwise the checks are exactly bo-ui's.
  */
 export async function managerShiftChecks(
   db: Db,
@@ -281,8 +287,28 @@ export async function managerShiftChecks(
       not_processed_since: backlog.since,
     });
   } else out.blocked_consumption = check('off');
-  return Object.fromEntries(MANAGER_SHIFT_AUTO.map((k) => [k, out[k]])) as Checks;
+  const checks = Object.fromEntries(MANAGER_SHIFT_AUTO.map((k) => [k, out[k]])) as Checks;
+  if (await staffAssignmentAvailable(db, options))
+    checks.staff_assignment = await staffAssignmentCheck(db, branch, day, { start, end });
+  return checks;
 }
+/**
+ * The items a second-wave feature adds to a phase after the template's (lane bo-ui2 step 5: «Расстановка
+ * заполнена» at closing while the staff assignment is available), or null: then every phase is
+ * exactly its template's.
+ */
+async function extraItems(
+  db: Db,
+  options: BackofficeOptions,
+): Promise<{ opening: ChecklistItemAny[]; closing: ChecklistItemAny[] } | null> {
+  return (await staffAssignmentAvailable(db, options))
+    ? { opening: [], closing: [STAFF_ASSIGNMENT_ITEM] }
+    : null;
+}
+const withExtra = (items: readonly ChecklistItemAny[], extra: readonly ChecklistItemAny[] = []) => [
+  ...items,
+  ...extra.filter((e) => !items.some((i) => i.code === e.code)),
+];
 
 // ------------------------------------------------------------------------- shifts ----
 
@@ -379,6 +405,7 @@ export async function readManagerShifts(
     )
   ).rows;
   const checksDate = open?.business_date ?? date;
+  const extra = await extraItems(db, options);
   return {
     schema_version: 1 as const,
     branch_id: branch,
@@ -395,6 +422,8 @@ export async function readManagerShifts(
     truncated: shifts.length > MANAGER_SHIFTS_LIMIT,
     checks_date: checksDate,
     checks: await managerShiftChecks(db, branch, checksDate, now, options),
+    // Lane bo-ui2 step 5: the items the cabinet adds after the template's, only while there are.
+    ...(extra ? { extra_items: extra } : {}),
   };
 }
 
@@ -406,7 +435,7 @@ const clock = async (db: Db) =>
     )
   ).rows[0]!;
 function phaseAnswers(
-  items: readonly ChecklistItem[],
+  items: readonly ChecklistItemAny[],
   given: z.infer<typeof ManagerShiftOpenCommand>['items'],
   checks: Checks,
   partial: boolean,
@@ -490,6 +519,8 @@ export async function managerShiftCommand(
   const template = await checklistVersion(db, branch, shift.template_version);
   const checks = await managerShiftChecks(db, branch, shift.business_date, now, options);
   const at = await clock(db);
+  // The closing of a second-wave feature (lane bo-ui2 step 5), after the template's items.
+  const closing = withExtra(template.closing, (await extraItems(db, options))?.closing);
   if (c.type === 'manager_shift_save' && c.phase === 'opening') {
     const items = phaseAnswers(template.opening, c.items, checks, false);
     await db.query(
@@ -498,14 +529,14 @@ export async function managerShiftCommand(
     );
   } else if (c.type === 'manager_shift_save') {
     // A draft of the closing: partial answers and the handover written so far.
-    const items = phaseAnswers(template.closing, c.items, checks, true);
+    const items = phaseAnswers(closing, c.items, checks, true);
     const handover = (c.handover ?? String(shift.closing?.['handover'] ?? '')).trim();
     await db.query(
       'UPDATE bo_manager_shifts SET closing=$3,revision=revision+1,updated_at=$4 WHERE id=$1 AND branch_id=$2',
       [c.id, branch, { items, handover, draft: true, saved_at: at.at.toISOString() }, at.at],
     );
   } else {
-    const items = phaseAnswers(template.closing, c.items, checks, false);
+    const items = phaseAnswers(closing, c.items, checks, false);
     const handover = c.handover.trim();
     if (handover.length < 3) throw new BackofficeError('INVALID_REQUEST', 'HANDOVER_REQUIRED');
     await db.query(

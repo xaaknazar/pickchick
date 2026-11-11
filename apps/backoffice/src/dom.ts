@@ -152,6 +152,10 @@ export function navigationIcon(name: string) {
     pos: 'M4 10h16v10H4zM7 10V5h10v5M8 14h2M14 14h2M8 17h8',
     discounts:
       'M19 5 5 19M7.5 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M16.5 14.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5',
+    supply:
+      'M3 6h11v10H3zM14 9h4l3 3v4h-7M6.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3',
+    assignment:
+      'M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8zM7 6.5v2M17 6.5v2M7 15.5v2M17 15.5v2',
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

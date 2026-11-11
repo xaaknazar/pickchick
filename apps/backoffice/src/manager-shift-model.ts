@@ -47,6 +47,11 @@ export type ManagerShiftsView = {
   truncated: boolean;
   checks_date: string;
   checks: Record<string, Check>;
+  /**
+   * Lane bo-ui2 step 5: items the server adds after the template's while their feature runs
+   * («Расстановка заполнена» at closing with the staff assignment). Absent on other servers.
+   */
+  extra_items?: { opening: ChecklistItem[]; closing: ChecklistItem[] };
 };
 
 export const ANSWER_LABELS: Readonly<Record<AnswerStatus, string>> = Object.freeze({
@@ -78,9 +83,24 @@ export function managerShiftsView(value: unknown, branch: string): ManagerShifts
     throw new Error('INVALID_RESPONSE');
   return value as unknown as ManagerShiftsView;
 }
-/** The checklist a shift answers: its own version while open (a newer one may exist). */
-export const shiftChecklist = (view: ManagerShiftsView): Checklist =>
-  view.open && view.open_template ? view.open_template : view.template;
+/**
+ * The checklist a shift answers: its own version while open (a newer one may exist), with the
+ * items a second-wave feature adds after the template's (lane bo-ui2 step 5, `extra_items`).
+ */
+export function shiftChecklist(view: ManagerShiftsView): Checklist {
+  const list = view.open && view.open_template ? view.open_template : view.template;
+  const extra = view.extra_items;
+  if (!extra) return list;
+  const add = (items: ChecklistItem[], more: ChecklistItem[] | undefined) => [
+    ...items,
+    ...(more ?? []).filter((m) => !items.some((i) => i.code === m.code)),
+  ];
+  return {
+    version: list.version,
+    opening: add(list.opening, extra.opening),
+    closing: add(list.closing, extra.closing),
+  };
+}
 
 const plural = (n: number, forms: [string, string, string]) => {
   const a = Math.abs(n) % 100,
@@ -169,6 +189,29 @@ export function checkText(auto: string, check: Check | null | undefined): string
           ? `Не списано продаж: ${num(f['blocked'])}. Разберите в «Остатки» - «Списание по продажам» или поясните.`
           : '';
       return [stalled, blocked].filter(Boolean).join(' ') || 'Заблокированных списаний нет.';
+    }
+    case 'staff_assignment': {
+      // Lane bo-ui2 step 5: «Расстановка заполнена» from the staff assignment of the day.
+      const parts: string[] = [];
+      const intervals = num(f['intervals']);
+      if (intervals === 0)
+        parts.push('Расстановка за день не заполнена. Заполните её в «Расстановка».');
+      else
+        parts.push(
+          `Расставлено: ${num(f['employees'])} ${plural(num(f['employees']), ['сотрудник', 'сотрудника', 'сотрудников'])} на ${num(f['stations'])} ${plural(num(f['stations']), ['станции', 'станциях', 'станциях'])}, сейчас на станциях: ${num(f['open'])}.`,
+        );
+      const missing = num(f['missing_count']);
+      const names = Array.isArray(f['missing']) ? f['missing'].map(String) : [];
+      if (missing)
+        parts.push(
+          `По графику без станции: ${names.join(', ')}${missing > names.length ? ' и другие' : ''}.`,
+        );
+      if (num(f['earlier_open']))
+        parts.push(
+          `Не закрыты интервалы прошлых дней: ${num(f['earlier_open'])}. Закончите их в «Расстановка».`,
+        );
+      if (check.status === 'problem' && intervals > 0) parts.push('Поясните в комментарии.');
+      return parts.join(' ');
     }
     default:
       return CHECK_LABELS[check.status];
