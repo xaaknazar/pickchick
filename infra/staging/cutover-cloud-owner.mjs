@@ -15,6 +15,7 @@
  *   node infra/staging/cutover-cloud-owner.mjs deploy-076
  *   node infra/staging/cutover-cloud-owner.mjs supply-grants <none|supply,staff-assignment>
  *   node infra/staging/cutover-cloud-owner.mjs compose-candidate --compose <file> --sha256 <hex> --out <file>
+ *   node infra/staging/cutover-cloud-owner.mjs compose-supply --compose <file> --sha256 <hex> --out <file>
  *   node infra/staging/cutover-cloud-owner.mjs compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>
  *
  * inspect/deploy/flag run inside the candidate API image as the cloud owner (CLOUD_DATABASE_URL
@@ -60,6 +61,10 @@
  *   only the literal cutover flag lines, all "false" (api and provision services, like the
  *   release scripts' compose_candidate); a flag run flips only that one key. The result goes to a
  *   new file; both SHA-256 are printed for the release record.
+ * - compose-supply: the same guarded step for lane bo-ui2: a compose that already carries the
+ *   cutover keys gets the three second-wave keys in the api service, all "false". compose-flag
+ *   then flips supply, stock-reports or staff-assignment, only after the cutover flag the API
+ *   itself requires (stock-v2, staff-positions), and refuses to turn that one off before them.
  * Output is names, booleans and hashes, never row data or the connection string.
  */
 import { createHash } from 'node:crypto';
@@ -174,6 +179,23 @@ export const SUPPLY_TABLES = Object.freeze(Object.keys(BACKOFFICE_SUPPLY_RELATIO
 export const SUPPLY_FLAGS = Object.freeze({
   supply: Object.freeze(['supply', 'BACKOFFICE_SUPPLY_ENABLED']),
   'staff-assignment': Object.freeze(['staffAssignment', 'BACKOFFICE_STAFF_ASSIGNMENT_ENABLED']),
+});
+/**
+ * Second-wave keys of the API environment (compose-supply adds them, compose-flag flips them).
+ * The API refuses to start with supply or stock-reports on while stock v2 is off, and with
+ * staff-assignment on while staff positions are off (packages/platform config), so the same
+ * order is kept here: `requires` is the cutover flag that must already be "true".
+ */
+export const SUPPLY_COMPOSE = Object.freeze({
+  supply: Object.freeze({ key: 'BACKOFFICE_SUPPLY_ENABLED', requires: 'stock-v2' }),
+  'stock-reports': Object.freeze({
+    key: 'BACKOFFICE_STOCK_REPORTS_ENABLED',
+    requires: 'stock-v2',
+  }),
+  'staff-assignment': Object.freeze({
+    key: 'BACKOFFICE_STAFF_ASSIGNMENT_ENABLED',
+    requires: 'staff-positions',
+  }),
 });
 export const API_ROLE = 'pickchick_app';
 /** Back-office grants on (backofficeGrants(role, true)), as in stage2-cloud-owner.mjs. */
@@ -783,11 +805,53 @@ export function composeCandidate(text, expectedSha256) {
   return result;
 }
 
-/** One cutover key flipped in the api service (and in provision where it is carried). */
+const supplyLines = () =>
+  Object.values(SUPPLY_COMPOSE)
+    .map(({ key }) => line(key, 'false'))
+    .join('');
+/**
+ * Compose that already carries the cutover keys (compose-candidate) plus the three second-wave
+ * keys of the api service, all "false"; nothing else changes. The provision service gets none:
+ * the second-wave grants are set by supply-grants, not by provision.
+ */
+export function composeSupply(text, expectedSha256) {
+  installed(text, expectedSha256);
+  for (const { key } of Object.values(SUPPLY_COMPOSE))
+    guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
+  for (const key of Object.values(COMPOSE_FLAGS))
+    guard(
+      text.split(key + ':').length === (PROVISION_KEYS.includes(key) ? 3 : 2),
+      'Installed compose lacks the cutover keys: run compose-candidate first',
+    );
+  guard(text.split('\n' + API_ANCHOR).length === 2, 'Compose database anchors differ');
+  const result = text.replace('\n' + API_ANCHOR, '\n' + supplyLines() + API_ANCHOR);
+  guard(result.replace(supplyLines(), '') === text, 'Compose changed more than the flag lines');
+  return result;
+}
+
+/**
+ * One cutover key flipped in the api service (and in provision where it is carried). A
+ * second-wave key (SUPPLY_COMPOSE) lives in the api service only and follows the order the API
+ * itself enforces at start: it turns on only after its cutover flag, and that cutover flag
+ * turns off only after it.
+ */
 export function composeFlag(text, expectedSha256, flag, enabled) {
   installed(text, expectedSha256);
-  guard(flag in COMPOSE_FLAGS && typeof enabled === 'boolean', 'Invalid flag');
-  const key = COMPOSE_FLAGS[flag];
+  guard(
+    (flag in COMPOSE_FLAGS || flag in SUPPLY_COMPOSE) && typeof enabled === 'boolean',
+    'Invalid flag',
+  );
+  const key = COMPOSE_FLAGS[flag] ?? SUPPLY_COMPOSE[flag].key;
+  if (flag in SUPPLY_COMPOSE && enabled) {
+    const needed = COMPOSE_FLAGS[SUPPLY_COMPOSE[flag].requires];
+    guard(text.includes(line(needed, 'true')), `${key} requires ${needed} "true" first`);
+  }
+  if (flag in COMPOSE_FLAGS && !enabled)
+    for (const dependent of Object.values(SUPPLY_COMPOSE))
+      guard(
+        dependent.requires !== flag || !text.includes(line(dependent.key, 'true')),
+        `Turn ${dependent.key} off before ${key}`,
+      );
   const [from, to] = enabled ? ['false', 'true'] : ['true', 'false'];
   const count = PROVISION_KEYS.includes(key) ? 2 : 1;
   guard(
@@ -802,7 +866,7 @@ export function composeFlag(text, expectedSha256, flag, enabled) {
 
 // ------------------------------------------------------------------------------- command line ----
 const USAGE =
-  'Usage: cutover-cloud-owner.mjs inspect | deploy | flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false> | inspect-075 | deploy-075 | p1-grants <none|pos-day,stock-v2,autoconsume,manager-shifts,staff-positions,discounts> | inspect-076 | deploy-076 | supply-grants <none|supply,staff-assignment> | compose-candidate --compose <file> --sha256 <hex> --out <file> | compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>';
+  'Usage: cutover-cloud-owner.mjs inspect | deploy | flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false> | inspect-075 | deploy-075 | p1-grants <none|pos-day,stock-v2,autoconsume,manager-shifts,staff-positions,discounts> | inspect-076 | deploy-076 | supply-grants <none|supply,staff-assignment> | compose-candidate --compose <file> --sha256 <hex> --out <file> | compose-supply --compose <file> --sha256 <hex> --out <file> | compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>';
 function composeOptions(rest) {
   const options = {};
   for (let i = 0; i < rest.length; i += 2) {
@@ -849,8 +913,13 @@ export function parseArguments(argv) {
     ['true', 'false'].includes(rest[1])
   )
     return { command, flag: rest[0], enabled: rest[1] === 'true' };
-  if (command === 'compose-candidate') return { command, ...composeOptions(rest) };
-  if (command === 'compose-flag' && rest[0] in COMPOSE_FLAGS && ['true', 'false'].includes(rest[1]))
+  if (command === 'compose-candidate' || command === 'compose-supply')
+    return { command, ...composeOptions(rest) };
+  if (
+    command === 'compose-flag' &&
+    (rest[0] in COMPOSE_FLAGS || rest[0] in SUPPLY_COMPOSE) &&
+    ['true', 'false'].includes(rest[1])
+  )
     return {
       command,
       flag: rest[0],
@@ -865,14 +934,21 @@ async function compose(args) {
   const result =
     args.command === 'compose-candidate'
       ? composeCandidate(text, args.sha256)
-      : composeFlag(text, args.sha256, args.flag, args.enabled);
+      : args.command === 'compose-supply'
+        ? composeSupply(text, args.sha256)
+        : composeFlag(text, args.sha256, args.flag, args.enabled);
   await writeFile(args.out, result, { flag: 'wx', mode: 0o600 }).catch(() => {
     throw new OwnerGuardError('Output file exists or is not writable');
   });
   return {
     composeBefore: sha256(text),
     composeAfter: sha256(result),
-    ...(args.flag ? { environment: COMPOSE_FLAGS[args.flag], enabled: args.enabled } : {}),
+    ...(args.flag
+      ? {
+          environment: COMPOSE_FLAGS[args.flag] ?? SUPPLY_COMPOSE[args.flag].key,
+          enabled: args.enabled,
+        }
+      : {}),
   };
 }
 

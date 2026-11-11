@@ -48,11 +48,13 @@ import {
   P1_TABLES,
   PROVISION_KEYS,
   SUPPLY_CHECKSUM,
+  SUPPLY_COMPOSE,
   SUPPLY_FLAGS,
   SUPPLY_MIGRATION,
   SUPPLY_TABLES,
   composeCandidate,
   composeFlag,
+  composeSupply,
   cutoverPrivileges,
   deployBackofficeP1,
   deployBackofficeSupply,
@@ -269,6 +271,8 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
     ['compose-candidate', '--compose', 'c', '--sha256', 'abc', '--out', 'o'],
     ['compose-candidate', '--compose', 'c', '--sha256', hex],
     ['compose-flag', 'bo-ui', 'true', '--compose', 'c', '--sha256', hex, '--out', 'o'],
+    ['compose-supply', '--compose', 'c', '--sha256', hex],
+    ['compose-supply', 'supply', '--compose', 'c', '--sha256', hex, '--out', 'o'],
     ['provision'],
     ['deploy-075', '--force'],
     ['p1-grants'],
@@ -1062,6 +1066,137 @@ test('API environment step: the candidate adds only the cutover keys, all off; e
     assert.equal(
       wrong.stderr.trim(),
       'Cutover cloud owner guard: Installed compose differs from the reviewed hash',
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('API environment step of the second wave: compose-supply adds three keys to the api service only, all off; each key turns on only after its cutover flag and that flag turns off only after it', async () => {
+  const hex = 'a'.repeat(64);
+  assert.deepEqual(
+    parseArguments(['compose-supply', '--compose', 'c', '--sha256', hex, '--out', 'o']),
+    {
+      command: 'compose-supply',
+      compose: 'c',
+      sha256: hex,
+      out: 'o',
+    },
+  );
+  assert.deepEqual(
+    parseArguments([
+      'compose-flag',
+      'stock-reports',
+      'true',
+      '--compose',
+      'c',
+      '--sha256',
+      hex,
+      '--out',
+      'o',
+    ]),
+    {
+      command: 'compose-flag',
+      flag: 'stock-reports',
+      enabled: true,
+      compose: 'c',
+      sha256: hex,
+      out: 'o',
+    },
+  );
+  const candidate = composeCandidate(COMPOSE, sha256(COMPOSE));
+  // Before compose-candidate there is nothing to extend; a second-wave key is not a cutover key.
+  assert.throws(() => composeSupply(COMPOSE, sha256(COMPOSE)), /lacks the cutover keys/);
+  assert.throws(() => composeSupply(candidate, 'f'.repeat(64)), /reviewed hash/);
+  assert.throws(
+    () => composeFlag(candidate, sha256(candidate), 'supply', true),
+    /not in the expected state|requires/,
+  );
+  const wave = composeSupply(candidate, sha256(candidate));
+  const keys = Object.values(SUPPLY_COMPOSE).map(({ key }) => key);
+  assert.deepEqual(
+    wave.split('\n').filter((row) => !candidate.split('\n').includes(row)),
+    keys.map((key) => `      ${key}: "false"`),
+  );
+  for (const key of keys) {
+    assert.equal(wave.split(key + ':').length, 2, key + ' once');
+    assert.ok(wave.indexOf(key) < wave.indexOf('  provision:'), key + ' only in the api service');
+  }
+  assert.throws(() => composeSupply(wave, sha256(wave)), /already mentions/);
+  // The cutover keys and their flips are untouched by the extension.
+  assert.equal(wave.replace(keys.map((key) => `      ${key}: "false"\n`).join(''), ''), candidate);
+
+  // The order the API enforces at start (packages/platform config) is the order of the step.
+  for (const [flag, { key, requires }] of Object.entries(SUPPLY_COMPOSE)) {
+    assert.throws(
+      () => composeFlag(wave, sha256(wave), flag, true),
+      new RegExp(`${key} requires ${COMPOSE_FLAGS[requires]} "true" first`),
+    );
+    const ready = composeFlag(wave, sha256(wave), requires, true);
+    const on = composeFlag(ready, sha256(ready), flag, true);
+    assert.deepEqual(
+      on.split('\n').filter((row, i) => row !== ready.split('\n')[i]),
+      [`      ${key}: "true"`],
+    );
+    assert.throws(() => composeFlag(on, sha256(on), flag, true), /not in the expected state/);
+    assert.throws(
+      () => composeFlag(on, sha256(on), requires, false),
+      new RegExp(`Turn ${key} off before ${COMPOSE_FLAGS[requires]}`),
+    );
+    const off = composeFlag(on, sha256(on), flag, false);
+    assert.equal(off, ready);
+    assert.equal(composeFlag(off, sha256(off), requires, false), wave);
+  }
+  // Both stock reports and supply on: stock v2 stays until both are off.
+  let both = composeFlag(wave, sha256(wave), 'stock-v2', true);
+  both = composeFlag(both, sha256(both), 'supply', true);
+  both = composeFlag(both, sha256(both), 'stock-reports', true);
+  assert.throws(() => composeFlag(both, sha256(both), 'stock-v2', false), /Turn BACKOFFICE_/);
+  const one = composeFlag(both, sha256(both), 'supply', false);
+  assert.throws(
+    () => composeFlag(one, sha256(one), 'stock-v2', false),
+    /Turn BACKOFFICE_STOCK_REPORTS_ENABLED off/,
+  );
+
+  // The command line: a new file only and both hashes, like compose-candidate.
+  const dir = await mkdtemp(join(tmpdir(), 'cutover-owner-compose-supply-'));
+  try {
+    const installed = join(dir, 'compose.yaml');
+    await writeFile(installed, candidate);
+    const out = join(dir, 'compose.supply.yaml');
+    const args = ['--compose', installed, '--sha256', sha256(candidate), '--out', out];
+    const first = await run(process.execPath, [tool, 'compose-supply', ...args], {
+      env: { PATH: process.env.PATH },
+    });
+    assert.deepEqual(JSON.parse(first.stdout), {
+      composeBefore: sha256(candidate),
+      composeAfter: sha256(wave),
+    });
+    assert.equal(await readFile(out, 'utf8'), wave);
+    const again = await run(process.execPath, [tool, 'compose-supply', ...args], {
+      env: { PATH: process.env.PATH },
+    }).catch((error) => error);
+    assert.equal(again.code, 1);
+    const refused = await run(
+      process.execPath,
+      [
+        tool,
+        'compose-flag',
+        'supply',
+        'true',
+        '--compose',
+        out,
+        '--sha256',
+        sha256(wave),
+        '--out',
+        join(dir, 'x.yaml'),
+      ],
+      { env: { PATH: process.env.PATH } },
+    ).catch((error) => error);
+    assert.equal(refused.code, 1);
+    assert.equal(
+      refused.stderr.trim(),
+      'Cutover cloud owner guard: BACKOFFICE_SUPPLY_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED "true" first',
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
