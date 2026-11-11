@@ -496,6 +496,32 @@ class PureRules(unittest.TestCase):
             raise RuntimeError('a failed check')
         self.assertTrue(d.STOP['held'])
 
+    def test_a_stop_request_whose_answer_python_dropped_still_ends_the_stretch(self):
+        self.addCleanup(d.STOP.update, held=False, noted=None)
+        self.addCleanup(d.RAISED.clear)
+
+        class Answer:
+            def __del__(self):
+                # A signal handled while a finalizer runs: Python prints the exception and drops it.
+                d.stop(signal.SIGTERM)
+
+        later = []
+        with self.assertRaises(SystemExit) as raised:
+            with d.interruptible(), contextlib.redirect_stderr(io.StringIO()):
+                Answer()
+                # The request counts as answered: later ones wait, as they would on the way back.
+                later.append(d.stop(signal.SIGINT))
+                later.append(dict(d.STOP))
+        self.assertEqual(raised.exception.code, 128 + signal.SIGTERM)
+        self.assertEqual(later, [None, {'held': True, 'noted': signal.SIGINT}])
+        self.assertEqual(d.RAISED, [])
+        # An answer that arrived is not given twice.
+        with self.assertRaises(KeyboardInterrupt), d.interruptible():
+            d.stop(signal.SIGINT)
+        self.assertEqual(d.RAISED, [])
+        with d.interruptible():
+            pass
+
 
 class ServerSteps(unittest.TestCase):
     def setUp(self):
@@ -1387,7 +1413,7 @@ class ServerSteps(unittest.TestCase):
             self.assertEqual((code, outcome['status']), (0, 'deployed'))
             d.verify_served(d.FEED_ORIGIN, {'kitchen': self.first['kitchen'], 'pos': second['pos']})
 
-    def test_the_journal_decides_only_before_the_first_change(self):
+    def test_the_journal_decides_only_until_devices_can_be_offered_the_release(self):
         lock = self.world.root / '.market-release.lock'
         deployments = self.world.root / 'desktop-updates/deployments'
         real = b.save
@@ -1413,8 +1439,20 @@ class ServerSteps(unittest.TestCase):
             self.assertEqual(list(deployments.iterdir()), [])
             self.assertIsNone(self.world.sidecar)
             self.assertEqual(self.world.generation[b.GATEWAY], 1)
-            # Every later line fails: the install ends as it would have ended and says what is missing.
-            allowed[0], written[:] = 1, []
+            # The line before the gateway switch is the memory of what devices may be offered: an
+            # install that cannot write it goes back before the gateway is touched.
+            allowed[0], written[:] = 2, []
+            code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['journal_not_written']),
+                             (1, 'rolled_back', 'switch_gateway', 'PermissionError'))
+            self.assertEqual(outcome['detail'],
+                             'The journal cannot remember the release before it is offered: PermissionError')
+            self.assertEqual(self.world.generation[b.GATEWAY], 1)
+            self.assertIsNone(self.world.sidecar)
+            self.assertFalse(lock.exists())
+            self.assertFalse(os.path.lexists(self.world.root / 'desktop-updates/feed/current'))
+            # Every line after it fails: the install ends as it would have ended and says what is missing.
+            allowed[0], written[:] = 3, []
             code, outcome = call(self.install_arguments() + ['--apply'])
             self.assertEqual((code, outcome['status'], outcome['journal_not_written']),
                              (0, 'deployed', 'PermissionError'))
@@ -1422,10 +1460,10 @@ class ServerSteps(unittest.TestCase):
                                        'publish_pointers', 'publish_pointers'])
             self.assertFalse(lock.exists())
             # The file holds the last state that was written whole, and no half of a later one.
-            (journal,) = deployments.iterdir()
-            self.assertEqual(str(journal), outcome['journal'])
+            journal = Path(outcome['journal'])
             self.assertEqual((json.loads(journal.read_text())['phase'], journal.stat().st_mode & 0o777),
-                             ('prepare', 0o600))
+                             ('switch_gateway', 0o600))
+            self.assertEqual(d.offered_builds()[('pos', '0.5.0')], {outcome['builds']['pos']['sha256']: outcome['feed_release']})
             # The way back does not depend on the journal either.
             second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
 
@@ -1441,7 +1479,14 @@ class ServerSteps(unittest.TestCase):
             self.assertFalse(lock.exists())
             self.assertEqual(os.readlink(self.world.root / 'desktop-updates/feed/current'),
                              'releases/kitchen-0.4.0-pos-0.5.0')
-            self.assertEqual(sorted(path.name[:7] for path in deployments.iterdir()), ['install', 'publish'])
+            self.assertEqual(sorted(path.name[:7] for path in deployments.iterdir()),
+                             ['install', 'install', 'publish'])
+            # A publish whose journal cannot say `switch` never moves the pointer, so nothing was
+            # offered that only a set-aside directory would remember.
+            self.assertEqual((outcome['phase'], outcome['detail']),
+                             ('switch', 'The journal cannot remember the release before it is offered: '
+                                        'PermissionError'))
+            self.assertNotIn(('pos', '0.5.1'), d.offered_builds())
             # One line that could not be written is forgotten once the journal is whole again.
             allowed[0], written[:] = 99, []
             real_reached = d.reached
@@ -1976,7 +2021,8 @@ class ServerSteps(unittest.TestCase):
                     raise b.Uncertain('Command timed out; inspect Docker before any retry')
                 return real(command, timeout)
 
-            save, written = journal_of(1)
+            # The line before the gateway switch is written: the step must remember what it offers.
+            save, written = journal_of(3)
             with patch.object(b, 'run', hangs), save:
                 outcome = stopped(self, self.install_arguments() + ['--apply'], 'timed out', b.Uncertain)
             self.assertEqual((outcome['status'], outcome['lock_retained'], outcome['journal_not_written']),

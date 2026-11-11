@@ -88,6 +88,9 @@ class Untouched(RuntimeError):
 
 # Stop requests of an --apply run: whether one is answered right now, and one that waits.
 STOP = {'held': False, 'noted': None}
+# The request stop() raised for, until the exception has reached the step. An exception raised
+# while a finalizer runs (a closed HTTP answer, a closed file) is dropped by Python.
+RAISED = []
 
 
 def stop(number, frame=None):
@@ -101,6 +104,11 @@ def stop(number, frame=None):
         STOP['noted'] = number
         return
     STOP.update(held=True, noted=None)
+    RAISED[:] = [number]
+    answer(number)
+
+
+def answer(number):
     if number == signal.SIGINT:
         raise KeyboardInterrupt
     raise SystemExit(128 + number)
@@ -110,14 +118,22 @@ def stop(number, frame=None):
 def interruptible():
     """A stretch where a stop request is answered at once, also one that was noted before it."""
     try:
+        RAISED.clear()
         # From this statement on the handler answers by itself, so the note cannot change under us.
         STOP['held'] = False
         noted, STOP['noted'] = STOP['noted'], None
         if noted is not None:
             stop(noted)
         yield
+    except BaseException:
+        # Whatever ends the stretch, the request (if any) has been answered by it.
+        RAISED.clear()
+        raise
     finally:
         STOP['held'] = True
+    if RAISED:
+        # The answer was lost on the way: the stretch ends with it all the same.
+        answer(RAISED.pop())
 
 
 def run(command, timeout=90):
@@ -270,8 +286,10 @@ def open_journal(journal, outcome, phase):
 
 
 def record(journal, outcome):
-    """After the first change the journal decides nothing: a write that fails is named in the
-    answer (the file then holds an earlier state), and the step ends the way it would have ended."""
+    """After the first change the journal decides only once more, in the line before devices can
+    be offered the release (the step checks `journal_not_written` there). Any other write that
+    fails is named in the answer (the file then holds an earlier state), and the step ends the
+    way it would have ended."""
     outcome.pop('journal_not_written', None)
     try:
         replace_json(journal, outcome)
@@ -478,6 +496,9 @@ def fetch(url, headers=None, method='GET', limit=CHUNK_BYTES):
             require(len(data) <= limit, 'Response is larger than expected: ' + url)
             return response.status, data, response.headers
     except urllib.error.HTTPError as error:
+        # Closed here and not by a finalizer, where an exception (a stop request) would be dropped.
+        with suppress(OSError):
+            error.close()
         return error.code, b'', error.headers
     except http.client.HTTPException as error:
         raise RuntimeError('The answer broke off (' + type(error).__name__ + '): ' + url) from None
@@ -868,6 +889,9 @@ def install(a, expected):
                     require(b.http(path)[:2] == answer,
                             'Existing endpoint changed before the gateway was touched: ' + path)
                 reached(journal, outcome, 'switch_gateway')
+                require('journal_not_written' not in outcome,
+                        'The journal cannot remember the release before it is offered: ' +
+                        outcome.get('journal_not_written', ''))
                 switched_gateway = True
                 b.run(b.compose(candidate / 'compose.yaml') +
                       ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'gateway'], timeout=120)
@@ -985,6 +1009,11 @@ def move_pointer(a, action, name, sources, final, old_release, old):
                 if sources:
                     require(copy_release(sources, target) == final, 'Copied feed differs')
                     reached(journal, outcome, 'switch')
+                    # The journal remembers the builds devices may be offered from here on; the
+                    # release directory is set aside if the step goes back.
+                    require('journal_not_written' not in outcome,
+                            'The journal cannot remember the release before it is offered: ' +
+                            outcome.get('journal_not_written', ''))
                 switched = True
                 b.switch(feed_root() / 'current', Path('releases') / name)
                 reached(journal, outcome, 'verify')
