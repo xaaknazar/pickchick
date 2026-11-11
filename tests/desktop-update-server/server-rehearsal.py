@@ -3,8 +3,9 @@
 
 Builds a throw-away copy of the server layout: the public gateway of infra/public-staging and a
 stand-in for the outer HTTPS proxy. Then runs what the operator runs: a failed install that must
-roll back, the install, the updater of the programs reading the feed through the gateway, a publish
-that must not restart anything, refusals and a withdraw. A one-off Compose job, like the cleanup the
+roll back (the way back is confirmed through the gateway), the install, the updater of the programs
+reading the feed through the gateway, a publish that must not restart anything, refusals, a
+withdraw, and the same version offered once more. A one-off Compose job, like the cleanup the
 server starts every 15 minutes, comes during the install and goes during the publish. Linux with
 Docker and a clean committed checkout only (CI); nothing outside the temporary directory and the
 containers and networks named here.
@@ -202,6 +203,20 @@ def main():
                 raise RuntimeError('%s ended %d: %s' % (arguments[0], code, json.dumps(report)))
             return report
 
+        def refused(arguments, reason):
+            try:
+                run(arguments)
+            except RuntimeError as error:
+                assert reason in str(error), (reason, str(error))
+            else:
+                raise AssertionError('Not refused: ' + reason)
+
+        def journal_of(report):
+            """The journal the answer names: private to the operator and equal to the answer."""
+            path = Path(report['journal'])
+            assert path.stat().st_mode & 0o777 == 0o600 and json.loads(path.read_text()) == report, report
+            return path
+
         expected1 = ['--expected-pos-sha256', hashes1['pos'], '--expected-kitchen-sha256', hashes1['kitchen']]
         report = run(['inspect', '--feed', str(feed1)] + expected1)
         assert (report['gateway_route_installed'], report['feed_container'], report['next_step']) == (False, False, 'install')
@@ -225,6 +240,7 @@ def main():
         report = run(install + ['--apply'], expect=1)
         d.verify_refusals = real_refusals
         assert report['status'] == 'rolled_back' and report['phase'] == 'verify', report
+        journal_of(report)
         assert status('/desktop-updates/pos/latest.json') == 404 and status('/health/live') == 200
         assert status('/kiosk') == 200 and status('/assets/app.js') == 200
         names = sh(['docker', 'ps', '-a', '--format', '{{.Names}}']).splitlines()
@@ -239,6 +255,7 @@ def main():
         report = run(install + ['--apply'])
         d.copy_release = real_copy
         assert report['status'] == 'deployed', report
+        assert journal_of(report).parent == root / 'desktop-updates/deployments'
         assert JOB in listed() and JOB not in d.containers(), 'The job is not told apart from a service'
         summary['install'] = report['published']
         assert status('/kiosk') == 200 and status('/assets/app.js') == 200 and status('/health/live') == 200
@@ -283,12 +300,7 @@ def main():
                 (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
                   '--expected-kitchen-sha256', 'f' * 64], 'operator named'),
                 (install + ['--apply'], 'Current public pointer changed')]:
-            try:
-                run(arguments)
-            except RuntimeError as error:
-                assert reason in str(error), (reason, str(error))
-            else:
-                raise AssertionError('Not refused: ' + reason)
+            refused(arguments, reason)
         for path in ['/desktop-updates/', '/desktop-updates/pos/', '/desktop-updates/releases/',
                      '/desktop-updates/current/pos/latest.json', '/desktop-updates/pos/latest.json.tmp']:
             assert status(path) == 404, path
@@ -303,6 +315,23 @@ def main():
         assert report['published_release'] == first and report['releases_on_disk'] == sorted([first, second])
         assert report['gateway_route_installed'] and report['feed_container'] and not report['deployment_lock_present']
         summary['withdraw'] = report['published']
+
+        step('the withdrawn version once more: the same build is named, a rebuilt one is refused')
+        feed3 = temporary / 'feed-3'
+        path, rebuilt_hash = fake_installer(feed3 / 'kitchen', 'kitchen', kitchen_next, KITCHEN_BYTES, d.APPS['kitchen'])
+        (feed3 / 'kitchen/latest.json').write_text(json.dumps({
+            'app': 'kitchen', 'version': kitchen_next, 'file': path.name, 'sha256': rebuilt_hash,
+            'bytes': KITCHEN_BYTES, 'apply': 'idle'}, indent=2) + '\n')
+        for feed, sha256, reason in [
+                (feed2, kitchen_hash, 'These builds are already on the server as ' + second),
+                (feed3, rebuilt_hash, 'Other builds of the same versions are on the server as ' + second)]:
+            refused(['publish', *signed, '--feed', str(feed), '--expected-current', first,
+                     '--expected-kitchen-sha256', sha256, '--apply'], reason)
+        assert not d.b.LOCK.exists() and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
+        report = run(['withdraw', *signed, '--to', second, '--expected-current', first, '--apply'])
+        assert report['status'] == 'deployed'
+        client('kitchen', versions['kitchen'], kitchen_next, kitchen_hash)
+        summary['same_version_again'] = 'named or refused, then published again by withdraw --to'
         summary['ok'] = True
     finally:
         step('cleanup')

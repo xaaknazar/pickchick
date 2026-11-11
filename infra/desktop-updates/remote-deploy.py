@@ -9,12 +9,14 @@
 Without --apply every mode only checks. The public gateway restarts in `install` only.
 No database, API, credential, payment setting or neighbouring service is changed.
 The shared release lock stays behind only with `uncertain` or `rollback_needs_review`: a refusal,
-also one after the lock was taken, and a confirmed rollback give it back.
+also one after the lock was taken, and a confirmed rollback give it back. A step that changed
+something prints how it ended on stdout, also when an error line on stderr follows.
 Procedure: docs/operations/desktop-updates.md.
 """
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -23,6 +25,7 @@ import re
 import shutil
 import signal
 import sys
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -115,10 +118,12 @@ def locked(sha, action, release):
     Any other exception keeps the lock, as the base helper does.
     """
     refusal = None
+    lock_is_free()
     with b.lock(sha) as owner:
-        owner.update(action='desktop-updates-' + action, feed_release=release)
-        b.save(b.LOCK / 'owner.json', owner)
         try:
+            with before_any_change():
+                owner.update(action='desktop-updates-' + action, feed_release=release)
+                replace_json(b.LOCK / 'owner.json', owner)
             yield
         except Untouched as error:
             refusal = error
@@ -155,10 +160,68 @@ def state():
     return b.ROOT / 'desktop-updates'
 
 
+def replace_json(path, value):
+    """The file changes whole or not at all: a process stopped while it writes leaves the previous content."""
+    temporary = path.with_name('.' + path.name + '.tmp')
+    try:
+        b.save(temporary, value)
+        temporary.replace(path)
+    except BaseException:
+        with suppress(OSError):
+            temporary.unlink()
+        raise
+
+
+def open_journal(journal, outcome, phase):
+    """The first line of the journal is a condition of the step.
+
+    The journal and the lock are all that is left of a run whose process is killed, so a server
+    where the journal cannot be written is refused while nothing is changed yet.
+    """
+    outcome.update(phase=phase, journal=str(journal))
+    try:
+        replace_json(journal, outcome)
+    except OSError as error:
+        raise RuntimeError('The journal of the step cannot be written: ' + type(error).__name__) from None
+
+
+def record(journal, outcome):
+    """After the first change the journal decides nothing: a write that fails is named in the
+    answer (the file then holds an earlier state), and the step ends the way it would have ended."""
+    outcome.pop('journal_not_written', None)
+    try:
+        replace_json(journal, outcome)
+    except OSError as error:
+        outcome['journal_not_written'] = type(error).__name__
+
+
 def reached(journal, outcome, phase):
     """The journal names how far a run came, also when the process was killed there."""
     outcome['phase'] = phase
-    b.save(journal, outcome)
+    record(journal, outcome)
+
+
+def say(outcome):
+    """The answer of a step on stdout. With the terminal gone it is still in the journal."""
+    try:
+        print(json.dumps(outcome), flush=True)
+    except (OSError, ValueError):
+        pass
+
+
+@contextmanager
+def told(outcome):
+    """A step that ends with an error after its first change says itself how it ended.
+
+    The error line alone reads like a refusal, while `uncertain` and `rollback_needs_review` leave
+    the shared lock behind and wait for a person.
+    """
+    try:
+        yield
+    except BaseException:
+        if outcome['status'] != 'preparing':
+            say(outcome)
+        raise
 
 
 def feed_root():
@@ -182,7 +245,11 @@ def version_key(version):
 
 
 def read_manifest(text, app):
-    """latest.json exactly as the installed program accepts it."""
+    """latest.json as the feed builder writes it; nothing the installed program refuses passes.
+
+    Stricter than the program in two places, on purpose: it would take `bytes` written as 1.2e8
+    and `apply: null`, the builder (scripts/desktop-update-feed.mjs) writes neither.
+    """
     require(len(text.encode()) <= MAX_MANIFEST_BYTES, 'Manifest is too large: ' + app)
     try:
         value = json.loads(text)
@@ -191,11 +258,12 @@ def read_manifest(text, app):
     keys = {'app', 'version', 'file', 'sha256', 'bytes'}
     require(isinstance(value, dict) and set(value) in (keys, keys | {'apply'}), 'Manifest keys differ: ' + app)
     version, size = value['version'], value['bytes']
+    require(type(size) is int and value.get('apply', 'idle') in ('idle', 'now'),
+            'The feed builder does not write such a manifest (bytes, apply): ' + app)
     require(value['app'] == app and isinstance(version, str) and re.fullmatch(VERSION, version) and
             value['file'] == APPS[app] + version + '-x64.exe' and
             isinstance(value['sha256'], str) and re.fullmatch('[a-f0-9]{64}', value['sha256']) and
-            type(size) is int and MIN_INSTALLER_BYTES <= size <= MAX_INSTALLER_BYTES and
-            value.get('apply', 'idle') in ('idle', 'now'),
+            MIN_INSTALLER_BYTES <= size <= MAX_INSTALLER_BYTES,
             'The installed program would refuse this manifest: ' + app)
     return value
 
@@ -310,6 +378,8 @@ def fetch(url, headers=None, method='GET', limit=CHUNK_BYTES):
             return response.status, data, response.headers
     except urllib.error.HTTPError as error:
         return error.code, b'', error.headers
+    except http.client.HTTPException as error:
+        raise RuntimeError('The answer broke off (' + type(error).__name__ + '): ' + url) from None
 
 
 def served_manifest(origin, app):
@@ -361,8 +431,10 @@ def alias_reaches_gateway():
     """Read-only: whatever terminates HTTPS for the feed host hands the request to our gateway."""
     try:
         status, body, _ = fetch(FEED_ORIGIN + '/health/live', limit=4096)
-        return status == 200 and json.loads(body).get('service') == 'pickchick-public-gateway'
-    except (OSError, ValueError):
+        answer = json.loads(body)
+        return status == 200 and isinstance(answer, dict) and answer.get('service') == 'pickchick-public-gateway'
+    except (OSError, ValueError, RuntimeError):
+        # Whatever answers there in another way is not the gateway; inspect still prints its report.
         return False
 
 
@@ -405,17 +477,56 @@ def copy_release(sources, target):
     """Appears under its final name only when every file is there and hashes as its manifest says."""
     staging = target.with_name('.' + target.name + '-' + uuid.uuid4().hex)
     staging.mkdir(parents=True)
-    staging.chmod(0o755)
-    manifests = {}
-    for app, source in sources.items():
-        (staging / app).mkdir()
-        (staging / app).chmod(0o755)
-        for item in sorted(source.iterdir()):
-            shutil.copyfile(item, staging / app / item.name)
-            (staging / app / item.name).chmod(0o644)
-        manifests[app] = verify_app(staging / app, app)
-    staging.rename(target)
+    try:
+        staging.chmod(0o755)
+        manifests = {}
+        for app, source in sources.items():
+            (staging / app).mkdir()
+            (staging / app).chmod(0o755)
+            for item in sorted(source.iterdir()):
+                shutil.copyfile(item, staging / app / item.name)
+                (staging / app / item.name).chmod(0o644)
+            manifests[app] = verify_app(staging / app, app)
+        staging.rename(target)
+    except BaseException:
+        # What was copied so far gets the name every leftover of a failed run has: nothing is
+        # deleted here, and nothing stays hidden from `ls` and from the next free-space check.
+        with suppress(OSError):
+            staging.rename(target.with_name(target.name + '.FAILED-' + uuid.uuid4().hex))
+        raise
     return manifests
+
+
+def same_release(directory, manifests):
+    """Whether a release on disk holds exactly these builds. Its name tells the versions only."""
+    try:
+        return {app: verify_app(directory / app, app)
+                for app in sorted(path.name for path in directory.iterdir())} == manifests
+    except (RuntimeError, OSError, ValueError, KeyError):
+        return False
+
+
+def back_as_before(probes):
+    """The way back is confirmed where the way there was: at the addresses devices and guests use.
+
+    The gateway container has just been replaced once more, so one failed attempt is no verdict.
+    """
+    for attempt in range(3):
+        try:
+            for path, answer in probes.items():
+                now = b.http(path)[:2]
+                # The health answer is the gateway's own text; what the API says may change by itself.
+                require(now == answer if path == '/health/live' else now[0] == answer[0],
+                        'Existing endpoint differs after rollback: ' + path)
+            require(alias_reaches_gateway(), 'The feed host does not reach the gateway after rollback')
+            for origin in (b.ORIGIN, FEED_ORIGIN):
+                require(fetch(origin + PREFIX + '/pos/latest.json')[0] == 404,
+                        'The feed path still answers after rollback')
+            return
+        except Exception:
+            if attempt == 2:
+                raise
+            time.sleep(3)
 
 
 def set_aside(path):
@@ -528,13 +639,13 @@ def install(a, expected):
         return 0
     outcome['status'] = 'preparing'
     journal = state() / 'deployments' / ('install-' + sha + '-' + uuid.uuid4().hex + '.json')
-    with locked(sha, 'install', name):
+    started_sidecar = switched_gateway = False
+    with told(outcome), locked(sha, 'install', name):
         with before_any_change():
             require(b.baseline(a) == (old_public, api, before), 'Baseline drift after lock')
             require(not sidecar_release.exists() and not new_public.exists() and not feed_release.exists(), free)
-        started_sidecar = switched_gateway = False
+            open_journal(journal, outcome, 'prepare')
         try:
-            reached(journal, outcome, 'prepare')
             for directory in [state(), feed_root(), feed_root() / 'releases']:
                 directory.mkdir(parents=True, exist_ok=True)
                 require(plain(directory, directory=True), 'State directory must not be a symlink')
@@ -599,10 +710,10 @@ def install(a, expected):
             outcome.update(status='deployed', public_release=str(new_public),
                            previous_public_release=str(old_public), gateway_sha256=b.digest(config),
                            unchanged_services=[n for n in before if n not in (b.GATEWAY, SIDECAR)])
-            b.save(journal, outcome)
-        except b.Uncertain:
-            outcome.update(status='uncertain', lock_retained=True)
-            b.save(journal, outcome)
+            record(journal, outcome)
+        except b.Uncertain as error:
+            outcome.update(status='uncertain', lock_retained=True, reason=type(error).__name__, detail=str(error))
+            record(journal, outcome)
             raise
         except BaseException as error:
             try:
@@ -626,13 +737,17 @@ def install(a, expected):
                 require(current == old_public and api_now == api and SIDECAR not in now,
                         'Baseline differs after rollback')
                 b.unchanged(before)
+                if switched_gateway:
+                    back_as_before(probes)
                 outcome.update(status='rolled_back', reason=type(error).__name__, detail=str(error))
-                b.save(journal, outcome)
-            except BaseException:
-                outcome.update(status='rollback_needs_review', lock_retained=True)
-                b.save(journal, outcome)
+                record(journal, outcome)
+            except BaseException as failure:
+                outcome.update(status='rollback_needs_review', lock_retained=True,
+                               reason=type(error).__name__, detail=str(error),
+                               rollback_reason=type(failure).__name__, rollback_detail=str(failure))
+                record(journal, outcome)
                 raise RuntimeError('Rollback is not confirmed; deployment lock retained') from None
-    print(json.dumps(outcome))
+    say(outcome)
     return 0 if outcome['status'] == 'deployed' else 1
 
 
@@ -646,7 +761,11 @@ def move_pointer(a, action, name, sources, final, old_release, old):
     verify_served(FEED_ORIGIN, old, installers=False)
     target = feed_root() / 'releases' / name
     if sources:
-        require(not target.exists(), 'Feed release already exists; withdraw --to it instead: ' + name)
+        # The name tells the versions only, so what the hint would publish is compared first.
+        require(not target.exists(),
+                'These builds are already on the server as ' + name + ': withdraw --to it publishes them again'
+                if same_release(target, final) else
+                'Other builds of the same versions are on the server as ' + name + ': raise the version')
         require_space(sum(tree_bytes(source) for source in sources.values()))
     lock_is_free()
     if not a.apply:
@@ -654,16 +773,16 @@ def move_pointer(a, action, name, sources, final, old_release, old):
         return 0
     outcome['status'] = 'preparing'
     journal = state() / 'deployments' / (action + '-' + name + '-' + uuid.uuid4().hex + '.json')
-    with locked(a.expected_source_sha, action, name):
+    switched = False
+    with told(outcome), locked(a.expected_source_sha, action, name):
         with before_any_change():
             require(published() == (old_release, old) and b.containers() == before, 'Drift after lock')
             require(not sources or not target.exists(), 'Feed release appeared after the lock: ' + name)
-        switched = False
+            open_journal(journal, outcome, 'copy' if sources else 'switch')
         try:
             if sources:
-                reached(journal, outcome, 'copy')
                 require(copy_release(sources, target) == final, 'Copied feed differs')
-            reached(journal, outcome, 'switch')
+                reached(journal, outcome, 'switch')
             switched = True
             b.switch(feed_root() / 'current', Path('releases') / name)
             reached(journal, outcome, 'verify')
@@ -672,7 +791,7 @@ def move_pointer(a, action, name, sources, final, old_release, old):
             verify_refusals(FEED_ORIGIN, final)
             require(b.containers() == before, 'A container changed during a file-only step')
             outcome['status'] = 'deployed'
-            b.save(journal, outcome)
+            record(journal, outcome)
         except BaseException as error:
             try:
                 if switched:
@@ -682,12 +801,14 @@ def move_pointer(a, action, name, sources, final, old_release, old):
                 if sources:
                     set_aside(target)
                 outcome.update(status='rolled_back', reason=type(error).__name__, detail=str(error))
-                b.save(journal, outcome)
-            except BaseException:
-                outcome.update(status='rollback_needs_review', lock_retained=True)
-                b.save(journal, outcome)
+                record(journal, outcome)
+            except BaseException as failure:
+                outcome.update(status='rollback_needs_review', lock_retained=True,
+                               reason=type(error).__name__, detail=str(error),
+                               rollback_reason=type(failure).__name__, rollback_detail=str(failure))
+                record(journal, outcome)
                 raise RuntimeError('Rollback is not confirmed; deployment lock retained') from None
-    print(json.dumps(outcome))
+    say(outcome)
     return 0 if outcome['status'] == 'deployed' else 1
 
 
@@ -764,7 +885,7 @@ def main(argv=None):
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (RuntimeError, ValueError, KeyError, OSError) as error:
+    except (RuntimeError, ValueError, KeyError, OSError, http.client.HTTPException) as error:
         # No subprocess output, server payload or credential reaches stdout or stderr.
         print(json.dumps({'status': 'failed', 'reason': str(error)}), file=sys.stderr)
         sys.exit(1)
