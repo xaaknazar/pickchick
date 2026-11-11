@@ -7651,21 +7651,6 @@
       "nextAction": "Д2 remains open pending real iiko access or current exports and organization/menu/price-category review. Check Foundation on exact92cc73f0; C8 Foundation42603865755 was still running last check. No release claimed. Preserve Claude cutover integration ownership from HANDOVER; no takeover of bo-ui2 merge."
     },
     {
-      "id": "iiko-archive-1110",
-      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
-      "branch": "codex/iiko-archive-1110",
-      "scopes": [
-        "scripts/iiko-archive.py",
-        "tests/operations/test_iiko_archive.py",
-        "docs/operations/iiko-archive-1110.md"
-      ],
-      "status": "available",
-      "head": "f944a53a795ff4ca01b146d3b5e01ba914a5b383",
-      "updatedAt": "2026-11-10T13:46:47.883Z",
-      "summary": "PR340 published f944a53a, remote SHA verified, clean worktree. Д1 local archive seal/verify CLI for five required categories, independent manifest SHA, no-clobber inventory, exact file/hash checks; Linux/macOS Python3.10+. 12/12 synthetic tests PASS; prettier/diff checks PASS. Foundation42827482910 in progress. No real exports or production access; Д1 not fully closed. PR335 Foundation42608362751 and PR336 Foundation42820557929 confirmed success. Live8h source8945 untouched; first10min checkpoint recorded.",
-      "nextAction": "Check Foundation42827482910 exact f944a53a, review and integrate into fresh shared without force, then finish software stage. Real Д1 requires full period/organization/register/warehouse exports, independent protected copy, retrieval verification and accountant acceptance. Do not store actual exports/manifests in Git/chat. Global status/roadmap retained by Android task; online board not updated. Follow eight-hour run through existing automation, no duplicate or live source change."
-    },
-    {
       "id": "play-testers-1110",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/play-testers-1110",
@@ -7712,6 +7697,21 @@
       "updatedAt": "2026-11-11T05:21:48.293Z",
       "summary": "11 Nov checkpoint 82cbea17 in draft PR336. Independent read-only DB/runner diagnostics added. Build PASS, unit36/36, lint/format PASS; real PG blocker probe PASS. Native local smoke baseline17/17, soak21/21,120057ms offline,recovery37.7s,final reconciliation PASS,0 traffic errors. Root cause of prior 160min failure remains unknown; K12 OPEN. No production writes.",
       "nextAction": "Obtain original cloud logs 16:17-16:23 UTC; Mac requires AC power for >8h run. Diagnose cause before acceptance rerun; keep all previous evidence. Local fixture data/env/binaries retained under .local/soak1111, own services stopped to save battery. Do not claim short smoke as eight-hour PASS."
+    },
+    {
+      "id": "iiko-archive-1110",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/iiko-archive-1110",
+      "scopes": [
+        "scripts/iiko-archive.py",
+        "tests/operations/test_iiko_archive.py",
+        "docs/operations/iiko-archive-1110.md"
+      ],
+      "status": "active",
+      "head": "f944a53a795ff4ca01b146d3b5e01ba914a5b383",
+      "updatedAt": "2026-11-11T09:13:41.657Z",
+      "summary": "PR340 published f944a53a, remote SHA verified, clean worktree. Д1 local archive seal/verify CLI for five required categories, independent manifest SHA, no-clobber inventory, exact file/hash checks; Linux/macOS Python3.10+. 12/12 synthetic tests PASS; prettier/diff checks PASS. Foundation42827482910 in progress. No real exports or production access; Д1 not fully closed. PR335 Foundation42608362751 and PR336 Foundation42820557929 confirmed success. Live8h source8945 untouched; first10min checkpoint recorded.",
+      "nextAction": "Check Foundation42827482910 exact f944a53a, review and integrate into fresh shared without force, then finish software stage. Real Д1 requires full period/organization/register/warehouse exports, independent protected copy, retrieval verification and accountant acceptance. Do not store actual exports/manifests in Git/chat. Global status/roadmap retained by Android task; online board not updated. Follow eight-hour run through existing automation, no duplicate or live source change."
     }
   ],
   "approvedScopeTransfers": [
