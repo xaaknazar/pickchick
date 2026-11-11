@@ -29,6 +29,7 @@ import { distinguishable, LABELS } from './staff-view.mjs';
 import { seededRandom } from './fault-proxy.mjs';
 import { renderMarkdown } from './report.mjs';
 import { atomicSnapshot, continuousSoak } from './soak-progress.mjs';
+import { Diagnostics } from './diagnostics.mjs';
 
 const MINUTE = 60000,
   HOUR = 60 * MINUTE;
@@ -422,6 +423,7 @@ export async function main(argv = process.argv.slice(2)) {
     log,
   });
   let traffic;
+  let diagnostics;
   const save = async () => {
     report.checkpoint_at = new Date().toISOString();
     await atomicSnapshot(resolve(out, 'report.json'), JSON.stringify(report, null, 2) + '\n');
@@ -431,6 +433,10 @@ export async function main(argv = process.argv.slice(2)) {
     log({ event: 'stand_starting', out });
     const created = Date.now();
     await stand.create();
+    if (options.mode === 'soak') {
+      diagnostics = new Diagnostics(stand);
+      await diagnostics.start();
+    }
     report.stand = {
       schema: stand.schema,
       seconds_to_ready: Math.round((Date.now() - created) / 1000),
@@ -499,6 +505,7 @@ export async function main(argv = process.argv.slice(2)) {
             : 'passed'
           : 'failed';
       } catch (error) {
+        await diagnostics?.sample('scenario_error');
         Object.assign(entry, {
           status: 'error',
           error: { code: error.code ?? error.name, message: String(error.message).slice(0, 500) },
@@ -584,6 +591,7 @@ export async function main(argv = process.argv.slice(2)) {
     report.status = 'error';
     report.error = { code: error.code ?? error.name, message: String(error.message).slice(0, 500) };
   } finally {
+    if (diagnostics) report.diagnostics = await diagnostics.stop();
     await traffic?.stop().catch(() => {});
     report.cleanup = await stand
       .close({ keep: options.keep })
