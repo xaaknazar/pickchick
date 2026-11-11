@@ -6,9 +6,16 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+import signal
+import subprocess
+import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('desktop_updates', ROOT / 'infra/desktop-updates/remote-deploy.py')
@@ -79,8 +86,12 @@ class World:
         self.blips = 0
         self.drifting = False
         self.asked = 0
+        self.api_statuses = []
         self.stuck = None
         self.slept = []
+        # The gateway container: Docker is still stopping it, or it has stopped.
+        self.stopping = False
+        self.down = False
 
     def compose_json(self):
         return {'name': 'pickchick-public', 'services': {'gateway': {
@@ -131,15 +142,26 @@ class World:
                 self.generation.pop(d.SIDECAR, None)
                 return ''
             if command[-1] == 'gateway':
+                if 'rm' in command:
+                    # Every container of the service is stopped, also one whose stop was already
+                    # under way, and removed.
+                    assert command[-4:] == ['rm', '--stop', '--force', 'gateway']
+                    self.stopping, self.down = False, True
+                    return ''
                 if file.read_text() == 'installed':
                     staging = self.public / 'infra/public-staging'
-                    self.gateway = {'/etc/caddy/Caddyfile': str(staging / 'gateway.Caddyfile'),
-                                    '/srv/public': str(staging / 'public-web')}
+                    wanted = {'/etc/caddy/Caddyfile': str(staging / 'gateway.Caddyfile'),
+                              '/srv/public': str(staging / 'public-web')}
                 else:
                     definition = json.loads(file.read_text())
                     assert d.NETWORK_KEY in definition['services']['gateway']['networks']
-                    self.gateway = {v['target']: v['source'] for v in
-                                    definition['services']['gateway']['volumes']}
+                    wanted = {v['target']: v['source'] for v in definition['services']['gateway']['volumes']}
+                if self.stopping and wanted == self.gateway:
+                    # Compose finds the container running as defined and changes nothing; the
+                    # stop that was under way then ends, and nothing starts the container again.
+                    self.stopping, self.down = False, True
+                    return ''
+                self.gateway, self.stopping, self.down = wanted, False, False
                 self.generation[b.GATEWAY] += 1
                 return ''
         raise AssertionError('Unexpected command: ' + text)
@@ -153,10 +175,13 @@ class World:
 
     def fetch(self, url, headers=None, method='GET', limit=d.CHUNK_BYTES):
         path = '/' + url.split('/', 3)[3]
+        if self.down:
+            # What the proxy in front answers while no gateway container runs.
+            return 502, b'', {}
         routed = d.ROUTE in Path(self.gateway['/etc/caddy/Caddyfile']).read_text()
         if path == '/health/live':
             return 200, self.health, {}
-        if path == self.stuck:
+        if self.stuck in (path, url):
             return 200, b'{}', {'Cache-Control': 'no-store'}
         data = self.read(path) if routed and method in ('GET', 'HEAD') else None
         if data is None:
@@ -176,10 +201,11 @@ class World:
         if self.blips:
             self.blips -= 1
             raise OSError(111, 'Connection refused')
-        status, body, headers = self.fetch('https://host' + path)
+        status, body, headers = self.fetch(b.ORIGIN + path)
         if path == '/v1/capabilities':
             self.asked += 1
-            return 502, (b'%d' % self.asked if self.drifting else b''), headers
+            status = self.api_statuses.pop(0) if self.api_statuses else 502
+            return status, (b'%d' % self.asked if self.drifting else b''), headers
         return status, body, headers
 
     @contextlib.contextmanager
@@ -199,21 +225,36 @@ class World:
             yield self
 
 
+# What the last run printed: the lines of stdout, and the lines the step itself wrote on stderr
+# (the `failed` line belongs to the `__main__` block, which these runs do not pass).
+printed, said = [], []
+
+
+def main(arguments):
+    """d.main with stdout and stderr caught. A stop request that gets out of a step fails the
+    test that sent it; left alone it would end the whole test run."""
+    output, errors = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            return d.main(arguments)
+    except (KeyboardInterrupt, SystemExit) as error:
+        raise AssertionError('A stop request left the step: %r' % error) from None
+    finally:
+        printed[:] = output.getvalue().strip().splitlines()
+        said[:] = errors.getvalue().splitlines()
+
+
 def call(arguments):
-    output = io.StringIO()
-    with contextlib.redirect_stdout(output):
-        code = d.main(arguments)
-    return code, json.loads(output.getvalue().strip().splitlines()[-1])
+    code = main(arguments)
+    return code, json.loads(printed[-1])
 
 
 def stopped(case, arguments, reason, error=RuntimeError):
     """A run that ends with an error line: the outcome it printed on stdout before that, or None."""
-    output = io.StringIO()
-    with contextlib.redirect_stdout(output), case.assertRaisesRegex(error, reason):
-        d.main(arguments)
-    lines = output.getvalue().strip().splitlines()
-    case.assertLessEqual(len(lines), 1)
-    return json.loads(lines[0]) if lines else None
+    with case.assertRaisesRegex(error, reason):
+        main(arguments)
+    case.assertLessEqual(len(printed), 1)
+    return json.loads(printed[0]) if printed else None
 
 
 class PureRules(unittest.TestCase):
@@ -431,6 +472,29 @@ class PureRules(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, r'The answer broke off \(IncompleteRead\): https://host/x'):
                 d.fetch('https://host/x')
             self.assertFalse(d.alias_reaches_gateway())
+
+    def test_a_stop_request_is_answered_once_and_a_later_one_waits(self):
+        self.addCleanup(d.STOP.update, held=False, noted=None)
+        d.STOP.update(held=False, noted=None)
+        with self.assertRaises(KeyboardInterrupt):
+            d.stop(signal.SIGINT)
+        self.assertEqual(d.STOP, {'held': True, 'noted': None})
+        # The answer runs now (a refusal or the way back): what comes after it is only noted.
+        self.assertIsNone(d.stop(signal.SIGINT))
+        self.assertIsNone(d.stop(signal.SIGTERM))
+        self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGTERM})
+        # A stretch that can answer does so before it begins, with the answer of the last request.
+        with self.assertRaises(SystemExit) as raised:
+            with d.interruptible():
+                self.fail('The noted request was not answered')
+        self.assertEqual(raised.exception.code, 128 + signal.SIGTERM)
+        self.assertEqual(d.STOP, {'held': True, 'noted': None})
+        with d.interruptible():
+            self.assertEqual(d.STOP, {'held': False, 'noted': None})
+        self.assertEqual(d.STOP, {'held': True, 'noted': None})
+        with self.assertRaises(RuntimeError), d.interruptible():
+            raise RuntimeError('a failed check')
+        self.assertTrue(d.STOP['held'])
 
 
 class ServerSteps(unittest.TestCase):
@@ -771,9 +835,17 @@ class ServerSteps(unittest.TestCase):
         with self.world.active():
             taken = self.world.root / 'public-https/releases' / ('c' * 40)
             taken.mkdir()
-            with self.assertRaisesRegex(RuntimeError, 'Immutable release already exists'):
+            with self.assertRaisesRegex(RuntimeError, 'Immutable release already exists: ' + re.escape(str(taken))):
                 call(self.install_arguments())
             taken.rmdir()
+            # A link that leads nowhere is in the way just the same.
+            for path in [taken, self.world.root / 'desktop-updates/feed/releases/kitchen-0.4.0-pos-0.5.0']:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.symlink_to('nowhere')
+                with self.assertRaisesRegex(RuntimeError, 'Immutable release already exists: ' + re.escape(str(path))):
+                    call(self.install_arguments())
+                path.unlink()
+            shutil.rmtree(self.world.root / 'desktop-updates')
             lock = self.world.root / '.market-release.lock'
             lock.mkdir()
             (lock / 'owner.json').write_text(json.dumps(
@@ -922,6 +994,10 @@ class ServerSteps(unittest.TestCase):
                 code, outcome = call(self.install_arguments() + ['--apply'])
             self.assertEqual((code, outcome['status'], outcome['reason']), (1, 'rolled_back', 'SystemExit'))
             self.assertIs(self.world.signals[d.signal.SIGHUP], d.signal.SIG_IGN)
+            self.assertEqual(sorted(self.world.signals), sorted([signal.SIGHUP, signal.SIGINT, signal.SIGTERM]))
+            # The way back says on stderr that it runs, and the answer follows on stdout.
+            self.assertEqual([json.loads(line) for line in said],
+                             [{'status': 'rolling_back', 'reason': 'SystemExit', 'journal': outcome['journal']}])
             self.assertFalse((self.world.root / '.market-release.lock').exists())
             self.assertIsNone(self.world.sidecar)
             self.install()
@@ -988,7 +1064,8 @@ class ServerSteps(unittest.TestCase):
                                      'feed_release': 'kitchen-0.4.0-pos-0.5.0', 'journal': outcome['journal']}))
             # A repeat is refused, and a refusal prints no outcome: its error line is the whole answer.
             self.assertIsNone(stopped(self, self.install_arguments() + ['--apply'],
-                                      'A feed installation already exists'))
+                                      'A feed installation already exists: pickchick-desktop-updates, '
+                                      + re.escape(str(self.world.root / 'desktop-updates/feed/current')) + '$'))
             self.assertTrue(lock.is_dir())
 
     def test_a_publish_that_cannot_go_back_says_what_failed_both_ways(self):
@@ -1048,7 +1125,7 @@ class ServerSteps(unittest.TestCase):
 
             def run(command, timeout=90):
                 result = real(command, timeout)
-                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway' and \
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway' and 'up' in command and \
                         Path(command[command.index('-f') + 1]).read_text() == 'installed':
                     change(world)
                 return result
@@ -1078,12 +1155,22 @@ class ServerSteps(unittest.TestCase):
                 outcome = stopped(self, self.install_arguments() + ['--apply'], 'Rollback is not confirmed')
             self.assertEqual((outcome['status'], outcome['rollback_detail']),
                              ('rollback_needs_review', 'The feed host does not reach the gateway after rollback'))
-        # Something in front of the gateway keeps answering the feed path.
-        world, run = server(lambda world: setattr(world, 'stuck', '/desktop-updates/pos/latest.json'))
+        # Something in front of the gateway keeps answering the feed path: at both addresses, or
+        # at either one of them.
+        for stuck in ['/desktop-updates/pos/latest.json', d.FEED_ORIGIN + '/desktop-updates/pos/latest.json',
+                      b.ORIGIN + '/desktop-updates/pos/latest.json']:
+            world, run = server(lambda world: setattr(world, 'stuck', stuck))
+            with world.active(), run:
+                outcome = stopped(self, self.install_arguments() + ['--apply'], 'Rollback is not confirmed')
+                self.assertEqual((outcome['status'], outcome['rollback_detail']),
+                                 ('rollback_needs_review', 'The feed path still answers after rollback'), stuck)
+        # The API answers with another status once the old gateway is back: not as before.
+        world, run = server(lambda world: setattr(world, 'api_statuses', [200, 200, 200]))
         with world.active(), run:
             outcome = stopped(self, self.install_arguments() + ['--apply'], 'Rollback is not confirmed')
-            self.assertEqual((outcome['status'], outcome['rollback_detail']),
-                             ('rollback_needs_review', 'The feed path still answers after rollback'))
+            self.assertEqual((outcome['status'], outcome['rollback_detail'], world.slept),
+                             ('rollback_needs_review', 'Existing endpoint differs after rollback: /v1/capabilities',
+                              [3, 3]))
         # The new container needs a moment: one request without an answer is no verdict.
         world, run = server(lambda world: setattr(world, 'blips', 1))
         with world.active(), run:
@@ -1094,15 +1181,36 @@ class ServerSteps(unittest.TestCase):
             self.assertFalse((world.root / '.market-release.lock').exists())
             world.break_feed = False
             self.assertEqual(call(self.install_arguments() + ['--apply'])[1]['status'], 'deployed')
-        # What the API says changed by itself while the step ran: the step fails and goes back
-        # cleanly, because on the way back the API is asked for its status only.
-        world = World(self.temporary / 'server-api')
+        # What the API says changes by itself, in its text or in its status (a 200 at the first
+        # reading only): the step ends while the gateway is untouched and has nothing to confirm.
+        for name, change in [('text', lambda world: setattr(world, 'drifting', True)),
+                             ('status', lambda world: setattr(world, 'api_statuses', [200]))]:
+            world = World(self.temporary / ('server-api-' + name))
+            self.world = world
+            change(world)
+            with world.active():
+                code, outcome = call(self.install_arguments() + ['--apply'])
+                self.assertEqual((code, outcome['status'], outcome['phase'], outcome['detail']),
+                                 (1, 'rolled_back', 'start_feed_container',
+                                  'Existing endpoint changed before the gateway was touched: /v1/capabilities'))
+                self.assertEqual((world.slept, world.generation[b.GATEWAY]), ([], 1))
+                self.assertFalse((world.root / '.market-release.lock').exists())
+        # The text changes only after the gateway was switched: the step goes back cleanly,
+        # because on the way back the API is asked for its status only.
+        world = World(self.temporary / 'server-api-late')
         self.world = world
-        world.drifting = True
         with world.active():
-            code, outcome = call(self.install_arguments() + ['--apply'])
-            self.assertEqual((code, outcome['status'], outcome['detail']),
-                             (1, 'rolled_back', 'Existing endpoint changed: /v1/capabilities'))
+            real_run = world.run
+
+            def run(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                    world.drifting = True
+                return real_run(command, timeout)
+
+            with patch.object(b, 'run', run):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['detail']),
+                             (1, 'rolled_back', 'verify', 'Existing endpoint changed: /v1/capabilities'))
             self.assertEqual(world.slept, [])
             self.assertFalse((world.root / '.market-release.lock').exists())
         # A step that never touched the gateway asks the public address nothing on its way back.
@@ -1177,9 +1285,8 @@ class ServerSteps(unittest.TestCase):
                 # What a process killed in the middle of the copy would leave behind.
                 during.append(sorted(path.name for path in releases.iterdir()))
             if breaks and 'feed/releases' in str(target) and Path(target).name == 'latest.json':
-                breaks.pop()
                 Path(target).write_text('{"half')
-                raise OSError(28, 'No space left on device')
+                raise breaks.pop()
             result = real(source, target, **options)
             if corrupt and 'feed/releases' in str(target) and Path(target).suffix == '.exe':
                 # The disk gives back another byte than was written.
@@ -1189,8 +1296,9 @@ class ServerSteps(unittest.TestCase):
                 Path(target).write_bytes(data)
             return result
 
+        full = OSError(28, 'No space left on device')
         with self.world.active(), patch.object(d.shutil, 'copyfile', copyfile):
-            breaks.append(1)
+            breaks.append(full)
             code, outcome = call(self.install_arguments() + ['--apply'])
             self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
                              (1, 'rolled_back', 'prepare', 'OSError'))
@@ -1200,7 +1308,7 @@ class ServerSteps(unittest.TestCase):
             self.install()
             second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1', 'kitchen': '0.4.1'})
             arguments = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']
-            breaks.append(1)
+            breaks.append(full)
             code, outcome = call(arguments)
             self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
                              (1, 'rolled_back', 'copy', 'OSError'))
@@ -1212,6 +1320,20 @@ class ServerSteps(unittest.TestCase):
                               'kitchen-0.4.1-pos-0.5.1.FAILED-'])
             _, report = call(['inspect'])
             self.assertEqual(report['releases_on_disk'], ['kitchen-0.4.0-pos-0.5.0'])
+            self.assertEqual(report['feed_leftovers'], names[1:])
+            # Ctrl+C or a kill in the middle of the copy leaves the same and nothing else.
+            for request, reason in [(KeyboardInterrupt(), 'KeyboardInterrupt'), (SystemExit(143), 'SystemExit')]:
+                breaks.append(request)
+                code, outcome = call(arguments)
+                self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                                 (1, 'rolled_back', 'copy', reason))
+                self.assertFalse((self.world.root / '.market-release.lock').exists())
+            names = sorted(path.name for path in releases.iterdir())
+            self.assertEqual([re.sub('[0-9a-f]{32}$', '', name) for name in names],
+                             ['kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.0.FAILED-']
+                             + ['kitchen-0.4.1-pos-0.5.1.FAILED-'] * 3)
+            for name in names[2:]:
+                shutil.rmtree(releases / name)
             # A copy that differs from what was sent by one byte never gets the name of a release.
             corrupt.append(1)
             code, outcome = call(arguments)
@@ -1220,7 +1342,7 @@ class ServerSteps(unittest.TestCase):
                               'Installer hash differs from latest.json: kitchen'))
             self.assertEqual(sorted(re.sub('[0-9a-f]{32}$', '', path.name) for path in releases.iterdir()),
                              ['kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.0.FAILED-',
-                              'kitchen-0.4.1-pos-0.5.1.FAILED-', 'kitchen-0.4.1-pos-0.5.1.FAILED-'])
+                              'kitchen-0.4.1-pos-0.5.1.FAILED-'])
             self.assertFalse((self.world.root / '.market-release.lock').exists())
             code, outcome = call(arguments)
             self.assertEqual((code, outcome['status']), (0, 'deployed'))
@@ -1249,8 +1371,8 @@ class ServerSteps(unittest.TestCase):
             self.assertNotEqual(rebuilt['pos']['sha256'], second['pos']['sha256'])
             for arguments in (self.publish_arguments('feed-2b', rebuilt, 'kitchen-0.4.0-pos-0.5.0'),
                               self.publish_arguments('feed-2b', rebuilt, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']):
-                with self.assertRaisesRegex(RuntimeError, 'Other builds of the same versions are on the server as '
-                                            'kitchen-0.4.0-pos-0.5.1: raise the version'):
+                with self.assertRaisesRegex(RuntimeError, 'Version 0.5.1 of pos was offered to devices with other '
+                                            'bytes as kitchen-0.4.0-pos-0.5.1: raise the version'):
                     call(arguments)
             # The same installer with another instruction for the devices is another release too.
             urgent = {'pos': write_app(self.temporary / 'feed-2c/pos', 'pos', '0.5.1', apply='now')}
@@ -1393,11 +1515,650 @@ class ServerSteps(unittest.TestCase):
             self.assertIsNone(self.world.sidecar)
             self.install()
 
+    def request(self, number):
+        """A stop request reaches the step: Ctrl+C (SIGINT) or `kill` (SIGTERM)."""
+        return self.world.signals[number](number, None)
+
+    def test_a_second_stop_request_waits_until_the_way_back_has_ended(self):
+        deployments = self.world.root / 'desktop-updates/deployments'
+        lock = self.world.root / '.market-release.lock'
+        during = []
+
+        def journal_now(action):
+            (path,) = deployments.glob(action + '-*.json')
+            record = json.loads(path.read_text())
+            return record['status'], record['phase'], record['reason']
+
+        with self.world.active():
+            real = self.world.run
+
+            def run(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                    if Path(command[command.index('-f') + 1]).read_text() != 'installed':
+                        # The first request, in the middle of the gateway switch.
+                        self.request(signal.SIGTERM)
+                    # The way back: the operator presses Ctrl+C once more, a supervisor sends a kill.
+                    during.append(journal_now('install'))
+                    self.request(signal.SIGINT)
+                    self.request(signal.SIGTERM)
+                elif 'down' in command:
+                    self.request(signal.SIGINT)
+                return real(command, timeout)
+
+            real_back = d.back_as_before
+
+            def back(probes):
+                self.request(signal.SIGTERM)
+                return real_back(probes)
+
+            with patch.object(b, 'run', run), patch.object(d, 'back_as_before', back):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'switch_gateway', 'SystemExit'))
+            # A process killed on the way back does not read like one that was killed on the way there.
+            self.assertEqual(during, [('rolling_back', 'switch_gateway', 'SystemExit')] * 2)
+            self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGTERM})
+            self.assertEqual(self.world.gateway['/etc/caddy/Caddyfile'],
+                             str(self.world.public / 'infra/public-staging/gateway.Caddyfile'))
+            self.assertIsNone(self.world.sidecar)
+            self.assertEqual(d.fetch(d.FEED_ORIGIN + '/desktop-updates/pos/latest.json')[0], 404)
+            self.assertFalse(lock.exists())
+            self.install()
+            # publish: Ctrl+C while the new release is read back, two more requests on the way back.
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            arguments = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']
+            real_switch = b.switch
+            moves = []
+
+            def switch(path, target):
+                moves.append(str(target))
+                if len(moves) == 2:
+                    during.append(journal_now('publish'))
+                    self.request(signal.SIGTERM)
+                    self.request(signal.SIGINT)
+                return real_switch(path, target)
+
+            with patch.object(b, 'switch', switch), \
+                    patch.object(d, 'verify_refusals', lambda origin, manifests: self.request(signal.SIGINT)):
+                code, outcome = call(arguments)
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'verify', 'KeyboardInterrupt'))
+            self.assertEqual(during[-1], ('rolling_back', 'verify', 'KeyboardInterrupt'))
+            self.assertEqual(moves, ['releases/kitchen-0.4.0-pos-0.5.1', 'releases/kitchen-0.4.0-pos-0.5.0'])
+            self.assertEqual([json.loads(line) for line in said],
+                             [{'status': 'rolling_back', 'reason': 'KeyboardInterrupt', 'journal': outcome['journal']}])
+            self.assertEqual(os.readlink(self.world.root / 'desktop-updates/feed/current'),
+                             'releases/kitchen-0.4.0-pos-0.5.0')
+            self.assertFalse(lock.exists())
+            code, outcome = call(arguments)
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+
+    def test_a_stop_request_is_answered_once_and_only_where_the_step_can_answer(self):
+        lock = self.world.root / '.market-release.lock'
+        with self.world.active():
+            # While the lock is being taken a request waits; the checks right after it answer with
+            # a refusal, and the lock is given back.
+            for number, name in [(signal.SIGTERM, 'SystemExit'), (signal.SIGINT, 'KeyboardInterrupt')]:
+                with self.after_the_lock(lambda: self.request(number)):
+                    self.assertIsNone(stopped(self, self.install_arguments() + ['--apply'],
+                                              'Interrupted: ' + name + '; nothing was changed and the '
+                                              'release lock is free'))
+                self.assertFalse(lock.exists())
+                self.assertFalse((self.world.root / 'desktop-updates').exists())
+            # Between those checks and the first change: the way back of a step that did nothing yet.
+            real = d.interruptible
+            entered = []
+
+            @contextlib.contextmanager
+            def interruptible():
+                entered.append(1)
+                if len(entered) == 3:
+                    self.request(signal.SIGTERM)
+                with real():
+                    yield
+
+            with patch.object(d, 'interruptible', interruptible):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'prepare', 'SystemExit'))
+            self.assertFalse(lock.exists())
+            self.assertFalse((self.world.root / 'desktop-updates/feed').exists())
+            self.assertEqual(self.world.generation[b.GATEWAY], 1)
+            # After the last check a request no longer turns the step back: install, publish, and
+            # a withdraw that gets it while the lock is given back.
+            real_reached = d.reached
+
+            def reached(journal, outcome, phase):
+                if phase == 'publish_pointers':
+                    self.request(signal.SIGINT)
+                return real_reached(journal, outcome, phase)
+
+            with patch.object(d, 'reached', reached):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+            self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGINT})
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            real_record = d.record
+
+            def record(journal, outcome):
+                if outcome['status'] == 'deployed':
+                    self.request(signal.SIGTERM)
+                return real_record(journal, outcome)
+
+            with patch.object(d, 'record', record):
+                code, outcome = call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+            self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGTERM})
+            real_lock = b.lock
+
+            @contextlib.contextmanager
+            def given_back(sha):
+                with real_lock(sha) as owner:
+                    yield owner
+                    self.request(signal.SIGTERM)
+
+            with patch.object(b, 'lock', given_back):
+                code, outcome = call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                                      '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+            self.assertFalse(lock.exists())
+
+    def test_a_gateway_that_docker_was_still_stopping_is_made_anew(self):
+        with self.world.active():
+            real = self.world.run
+            steps = []
+
+            def run(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                    old = Path(command[command.index('-f') + 1]).read_text() == 'installed'
+                    steps.append(('old' if old else 'candidate', 'rm' if 'rm' in command else 'up'))
+                    if not old:
+                        # The switch is cut off when Compose has asked Docker to stop the old
+                        # container and has not made the new one: Docker goes on stopping it.
+                        self.world.stopping = True
+                        self.request(signal.SIGTERM)
+                return real(command, timeout)
+
+            with patch.object(b, 'run', run):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'switch_gateway', 'SystemExit'))
+            self.assertEqual(steps, [('candidate', 'up'), ('old', 'rm'), ('old', 'up')])
+            # The old gateway runs: made anew, not found "running" a moment before it stopped.
+            self.assertEqual((self.world.stopping, self.world.down), (False, False))
+            self.assertEqual(d.fetch(d.FEED_ORIGIN + '/health/live')[0], 200)
+            self.assertEqual(self.world.gateway['/etc/caddy/Caddyfile'],
+                             str(self.world.public / 'infra/public-staging/gateway.Caddyfile'))
+            self.assertIsNone(self.world.sidecar)
+            self.assertFalse((self.world.root / '.market-release.lock').exists())
+            self.install()
+
+    def test_the_way_back_of_a_publish_and_a_withdraw_is_confirmed_with_patience(self):
+        lock = self.world.root / '.market-release.lock'
+        feed = self.world.root / 'desktop-updates/feed'
+        with self.world.active():
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1', 'kitchen': '0.4.1'})
+            publish = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']
+            withdraw = ['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                        '--expected-current', 'kitchen-0.4.1-pos-0.5.1', '--apply']
+            real = self.world.fetch
+            quiet = {'planned': 0, 'left': 0}
+
+            def fetch(url, headers=None, method='GET', limit=d.CHUNK_BYTES):
+                if quiet['planned'] and headers and 'Range' in headers:
+                    # The public address goes silent while an installer is read back.
+                    quiet.update(left=quiet['planned'], planned=0)
+                if quiet['left']:
+                    quiet['left'] -= 1
+                    raise urllib.error.URLError('Connection refused')
+                return real(url, headers, method, limit)
+
+            with patch.object(d, 'fetch', fetch):
+                # Silent for the piece and for the first question of the way back: no verdict yet.
+                quiet['planned'] = 2
+                code, outcome = call(publish)
+                self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                                 (1, 'rolled_back', 'verify', 'URLError'))
+                self.assertEqual(self.world.slept, [3])
+                self.assertEqual(os.readlink(feed / 'current'), 'releases/kitchen-0.4.0-pos-0.5.0')
+                self.assertFalse((feed / 'releases/kitchen-0.4.1-pos-0.5.1').exists())
+                self.assertFalse(lock.exists())
+                code, outcome = call(publish)
+                self.assertEqual((code, outcome['status']), (0, 'deployed'))
+                self.world.slept.clear()
+                quiet['planned'] = 3
+                code, outcome = call(withdraw)
+                self.assertEqual((code, outcome['status'], outcome['reason']), (1, 'rolled_back', 'URLError'))
+                self.assertEqual(self.world.slept, [3, 3])
+                self.assertEqual(os.readlink(feed / 'current'), 'releases/kitchen-0.4.1-pos-0.5.1')
+                self.assertFalse(lock.exists())
+                # Silent for good: three questions, then the lock stays for a person.
+                self.world.slept.clear()
+                quiet['planned'] = 10 ** 6
+                outcome = stopped(self, withdraw, 'Rollback is not confirmed; deployment lock retained')
+                self.assertEqual((outcome['status'], outcome['lock_retained'], outcome['reason'],
+                                  outcome['rollback_reason']),
+                                 ('rollback_needs_review', True, 'URLError', 'URLError'))
+                self.assertEqual(self.world.slept, [3, 3])
+            # The pointer is back all the same, and both releases keep their names.
+            self.assertEqual(os.readlink(feed / 'current'), 'releases/kitchen-0.4.1-pos-0.5.1')
+            self.assertEqual(sorted(path.name for path in (feed / 'releases').iterdir()
+                                    if re.fullmatch(d.RELEASE_NAME, path.name)),
+                             ['kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.1-pos-0.5.1'])
+            self.assertTrue(lock.is_dir())
+
+    def test_a_version_number_belongs_to_the_bytes_that_went_out_under_it(self):
+        feed = self.world.root / 'desktop-updates/feed'
+        deployments = self.world.root / 'desktop-updates/deployments'
+        lock = self.world.root / '.market-release.lock'
+
+        def refused(feed_name, manifests, current, reason):
+            for arguments in (self.publish_arguments(feed_name, manifests, current),
+                              self.publish_arguments(feed_name, manifests, current) + ['--apply']):
+                with self.assertRaisesRegex(RuntimeError, '^' + re.escape(reason) + '$'):
+                    call(arguments)
+            self.assertFalse(lock.exists())
+
+        def deployed(feed_name, manifests, current, name):
+            code, outcome = call(self.publish_arguments(feed_name, manifests, current) + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['feed_release']), (0, 'deployed', name))
+            return outcome
+
+        with self.world.active():
+            self.install()
+            first = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            outcome = deployed('feed-2', first, 'kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.1')
+            self.assertEqual(outcome['builds'], {
+                'pos': {'version': '0.5.1', 'sha256': first['pos']['sha256']},
+                'kitchen': {'version': '0.4.0', 'sha256': self.first['kitchen']['sha256']}})
+            call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                  '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'])
+            rebuilt = {'pos': write_app(self.temporary / 'feed-2b/pos', 'pos', '0.5.1', seed='rebuilt')}
+            said_so = ('Version 0.5.1 of pos was offered to devices with other bytes as '
+                       'kitchen-0.4.0-pos-0.5.1: raise the version')
+            # With the other program in the same feed the release would get a name that is free.
+            both = {**write_feed(self.temporary / 'feed-2c', {'kitchen': '0.4.1'}),
+                    'pos': write_app(self.temporary / 'feed-2c/pos', 'pos', '0.5.1', seed='rebuilt')}
+            refused('feed-2c', both, 'kitchen-0.4.0-pos-0.5.0', said_so)
+            # The other program moved on in between: the name is free again.
+            kitchen = write_feed(self.temporary / 'feed-k', {'kitchen': '0.4.1'})
+            deployed('feed-k', kitchen, 'kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.1-pos-0.5.0')
+            refused('feed-2b', rebuilt, 'kitchen-0.4.1-pos-0.5.0', said_so)
+            # Releases of an earlier package of this script have journals without the builds:
+            # their directories are the memory.
+            journals = {path: path.read_text() for path in deployments.glob('*.json')}
+            self.assertEqual(len(journals), 4)
+            for path, text in journals.items():
+                record = json.loads(text)
+                del record['builds']
+                path.write_text(json.dumps(record))
+            refused('feed-2b', rebuilt, 'kitchen-0.4.1-pos-0.5.0', said_so)
+            for path, text in journals.items():
+                path.write_text(text)
+            # The withdrawn release is removed by hand: the journal of its run remembers the bytes.
+            shutil.rmtree(feed / 'releases/kitchen-0.4.0-pos-0.5.1')
+            refused('feed-2b', rebuilt, 'kitchen-0.4.1-pos-0.5.0', said_so)
+            # The very bytes that went out as 0.5.1 go out again, next to the newer kitchen.
+            deployed('feed-2', first, 'kitchen-0.4.1-pos-0.5.0', 'kitchen-0.4.1-pos-0.5.1')
+            # A publish that moved the pointer and went back offered its build for a moment.
+            third = write_feed(self.temporary / 'feed-3', {'pos': '0.5.2'})
+
+            def refusals(origin, manifests):
+                raise RuntimeError('Feed answers outside its two files: /desktop-updates/')
+
+            with patch.object(d, 'verify_refusals', refusals):
+                code, outcome = call(self.publish_arguments('feed-3', third, 'kitchen-0.4.1-pos-0.5.1')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase']), (1, 'rolled_back', 'verify'))
+            self.assertFalse((feed / 'releases/kitchen-0.4.1-pos-0.5.2').exists())
+            again = {'pos': write_app(self.temporary / 'feed-3b/pos', 'pos', '0.5.2', seed='rebuilt')}
+            refused('feed-3b', again, 'kitchen-0.4.1-pos-0.5.1',
+                    'Version 0.5.2 of pos was offered to devices with other bytes as '
+                    'kitchen-0.4.1-pos-0.5.2: raise the version')
+            deployed('feed-3', third, 'kitchen-0.4.1-pos-0.5.1', 'kitchen-0.4.1-pos-0.5.2')
+            # A publish that never moved the pointer offered nothing, and its leftover is no release.
+            fourth = write_feed(self.temporary / 'feed-4', {'pos': '0.5.3'})
+            with patch.object(d, 'copy_release', lambda sources, target: {}):
+                code, outcome = call(self.publish_arguments('feed-4', fourth, 'kitchen-0.4.1-pos-0.5.2')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['detail']),
+                             (1, 'rolled_back', 'copy', 'Copied feed differs'))
+            leftover = feed / 'releases/kitchen-0.4.1-pos-0.5.3.FAILED-00000000000000000000000000000000'
+            shutil.copytree(self.temporary / 'feed-4', leftover)
+            # What is not a journal of this script is no memory and no obstacle.
+            for name, text in [('half.json', '{"half'), ('list.json', '[]'), ('word.json', '"verify"'),
+                               ('null.json', 'null'), ('bare.json', '{"phase": "verify"}'),
+                               ('phase.json', '{"phase": ["verify"], "builds": {}}'),
+                               ('builds.json', '{"phase": "verify", "feed_release": "x", "builds": []}'),
+                               ('build.json', '{"phase": "verify", "feed_release": "x", "builds": {"pos": "x"}}'),
+                               ('hash.json', '{"phase": "verify", "feed_release": "x", "builds": '
+                                             '{"pos": {"version": "0.5.3", "sha256": 7}}}'),
+                               ('name.json', '{"phase": "verify", "feed_release": "../x", "builds": '
+                                             '{"pos": {"version": "0.5.3", "sha256": "%s"}}}' % ('0' * 64)),
+                               ('app.json', '{"phase": "verify", "feed_release": "x", "builds": '
+                                            '{"web": {"version": "0.5.3", "sha256": "%s"}}}' % ('0' * 64)),
+                               ('early.json', '{"phase": "copy", "feed_release": "x", "builds": '
+                                              '{"pos": {"version": "0.5.3", "sha256": "%s"}}}' % ('0' * 64)),
+                               ('deep.json', '[' * 30000), ('large.json', ' ' * 70000 + '{}')]:
+                (deployments / name).write_text(text)
+            (deployments / 'bytes.json').write_bytes(b'\xff\xfe')
+            (deployments / 'directory.json').mkdir()
+            (deployments / 'link.json').symlink_to(deployments / 'bare.json')
+            rebuilt_fourth = {'pos': write_app(self.temporary / 'feed-4b/pos', 'pos', '0.5.3', seed='rebuilt')}
+            deployed('feed-4b', rebuilt_fourth, 'kitchen-0.4.1-pos-0.5.2', 'kitchen-0.4.1-pos-0.5.3')
+            # A run that was killed after its switch line left a journal that counts.
+            (deployments / 'publish-killed.json').write_text(json.dumps({
+                'action': 'publish', 'status': 'preparing', 'phase': 'switch',
+                'feed_release': 'kitchen-0.4.1-pos-0.5.4',
+                'builds': {'pos': {'version': '0.5.4', 'sha256': '0' * 64}}}))
+            fifth = write_feed(self.temporary / 'feed-5', {'pos': '0.5.4'})
+            refused('feed-5', fifth, 'kitchen-0.4.1-pos-0.5.3',
+                    'Version 0.5.4 of pos was offered to devices with other bytes as '
+                    'kitchen-0.4.1-pos-0.5.4: raise the version')
+            self.assertEqual(os.readlink(feed / 'current'), 'releases/kitchen-0.4.1-pos-0.5.3')
+
+    def test_a_taken_release_name_that_holds_no_release_is_moved_aside(self):
+        lock = self.world.root / '.market-release.lock'
+        with self.world.active():
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            arguments = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0')
+            releases = self.world.root / 'desktop-updates/feed/releases'
+            taken = releases / 'kitchen-0.4.0-pos-0.5.1'
+
+            def refused(reason):
+                for run in (arguments, arguments + ['--apply']):
+                    with self.assertRaisesRegex(RuntimeError, '^' + re.escape(
+                            'kitchen-0.4.0-pos-0.5.1 on the server is not a complete release (' + reason
+                            + '): move it aside') + '$'):
+                        call(run)
+                self.assertFalse(lock.exists())
+
+            taken.mkdir()
+            refused('Feed release content differs: kitchen-0.4.0-pos-0.5.1')
+            taken.rmdir()
+            for target in ['nowhere', 'kitchen-0.4.0-pos-0.5.0']:
+                taken.symlink_to(target)
+                refused('Feed release is not a directory: kitchen-0.4.0-pos-0.5.1')
+                taken.unlink()
+            # The manifest of this very build without its installer, then with it and without
+            # the other program, then a manifest nobody can read.
+            (taken / 'pos').mkdir(parents=True)
+            shutil.copyfile(self.temporary / 'feed-2/pos/latest.json', taken / 'pos/latest.json')
+            refused('Feed directory must hold exactly latest.json and its installer: pos')
+            shutil.copyfile(self.temporary / 'feed-2/pos' / second['pos']['file'], taken / 'pos' / second['pos']['file'])
+            refused('Feed release content differs: kitchen-0.4.0-pos-0.5.1')
+            # `withdraw --to` such a directory is refused for the same reason.
+            with self.assertRaisesRegex(RuntimeError, '^Feed release content differs: kitchen-0.4.0-pos-0.5.1$'):
+                call(['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.1',
+                      '--expected-current', 'kitchen-0.4.0-pos-0.5.0'])
+            (taken / 'pos/latest.json').write_bytes(b'\xff\xfe')
+            refused('UnicodeDecodeError')
+            self.assertEqual(call(['inspect'])[1]['releases_on_disk'],
+                             ['kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.1'])
+            taken.rename(releases / 'kitchen-0.4.0-pos-0.5.1.FAILED-moved-aside')
+            code, outcome = call(arguments + ['--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+            self.assertEqual(call(['inspect'])[1]['feed_leftovers'], ['kitchen-0.4.0-pos-0.5.1.FAILED-moved-aside'])
+
+    def test_uncertain_is_the_ending_only_after_docker_was_asked_to_change_something(self):
+        def slow(world, marker):
+            real = world.run
+
+            def run(command, timeout=90):
+                if marker(command):
+                    raise b.Uncertain('Command timed out; inspect Docker before any retry')
+                return real(command, timeout)
+
+            return patch.object(b, 'run', run)
+
+        lock = self.world.root / '.market-release.lock'
+        with self.world.active():
+            # Reading the installed gateway definition changes nothing: the ordinary way back.
+            with slow(self.world, lambda command: 'config' in command):
+                code, outcome = call(self.install_arguments() + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'prepare', 'Uncertain'))
+            self.assertFalse(lock.exists())
+            # The first container Docker is asked to make: nothing is taken back blindly.
+            with slow(self.world, lambda command: 'validate' in command):
+                outcome = stopped(self, self.install_arguments() + ['--apply'], 'timed out', b.Uncertain)
+            self.assertEqual((outcome['status'], outcome['lock_retained'], outcome['phase']),
+                             ('uncertain', True, 'prepare'))
+            self.assertTrue(lock.is_dir())
+            self.assertEqual(self.world.generation[b.GATEWAY], 1)
+        # publish asks Docker only to list: a list that hangs is a failed check, and the pointer goes back.
+        world = World(self.temporary / 'server-publish')
+        self.world = world
+        with world.active():
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            listed = []
+
+            def third_list(command):
+                if command[:3] == ['docker', 'ps', '-a'] and 'label=com.docker.compose.oneoff=True' not in command:
+                    listed.append(1)
+                return len(listed) == 3
+
+            with slow(world, third_list):
+                code, outcome = call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0')
+                                     + ['--apply'])
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason']),
+                             (1, 'rolled_back', 'verify', 'Uncertain'))
+            self.assertEqual(os.readlink(world.root / 'desktop-updates/feed/current'),
+                             'releases/kitchen-0.4.0-pos-0.5.0')
+            self.assertFalse((world.root / '.market-release.lock').exists())
+            code, outcome = call(self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply'])
+            self.assertEqual((code, outcome['status']), (0, 'deployed'))
+
+    def test_an_ending_that_keeps_the_lock_does_not_depend_on_the_journal(self):
+        def journal_of(lines):
+            """A journal that takes this many lines and then none."""
+            real = b.save
+            written = []
+
+            def save(path, value):
+                if path.parent.name == 'deployments':
+                    written.append(value['status'])
+                    if len(written) > lines:
+                        raise PermissionError(13, 'Permission denied')
+                return real(path, value)
+
+            return patch.object(b, 'save', save), written
+
+        with self.world.active():
+            real = self.world.run
+
+            def hangs(command, timeout=90):
+                if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                    raise b.Uncertain('Command timed out; inspect Docker before any retry')
+                return real(command, timeout)
+
+            save, written = journal_of(1)
+            with patch.object(b, 'run', hangs), save:
+                outcome = stopped(self, self.install_arguments() + ['--apply'], 'timed out', b.Uncertain)
+            self.assertEqual((outcome['status'], outcome['lock_retained'], outcome['journal_not_written']),
+                             ('uncertain', True, 'PermissionError'))
+            self.assertEqual(written[-1], 'uncertain')
+            self.assertEqual(json.loads(Path(outcome['journal']).read_text())['status'], 'preparing')
+            self.assertTrue((self.world.root / '.market-release.lock').is_dir())
+        world = World(self.temporary / 'server-review')
+        self.world = world
+        with world.active():
+            world.break_feed = True
+            real = world.run
+
+            def run(command, timeout=90):
+                if 'down' in command:
+                    raise RuntimeError('Command failed: docker (output withheld)')
+                return real(command, timeout)
+
+            save, written = journal_of(1)
+            with patch.object(b, 'run', run), save:
+                outcome = stopped(self, self.install_arguments() + ['--apply'], 'lock retained')
+            self.assertEqual((outcome['status'], outcome['lock_retained'], outcome['journal_not_written']),
+                             ('rollback_needs_review', True, 'PermissionError'))
+            self.assertEqual(written[-2:], ['rolling_back', 'rollback_needs_review'])
+            self.assertTrue((world.root / '.market-release.lock').is_dir())
+        # publish and withdraw: the first line is a condition there too.
+        world = World(self.temporary / 'server-first-line')
+        self.world = world
+        with world.active():
+            self.install()
+            second = write_feed(self.temporary / 'feed-2', {'pos': '0.5.1'})
+            publish = self.publish_arguments('feed-2', second, 'kitchen-0.4.0-pos-0.5.0') + ['--apply']
+            withdraw = ['withdraw', *self.signed, '--to', 'kitchen-0.4.0-pos-0.5.0',
+                        '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply']
+            feed = world.root / 'desktop-updates/feed'
+            for arguments, pointer in [(publish, 'releases/kitchen-0.4.0-pos-0.5.0'),
+                                       (withdraw, 'releases/kitchen-0.4.0-pos-0.5.1')]:
+                save, written = journal_of(0)
+                with save:
+                    self.assertIsNone(stopped(self, arguments, 'The journal of the step cannot be written: '
+                                              'PermissionError; nothing was changed and the release lock is free'))
+                self.assertEqual(written, ['preparing'])
+                self.assertEqual(os.readlink(feed / 'current'), pointer)
+                self.assertFalse((world.root / '.market-release.lock').exists())
+                self.assertEqual(sorted(path.name for path in (feed / 'releases').iterdir()),
+                                 sorted({'kitchen-0.4.0-pos-0.5.0', pointer.removeprefix('releases/')}))
+                code, outcome = call(arguments)
+                self.assertEqual((code, outcome['status']), (0, 'deployed'))
+
+    def test_a_terminal_that_is_gone_changes_no_ending(self):
+        closed = io.StringIO()
+        closed.close()
+
+        class Broken(io.StringIO):
+            def write(self, text):
+                raise BrokenPipeError(32, 'Broken pipe')
+
+        for stream in (closed, Broken()):
+            with contextlib.redirect_stdout(stream):
+                d.say({'status': 'deployed'})
+        with self.world.active():
+            self.world.break_feed = True
+            for stream in (closed, Broken(), None):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output), patch.object(d.sys, 'stderr', stream):
+                    code = d.main(self.install_arguments() + ['--apply'])
+                # stdout carries the answer of the step and nothing else.
+                (line,) = output.getvalue().splitlines()
+                self.assertEqual((code, json.loads(line)['status']), (1, 'rolled_back'))
+                self.assertFalse((self.world.root / '.market-release.lock').exists())
+
+    def test_the_script_itself_answers_a_refusal_with_one_line_on_stderr(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'infra/desktop-updates/remote-deploy.py'), 'withdraw',
+             '--package', str(self.temporary / 'no-package'), '--expected-source-sha', 'c' * 40,
+             '--to', 'kitchen-0.4.0-pos-0.5.0', '--expected-current', 'kitchen-0.4.0-pos-0.5.1', '--apply'],
+            capture_output=True, text=True, timeout=120)
+        self.assertEqual((result.returncode, result.stdout), (1, ''))
+        (line,) = result.stderr.splitlines()
+        answer = json.loads(line)
+        self.assertEqual(answer['status'], 'failed')
+        self.assertIn(answer['reason'], ['Run as pickchick-ops (UID 1000), not root',
+                                         'Package must be an extracted directory'])
+
     def test_package_holds_exactly_the_reviewed_files(self):
         source = (ROOT / 'infra/desktop-updates/package.py').read_text()
         for name in d.PACKAGE_FILES:
             self.assertIn("'" + name + "'", source)
         self.assertEqual(source.count("'infra/"), len(d.PACKAGE_FILES))
+
+
+@unittest.skipUnless(sys.platform == 'linux', 'Sessions and process groups as on the server')
+class Runner(unittest.TestCase):
+    """The runner of every Docker command of a step, with real processes and no Docker."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.temporary = Path(self.directory.name)
+        self.addCleanup(d.STOP.update, held=False, noted=None)
+
+    def with_a_helper(self):
+        """A command that starts a helper process of its own, as `docker` starts its Compose plugin.
+
+        The helper holds a file lock for as long as it lives; both would run for a minute.
+        """
+        lock, ready = self.temporary / 'lock', self.temporary / 'ready'
+        helper = ('import fcntl, sys, time\n'
+                  'handle = open(sys.argv[1], "w")\n'
+                  'fcntl.flock(handle, fcntl.LOCK_EX)\n'
+                  'open(sys.argv[2], "w").close()\n'
+                  'time.sleep(60)\n')
+        command = ('import subprocess, sys, time\n'
+                   'subprocess.Popen([sys.executable, "-c", sys.argv[1], sys.argv[2], sys.argv[3]])\n'
+                   'time.sleep(60)\n')
+        return [sys.executable, '-c', command, helper, str(lock), str(ready)], lock, ready
+
+    def helper_is_gone(self, lock):
+        import fcntl
+        deadline = time.monotonic() + 10
+        with lock.open('a') as handle:
+            while True:
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return True
+                except BlockingIOError:
+                    if time.monotonic() > deadline:
+                        return False
+                    time.sleep(0.05)
+
+    def signal_in(self, seconds, number=signal.SIGTERM):
+        """The step's own handler for a real signal that arrives while a command runs."""
+        self.addCleanup(signal.signal, number, signal.signal(number, d.stop))
+        timer = threading.Timer(seconds, os.kill, [os.getpid(), number])
+        self.addCleanup(timer.cancel)
+        timer.start()
+
+    def test_the_output_comes_back_and_a_failure_tells_nothing(self):
+        self.assertIs(b.run, d.run)
+        self.assertEqual(d.run([sys.executable, '-c', 'print("  two words \\n")']), 'two words')
+        with self.assertRaisesRegex(RuntimeError, r'^Command failed: .+ \(output withheld\)$') as raised:
+            d.run([sys.executable, '-c',
+                   'import sys; print("secret"); print("secret", file=sys.stderr); sys.exit(3)'])
+        self.assertNotIn('secret', str(raised.exception))
+        # Nothing is read from the terminal of the operator.
+        self.assertEqual(d.run([sys.executable, '-c', 'import sys; print(repr(sys.stdin.read()))']), "''")
+
+    def test_a_command_runs_in_a_session_of_its_own(self):
+        # A Ctrl+C typed in the terminal goes to the foreground process group, not to this one.
+        answer = d.run([sys.executable, '-c', 'import os; print(os.getsid(0), os.getpgid(0), os.getpid())'])
+        session, group, pid = map(int, answer.split())
+        self.assertEqual((session, group), (pid, pid))
+        self.assertNotIn(os.getsid(0), (session, group))
+
+    def test_a_command_that_times_out_takes_its_helper_with_it(self):
+        command, lock, ready = self.with_a_helper()
+        started = time.monotonic()
+        with self.assertRaisesRegex(b.Uncertain, '^Command timed out; inspect Docker before any retry$'):
+            d.run(command, timeout=3)
+        self.assertLess(time.monotonic() - started, 30)
+        self.assertTrue(ready.exists())
+        self.assertTrue(self.helper_is_gone(lock))
+
+    def test_a_stop_request_on_the_way_there_ends_the_command_and_its_helper(self):
+        command, lock, ready = self.with_a_helper()
+        d.STOP.update(held=False, noted=None)
+        self.signal_in(2)
+        started = time.monotonic()
+        with self.assertRaises(SystemExit) as raised:
+            d.run(command, timeout=45)
+        self.assertEqual(raised.exception.code, 128 + signal.SIGTERM)
+        self.assertLess(time.monotonic() - started, 30)
+        self.assertTrue(ready.exists())
+        self.assertTrue(self.helper_is_gone(lock))
+        self.assertEqual(d.STOP, {'held': True, 'noted': None})
+
+    def test_a_stop_request_on_the_way_back_lets_the_command_end(self):
+        d.STOP.update(held=True, noted=None)
+        self.signal_in(0.5, signal.SIGINT)
+        output = d.run([sys.executable, '-c', 'import time; time.sleep(2); print("done")'], timeout=45)
+        self.assertEqual(output, 'done')
+        self.assertEqual(d.STOP, {'held': True, 'noted': signal.SIGINT})
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ No database, API, credential, payment setting or neighbouring service is changed
 The shared release lock stays behind only with `uncertain` or `rollback_needs_review`: a refusal,
 also one after the lock was taken, and a confirmed rollback give it back. A step that changed
 something prints how it ended on stdout, also when an error line on stderr follows.
+Ctrl+C and `kill` are answered once: by a refusal before the first change, by the way back after it.
 Procedure: docs/operations/desktop-updates.md.
 """
 import argparse
@@ -24,6 +25,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import time
 import urllib.error
@@ -84,6 +86,66 @@ class Untouched(RuntimeError):
     """A refusal after the lock was taken and before the first change."""
 
 
+def run(command, timeout=90):
+    """The base helper's `run`, with the command in a session of its own.
+
+    A Ctrl+C typed in a terminal goes to every process of the foreground group, and the way back
+    must not lose its Docker command to it. And a command this process gives up on (a stop
+    request, a timeout) is ended together with its helpers, the Compose plugin of `docker` among
+    them, so that none of them keeps working on the server behind the way back. What the Docker
+    Engine was already asked to do goes on; the way back reckons with that.
+    """
+    with subprocess.Popen(command, text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, start_new_session=True) as process:
+        try:
+            output = process.communicate(timeout=timeout)[0]
+        except BaseException as error:
+            with suppress(OSError):
+                os.killpg(process.pid, signal.SIGKILL)
+            if isinstance(error, subprocess.TimeoutExpired):
+                raise b.Uncertain('Command timed out; inspect Docker before any retry') from None
+            raise
+    require(process.returncode == 0, 'Command failed: ' + command[0] + ' (output withheld)')
+    return output.strip()
+
+
+# Every Docker command of this script and of the base helpers it calls.
+b.run = run
+
+# Stop requests of an --apply run: whether one is answered right now, and one that waits.
+STOP = {'held': False, 'noted': None}
+
+
+def stop(number, frame=None):
+    """Ctrl+C and `kill`: answered once, and only where the step can answer.
+
+    Before the first change the answer is a refusal, on the way there it is the way back. While
+    the lock is taken or given back, between those stretches and on the way back itself a request
+    is only noted: a way back that is cut off leaves the server half way with nobody to finish it.
+    """
+    if STOP['held']:
+        STOP['noted'] = number
+        return
+    STOP.update(held=True, noted=None)
+    if number == signal.SIGINT:
+        raise KeyboardInterrupt
+    raise SystemExit(128 + number)
+
+
+@contextmanager
+def interruptible():
+    """A stretch where a stop request is answered at once, also one that was noted before it."""
+    try:
+        # From this statement on the handler answers by itself, so the note cannot change under us.
+        STOP['held'] = False
+        noted, STOP['noted'] = STOP['noted'], None
+        if noted is not None:
+            stop(noted)
+        yield
+    finally:
+        STOP['held'] = True
+
+
 def containers():
     """Every container of the host except one-off Compose jobs (`docker compose run`).
 
@@ -120,6 +182,8 @@ def locked(sha, action, release, journal):
     """
     refusal = None
     lock_is_free()
+    # From here to the end of the step a stop request waits for a stretch that can answer it.
+    STOP.update(held=True, noted=None)
     with b.lock(sha) as owner:
         try:
             with before_any_change():
@@ -139,7 +203,8 @@ def locked(sha, action, release, journal):
 def before_any_change():
     """Checks between taking the lock and the first change; an interruption here changes nothing either."""
     try:
-        yield
+        with interruptible():
+            yield
     except BaseException as error:
         text = str(error) if isinstance(error, Exception) and str(error) else 'Interrupted: ' + type(error).__name__
         raise Untouched(text) from None
@@ -151,13 +216,13 @@ def lock_is_free():
 
 
 def survive_the_terminal():
-    """The way back lives in this process: a closed terminal must not end an --apply run half way."""
-    def terminate(number, frame):
-        raise SystemExit(128 + number)
-
+    """The way back lives in this process: a closed terminal must not end an --apply run half way,
+    and a stop request is answered by the step itself (stop())."""
+    STOP.update(held=False, noted=None)
     if hasattr(signal, 'SIGHUP'):
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    signal.signal(signal.SIGTERM, terminate)
+    for number in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(number, stop)
 
 
 def state():
@@ -226,6 +291,23 @@ def told(outcome):
         if outcome['status'] != 'preparing':
             say(outcome)
         raise
+
+
+def way_back_begins(journal, outcome, error):
+    """The journal and one line on stderr say that the way back runs.
+
+    It can take minutes and prints nothing else before its verdict, and a process killed in it
+    must not read like one that was killed on the way there.
+    """
+    outcome.update(status='rolling_back', reason=type(error).__name__, detail=str(error))
+    record(journal, outcome)
+    try:
+        # stdout carries the answer of the step and nothing else, also with stderr closed.
+        if sys.stderr is not None:
+            print(json.dumps({'status': 'rolling_back', 'reason': outcome['reason'],
+                              'journal': outcome['journal']}), file=sys.stderr, flush=True)
+    except (OSError, ValueError):
+        pass
 
 
 def feed_root():
@@ -499,36 +581,94 @@ def copy_release(sources, target):
     return manifests
 
 
-def same_release(directory, manifests):
-    """Whether a release on disk holds exactly these builds. Its name tells the versions only."""
-    try:
-        return {app: verify_app(directory / app, app)
-                for app in sorted(path.name for path in directory.iterdir())} == manifests
-    except (RuntimeError, OSError, ValueError, KeyError):
-        return False
+def release_on_disk(directory):
+    """The builds of a release directory, hashed: what `withdraw --to` it would publish."""
+    require(plain(directory, directory=True), 'Feed release is not a directory: ' + directory.name)
+    names = sorted(path.name for path in directory.iterdir())
+    require(names and set(names) <= set(APPS), 'Feed release content differs: ' + directory.name)
+    manifests = {app: verify_app(directory / app, app) for app in names}
+    require(directory.name == release_name(manifests), 'Feed release content differs: ' + directory.name)
+    return manifests
 
 
-def back_as_before(probes):
-    """The way back is confirmed where the way there was: at the addresses devices and guests use.
+# The journal phases in which the feed pointer may already lead devices to the release of a run.
+OFFERED = {'switch', 'switch_gateway', 'verify', 'publish_pointers'}
 
-    The gateway container has just been replaced once more, so one failed attempt is no verdict.
+
+def offered_builds():
+    """Every build devices may have been offered: {(app, version): {sha256: release name}}.
+
+    A version number belongs to the bytes that went out under it: a device that installed them
+    never takes other bytes of the same number. Two memories, because either can be gone: the
+    release directories (a release of a package that wrote no `builds` yet has nothing else) and
+    the journals of the runs that moved the pointer, whether they stayed or went back (an
+    operator may remove an old or a bad directory, nobody removes a journal).
+    """
+    known = {}
+
+    def note(app, version, sha256, release):
+        known.setdefault((app, version), {}).setdefault(sha256, release)
+
+    releases = feed_root() / 'releases'
+    for directory in sorted(releases.iterdir()) if plain(releases, directory=True) else []:
+        if not re.fullmatch(RELEASE_NAME, directory.name) or not plain(directory, directory=True):
+            continue
+        for app in APPS:
+            path = directory / app / 'latest.json'
+            try:
+                require(plain(path) and path.stat().st_size <= MAX_MANIFEST_BYTES, 'No manifest')
+                manifest = read_manifest(path.read_text(), app)
+            except (RuntimeError, OSError, ValueError):
+                continue
+            note(app, manifest['version'], manifest['sha256'], directory.name)
+    journals = state() / 'deployments'
+    for path in sorted(journals.glob('*.json')) if plain(journals, directory=True) else []:
+        try:
+            require(plain(path) and path.stat().st_size <= 64 * 1024, 'Not a journal')
+            entry = json.loads(path.read_text())
+            if entry['phase'] not in OFFERED:
+                continue
+            for app, build in entry['builds'].items():
+                if app in APPS and re.fullmatch(VERSION, build['version']) and \
+                        re.fullmatch('[a-f0-9]{64}', build['sha256']) and \
+                        re.fullmatch(RELEASE_NAME, entry['feed_release']):
+                    note(app, build['version'], build['sha256'], entry['feed_release'])
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return known
+
+
+def builds(manifests):
+    return {app: {'version': manifest['version'], 'sha256': manifest['sha256']}
+            for app, manifest in manifests.items()}
+
+
+def confirmed(check):
+    """A way back is confirmed where the way there was checked: at the addresses devices and guests use.
+
+    One failed attempt is no verdict: the gateway container may have been replaced once more a
+    moment ago, and the proxy in front of the gateway is not under this lock.
     """
     for attempt in range(3):
         try:
-            for path, answer in probes.items():
-                now = b.http(path)[:2]
-                # The health answer is the gateway's own text; what the API says may change by itself.
-                require(now == answer if path == '/health/live' else now[0] == answer[0],
-                        'Existing endpoint differs after rollback: ' + path)
-            require(alias_reaches_gateway(), 'The feed host does not reach the gateway after rollback')
-            for origin in (b.ORIGIN, FEED_ORIGIN):
-                require(fetch(origin + PREFIX + '/pos/latest.json')[0] == 404,
-                        'The feed path still answers after rollback')
-            return
+            return check()
         except Exception:
             if attempt == 2:
                 raise
             time.sleep(3)
+
+
+def back_as_before(probes):
+    """After the way back of an install: the gateway answers as before and the feed path is gone."""
+    for path, answer in probes.items():
+        now = b.http(path)[:2]
+        # The health answer is the gateway's own text; what the API says may change by itself.
+        require(now == answer if path == '/health/live' else now[0] == answer[0],
+                'Existing endpoint differs after rollback: ' + path)
+    require(alias_reaches_gateway(), 'The feed host does not reach the gateway after rollback')
+    for origin in (b.ORIGIN, FEED_ORIGIN):
+        require(fetch(origin + PREFIX + '/pos/latest.json')[0] == 404,
+                'The feed path still answers after rollback')
 
 
 def set_aside(path):
@@ -588,6 +728,8 @@ def inspect(a, expected):
     config = public / 'infra/public-staging/gateway.Caddyfile'
     before = b.containers()
     release, manifests = published()
+    releases = feed_root() / 'releases'
+    names = sorted(path.name for path in releases.iterdir()) if releases.is_dir() else []
     report = {
         'status': 'inspected',
         'expected_public_release': str(public),
@@ -597,9 +739,9 @@ def inspect(a, expected):
         'feed_container': SIDECAR in before,
         'published_release': release.name if release else None,
         'published': {app: manifest['version'] for app, manifest in manifests.items()},
-        'releases_on_disk': sorted(path.name for path in (feed_root() / 'releases').iterdir()
-                                   if re.fullmatch(RELEASE_NAME, path.name))
-        if (feed_root() / 'releases').is_dir() else [],
+        'releases_on_disk': [name for name in names if re.fullmatch(RELEASE_NAME, name)],
+        # What stopped runs left next to the releases: an operator removes it, a step never does.
+        'feed_leftovers': [name for name in names if not re.fullmatch(RELEASE_NAME, name)],
         'feed_host_reaches_gateway': alias_reaches_gateway(),
         'free_disk_mb': shutil.disk_usage(b.ROOT).free // 2**20,
         'deployment_lock_present': b.LOCK.exists(),
@@ -624,8 +766,9 @@ def install(a, expected):
     old_config = old_public / 'infra/public-staging/gateway.Caddyfile'
     require(START not in old_config.read_text(), 'Desktop update route is already installed: use publish')
     new_config = add_route(old_config.read_text())
-    require(SIDECAR not in before and published() == (None, {}) and
-            not (state() / 'sidecar/current').exists(), 'A feed installation already exists')
+    in_the_way = ([SIDECAR] if SIDECAR in before else []) + [
+        str(link) for link in [feed_root() / 'current', state() / 'sidecar/current'] if os.path.lexists(link)]
+    require(not in_the_way, 'A feed installation already exists: ' + ', '.join(in_the_way))
     require(alias_reaches_gateway(), 'The feed host does not reach the PickChick gateway')
     probes = {path: b.http(path)[:2] for path in ['/health/live', '/v1/capabilities']}
     require(probes['/health/live'][0] == 200, 'Gateway health failed before the change')
@@ -636,98 +779,125 @@ def install(a, expected):
     sidecar_release = state() / 'sidecar' / sha
     new_public = b.ROOT / 'public-https/releases' / sha
     feed_release = feed_root() / 'releases' / name
-    free = 'Immutable release already exists: take a commit no gateway release was made from'
-    require(not sidecar_release.exists() and not new_public.exists() and not feed_release.exists(), free)
+
+    def free():
+        for path in [sidecar_release, new_public, feed_release]:
+            require(not os.path.lexists(path), 'Immutable release already exists: ' + str(path) +
+                    ' (left by a stopped run of this step: move it aside; made by another release: '
+                    'take a later commit)')
+
+    free()
     require_space(tree_bytes(old_public / 'infra/public-staging/public-web') + tree_bytes(a.feed))
     lock_is_free()
+    others = [container for container in before if container not in (b.GATEWAY, SIDECAR)]
     outcome = {'action': 'install', 'source_sha': sha, 'feed_release': name,
-               'published': {app: manifest['version'] for app, manifest in manifests.items()}}
+               'published': {app: manifest['version'] for app, manifest in manifests.items()},
+               'builds': builds(manifests)}
     if not a.apply:
         print(json.dumps({**outcome, 'status': 'inspected', 'validated': True, 'applied': False}))
         return 0
     outcome['status'] = 'preparing'
     journal = state() / 'deployments' / ('install-' + sha + '-' + uuid.uuid4().hex + '.json')
-    started_sidecar = switched_gateway = False
+    touched_docker = started_sidecar = switched_gateway = False
     with told(outcome), locked(sha, 'install', name, journal):
         with before_any_change():
             require(b.baseline(a) == (old_public, api, before), 'Baseline drift after lock')
-            require(not sidecar_release.exists() and not new_public.exists() and not feed_release.exists(), free)
+            free()
             open_journal(journal, outcome, 'prepare')
         try:
-            for directory in [state(), feed_root(), feed_root() / 'releases']:
-                directory.mkdir(parents=True, exist_ok=True)
-                require(plain(directory, directory=True), 'State directory must not be a symlink')
-                directory.chmod(0o755)
-            require(copy_release({app: a.feed / app for app in manifests}, feed_release) == manifests,
-                    'Copied feed differs')
-            b.switch(feed_root() / 'current', Path('releases') / name)
-            candidate = new_public / 'infra/public-staging'
-            candidate.mkdir(parents=True)
-            shutil.copytree(old_public / 'infra/public-staging/public-web', candidate / 'public-web')
-            public_manifest = b.public_files(new_public)
-            require(public_manifest == b.public_files(old_public), 'Public copy differs')
-            config = candidate / 'gateway.Caddyfile'
-            config.write_text(new_config)
-            config.chmod(0o644)
-            old_compose = json.loads(b.run(b.compose(old_public / 'infra/public-staging/compose.yaml') +
-                                           ['config', '--format', 'json']))
-            new_compose = gateway_candidate(old_compose, config, candidate / 'public-web')
-            b.save(candidate / 'compose.yaml', new_compose)
-            image = new_compose['services']['gateway']['image']
-            sidecar_release.mkdir(parents=True)
-            for item in ['compose.yaml', 'sidecar.Caddyfile']:
-                shutil.copyfile(a.package / 'infra/desktop-updates' / item, sidecar_release / item)
-                (sidecar_release / item).chmod(0o644)
-            # The image the gateway already runs: nothing is pulled during the step.
-            (sidecar_release / 'sidecar.env').write_text(
-                'DESKTOP_UPDATES_IMAGE=' + image + '\n' +
-                'DESKTOP_UPDATES_CONFIG=' + str(sidecar_release / 'sidecar.Caddyfile') + '\n' +
-                'DESKTOP_UPDATES_FEED_DIR=' + str(feed_root()) + '\n')
-            validate_caddy(image, sidecar_release / 'sidecar.Caddyfile')
-            validate_caddy(image, config)
-            require(b.baseline(a) == (old_public, api, before), 'Baseline changed during prepare')
-            reached(journal, outcome, 'start_feed_container')
-            started_sidecar = True
-            b.run(sidecar_compose(sidecar_release) +
-                  ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'feed'], timeout=180)
-            require(sidecar_mounts() == {'/etc/caddy/Caddyfile': str(sidecar_release / 'sidecar.Caddyfile'),
-                                         '/srv/feed': str(feed_root())}, 'Feed container mounts differ')
-            sidecar_serves(manifests)
-            reached(journal, outcome, 'switch_gateway')
-            switched_gateway = True
-            b.run(b.compose(candidate / 'compose.yaml') +
-                  ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'gateway'], timeout=120)
-            require(b.gateway_mounts() == {'/etc/caddy/Caddyfile': str(config),
-                                           '/srv/public': str(candidate / 'public-web')},
-                    'Candidate gateway mounts differ')
-            reached(journal, outcome, 'verify')
-            with b.ThreadPoolExecutor(max_workers=4) as pool:
-                list(pool.map(b.verify_public_asset, public_manifest['files'].items()))
-            for path, expected_answer in probes.items():
-                require(b.http(path)[:2] == expected_answer, 'Existing endpoint changed: ' + path)
-            verify_served(FEED_ORIGIN, manifests)
-            verify_served(b.ORIGIN, manifests, installers=False)
-            for origin in (FEED_ORIGIN, b.ORIGIN):
-                verify_refusals(origin, manifests)
-            b.unchanged(before)
-            require(b.pointer(b.ROOT / 'current') == api and
-                    b.pointer(b.ROOT / 'public-https/current') == old_public, 'Pointer drift')
+            with interruptible():
+                for directory in [state(), feed_root(), feed_root() / 'releases']:
+                    directory.mkdir(parents=True, exist_ok=True)
+                    require(plain(directory, directory=True), 'State directory must not be a symlink')
+                    directory.chmod(0o755)
+                require(copy_release({app: a.feed / app for app in manifests}, feed_release) == manifests,
+                        'Copied feed differs')
+                b.switch(feed_root() / 'current', Path('releases') / name)
+                candidate = new_public / 'infra/public-staging'
+                candidate.mkdir(parents=True)
+                shutil.copytree(old_public / 'infra/public-staging/public-web', candidate / 'public-web')
+                public_manifest = b.public_files(new_public)
+                require(public_manifest == b.public_files(old_public), 'Public copy differs')
+                config = candidate / 'gateway.Caddyfile'
+                config.write_text(new_config)
+                config.chmod(0o644)
+                old_compose = json.loads(b.run(b.compose(old_public / 'infra/public-staging/compose.yaml') +
+                                               ['config', '--format', 'json']))
+                new_compose = gateway_candidate(old_compose, config, candidate / 'public-web')
+                b.save(candidate / 'compose.yaml', new_compose)
+                image = new_compose['services']['gateway']['image']
+                sidecar_release.mkdir(parents=True)
+                for item in ['compose.yaml', 'sidecar.Caddyfile']:
+                    shutil.copyfile(a.package / 'infra/desktop-updates' / item, sidecar_release / item)
+                    (sidecar_release / item).chmod(0o644)
+                # The image the gateway already runs: nothing is pulled during the step.
+                (sidecar_release / 'sidecar.env').write_text(
+                    'DESKTOP_UPDATES_IMAGE=' + image + '\n' +
+                    'DESKTOP_UPDATES_CONFIG=' + str(sidecar_release / 'sidecar.Caddyfile') + '\n' +
+                    'DESKTOP_UPDATES_FEED_DIR=' + str(feed_root()) + '\n')
+                # Until here Docker was only read: a command that timed out left nothing behind.
+                touched_docker = True
+                validate_caddy(image, sidecar_release / 'sidecar.Caddyfile')
+                validate_caddy(image, config)
+                require(b.baseline(a) == (old_public, api, before), 'Baseline changed during prepare')
+                reached(journal, outcome, 'start_feed_container')
+                started_sidecar = True
+                b.run(sidecar_compose(sidecar_release) +
+                      ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'feed'], timeout=180)
+                require(sidecar_mounts() == {'/etc/caddy/Caddyfile': str(sidecar_release / 'sidecar.Caddyfile'),
+                                             '/srv/feed': str(feed_root())}, 'Feed container mounts differ')
+                sidecar_serves(manifests)
+                for path, answer in probes.items():
+                    # The way back is confirmed against these answers, read before the lock: an
+                    # answer that has changed by itself ends the step while the gateway is untouched.
+                    require(b.http(path)[:2] == answer,
+                            'Existing endpoint changed before the gateway was touched: ' + path)
+                reached(journal, outcome, 'switch_gateway')
+                switched_gateway = True
+                b.run(b.compose(candidate / 'compose.yaml') +
+                      ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'gateway'], timeout=120)
+                require(b.gateway_mounts() == {'/etc/caddy/Caddyfile': str(config),
+                                               '/srv/public': str(candidate / 'public-web')},
+                        'Candidate gateway mounts differ')
+                reached(journal, outcome, 'verify')
+                with b.ThreadPoolExecutor(max_workers=4) as pool:
+                    list(pool.map(b.verify_public_asset, public_manifest['files'].items()))
+                for path, answer in probes.items():
+                    require(b.http(path)[:2] == answer, 'Existing endpoint changed: ' + path)
+                verify_served(FEED_ORIGIN, manifests)
+                verify_served(b.ORIGIN, manifests, installers=False)
+                for origin in (FEED_ORIGIN, b.ORIGIN):
+                    verify_refusals(origin, manifests)
+                b.unchanged(before)
+                require(b.pointer(b.ROOT / 'current') == api and
+                        b.pointer(b.ROOT / 'public-https/current') == old_public, 'Pointer drift')
+            # Every check has passed: from here a stop request no longer turns the step back.
             reached(journal, outcome, 'publish_pointers')
             b.switch(state() / 'sidecar/current', sidecar_release)
             b.switch(b.ROOT / 'public-https/current', new_public)
             outcome.update(status='deployed', public_release=str(new_public),
                            previous_public_release=str(old_public), gateway_sha256=b.digest(config),
-                           unchanged_services=[n for n in before if n not in (b.GATEWAY, SIDECAR)])
+                           unchanged_services=others)
             record(journal, outcome)
-        except b.Uncertain as error:
-            outcome.update(status='uncertain', lock_retained=True, reason=type(error).__name__, detail=str(error))
-            record(journal, outcome)
-            raise
         except BaseException as error:
+            if isinstance(error, b.Uncertain) and touched_docker:
+                # A changing Docker command may still be at work: nothing is taken back blindly.
+                outcome.update(status='uncertain', lock_retained=True, reason=type(error).__name__,
+                               detail=str(error))
+                record(journal, outcome)
+                raise
             try:
+                way_back_begins(journal, outcome, error)
                 if switched_gateway:
-                    b.run(b.compose(old_public / 'infra/public-staging/compose.yaml') +
-                          ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'gateway'], timeout=120)
+                    old_gateway = b.compose(old_public / 'infra/public-staging/compose.yaml')
+                    # A switch that was cut off leaves the gateway anywhere between its two
+                    # definitions: the old container while Docker is still stopping it (`up` would
+                    # find it running and change nothing, and a moment later it would be gone), a
+                    # new one that was made and never started, both, or neither. So every container
+                    # of the service goes, and one is made from the old definition.
+                    b.run(old_gateway + ['rm', '--stop', '--force', 'gateway'], timeout=120)
+                    b.run(old_gateway + ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '60', 'gateway'],
+                          timeout=120)
                 if started_sidecar:
                     # Container and its own network only; the feed files stay on disk.
                     b.run(sidecar_compose(sidecar_release) + ['down', '--timeout', '15'], timeout=120)
@@ -746,8 +916,8 @@ def install(a, expected):
                         'Baseline differs after rollback')
                 b.unchanged(before)
                 if switched_gateway:
-                    back_as_before(probes)
-                outcome.update(status='rolled_back', reason=type(error).__name__, detail=str(error))
+                    confirmed(lambda: back_as_before(probes))
+                outcome['status'] = 'rolled_back'
                 record(journal, outcome)
             except BaseException as failure:
                 outcome.update(status='rollback_needs_review', lock_retained=True,
@@ -762,17 +932,24 @@ def install(a, expected):
 def move_pointer(a, action, name, sources, final, old_release, old):
     """Shared by publish and withdraw: one symlink moves, and it moves back unless devices see the result."""
     outcome = {'action': action, 'feed_release': name, 'previous_feed_release': old_release.name,
-               'published': {app: manifest['version'] for app, manifest in final.items()}}
+               'published': {app: manifest['version'] for app, manifest in final.items()},
+               'builds': builds(final)}
     before = b.containers()
     installed(before)
     require(alias_reaches_gateway(), 'The feed host does not reach the PickChick gateway')
     verify_served(FEED_ORIGIN, old, installers=False)
     target = feed_root() / 'releases' / name
-    if sources and target.exists():
-        # The name tells the versions only, so what the hint would publish is compared first.
+    if sources and os.path.lexists(target):
+        # The name tells the versions only, so what `withdraw --to` it would publish is read first.
+        try:
+            there = release_on_disk(target)
+        except (RuntimeError, OSError, ValueError) as error:
+            raise RuntimeError(name + ' on the server is not a complete release (' +
+                               (str(error) if isinstance(error, RuntimeError) else type(error).__name__) +
+                               '): move it aside') from None
         raise RuntimeError(
             'These builds are already on the server as ' + name + ': withdraw --to it publishes them again'
-            if same_release(target, final) else
+            if there == final else
             'Other builds of the same versions are on the server as ' + name + ': raise the version')
     if sources:
         require_space(sum(tree_bytes(source) for source in sources.values()))
@@ -786,30 +963,33 @@ def move_pointer(a, action, name, sources, final, old_release, old):
     with told(outcome), locked(a.expected_source_sha, action, name, journal):
         with before_any_change():
             require(published() == (old_release, old) and b.containers() == before, 'Drift after lock')
-            require(not sources or not target.exists(), 'Feed release appeared after the lock: ' + name)
+            require(not sources or not os.path.lexists(target), 'Feed release appeared after the lock: ' + name)
             open_journal(journal, outcome, 'copy' if sources else 'switch')
         try:
-            if sources:
-                require(copy_release(sources, target) == final, 'Copied feed differs')
-                reached(journal, outcome, 'switch')
-            switched = True
-            b.switch(feed_root() / 'current', Path('releases') / name)
-            reached(journal, outcome, 'verify')
-            verify_served(FEED_ORIGIN, final)
-            verify_served(b.ORIGIN, final, installers=False)
-            verify_refusals(FEED_ORIGIN, final)
-            require(b.containers() == before, 'A container changed during a file-only step')
+            with interruptible():
+                if sources:
+                    require(copy_release(sources, target) == final, 'Copied feed differs')
+                    reached(journal, outcome, 'switch')
+                switched = True
+                b.switch(feed_root() / 'current', Path('releases') / name)
+                reached(journal, outcome, 'verify')
+                verify_served(FEED_ORIGIN, final)
+                verify_served(b.ORIGIN, final, installers=False)
+                verify_refusals(FEED_ORIGIN, final)
+                require(b.containers() == before, 'A container changed during a file-only step')
+            # Every check has passed: from here a stop request no longer turns the step back.
             outcome['status'] = 'deployed'
             record(journal, outcome)
         except BaseException as error:
             try:
+                way_back_begins(journal, outcome, error)
                 if switched:
                     b.switch(feed_root() / 'current', Path('releases') / old_release.name)
                 require(published() == (old_release, old), 'Feed pointer differs after rollback')
-                verify_served(FEED_ORIGIN, old, installers=False)
+                confirmed(lambda: verify_served(FEED_ORIGIN, old, installers=False))
                 if sources:
                     set_aside(target)
-                outcome.update(status='rolled_back', reason=type(error).__name__, detail=str(error))
+                outcome['status'] = 'rolled_back'
                 record(journal, outcome)
             except BaseException as failure:
                 outcome.update(status='rollback_needs_review', lock_retained=True,
@@ -833,6 +1013,13 @@ def publish(a, expected):
     new = verify_feed(a.feed, expected)
     old_release, old = current_release(a)
     steps = plan(new, old)
+    offered = offered_builds()
+    for app, manifest in new.items():
+        elsewhere = sorted(release for sha256, release in offered.get((app, manifest['version']), {}).items()
+                           if sha256 != manifest['sha256'])
+        if elsewhere:
+            raise RuntimeError('Version ' + manifest['version'] + ' of ' + app + ' was offered to devices '
+                               'with other bytes as ' + elsewhere[0] + ': raise the version')
     final = {app: new[app] if steps[app] == 'new' else old[app] for app in steps}
     sources = {app: (a.feed if steps[app] == 'new' else old_release) / app for app in steps}
     return move_pointer(a, 'publish', release_name(final), sources, final, old_release, old)
@@ -844,9 +1031,7 @@ def withdraw(a):
             'Name another published release in --to')
     target = feed_root() / 'releases' / a.to
     require(plain(target, directory=True), 'No such feed release: ' + a.to)
-    final = {app: verify_app(target / app, app) for app in sorted(path.name for path in target.iterdir())}
-    require(final and set(final) <= set(APPS) and a.to == release_name(final), 'Feed release content differs')
-    return move_pointer(a, 'withdraw', a.to, None, final, old_release, old)
+    return move_pointer(a, 'withdraw', a.to, None, release_on_disk(target), old_release, old)
 
 
 def main(argv=None):
