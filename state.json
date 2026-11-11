@@ -7679,22 +7679,6 @@
       "nextAction": "После Google review проверить допуск новых участников и фактическое вступление/установки. Включить отчёт при продолжении android-play-1106/PR322 в status/roadmap и исходный журнал; онлайн-пульт не обновлён. CI документального PR не подтверждена. Production только по отдельному да; Windows не менять до завершения Claude."
     },
     {
-      "id": "cloud1-window-1110",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/cloud1-window-1110",
-      "scopes": [
-        "infra/staging/cloud1-preflight.py",
-        "tests/operations/test_cloud1_preflight.py",
-        "docs/operations/cloud-1-execution-1110.md",
-        "@vps/rehearsal/cloud1"
-      ],
-      "status": "available",
-      "head": "898fe3fa0eb7e7b3c48b9d232c8a1f0e377e0874",
-      "updatedAt": "2026-11-10T15:22:05.387Z",
-      "summary": "PR345 / 898fe3fa: Cloud-1 STOP до окна. Свежий сервер API6630eb0f/schema071/64, compose3b6d2f55, ready200. JSON compose guard штатного helper отказал; отдельный подготовщик+GitHub gate,13 тестов PASS, реальный compose локально PREPARED_ONLY. Ночной encrypted backup на Mac, SHA60588185 совпал. restore-drill STOP: identity не соответствует backup recipient; владелец подтвердил ключ на другом Mac. Production/idrink не менялись, migration rehearsal не запускалась. PR343 открыт и CI неполная; PR345 fullCI ещё не подтверждена.",
-      "nextAction": "Получить правильный age identity безопасным файлом в ~/.ssh/pickchick-cloud1-backup/identity.agekey и проверить recipient; восстановить backup. Дождаться PR343 и приёмки PR345/полной CI точной головы cutover; выполнить 072-075 на изолированном PG18.3, API на074/075 и rollback6630. Никакого автоматического продолжения после STOP. Живое окно только после закрытия/00:15 Алматы, свежий backup+restore, принять существующие резервы API/PG и штатный lease;072-074/APIfalse. Готового полного оператора пока нет. См. docs/operations/cloud-1-execution-1110.md."
-    },
-    {
       "id": "offline-soak-1109",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/offline-soak-1109",
@@ -7712,6 +7696,22 @@
       "updatedAt": "2026-11-11T04:53:48.599Z",
       "summary": "Confirmed full retry FAILED: exit1/reportfailed, baseline17/17 PASS, soakerror DBconnectiontimeout at16:23:46UTC Nov10. Only16 observations through160min2.905s; no8h/restart/shift/reconnect/final invariants. 12 traffic errors: kitchen4, bank statementtimeout5/connectiontimeout3. PostgreSQL logs corroborate timeout; rootcause unknown. Evidence hashes and sanitized report published b21cd4bf in PR336, remote SHA verified, docformat/diff PASS. Source8945f862 Foundation42820557929 success does not override failed soak. All DBs/logs retained; no cleanup/retry. Monitoring disabled after final result.",
       "nextAction": "Diagnose retained cloud/edge query and pool timeout evidence16:17-16:23UTC. Do not assume OOM or environment restart. Only after proven cause/fix run new full8h separately with strict error/coverage/restart/shift/recovery checks. К12 open; unpaid_service/two stations excludes physical restaurant acceptance. PRdraft, no merge or finish; globalstatus/roadmap held by Android."
+    },
+    {
+      "id": "cloud1-window-1110",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/cloud1-window-1110",
+      "scopes": [
+        "infra/staging/cloud1-preflight.py",
+        "tests/operations/test_cloud1_preflight.py",
+        "docs/operations/cloud-1-execution-1110.md",
+        "@vps/rehearsal/cloud1"
+      ],
+      "status": "active",
+      "head": "898fe3fa0eb7e7b3c48b9d232c8a1f0e377e0874",
+      "updatedAt": "2026-11-11T05:00:41.287Z",
+      "summary": "PR345 / 898fe3fa: Cloud-1 STOP до окна. Свежий сервер API6630eb0f/schema071/64, compose3b6d2f55, ready200. JSON compose guard штатного helper отказал; отдельный подготовщик+GitHub gate,13 тестов PASS, реальный compose локально PREPARED_ONLY. Ночной encrypted backup на Mac, SHA60588185 совпал. restore-drill STOP: identity не соответствует backup recipient; владелец подтвердил ключ на другом Mac. Production/idrink не менялись, migration rehearsal не запускалась. PR343 открыт и CI неполная; PR345 fullCI ещё не подтверждена.",
+      "nextAction": "Получить правильный age identity безопасным файлом в ~/.ssh/pickchick-cloud1-backup/identity.agekey и проверить recipient; восстановить backup. Дождаться PR343 и приёмки PR345/полной CI точной головы cutover; выполнить 072-075 на изолированном PG18.3, API на074/075 и rollback6630. Никакого автоматического продолжения после STOP. Живое окно только после закрытия/00:15 Алматы, свежий backup+restore, принять существующие резервы API/PG и штатный lease;072-074/APIfalse. Готового полного оператора пока нет. См. docs/operations/cloud-1-execution-1110.md."
     }
   ],
   "approvedScopeTransfers": [
