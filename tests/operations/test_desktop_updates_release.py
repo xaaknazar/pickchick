@@ -789,6 +789,10 @@ class ServerSteps(unittest.TestCase):
                     ({'id': 'x', 'task': 'ceo-login', 'source_sha': 'f' * 40},
                      {'task': 'ceo-login', 'source_sha': 'f' * 40}),
                     ({'id': 'x', 'action': 'pickchick-ingress', 'pid': 4242}, {'action': 'pickchick-ingress'}),
+                    ({'id': 'x', 'operation': 'kaspi-session-readiness', 'sha': 'e' * 40},
+                     {'operation': 'kaspi-session-readiness', 'sha': 'e' * 40}),
+                    # Taken by hand: the handle that releases the lock is never printed.
+                    ({'id': 'x'}, {}),
                     (['not', 'a', 'record'], None)]:
                 (lock / 'owner.json').write_text(json.dumps(record))
                 self.assertEqual(call(['inspect'])[1]['deployment_lock_owner'], shown, record)

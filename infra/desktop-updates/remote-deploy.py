@@ -571,8 +571,9 @@ def installed(before):
 def lock_owner():
     """Which step holds the shared lock: the fields the scripts of this server write, nothing else.
 
-    This script and the roadmap one write `action` and `sha`; the Cloud-1 window writes `operation`,
-    the cabinet and domain releases write `task` and `source_sha`.
+    Most of them, this one included, write `action` and `sha`; the Kaspi worker releases write
+    `operation`, the cabinet and domain releases write `task` and `source_sha`. The `id` is the
+    handle that releases a lock and is never printed.
     """
     try:
         owner = json.loads((b.LOCK / 'owner.json').read_text())
