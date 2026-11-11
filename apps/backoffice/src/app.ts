@@ -150,6 +150,9 @@ const finance = new FinanceModel(
 // «Расходы» redraws at once (the save indicator and totals follow each cell) and keeps the
 // field being typed in with its caret; elsewhere it waits like every background refresh.
 const expensesChanged = () => {
+  // Off (no section, «Финансы» stays): nothing visible changes, so no redraw (a redraw would
+  // close the phone menu the user may be opening).
+  if (page !== 'expenses' && expenses.available === false) return;
   if (page !== 'expenses') return softRender();
   expensesView.capture();
   render();
