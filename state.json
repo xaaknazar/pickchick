@@ -7726,14 +7726,17 @@
     },
     {
       "id": "desktop-updates-install-1111",
-      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/desktop-updates-install-1111",
       "scopes": [
-        "docs/operations/desktop-updates-install-1111.md"
+        "docs/operations/desktop-updates-install-1111.md",
+        "@vps/desktop-updates",
+        "@vps/public-https/gateway",
+        "@vps/ssh-access"
       ],
-      "status": "available",
+      "status": "active",
       "head": "340c3ded7e8476ba5ed169438deee36f6228688a",
-      "updatedAt": "2026-11-11T14:56:53.783Z",
+      "updatedAt": "2026-11-11T15:01:56.502Z",
       "summary": "PREPARED_ONLY. Exact46453717 package SHA bb2213a0a10b7215895eac31eee1c87c9ce956552ba699b3938f78c05e5283ae; package/feed receipt at /workspace/pickchick-evidence/1111/desktop-updates. Both exact artifact ZIP digests and installer SHA match owner;21testsPASS; verify_package/feedPASS. PreliminaryCloud1 b922fc1e Foundation43028287464 jobs11 PASS. Public health alive/latest404 baseline. SSH TCP22 refused inside and outside sandbox, no authentication attempted, VPN absent. Server untouched; no expected_* or install response; named SSH key NOT removed. Protocol published, source checkout46453717 preserved unchanged.",
       "nextAction": "Continue through trusted Mac or configured private network with SSH access. Owner authorized11Nov anytime gateway/feed installation; no new permission needed within scope. Claim corresponding server resources; inspect443/lock/route and immutable target absence; transfer+hash; inspect expected_*; dryrun thenapply. If route false or foreignCaddy required STOP and ask. Respect rollback/uncertain statuses and retained lock. Verify latest200/no-store/root404, repeatCloud1+serverinspect, remove exact named foreign-Mac SSH key and verify trusted access. Record actual results only. No blind retry, DB/API change or bypass."
     }
