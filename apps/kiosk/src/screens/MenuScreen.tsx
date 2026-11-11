@@ -16,10 +16,12 @@ export function MenuScreen({
   model,
   context,
   memory,
+  review = false,
 }: {
   model: KioskModel;
   context: ScreenContext;
   memory: MenuMemory;
+  review?: boolean;
 }) {
   const t = copy(context.locale);
   const [category, setCategory] = useState<Category>(memory.category);
@@ -100,11 +102,13 @@ export function MenuScreen({
           locale={context.locale}
           onSelect={select}
           footer={
-            <PhotoEntry
-              locale={context.locale}
-              onInteraction={model.touch}
-              disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
-            />
+            review ? undefined : (
+              <PhotoEntry
+                locale={context.locale}
+                onInteraction={model.touch}
+                disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
+              />
+            )
           }
         />
         <MenuGrid

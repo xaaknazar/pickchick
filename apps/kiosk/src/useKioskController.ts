@@ -14,17 +14,25 @@ import { createCommercialKioskIO, createKioskIO } from './storage';
 import { createDemoKiosk, demoIdleExpired, DEMO_IDLE_CHECK_MS, type DemoKiosk } from './demo';
 import type { KioskModel } from './model';
 
-export default function useKioskController(): KioskModel {
+export default function useKioskController(reviewExit?: () => void): KioskModel {
+  // Review mounts only the in-memory controller; live IO is never constructed.
+  const review = useMemo(
+    () => (reviewExit ? createDemoKiosk(null, { uuid: Crypto.randomUUID }) : null),
+    [reviewExit],
+  );
   const live = useMemo(
     () =>
-      commercialKioskEnabled
-        ? new CommercialKioskController(createCommercialKioskIO())
-        : new KioskController(createKioskIO()),
-    [],
+      review
+        ? review.controller
+        : commercialKioskEnabled
+          ? new CommercialKioskController(createCommercialKioskIO())
+          : new KioskController(createKioskIO()),
+    [review],
   );
   // Staff demo mode (owner decision 2026-10-11): React state only, so an app restart always
   // starts in normal mode. The demo controller has its own in-memory transport (demo.ts).
-  const [demo, setDemoKiosk] = useState<DemoKiosk | null>(null);
+  const [staffDemo, setDemoKiosk] = useState<DemoKiosk | null>(null);
+  const demo = review ?? staffDemo;
   const controller = demo?.controller ?? live;
   const state = useSyncExternalStore(
     controller.subscribe,
@@ -32,12 +40,16 @@ export default function useKioskController(): KioskModel {
     controller.getSnapshot,
   );
   useEffect(() => {
-    void live.restore();
-  }, [live]);
+    if (!review) void live.restore();
+  }, [live, review]);
   // Last touch while the demo is shown; the demo leaves by itself after a while (finding 3.4).
   const demoActivity = useRef(0);
   const setDemo = useCallback(
     async (on: boolean, pin?: string) => {
+      if (review) {
+        if (!on) reviewExit?.();
+        return !on;
+      }
       if (!on) {
         setDemoKiosk(null);
         return true;
@@ -60,15 +72,15 @@ export default function useKioskController(): KioskModel {
       setDemoKiosk((previous) => previous ?? createDemoKiosk(seed, { uuid: Crypto.randomUUID }));
       return true;
     },
-    [live],
+    [live, review, reviewExit],
   );
   useEffect(() => {
-    if (!demo) return;
+    if (!demo || review) return;
     const timer = setInterval(() => {
       if (demoIdleExpired(demoActivity.current, Date.now())) setDemoKiosk(null);
     }, DEMO_IDLE_CHECK_MS);
     return () => clearInterval(timer);
-  }, [demo]);
+  }, [demo, review]);
   const touch = controller.touch;
   const touchAny = useCallback(() => {
     demoActivity.current = Date.now();
@@ -87,7 +99,7 @@ export default function useKioskController(): KioskModel {
   // Outcome of the last device presence request, for the staff health line only.
   const heartbeat = useRef<KioskHeartbeat | null>(null);
   useEffect(() => {
-    if (!commercialKioskEnabled) return;
+    if (!commercialKioskEnabled || review) return;
     const io = createCommercialKioskIO();
     const build = `${Constants.expoConfig?.version ?? 'unknown'} (${Constants.expoConfig?.ios?.buildNumber ?? 'unknown'})`;
     const presence = startDevicePresence({
@@ -113,7 +125,7 @@ export default function useKioskController(): KioskModel {
       presence.stop();
       subscription.remove();
     };
-  }, [live, demo]);
+  }, [live, demo, review]);
   // Stage 2 (lane kln): the staff health line, behind the server-checked staff code. It reads
   // only build constants and the last presence outcome, never the device credentials.
   const staffHealth = useCallback(
@@ -152,6 +164,7 @@ export default function useKioskController(): KioskModel {
     };
   }, [state.catalog]);
   useEffect(() => {
+    if (review) return;
     // The live kiosk keeps its own polling while the demo is shown (menu reads only).
     const stop = startKioskPolling(live, () => AppState.currentState === 'active');
     const active = AppState.addEventListener('change', (status) => {
@@ -164,7 +177,7 @@ export default function useKioskController(): KioskModel {
       stop();
       active.remove();
     };
-  }, [live]);
+  }, [live, review]);
   return {
     ...state,
     demo: !!demo,

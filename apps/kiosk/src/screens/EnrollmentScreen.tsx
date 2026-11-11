@@ -3,7 +3,13 @@ import { provisionCommercialKiosk } from '../storage';
 import { enrollmentCredentialsValid } from '../enrollment';
 import type { Locale } from '../i18n';
 import { EnrollmentForm } from '../components/EnrollmentForm';
-export function EnrollmentScreen({ onComplete }: { onComplete(): void }) {
+export function EnrollmentScreen({
+  onComplete,
+  onReview,
+}: {
+  onComplete(): void;
+  onReview?: () => void;
+}) {
   const [locale, setLocale] = useState<Locale>('ru');
   const [deviceId, setDeviceId] = useState('');
   const [key, setKey] = useState('');
@@ -27,6 +33,7 @@ export function EnrollmentScreen({ onComplete }: { onComplete(): void }) {
   };
   return (
     <EnrollmentForm
+      onReview={onReview}
       locale={locale}
       onLocale={setLocale}
       deviceId={deviceId}
