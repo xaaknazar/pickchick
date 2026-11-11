@@ -7734,11 +7734,11 @@
         "@vps/public-https/gateway",
         "@vps/ssh-access"
       ],
-      "status": "active",
-      "head": "340c3ded7e8476ba5ed169438deee36f6228688a",
-      "updatedAt": "2026-11-11T15:01:56.502Z",
-      "summary": "PREPARED_ONLY. Exact46453717 package SHA bb2213a0a10b7215895eac31eee1c87c9ce956552ba699b3938f78c05e5283ae; package/feed receipt at /workspace/pickchick-evidence/1111/desktop-updates. Both exact artifact ZIP digests and installer SHA match owner;21testsPASS; verify_package/feedPASS. PreliminaryCloud1 b922fc1e Foundation43028287464 jobs11 PASS. Public health alive/latest404 baseline. SSH TCP22 refused inside and outside sandbox, no authentication attempted, VPN absent. Server untouched; no expected_* or install response; named SSH key NOT removed. Protocol published, source checkout46453717 preserved unchanged.",
-      "nextAction": "Continue through trusted Mac or configured private network with SSH access. Owner authorized11Nov anytime gateway/feed installation; no new permission needed within scope. Claim corresponding server resources; inspect443/lock/route and immutable target absence; transfer+hash; inspect expected_*; dryrun thenapply. If route false or foreignCaddy required STOP and ask. Respect rollback/uncertain statuses and retained lock. Verify latest200/no-store/root404, repeatCloud1+serverinspect, remove exact named foreign-Mac SSH key and verify trusted access. Record actual results only. No blind retry, DB/API change or bypass."
+      "status": "available",
+      "head": "c505e0124b18a2163cfce1388460d2233227d22a",
+      "updatedAt": "2026-11-11T15:18:33.857Z",
+      "summary": "DEPLOYED 11.11 20:10 UTC+5: POS 0.5.0/Kitchen 0.4.0, source46453717, external200/no-store and root404; Cloud-1 candidate gate PASS; foreign SSH key revoked; receipt c505e012.",
+      "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step."
     }
   ],
   "approvedScopeTransfers": [
