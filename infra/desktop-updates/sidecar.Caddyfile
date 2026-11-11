@@ -1,0 +1,43 @@
+# Static feed of PickChick POS and Kitchen installers behind the public gateway
+# (docs/operations/desktop-updates.md). Reads /srv/feed/current, writes nothing.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		max_header_size 16KB
+		timeouts {
+			read_header 5s
+			read_body 5s
+			write 40s
+			idle 30s
+		}
+	}
+}
+
+:8080 {
+	header {
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	@health {
+		method GET
+		path /health/live
+	}
+	handle @health {
+		respond "ok" 200
+	}
+	# The same expression as the gateway route (infra/desktop-updates/remote-deploy.py).
+	@feed {
+		method GET HEAD
+		path_regexp feed ^/desktop-updates/(pos/(latest\.json|PickChick-POS-Setup-(0|[1-9][0-9]?[0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?[0-9]?)-x64\.exe)|kitchen/(latest\.json|PickChick-Kitchen-Setup-(0|[1-9][0-9]?[0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?[0-9]?)\.(0|[1-9][0-9]?[0-9]?[0-9]?)-x64\.exe))$
+	}
+	handle @feed {
+		root * /srv/feed/current
+		uri strip_prefix /desktop-updates
+		file_server
+	}
+	handle {
+		respond 404
+	}
+}

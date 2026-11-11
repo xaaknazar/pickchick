@@ -1,0 +1,38 @@
+name: pickchick-desktop-updates
+
+services:
+  feed:
+    # The image the public gateway already runs on this server; never pulled by this step.
+    image: ${DESKTOP_UPDATES_IMAGE:?Set the image of the running public gateway}
+    pull_policy: never
+    container_name: pickchick-desktop-updates
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    # The pinned upstream binary has this file capability; retaining its bounding
+    # bit is required to exec it under no-new-privileges, even on port 8080.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 64
+    mem_limit: 96m
+    cpus: 0.5
+    tmpfs: ['/tmp:size=16m,mode=1777', '/config:size=4m,mode=0700', '/data:size=4m,mode=0700']
+    command: ['caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']
+    volumes:
+      - '${DESKTOP_UPDATES_CONFIG:?Set the reviewed feed configuration}:/etc/caddy/Caddyfile:ro'
+      - '${DESKTOP_UPDATES_FEED_DIR:?Set the feed directory}:/srv/feed:ro'
+    # No published ports, Docker socket, database network, or application secrets.
+    networks: [desktop_updates_ingress]
+    logging:
+      driver: json-file
+      options: { max-size: '5m', max-file: '2' }
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+networks:
+  desktop_updates_ingress:
+    name: pickchick-desktop-updates_ingress
+    internal: true

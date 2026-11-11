@@ -1,0 +1,473 @@
+#!/usr/bin/env python3
+"""Rehearsal of infra/desktop-updates/remote-deploy.py with real Docker and the pinned Caddy image.
+
+Builds a throw-away copy of the server layout: the public gateway of infra/public-staging and a
+stand-in for the outer HTTPS proxy. Then runs what the operator runs: a failed install that must
+roll back (the way back is confirmed through the gateway), an install that gets a `kill` in the
+middle of the gateway switch, while Docker is still stopping the old container, and two more stop
+requests on its way back, the install, the updater of the programs reading the feed through the
+gateway, a publish that must not restart anything, refusals, a withdraw, and the same version
+offered once more. A one-off Compose job, like the cleanup the server starts every 15 minutes,
+comes during the install and goes during the publish. Linux with Docker and a clean committed
+checkout only (CI); nothing outside the temporary directory and the containers and networks named
+here.
+
+    python3 tests/desktop-update-server/server-rehearsal.py
+"""
+import contextlib
+import hashlib
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tarfile
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
+
+REPO = Path(__file__).resolve().parents[2]
+PORT = 18443
+ORIGIN = 'http://127.0.0.1:%d' % PORT
+OUTER = 'pickchick-rehearsal-outer'
+JOB = 'pickchick-rehearsal-jobs-job-run-1'
+NETWORKS = ['deploy_default', 'pickchick-staging_ingress']
+GATEWAY_PROJECT = 'label=com.docker.compose.project=pickchick-public'
+# A public file large enough to stay in flight to a reader that has stopped reading.
+BIG_BYTES = 48 * 1024 * 1024
+POS_BYTES = 64 * 1024 * 1024 + 123
+KITCHEN_BYTES = 9_500_000
+
+
+def sh(command, check=True, **options):
+    result = subprocess.run(command, text=True, capture_output=True, **options)
+    if check and result.returncode != 0:
+        raise RuntimeError('Command failed: %s\n%s\n%s' % (' '.join(map(str, command)), result.stdout, result.stderr))
+    return result.stdout.strip()
+
+
+def step(text):
+    print('[rehearsal] ' + text, flush=True)
+
+
+def identity(name):
+    return sh(['docker', 'inspect', '--format', '{{.Id}} {{.State.StartedAt}}', name])
+
+
+def status(path):
+    request = urllib.request.Request(ORIGIN + path)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+
+
+def gateway_containers():
+    """Every container Compose made for the gateway service, with its state."""
+    return sorted(sh(['docker', 'ps', '-a', '--filter', GATEWAY_PROJECT, '--format', '{{.Names}} {{.State}}'])
+                  .splitlines())
+
+
+def stalled_connection(path):
+    """A reader that asks for a whole file and stops after the first bytes: the request stays open."""
+    connection = socket.socket()
+    connection.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+    connection.connect(('127.0.0.1', PORT))
+    connection.sendall(('GET %s HTTP/1.1\r\nHost: rehearsal\r\nConnection: close\r\n\r\n' % path).encode())
+    return connection, len(connection.recv(65536))
+
+
+def stalled_read(path, pause, size):
+    """Asks for a whole file, stops reading for `pause` seconds, then reads what is still coming.
+
+    A response the gateway ends after its write limit arrives short; pieces of 4 MB never get there.
+    """
+    connection, received = stalled_connection(path)
+    time.sleep(pause)
+    connection.settimeout(60)
+    started = time.time()
+    try:
+        while chunk := connection.recv(1024 * 1024):
+            received += len(chunk)
+        ended = 'closed'
+    except OSError as error:
+        ended = type(error).__name__
+    finally:
+        connection.close()
+    # The count includes a few hundred bytes of response headers.
+    return {'received': received, 'of': size, 'complete': received >= size, 'ended': ended,
+            'paused_seconds': pause, 'drain_seconds': round(time.time() - started, 1)}
+
+
+def fake_installer(directory, app, version, size, prefix):
+    data = b'MZ' + os.urandom(size - 2)
+    directory.mkdir(parents=True, exist_ok=True)
+    name = prefix + version + '-x64.exe'
+    (directory / name).write_bytes(data)
+    return directory / name, hashlib.sha256(data).hexdigest()
+
+
+def client(app, current, expect, sha256=None):
+    command = ['node', 'tests/desktop-update-server/feed-client.mjs', '--feed', ORIGIN + '/desktop-updates/',
+               '--app', app, '--current', current, '--expect', expect]
+    if sha256:
+        command += ['--sha256', sha256]
+    report = json.loads(sh(command, cwd=REPO).splitlines()[-1])
+    step('program %s %s: %s, %d pieces' % (app, current, report['result'], report['pieces']))
+    return report
+
+
+def main():
+    temporary = Path(tempfile.mkdtemp(prefix='pickchick-feed-rehearsal-'))
+    root = temporary / 'server'
+    old_public = root / 'public-https/releases' / ('a' * 40)
+    staging = old_public / 'infra/public-staging'
+    api = root / 'releases' / ('b' * 40)
+    image = re.search(r'^\s+image: (\S+)$', (REPO / 'infra/public-staging/compose.yaml').read_text(), re.M).group(1)
+    summary = {}
+    try:
+        step('server layout with the repository gateway, image %s, Docker %s, Compose %s' % (
+            image, sh(['docker', 'version', '--format', '{{.Server.Version}}']),
+            sh(['docker', 'compose', 'version', '--short'])))
+        (staging / 'public-web/operations/assets').mkdir(parents=True)
+        files = {'operations/index.html': b'<!doctype html><title>kiosk</title>',
+                 'operations/assets/app.js': b'console.log("rehearsal")',
+                 'operations/assets/big.bin': os.urandom(BIG_BYTES)}
+        for name, data in files.items():
+            (staging / 'public-web' / name).write_bytes(data)
+        (staging / 'public-web/.release.json').write_text(json.dumps({
+            'source_sha': 'a' * 40, 'files': {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}}))
+        for name in ['gateway.Caddyfile', 'compose.yaml']:
+            shutil.copyfile(REPO / 'infra/public-staging' / name, staging / name)
+        api.mkdir(parents=True)
+        (root / 'current').symlink_to(api)
+        (root / 'public-https/current').symlink_to(old_public)
+        for network in NETWORKS:
+            sh(['docker', 'network', 'create', network])
+        sh(['docker', 'compose', '-f', str(staging / 'compose.yaml'), 'up', '-d', '--wait', 'gateway'])
+        outer = temporary / 'outer.Caddyfile'
+        outer.write_text('{\n\tadmin off\n\tauto_https off\n}\n:8080 {\n\treverse_proxy pickchick-public-gateway:8080 {\n'
+                         '\t\theader_up Host pickchick.185.129.51.103.nip.io\n\t}\n}\n')
+        sh(['docker', 'run', '-d', '--name', OUTER, '--network', 'deploy_default',
+            '-p', '127.0.0.1:%d:8080' % PORT, '-v', str(outer) + ':/etc/caddy/Caddyfile:ro', image,
+            'caddy', 'run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'])
+        for _ in range(30):
+            with contextlib.suppress(OSError):
+                if status('/health/live') == 200:
+                    break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Gateway did not answer through the outer proxy')
+
+        step('package of this commit and the feeds')
+        archive = temporary / 'package.tar.gz'
+        packaged = json.loads(sh([sys.executable, 'infra/desktop-updates/package.py', str(archive)], cwd=REPO))
+        package = temporary / 'package'
+        with tarfile.open(archive) as source:
+            source.extractall(package, filter='data')
+        spec = importlib.util.spec_from_file_location('desktop_updates', package / 'infra/desktop-updates/remote-deploy.py')
+        d = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(d)
+        d.b.ROOT, d.b.LOCK, d.b.ORIGIN, d.FEED_ORIGIN = root, root / '.market-release.lock', ORIGIN, ORIGIN
+        d.os.getuid = lambda: 1000
+
+        # `docker compose run`, as infra/staging/identity-cleanup-cron.sh starts its job.
+        jobs = temporary / 'jobs.yaml'
+        jobs.write_text('name: pickchick-rehearsal-jobs\nservices:\n  job:\n    image: %s\n'
+                        '    network_mode: none\n    command: [sleep, "600"]\n' % image)
+        real_copy = d.copy_release
+
+        def while_copying(change):
+            """The step copies a feed release after its first snapshot and before its last check."""
+            def copy(sources, target):
+                change()
+                return real_copy(sources, target)
+            return copy
+
+        def listed():
+            return sh(['docker', 'ps', '-a', '--format', '{{.Names}}']).splitlines()
+
+        made = temporary / 'made'
+        feed1, hashes1 = temporary / 'feed-1', {}
+        for app, size, package_directory in [('pos', POS_BYTES, 'apps/pos-desktop'),
+                                             ('kitchen', KITCHEN_BYTES, 'apps/kitchen-desktop')]:
+            version = json.loads((REPO / package_directory / 'package.json').read_text())['version']
+            path, hashes1[app] = fake_installer(made, app, version, size, d.APPS[app])
+            # The same script the Windows build runs.
+            sh(['node', 'scripts/desktop-update-feed.mjs', '--app', app, '--installer', str(path),
+                '--out', str(feed1)], cwd=REPO)
+        versions = {app: json.loads((feed1 / app / 'latest.json').read_text())['version'] for app in hashes1}
+        first = 'kitchen-%s-pos-%s' % (versions['kitchen'], versions['pos'])
+        kitchen_next = '.'.join(versions['kitchen'].split('.')[:2] + [str(int(versions['kitchen'].split('.')[2]) + 1)])
+        feed2 = temporary / 'feed-2'
+        path, kitchen_hash = fake_installer(feed2 / 'kitchen', 'kitchen', kitchen_next, KITCHEN_BYTES, d.APPS['kitchen'])
+        (feed2 / 'kitchen/latest.json').write_text(json.dumps({
+            'app': 'kitchen', 'version': kitchen_next, 'file': path.name, 'sha256': kitchen_hash,
+            'bytes': KITCHEN_BYTES, 'apply': 'idle'}, indent=2) + '\n')
+        second = 'kitchen-%s-pos-%s' % (kitchen_next, versions['pos'])
+
+        said = []
+
+        def run(arguments, expect=0):
+            output, errors = io.StringIO(), io.StringIO()
+            handlers = {number: signal.getsignal(number) for number in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM)}
+            try:
+                with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                    code = d.main(arguments)
+            finally:
+                # An --apply run answers stop requests itself; the rehearsal takes them back.
+                for number, handler in handlers.items():
+                    if handler is not None:
+                        signal.signal(number, handler)
+                said[:] = errors.getvalue().splitlines()
+                sys.stderr.write(errors.getvalue())
+            report = json.loads(output.getvalue().strip().splitlines()[-1])
+            if code != expect:
+                raise RuntimeError('%s ended %d: %s' % (arguments[0], code, json.dumps(report)))
+            return report
+
+        def refused(arguments, reason):
+            try:
+                run(arguments)
+            except RuntimeError as error:
+                assert reason in str(error), (reason, str(error))
+            else:
+                raise AssertionError('Not refused: ' + reason)
+
+        def journal_of(report):
+            """The journal the answer names: private to the operator and equal to the answer."""
+            path = Path(report['journal'])
+            assert path.stat().st_mode & 0o777 == 0o600 and json.loads(path.read_text()) == report, report
+            return path
+
+        expected1 = ['--expected-pos-sha256', hashes1['pos'], '--expected-kitchen-sha256', hashes1['kitchen']]
+        report = run(['inspect', '--feed', str(feed1)] + expected1)
+        assert (report['gateway_route_installed'], report['feed_container'], report['next_step']) == (False, False, 'install')
+        assert report['feed_host_reaches_gateway'] is True
+        install = ['install', '--package', str(package), '--feed', str(feed1),
+                   '--expected-source-sha', packaged['source_sha'],
+                   '--expected-public-release', report['expected_public_release'],
+                   '--expected-api-release', report['expected_api_release'],
+                   '--expected-gateway-sha256', report['expected_gateway_sha256']] + expected1
+        assert run(install)['status'] == 'inspected'
+        gateway_before = identity('pickchick-public-gateway')
+        assert identity('pickchick-public-gateway') == gateway_before and status('/desktop-updates/pos/latest.json') == 404
+
+        step('install that fails its last check must put the old gateway back')
+        real_refusals = d.verify_refusals
+
+        def injected(origin, manifests):
+            raise RuntimeError('rehearsal: injected failure after the gateway switch')
+
+        d.verify_refusals = injected
+        report = run(install + ['--apply'], expect=1)
+        d.verify_refusals = real_refusals
+        assert report['status'] == 'rolled_back' and report['phase'] == 'verify', report
+        journal_of(report)
+        assert status('/desktop-updates/pos/latest.json') == 404 and status('/health/live') == 200
+        assert status('/kiosk') == 200 and status('/assets/app.js') == 200
+        names = sh(['docker', 'ps', '-a', '--format', '{{.Names}}']).splitlines()
+        assert d.SIDECAR not in names, names
+        assert d.NETWORK not in sh(['docker', 'network', 'ls', '--format', '{{.Name}}']).splitlines()
+        assert (root / 'public-https/current').resolve() == old_public and not d.b.LOCK.exists()
+        assert [json.loads(line)['status'] for line in said] == ['rolling_back'], said
+        summary['failed_install_rolled_back'] = True
+
+        step('a kill in the middle of the gateway switch, then Ctrl+C and one more kill on the way back')
+        new_public = root / 'public-https/releases' / packaged['source_sha']
+        real_run = d.b.run
+        held, seen, over, quiet = [], [], [], threading.Lock()
+
+        def stop_requests():
+            # The first one comes when Docker has made the new container and is stopping the old one.
+            limit = time.time() + 20
+            while len(gateway_containers()) < 2:
+                if time.time() > limit:
+                    return
+                time.sleep(0.2)
+            for pause, number in [(1, signal.SIGTERM), (3, signal.SIGINT), (2, signal.SIGTERM)]:
+                time.sleep(pause)
+                with quiet:
+                    if over:
+                        return
+                    os.kill(os.getpid(), number)
+
+        def cut_off(command, timeout=90):
+            if command[:2] == ['docker', 'compose'] and command[-1] == 'gateway':
+                if 'up' in command and str(new_public) in command[3] and not held:
+                    # A reader that has stalled keeps the old gateway from stopping at once, so
+                    # Docker is still stopping it when the first request comes.
+                    held.append(stalled_connection('/assets/big.bin')[0])
+                    threading.Thread(target=stop_requests, daemon=True).start()
+                elif 'rm' in command:
+                    seen.append(gateway_containers())
+            return real_run(command, timeout)
+
+        d.b.run = cut_off
+        started = time.time()
+        try:
+            report = run(install + ['--apply'], expect=1)
+        finally:
+            d.b.run = real_run
+            with quiet:
+                over.append(True)
+            for connection in held:
+                connection.close()
+        took = round(time.time() - started)
+        assert (report['status'], report['phase'], report['reason']) == ('rolled_back', 'switch_gateway', 'SystemExit'), report
+        journal_of(report)
+        assert [json.loads(line) for line in said] == [
+            {'status': 'rolling_back', 'reason': 'SystemExit', 'journal': report['journal']}], said
+        # The two later requests waited: they are noted, and the way back ran to its end.
+        assert d.STOP == {'held': True, 'noted': signal.SIGTERM}, d.STOP
+        # The first one came while Docker was stopping the old container and the new one was only made.
+        assert len(seen) == 1 and 'pickchick-public-gateway running' in seen[0] and len(seen[0]) == 2 and \
+            seen[0][0].endswith('_pickchick-public-gateway created'), seen
+        staging_mounts = {'/etc/caddy/Caddyfile': str(staging / 'gateway.Caddyfile'),
+                          '/srv/public': str(staging / 'public-web')}
+
+        def as_before():
+            assert gateway_containers() == ['pickchick-public-gateway running'], gateway_containers()
+            assert d.b.gateway_mounts() == staging_mounts, d.b.gateway_mounts()
+            assert status('/health/live') == 200 and status('/kiosk') == 200 and status('/assets/app.js') == 200
+            assert status('/desktop-updates/pos/latest.json') == 404
+            assert d.SIDECAR not in listed() and not d.b.LOCK.exists()
+            assert d.NETWORK not in sh(['docker', 'network', 'ls', '--format', '{{.Name}}']).splitlines()
+            assert (root / 'public-https/current').resolve() == old_public
+
+        as_before()
+        # The stop Docker had under way ends within its ten seconds: the gateway made on the way
+        # back is another container and stays.
+        time.sleep(12)
+        as_before()
+        summary['kill_during_gateway_switch'] = {'containers_when_the_way_back_began': seen[0], 'seconds': took}
+        step(json.dumps(summary['kill_during_gateway_switch']))
+
+        step('install, and a one-off job starts while it runs')
+        d.copy_release = while_copying(lambda: sh(
+            ['docker', 'compose', '-f', str(jobs), 'run', '-d', '--name', JOB, 'job']))
+        report = run(install + ['--apply'])
+        d.copy_release = real_copy
+        assert report['status'] == 'deployed', report
+        assert journal_of(report).parent == root / 'desktop-updates/deployments'
+        assert JOB in listed() and JOB not in d.containers(), 'The job is not told apart from a service'
+        summary['install'] = report['published']
+        assert status('/kiosk') == 200 and status('/assets/app.js') == 200 and status('/health/live') == 200
+        inspected = json.loads(sh(['docker', 'inspect', d.SIDECAR]))[0]
+        assert inspected['HostConfig']['ReadonlyRootfs'] and not inspected['HostConfig']['PortBindings']
+        assert list(inspected['NetworkSettings']['Networks']) == [d.NETWORK]
+        assert all(not mount['RW'] for mount in inspected['Mounts'])
+        pos = client('pos', '0.4.9', versions['pos'], hashes1['pos'])
+        assert pos['pieces'] == -(-POS_BYTES // d.CHUNK_BYTES), pos
+        client('kitchen', '0.3.0', versions['kitchen'], hashes1['kitchen'])
+        client('pos', versions['pos'], 'current')
+        summary['program_read_feed_in_pieces'] = pos['pieces']
+
+        step('one whole installer to a reader that stalls for 50 seconds: the gateway write limit')
+        summary['stalled_whole_response'] = stalled_read(
+            '/desktop-updates/pos/' + d.APPS['pos'] + versions['pos'] + '-x64.exe', 50, POS_BYTES)
+        step(json.dumps(summary['stalled_whole_response']))
+
+        step('publish: one pointer, no container restarts; the one-off job ends while it runs')
+        before = {name: identity(name) for name in ['pickchick-public-gateway', d.SIDECAR, OUTER]}
+        signed = ['--package', str(package), '--expected-source-sha', packaged['source_sha']]
+        publish = ['publish', *signed, '--feed', str(feed2), '--expected-current', first,
+                   '--expected-kitchen-sha256', kitchen_hash]
+        assert run(publish)['status'] == 'inspected' and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
+        named = []
+
+        def job_ends():
+            # What a process killed here would leave: a lock that names the step and its journal.
+            owner = d.lock_owner()
+            record = json.loads(Path(owner['journal']).read_text())
+            assert (owner['action'], owner['feed_release'], record['status'], record['phase']) == (
+                'desktop-updates-publish', second, 'preparing', 'copy'), (owner, record)
+            named.append(owner['journal'])
+            sh(['docker', 'rm', '-f', JOB])
+
+        d.copy_release = while_copying(job_ends)
+        report = run(publish + ['--apply'])
+        d.copy_release = real_copy
+        assert report['status'] == 'deployed' and report['feed_release'] == second, report
+        assert named == [str(journal_of(report))], named
+        assert JOB not in listed()
+        assert before == {name: identity(name) for name in before}
+        summary['one_off_job_came_and_went'] = True
+        client('kitchen', versions['kitchen'], kitchen_next, kitchen_hash)
+        client('pos', versions['pos'], 'current')
+        assert status('/desktop-updates/kitchen/' + d.APPS['kitchen'] + versions['kitchen'] + '-x64.exe') == 404
+        summary['publish'] = report['published']
+
+        step('refusals')
+        journals = sorted((root / 'desktop-updates/deployments').iterdir())
+        for arguments, reason in [
+                (publish + ['--apply'], 'not --expected-current'),
+                (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
+                  '--expected-kitchen-sha256', kitchen_hash, '--apply'], 'higher than the published'),
+                (['publish', *signed, '--feed', str(feed2), '--expected-current', second,
+                  '--expected-kitchen-sha256', 'f' * 64], 'operator named'),
+                (install + ['--apply'], 'Current public pointer changed')]:
+            refused(arguments, reason)
+        # A refusal leaves neither a journal nor the lock.
+        assert sorted((root / 'desktop-updates/deployments').iterdir()) == journals and not d.b.LOCK.exists()
+        for path in ['/desktop-updates/', '/desktop-updates/pos/', '/desktop-updates/releases/',
+                     '/desktop-updates/current/pos/latest.json', '/desktop-updates/pos/latest.json.tmp']:
+            assert status(path) == 404, path
+        assert before == {name: identity(name) for name in before}
+
+        step('withdraw')
+        report = run(['withdraw', *signed, '--to', first, '--expected-current', second, '--apply'])
+        assert report['status'] == 'deployed'
+        client('kitchen', versions['kitchen'], 'current')
+        assert before == {name: identity(name) for name in before}
+        report = run(['inspect'])
+        assert report['published_release'] == first and report['releases_on_disk'] == sorted([first, second])
+        assert report['gateway_route_installed'] and report['feed_container'] and not report['deployment_lock_present']
+        # What the two installs that went back left next to the releases, for the operator to remove.
+        assert len(report['feed_leftovers']) == 2 and all(
+            re.fullmatch(re.escape(first) + r'\.FAILED-[0-9a-f]{32}', name) for name in report['feed_leftovers']), report
+        summary['withdraw'] = report['published']
+
+        step('the withdrawn version once more: the same build is named, a rebuilt one is refused')
+        feed3 = temporary / 'feed-3'
+        path, rebuilt_hash = fake_installer(feed3 / 'kitchen', 'kitchen', kitchen_next, KITCHEN_BYTES, d.APPS['kitchen'])
+        (feed3 / 'kitchen/latest.json').write_text(json.dumps({
+            'app': 'kitchen', 'version': kitchen_next, 'file': path.name, 'sha256': rebuilt_hash,
+            'bytes': KITCHEN_BYTES, 'apply': 'idle'}, indent=2) + '\n')
+        for feed, sha256, reason in [
+                (feed2, kitchen_hash, 'These builds are already on the server as ' + second),
+                (feed3, rebuilt_hash, 'Version %s of kitchen was offered to devices with other bytes as %s: '
+                                      'raise the version' % (kitchen_next, second))]:
+            refused(['publish', *signed, '--feed', str(feed), '--expected-current', first,
+                     '--expected-kitchen-sha256', sha256, '--apply'], reason)
+        assert not d.b.LOCK.exists() and os.readlink(root / 'desktop-updates/feed/current') == 'releases/' + first
+        report = run(['withdraw', *signed, '--to', second, '--expected-current', first, '--apply'])
+        assert report['status'] == 'deployed'
+        client('kitchen', versions['kitchen'], kitchen_next, kitchen_hash)
+        summary['same_version_again'] = 'named or refused, then published again by withdraw --to'
+        summary['ok'] = True
+    finally:
+        step('cleanup')
+        leftovers = sh(['docker', 'ps', '-aq', '--filter', GATEWAY_PROJECT], check=False).split()
+        for command in [
+                ['docker', 'rm', '-f', OUTER, JOB, *leftovers],
+                ['docker', 'rm', '-f', 'pickchick-public-gateway', 'pickchick-desktop-updates'],
+                ['docker', 'network', 'rm', 'pickchick-desktop-updates_ingress',
+                 'pickchick-rehearsal-jobs_default'] + NETWORKS]:
+            sh(command, check=False)
+        shutil.rmtree(temporary, ignore_errors=True)
+    print(json.dumps(summary, indent=2))
+    return 0 if summary.get('ok') else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

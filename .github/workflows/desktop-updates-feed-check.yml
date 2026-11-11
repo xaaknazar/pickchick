@@ -1,0 +1,43 @@
+name: Desktop update feed check
+
+# Reads the published feed from outside the server, with the updater of the programs.
+# The record docs/operations/desktop-updates-published.json changes with every publish or
+# withdraw (docs/operations/desktop-updates.md); that push starts this check.
+on:
+  push:
+    branches: ['codex/**', 'claude/project-thread-ntdsta']
+    paths:
+      - 'docs/operations/desktop-updates-published.json'
+      - 'tests/desktop-update-server/published-check.mjs'
+      - 'tests/desktop-update-server/feed-client.mjs'
+      - 'apps/pos-desktop/updater.mjs'
+      - 'apps/pos-desktop/update-feed.json'
+      - 'apps/kitchen-desktop/update-feed.json'
+      - '.node-version'
+      - '.github/workflows/desktop-updates-feed-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-updates-feed-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  published:
+    name: The published feed gives a device what the record says
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Record and outside check against a local stand
+        run: node --test tests/unit/desktop-updates-published.test.mjs
+      - name: Manifests, whole installers in pieces and refusals at the public address
+        run: node tests/desktop-update-server/published-check.mjs
