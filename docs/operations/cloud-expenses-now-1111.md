@@ -53,12 +53,13 @@
    `BACKOFFICE_EXPENSES_ENABLED: "false"` в сервис `api`).
 7. Релиз `releases/<sha>`, образ, переключение `current`, запуск API со всеми флагами выключенными.
    Проверки старого потока: `/health/ready`, заказ приложения и киоска, кухня, кабинет.
-8. Веб-кабинет и шлюз из того же коммита (экраны «Расходы» живут в бандле `apps/backoffice`, а
-   маршрут `/v1/admin/backoffice/expenses/*` в `infra/public-staging/gateway.Caddyfile`): отдельный
-   выпуск `pickchick-public-gateway` по прежнему порядку web-выпусков (`prepare-web.py --source-sha
-<коммит>`, `docs/operations/operations-ui-release.md`): новый public-web и Caddyfile репозитория,
-   `caddy validate`, перезапуск только шлюза, проверка mount и static smoke. API и база этим шагом не
-   меняются. Без этого шага кабинет остаётся прежним, а запросы раздела шлюз не пропускает.
+8. Веб-кабинет и шлюз из того же коммита: экраны «Расходы» живут в бандле `apps/backoffice`,
+   маршрут `/v1/admin/backoffice/expenses/*` в `infra/public-staging/gateway.Caddyfile`. Отдельный
+   выпуск `pickchick-public-gateway` по прежнему порядку web-выпусков
+   (`docs/operations/operations-ui-release.md`, сборка `infra/public-staging/prepare-web.py`):
+   новый public-web и Caddyfile репозитория, `caddy validate`, перезапуск только шлюза, проверка
+   mount и static smoke. API и база этим шагом не меняются. Без этого шага кабинет остаётся
+   прежним, а запросы раздела шлюз не пропускает.
 9. Включение раздела: `expenses-grants on`, затем
    `compose-flag expenses true --compose <файл шага 6> --sha256 <его hash> --out <новый>`,
    перезапуск API с этим compose. В кабинете появляется «Расходы» вместо «Финансы».
