@@ -22,7 +22,11 @@ export const TICK_MS = 60 * 1000;
 /** An update found right after the program started is installed without waiting for the night. */
 export const STARTUP_WINDOW_MS = 10 * 60 * 1000;
 export const NIGHT_HOURS = Object.freeze([3, 4, 5]);
+/** The installer is fetched in pieces: a slow link or a gateway that ends long responses still gets it through. */
+export const CHUNK_BYTES = 4 * 1024 * 1024;
 const MANIFEST_TIMEOUT_MS = 20 * 1000;
+const CHUNK_TIMEOUT_MS = 60 * 1000;
+const CHUNK_ATTEMPTS = 3;
 const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 const VERSION = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;
 const HOST = /^(?=.{4,100}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
@@ -181,6 +185,7 @@ export function createUpdater({
   canApply = () => true,
   now = Date.now,
   fsImpl = fs,
+  chunkBytes = CHUNK_BYTES,
 }) {
   if (!Object.hasOwn(APPS, app)) fail('UPDATE_APP_INVALID');
   compareVersions(currentVersion, currentVersion);
@@ -249,7 +254,7 @@ export function createUpdater({
     });
     return result;
   }
-  /** Removes every file of the directory except the state and `keep`. */
+  /** Removes every file of the directory except the state and `keep` (an unfinished download). */
   function sweep(keep) {
     let names;
     try {
@@ -266,71 +271,116 @@ export function createUpdater({
       }
     }
   }
-  function hashFile(path, bytes) {
+  async function hashFile(path, bytes) {
     const stat = fsImpl.lstatSync(path);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size !== bytes) return null;
     const hash = createHash('sha256');
-    const fd = fsImpl.openSync(path, 'r');
-    try {
-      const buffer = Buffer.allocUnsafe(1024 * 1024);
-      for (;;) {
-        const read = fsImpl.readSync(fd, buffer, 0, buffer.length, null);
-        if (read === 0) break;
-        hash.update(buffer.subarray(0, read));
-      }
-    } finally {
-      fsImpl.closeSync(fd);
-    }
+    for await (const chunk of fsImpl.createReadStream(path, { highWaterMark: 1024 * 1024 }))
+      hash.update(chunk);
     return hash.digest('hex');
   }
-  function verified(staged) {
+  async function verified(staged) {
     try {
-      return hashFile(join(directory, staged.file), staged.bytes) === staged.sha256;
+      return (await hashFile(join(directory, staged.file), staged.bytes)) === staged.sha256;
     } catch {
       return false;
     }
   }
-  async function request(path, timeout) {
+  async function request(path, timeout, range) {
     const response = await fetchImpl(base + app + '/' + path, {
       method: 'GET',
       redirect: 'error',
       cache: 'no-store',
       credentials: 'omit',
-      headers: { 'cache-control': 'no-cache' },
+      headers: { 'cache-control': 'no-cache', ...(range ? { range } : {}) },
       signal: AbortSignal.timeout(timeout),
     });
-    if (response.status !== 200 || !response.body) {
+    if (!(range ? [200, 206] : [200]).includes(response.status) || !response.body) {
       await response.body?.cancel().catch(() => {});
       fail('UPDATE_HTTP_' + response.status);
     }
     return response;
   }
+  /**
+   * Fetches the installer piece by piece into `<hash>.part` and continues an interrupted file
+   * of the same hash instead of starting again. Only the whole file with the hash of the
+   * manifest gets the installer name.
+   */
   async function download(manifest) {
     ensureDirectory();
-    const partial = join(directory, `.download-${randomUUID()}.tmp`);
-    const hash = createHash('sha256');
-    let fd;
-    try {
-      const response = await request(manifest.file, DOWNLOAD_TIMEOUT_MS);
-      fd = fsImpl.openSync(partial, 'wx', 0o600);
-      const total = await readLimited(response, manifest.bytes, (chunk) => {
-        hash.update(chunk);
-        fsImpl.writeSync(fd, chunk);
-      });
-      fsImpl.fsyncSync(fd);
-      fsImpl.closeSync(fd);
-      fd = undefined;
-      if (total !== manifest.bytes || hash.digest('hex') !== manifest.sha256)
-        fail('UPDATE_FILE_MISMATCH');
-      fsImpl.renameSync(partial, join(directory, manifest.file));
-    } finally {
-      if (fd !== undefined) fsImpl.closeSync(fd);
+    const partialName = manifest.sha256.slice(0, 32) + '.part';
+    const partial = join(directory, partialName);
+    sweep(partialName);
+    const size = () => {
+      try {
+        const stat = fsImpl.lstatSync(partial);
+        if (!stat.isFile() || stat.isSymbolicLink()) fail('UPDATE_DIRECTORY_INVALID');
+        return stat.size;
+      } catch (error) {
+        if (error.code === 'ENOENT') return 0;
+        throw error;
+      }
+    };
+    const discard = () => {
       try {
         fsImpl.unlinkSync(partial);
       } catch {
-        /* Renamed already. */
+        /* Nothing to remove. */
       }
+    };
+    const deadline = Date.now() + DOWNLOAD_TIMEOUT_MS;
+    let failures = 0;
+    let offset = size();
+    if (offset > manifest.bytes) {
+      discard();
+      offset = 0;
     }
+    while (offset < manifest.bytes) {
+      if (Date.now() > deadline) fail('UPDATE_DOWNLOAD_TIMEOUT');
+      const last = Math.min(offset + chunkBytes, manifest.bytes) - 1;
+      let fd;
+      let failure = null;
+      try {
+        const response = await request(manifest.file, CHUNK_TIMEOUT_MS, `bytes=${offset}-${last}`);
+        let expected = last - offset + 1;
+        if (response.status === 200) {
+          // A server without ranges sends the whole file, which can only start from zero.
+          discard();
+          expected = manifest.bytes;
+        } else if (
+          response.headers.get('content-range') !== `bytes ${offset}-${last}/${manifest.bytes}`
+        ) {
+          await response.body.cancel().catch(() => {});
+          fail('UPDATE_FILE_MISMATCH');
+        }
+        fd = fsImpl.openSync(partial, 'a', 0o600);
+        const received = await readLimited(response, expected, (chunk) => {
+          fsImpl.writeSync(fd, chunk);
+        });
+        if (received !== expected) fail('UPDATE_INCOMPLETE');
+        fsImpl.fsyncSync(fd);
+      } catch (error) {
+        failure = error;
+      } finally {
+        if (fd !== undefined) fsImpl.closeSync(fd);
+      }
+      if (failure) {
+        const code = failure?.message;
+        if (code === 'UPDATE_FILE_MISMATCH' || code === 'UPDATE_TOO_LARGE') {
+          discard();
+          throw failure;
+        }
+        // The server refuses (4xx): asking again changes nothing. Anything else is the link.
+        failures += 1;
+        if (/^UPDATE_HTTP_4\d\d$/.test(code) || failures >= CHUNK_ATTEMPTS) throw failure;
+      } else failures = 0;
+      offset = size();
+    }
+    if ((await hashFile(partial, manifest.bytes)) !== manifest.sha256) {
+      discard();
+      fail('UPDATE_FILE_MISMATCH');
+    }
+    fsImpl.renameSync(partial, join(directory, manifest.file));
   }
 
   /** Reads the feed; downloads and verifies a newer installer. Returns the recorded result. */
@@ -352,9 +402,8 @@ export function createUpdater({
       }
       if (staged && staged.version === manifest.version && staged.sha256 === manifest.sha256) {
         if (staged.attempts >= MAX_ATTEMPTS) return record('gave_up', staged);
-        if (verified(staged)) return record('staged', { ...staged, apply: manifest.apply });
+        if (await verified(staged)) return record('staged', { ...staged, apply: manifest.apply });
       }
-      sweep(null);
       await download(manifest);
       return record('staged', { ...manifest, attempts: 0 });
     } catch (error) {
@@ -386,7 +435,7 @@ export function createUpdater({
       record('waiting', staged);
       return false;
     }
-    if (!verified(staged)) {
+    if (!(await verified(staged))) {
       sweep(null);
       record('UPDATE_FILE_MISMATCH', null);
       return false;
