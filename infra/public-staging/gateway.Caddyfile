@@ -92,21 +92,6 @@
 			}
 		}
 	}
-	@backoffice_expenses {
-		path_regexp backoffice_expenses ^/v1/admin/backoffice/expenses/(meta|entry|journal|pnl|analytics|log|access|cell|row|cash|entries(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/delete)?)?|months/[0-9]{4}-[0-9]{2}/(close|open))$
-		method GET POST
-	}
-	handle @backoffice_expenses {
-		header X-PickChick-Data backoffice
-		reverse_proxy pickchick-staging-api-1:3100 {
-			header_up -Cookie
-			header_up -X-Device-Id
-			transport http {
-				dial_timeout 2s
-				response_header_timeout 5s
-			}
-		}
-	}
 	@published_content {
 		method GET
 		path_regexp published_content ^/v1/content/branches/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
@@ -118,6 +103,21 @@
 			header_up -Cookie
 			header_up -X-Device-Id
 			header_up -Authorization
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@backoffice_expenses {
+		path_regexp backoffice_expenses ^/v1/admin/backoffice/expenses/(meta|entry|journal|pnl|analytics|log|access|cell|row|cash|entries(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(/delete)?)?|months/[0-9]{4}-[0-9]{2}/(close|open))$
+		method GET POST
+	}
+	handle @backoffice_expenses {
+		header X-PickChick-Data backoffice
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
 			transport http {
 				dial_timeout 2s
 				response_header_timeout 5s
