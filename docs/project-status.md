@@ -7,12 +7,15 @@
 не обращаются, пока адрес не выбран. Заголовок окна обеих программ показывает версию и адрес
 моноблока. Версии программ не менялись (0.5.0 и 0.4.0).
 
-Проверено: 16 модульных тестов `tests/unit/desktop-updater.test.mjs`, тесты пакета кухни,
+Проверено: 17 модульных тестов `tests/unit/desktop-updater.test.mjs`, тесты пакета кухни,
 протокола и журнала кассы; `pnpm build`, `pnpm test` (453 из 454, один пропущен), `pnpm lint`
 и `pnpm format:check` в контейнере. На Windows (`windows-2022`, задание `self_update`, коммит
 `34db3530`) установленная касса 0.5.0 сама стала 0.5.1, кухня 0.4.0 сама стала 0.4.1, обе
 снова работают ([касса](https://github.com/xaaknazar/pickchick/actions/runs/43025208678),
-[кухня](https://github.com/xaaknazar/pickchick/actions/runs/43025179929)). Размещение
+[кухня](https://github.com/xaaknazar/pickchick/actions/runs/43025179929)). Установщик
+загружается частями по 4 МБ и после обрыва продолжается с места остановки; на `993e6393` это
+прошло на Windows ([касса](https://github.com/xaaknazar/pickchick/actions/runs/43026637174),
+[кухня](https://github.com/xaaknazar/pickchick/actions/runs/43026624947)). Размещение
 каталога обновлений согласовано (`https://api.pickchick.kz/desktop-updates/`, шаг 15.11 днём),
 но не установлено; на моноблоках ресторана не проверено, установщики не подписаны. [Порядок](operations/desktop-updates.md).
 Онлайн-пульт не обновлён.
