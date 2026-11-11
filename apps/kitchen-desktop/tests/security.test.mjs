@@ -186,7 +186,15 @@ test('electron-builder packages every renderer asset and nothing else of the ren
     );
   assert.deepEqual(
     entries.filter((entry) => !entry.startsWith('renderer/')),
-    ['main.mjs', 'security.mjs', 'gateway.mjs', 'terminal-cookie.mjs', 'package.json'],
+    [
+      'main.mjs',
+      'security.mjs',
+      'gateway.mjs',
+      'terminal-cookie.mjs',
+      'updater.mjs',
+      'update-feed.json',
+      'package.json',
+    ],
   );
 });
 

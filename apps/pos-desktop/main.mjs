@@ -1,8 +1,11 @@
-import { app, BrowserWindow, Menu, protocol, session, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, protocol, session, dialog, ipcMain, net } from 'electron';
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat } from 'node:fs/promises';
+import { networkInterfaces } from 'node:os';
+import { clearInterval, setInterval } from 'node:timers';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createJournalStore } from './journal.mjs';
+import { createJournalStore, journalsSettled } from './journal.mjs';
 import { createPrinter } from './printer.mjs';
 import {
   APP_URL,
@@ -12,6 +15,7 @@ import {
   isAllowedRendererURL,
   validateConfig,
 } from './protocol.mjs';
+import { createUpdater, readFeed } from './updater.mjs';
 
 // This origin and profile are part of the existing POS journal's storage identity.
 // They must not depend on the app version, installation path, or a random port.
@@ -98,6 +102,22 @@ async function printHtml(printSession, { html, deviceName, heightMicrons }) {
     }
   });
 }
+// What stands in the window title: the build and the address the point server knows this
+// device by (docs/operations/lan-clients.md), so that nobody has to look it up in Windows.
+function windowTitle() {
+  const addresses = Object.values(networkInterfaces())
+    .flat()
+    .filter(
+      (entry) =>
+        entry?.family === 'IPv4' && !entry.internal && !entry.address.startsWith('169.254.'),
+    )
+    .map((entry) => entry.address)
+    .slice(0, 2);
+  return (
+    `PickChick POS ${app.getVersion()} · ` +
+    (addresses.length ? `адрес моноблока ${addresses.join(', ')}` : 'нет сети')
+  );
+}
 function toggleFullscreen() {
   if (fullscreenChange) return fullscreenChange;
   const target = !window.isFullScreen();
@@ -148,6 +168,34 @@ else {
       }
       config = validateConfig(config);
       const journal = createJournalStore({ directory: join(profile, 'journal-v1') });
+      // Self-update (docs/operations/desktop-updates.md): the installed Windows build with a
+      // feed only. Nothing here may stop the desk from opening.
+      let updater = null;
+      try {
+        const feed =
+          app.isPackaged && process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE
+            ? readFeed({
+                packagedPath: fileURLToPath(new URL('./update-feed.json', import.meta.url)),
+                overridePath: join(profile, 'update.json'),
+              })
+            : null;
+        if (feed)
+          updater = createUpdater({
+            app: 'pos',
+            currentVersion: app.getVersion(),
+            feed,
+            directory: join(profile, 'updates'),
+            fetchImpl: (url, init) => net.fetch(url, init),
+            spawnImpl: spawn,
+            quit: () => app.quit(),
+            // Never under a signed-in cashier and never over an unanswered command.
+            canApply: () => !journal.hasSession() && journalsSettled(join(profile, 'journal-v1')),
+          });
+        // An installer verified during the previous run goes in before the desk opens.
+        if (updater && (await updater.apply())) return;
+      } catch {
+        updater = null;
+      }
       // Tickets and the drawer (contracts section 5.8): typed JSON in, paper built here.
       const printSession = session.fromPartition('pickchick-pos-print-v1');
       printSession.setPermissionRequestHandler((_contents, _permission, callback) =>
@@ -245,7 +293,7 @@ else {
         height: 900,
         minWidth: 1024,
         minHeight: 600,
-        title: 'PickChick POS',
+        title: windowTitle(),
         backgroundColor: '#0b1d42',
         show: false,
         autoHideMenuBar: true,
@@ -284,6 +332,10 @@ else {
           void toggleFullscreen().catch(() => {});
         }
       });
+      // The page does not rename the window; the address follows the network.
+      window.on('page-title-updated', (event) => event.preventDefault());
+      const retitle = setInterval(() => window.setTitle(windowTitle()), 30000);
+      window.on('closed', () => clearInterval(retitle));
       window.webContents.on('did-navigate', () => journal.setSession(null));
       window.webContents.on('render-process-gone', () => journal.setSession(null));
       window.on('close', () => isolatedSession.flushStorageData());
@@ -292,6 +344,7 @@ else {
         sheets.clear();
       });
       await window.loadURL(APP_URL);
+      updater?.start();
     })
     .catch(() => {
       // Never put credentials or arbitrary configuration contents in the error dialog.

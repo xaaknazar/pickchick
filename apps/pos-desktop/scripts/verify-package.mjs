@@ -65,6 +65,8 @@ const expectedInputs = [
     'printer.mjs',
     'menu-assets.mjs',
     'journal.mjs',
+    'updater.mjs',
+    'update-feed.json',
     'preload.cjs',
     'package.json',
     'package-lock.json',
@@ -103,6 +105,8 @@ assert.deepEqual(
     '/renderer/v2/assets',
     '/renderer/v2/fonts',
     '/journal.mjs',
+    '/updater.mjs',
+    '/update-feed.json',
     '/preload.cjs',
     '/package.json',
     '/renderer',
@@ -125,6 +129,8 @@ for (const name of [
   'menu-assets.mjs',
   'v2-assets.mjs',
   'journal.mjs',
+  'updater.mjs',
+  'update-feed.json',
   'preload.cjs',
 ])
   assert.equal(

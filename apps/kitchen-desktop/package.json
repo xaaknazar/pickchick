@@ -14,7 +14,7 @@
   "scripts": {
     "runtime:install": "node node_modules/electron/install.js",
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check security.mjs",
+    "typecheck": "tsc --project tsconfig.renderer.json --noEmit && node --check main.mjs && node --check security.mjs && node --check updater.mjs",
     "test": "npm run build && node --test tests/security.test.mjs",
     "test:electron": "npm run build && node --test tests/electron.test.mjs",
     "start": "npm run build && electron .",

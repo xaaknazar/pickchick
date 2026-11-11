@@ -28,6 +28,8 @@ export const inputPaths = [
   ...[
     'main.mjs',
     'security.mjs',
+    'updater.mjs',
+    'update-feed.json',
     'package.json',
     'package-lock.json',
     'electron-builder.yml',

@@ -45,6 +45,8 @@ for (const path of [
     'printer.mjs',
     'menu-assets.mjs',
     'journal.mjs',
+    'updater.mjs',
+    'update-feed.json',
     'preload.cjs',
     'package.json',
     'package-lock.json',
