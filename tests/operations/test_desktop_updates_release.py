@@ -1166,14 +1166,24 @@ class ServerSteps(unittest.TestCase):
     def test_a_copy_that_breaks_off_is_set_aside_under_a_visible_name(self):
         releases = self.world.root / 'desktop-updates/feed/releases'
         real = d.shutil.copyfile
-        breaks = []
+        breaks, corrupt, during = [], [], []
 
         def copyfile(source, target, **options):
+            if 'feed/releases' in str(target):
+                # What a process killed in the middle of the copy would leave behind.
+                during.append(sorted(path.name for path in releases.iterdir()))
             if breaks and 'feed/releases' in str(target) and Path(target).name == 'latest.json':
                 breaks.pop()
                 Path(target).write_text('{"half')
                 raise OSError(28, 'No space left on device')
-            return real(source, target, **options)
+            result = real(source, target, **options)
+            if corrupt and 'feed/releases' in str(target) and Path(target).suffix == '.exe':
+                # The disk gives back another byte than was written.
+                corrupt.pop()
+                data = bytearray(Path(target).read_bytes())
+                data[-1] ^= 1
+                Path(target).write_bytes(data)
+            return result
 
         with self.world.active(), patch.object(d.shutil, 'copyfile', copyfile):
             breaks.append(1)
@@ -1198,8 +1208,24 @@ class ServerSteps(unittest.TestCase):
                               'kitchen-0.4.1-pos-0.5.1.FAILED-'])
             _, report = call(['inspect'])
             self.assertEqual(report['releases_on_disk'], ['kitchen-0.4.0-pos-0.5.0'])
+            # A copy that differs from what was sent by one byte never gets the name of a release.
+            corrupt.append(1)
+            code, outcome = call(arguments)
+            self.assertEqual((code, outcome['status'], outcome['phase'], outcome['reason'], outcome['detail']),
+                             (1, 'rolled_back', 'copy', 'RuntimeError',
+                              'Installer hash differs from latest.json: kitchen'))
+            self.assertEqual(sorted(re.sub('[0-9a-f]{32}$', '', path.name) for path in releases.iterdir()),
+                             ['kitchen-0.4.0-pos-0.5.0', 'kitchen-0.4.0-pos-0.5.0.FAILED-',
+                              'kitchen-0.4.1-pos-0.5.1.FAILED-', 'kitchen-0.4.1-pos-0.5.1.FAILED-'])
+            self.assertFalse((self.world.root / '.market-release.lock').exists())
             code, outcome = call(arguments)
             self.assertEqual((code, outcome['status']), (0, 'deployed'))
+        # At no moment of any copy was there a hidden name or a release name with half a release.
+        self.assertGreater(len(during), 8)
+        for names in during:
+            unfinished = [name for name in names if not re.fullmatch(d.RELEASE_NAME, name)]
+            self.assertTrue(unfinished and all(re.fullmatch(d.RELEASE_NAME + r'\.FAILED-[0-9a-f]{32}', name)
+                                               for name in unfinished), names)
 
     def test_a_rebuilt_program_of_a_published_version_is_never_published_by_a_hint(self):
         with self.world.active():

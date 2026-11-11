@@ -478,26 +478,24 @@ def require_space(needed):
 
 
 def copy_release(sources, target):
-    """Appears under its final name only when every file is there and hashes as its manifest says."""
-    staging = target.with_name('.' + target.name + '-' + uuid.uuid4().hex)
+    """Appears under its final name only when every file is there and hashes as its manifest says.
+
+    Until then the copy carries the name every leftover of a failed run has. Whatever cuts it
+    off, a killed process included, nothing is deleted, nothing stays hidden from `ls` and
+    nothing looks like a release.
+    """
+    staging = target.with_name(target.name + '.FAILED-' + uuid.uuid4().hex)
     staging.mkdir(parents=True)
-    try:
-        staging.chmod(0o755)
-        manifests = {}
-        for app, source in sources.items():
-            (staging / app).mkdir()
-            (staging / app).chmod(0o755)
-            for item in sorted(source.iterdir()):
-                shutil.copyfile(item, staging / app / item.name)
-                (staging / app / item.name).chmod(0o644)
-            manifests[app] = verify_app(staging / app, app)
-        staging.rename(target)
-    except BaseException:
-        # What was copied so far gets the name every leftover of a failed run has: nothing is
-        # deleted here, and nothing stays hidden from `ls` and from the next free-space check.
-        with suppress(OSError):
-            staging.rename(target.with_name(target.name + '.FAILED-' + uuid.uuid4().hex))
-        raise
+    staging.chmod(0o755)
+    manifests = {}
+    for app, source in sources.items():
+        (staging / app).mkdir()
+        (staging / app).chmod(0o755)
+        for item in sorted(source.iterdir()):
+            shutil.copyfile(item, staging / app / item.name)
+            (staging / app / item.name).chmod(0o644)
+        manifests[app] = verify_app(staging / app, app)
+    staging.rename(target)
     return manifests
 
 
