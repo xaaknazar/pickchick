@@ -760,12 +760,13 @@ def move_pointer(a, action, name, sources, final, old_release, old):
     require(alias_reaches_gateway(), 'The feed host does not reach the PickChick gateway')
     verify_served(FEED_ORIGIN, old, installers=False)
     target = feed_root() / 'releases' / name
-    if sources:
+    if sources and target.exists():
         # The name tells the versions only, so what the hint would publish is compared first.
-        require(not target.exists(),
-                'These builds are already on the server as ' + name + ': withdraw --to it publishes them again'
-                if same_release(target, final) else
-                'Other builds of the same versions are on the server as ' + name + ': raise the version')
+        raise RuntimeError(
+            'These builds are already on the server as ' + name + ': withdraw --to it publishes them again'
+            if same_release(target, final) else
+            'Other builds of the same versions are on the server as ' + name + ': raise the version')
+    if sources:
         require_space(sum(tree_bytes(source) for source in sources.values()))
     lock_is_free()
     if not a.apply:
