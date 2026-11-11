@@ -7707,11 +7707,11 @@
         "docs/operations/cloud-1-execution-1110.md",
         "@vps/rehearsal/cloud1"
       ],
-      "status": "active",
-      "head": "898fe3fa0eb7e7b3c48b9d232c8a1f0e377e0874",
-      "updatedAt": "2026-11-11T05:00:41.287Z",
-      "summary": "PR345 / 898fe3fa: Cloud-1 STOP до окна. Свежий сервер API6630eb0f/schema071/64, compose3b6d2f55, ready200. JSON compose guard штатного helper отказал; отдельный подготовщик+GitHub gate,13 тестов PASS, реальный compose локально PREPARED_ONLY. Ночной encrypted backup на Mac, SHA60588185 совпал. restore-drill STOP: identity не соответствует backup recipient; владелец подтвердил ключ на другом Mac. Production/idrink не менялись, migration rehearsal не запускалась. PR343 открыт и CI неполная; PR345 fullCI ещё не подтверждена.",
-      "nextAction": "Получить правильный age identity безопасным файлом в ~/.ssh/pickchick-cloud1-backup/identity.agekey и проверить recipient; восстановить backup. Дождаться PR343 и приёмки PR345/полной CI точной головы cutover; выполнить 072-075 на изолированном PG18.3, API на074/075 и rollback6630. Никакого автоматического продолжения после STOP. Живое окно только после закрытия/00:15 Алматы, свежий backup+restore, принять существующие резервы API/PG и штатный lease;072-074/APIfalse. Готового полного оператора пока нет. См. docs/operations/cloud-1-execution-1110.md."
+      "status": "available",
+      "head": "16a2ab9b265e744a857eff30171712f007523505",
+      "updatedAt": "2026-11-11T05:04:26.192Z",
+      "summary": "11 Nov: PR345 updated with cutover 337f2e73 by normal merge 16a2ab9b; preflight 13/13 PASS; no production changes. Cutover Foundation 42880500796 failed in backoffice PostgreSQL integration. Correct age identity remains on other Mac; restore not verified.",
+      "nextAction": "Obtain matching backup identity securely, inspect exact-head CI; resume Cloud-1 only with full green CI and successful backup restoration/rehearsal. K12 diagnosis continues separately."
     }
   ],
   "approvedScopeTransfers": [
