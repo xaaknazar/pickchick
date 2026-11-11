@@ -31,6 +31,11 @@ export interface FulfillmentWorkerOptions {
   /** 4 adds back-office stop commands (edge schema019 and worker grants required). Default 2. */
   protocolVersion?: 2 | 4;
   /**
+   * Acceptance events carry the order's kitchen task list, so the customer app can show the
+   * assembly stage. Enable only after the cloud API that reads it is installed. Default off.
+   */
+  taskList?: boolean;
+  /**
    * Cashier backup attention from the local health record of the scheduled backup (only while
    * the last verified copy is too old). Absent or malformed: the heartbeat is unchanged.
    */
@@ -530,7 +535,7 @@ export async function syncFulfillmentOnce(
       );
     }
   };
-  const repo = new EdgeFulfillment(pool);
+  const repo = new EdgeFulfillment(pool, { reportTaskList: options.taskList === true });
   try {
     // A blocked admission must not block its own stop-list recovery.
     if (acquired.pending_cloud !== null) {

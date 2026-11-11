@@ -64,6 +64,7 @@ async function fulfillmentLoop() {
         origin,
         identity: await identity(),
         ...(protocolVersion === 4 ? { protocolVersion } : {}),
+        ...(process.env.FULFILLMENT_TRANSPORT_TASK_LIST === '1' ? { taskList: true } : {}),
       });
       if (!['idle', 'busy', 'disabled'].includes(result.state))
         log({ event: 'fulfillment_transport', ...result });

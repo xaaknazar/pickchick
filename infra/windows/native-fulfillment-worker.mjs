@@ -42,6 +42,13 @@ export function workerProtocolVersion(env = process.env) {
   if (value === '4') return 4;
   throw new Error('FULFILLMENT_TRANSPORT_PROTOCOL must be 2 or 4');
 }
+/** FULFILLMENT_TRANSPORT_TASK_LIST=1: acceptance carries the task list (cloud must read it first). */
+export function workerTaskList(env = process.env) {
+  const value = env.FULFILLMENT_TRANSPORT_TASK_LIST ?? '0';
+  if (value === '0') return false;
+  if (value === '1') return true;
+  throw new Error('FULFILLMENT_TRANSPORT_TASK_LIST must be 0 or 1');
+}
 export { readWindowsIdentity } from './native-pos-sync-worker.mjs';
 import { readWindowsIdentity } from './native-pos-sync-worker.mjs';
 
@@ -132,7 +139,8 @@ async function main() {
   ]);
   const config = loadConfig('edge'),
     origin = process.env.EDGE_FULFILLMENT_CLOUD_ORIGIN,
-    protocolVersion = workerProtocolVersion();
+    protocolVersion = workerProtocolVersion(),
+    taskList = workerTaskList();
   validateWorkerConfig(config, origin, branchId, deviceId);
   await promisify(execFile)(
     join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
@@ -191,6 +199,7 @@ async function main() {
           origin,
           identity,
           ...(protocolVersion === 4 ? { protocolVersion } : {}),
+          ...(taskList ? { taskList } : {}),
           ...(edgeBackup ? { edgeBackup } : {}),
         });
         if (once || !['idle', 'busy', 'disabled'].includes(result.state))

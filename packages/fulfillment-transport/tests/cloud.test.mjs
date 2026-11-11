@@ -707,3 +707,73 @@ test('edge stop projection is device-bound, monotonic and never renews stale rep
     assert.deepEqual(after.stopped_ids, []);
     assert.equal(after.fresh, true);
   }));
+
+test('opt-in task list on acceptance lets the customer view show assembly after the last station', () =>
+  fixture(async (f) => {
+    const { EdgeFulfillment } = await import('@pickchick/edge-fulfillment');
+    const { readCheckoutOrder } = await import('../../commerce-core/dist/order-view.js');
+    const stage = async (orderId) =>
+      (await readCheckoutOrder(f.pool, f.commerce, f.scope, orderId)).kitchenStage;
+    const deliver = async (orderId) => {
+      for (const e of await f.events(orderId)) await receiveFulfillment(f.pool, f.auth, e);
+    };
+    const prepDone = async (repo) => {
+      const value = await f.reserve();
+      await f.confirm(value);
+      await f.issue(value);
+      const delivery = (await f.pull()).event;
+      assert.equal(delivery.command.type, 'edge.kitchen_admission_requested');
+      const accepted = await repo.acceptCloud(f.edge.scope, delivery.command);
+      await f.ack(delivery);
+      await deliver(value.orderId);
+      const before = await stage(value.orderId);
+      await f.edge.act(accepted, 'complete_station', f.edge.cook, { stationId: f.edge.prep });
+      await deliver(value.orderId);
+      return { orderId: value.orderId, before, after: await stage(value.orderId) };
+    };
+
+    // Old edge: the cloud cannot know the remaining stations; prep done still reads as cooking.
+    const legacy = await prepDone(f.edge.repo);
+    assert.deepEqual([legacy.before, legacy.after], ['cooking', 'cooking']);
+    const legacyAccepted = (await f.events(legacy.orderId)).find(
+      (e) => e.type === 'edge.fulfillment_accepted',
+    );
+    assert.equal(legacyAccepted.payload.tasks, undefined);
+
+    // Task list on acceptance: queued rows are known up front, prep done means assembly.
+    const listed = await prepDone(new EdgeFulfillment(f.edge.pool, { reportTaskList: true }));
+    assert.deepEqual([listed.before, listed.after], ['cooking', 'assembly']);
+    const acceptance = (await f.events(listed.orderId)).find(
+      (e) => e.type === 'edge.fulfillment_accepted',
+    );
+    assert.equal(acceptance.payload.tasks.length, 1);
+    assert.equal(acceptance.payload.tasks[0].stationId, f.edge.prep);
+    const rows = (
+      await f.pool.query(
+        'SELECT state,version FROM cloud_fulfillment_observed_tasks WHERE order_id=$1',
+        [listed.orderId],
+      )
+    ).rows;
+    assert.deepEqual(rows, [{ state: 'done', version: 3 }]);
+
+    // Replays and reversed delivery converge; a list cannot move a task to another station.
+    const events = await f.events(listed.orderId);
+    for (const e of events.toReversed()) await receiveFulfillment(f.pool, f.auth, e);
+    assert.equal(await stage(listed.orderId), 'assembly');
+    const forged = {
+      ...acceptance,
+      eventId: randomUUID(),
+      payload: {
+        ...acceptance.payload,
+        tasks: [{ ...acceptance.payload.tasks[0], stationId: randomUUID() }],
+      },
+    };
+    await assert.rejects(receiveFulfillment(f.pool, f.auth, forged), code('CONFLICT'));
+    await assert.rejects(
+      receiveFulfillment(f.pool, f.auth, {
+        ...events.at(-1),
+        payload: { ...events.at(-1).payload, tasks: acceptance.payload.tasks },
+      }),
+      code('INVALID_REQUEST'),
+    );
+  }));
