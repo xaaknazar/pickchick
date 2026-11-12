@@ -7817,9 +7817,11 @@
         "tests/mobile/android-ux.test.mjs",
         "docs/operations/pick-box-1112"
       ],
-      "status": "active",
-      "head": "786c8d29e7009017b35dec72dd7196cb5820aa6e",
-      "updatedAt": "2026-11-12T13:20:29.152Z"
+      "status": "available",
+      "head": "6e4f41a32cad54d2d2caf0c17aa155d81c74f2f6",
+      "updatedAt": "2026-11-12T13:26:26.103Z",
+      "summary": "Pick Box 2D implemented and pushed at 6e4f41a3, PR368. 599 Node +96 Python mobile tests, bundles and browser gameplay pass; iPhone simulator build/runtime and independent visual fixes verified. Evidence in docs/operations/pick-box-1112.md. Foundation CI pending; no stores or online roadmap deployment.",
+      "nextAction": "Review CI, physical iPhone/Android and large-text acceptance, Kazakh proofread; then integrate with current mobile branch and prepare separately authorized store release. Merge roadmap task into newer live facts before publishing dashboard."
     }
   ],
   "approvedScopeTransfers": [
