@@ -930,8 +930,9 @@ function draw() {
     sum: money(o.snapshot.total_minor),
     pay: o.execution_mode === 'pos_sale' ? 'Оплачен' : 'Без оплаты',
     status: kitchenLabel(o),
-    stBg: o.fulfillment_state === 'ready' ? '#DCF2E4' : 'var(--n100)',
-    stFg: o.fulfillment_state === 'ready' ? '#0B7A3B' : 'var(--n900)',
+    // Ready for pickup must jump out of the list: solid green, white text.
+    stBg: o.fulfillment_state === 'ready' ? '#12833F' : 'var(--n100)',
+    stFg: o.fulfillment_state === 'ready' ? '#fff' : 'var(--n900)',
     // Paid mode: the Webkassa state of the sale receipt (CR client-5), "-" until it is read;
     // an unpaid row and today's cashier "без чека".
     ...(paid
