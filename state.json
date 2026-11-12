@@ -7793,6 +7793,32 @@
       "updatedAt": "2026-11-12T11:35:07.784Z",
       "summary": "Подготовка окна сохранена в PR364. RC-edge36e1dbe6 SHA256138c9331,8123 файла PASS; packager7/7,Foundation43202325943 11/11,Offline43208223740 10/10 PASS. Живое окно НЕ начато: нет SSD, установщика028, оператор025 ledger25/28, SSH timeout. Пароли/службы/БД/флаги/POS не менялись.",
       "nextAction": "Нужны отдельный физический SSD и ключ, рабочий доступ на точку, исправленный025 с WindowsPS5.1 и проверенный установщик028. Затем свежий кандидат/CI, резервWindows, backup020+restore, вся лестница с копиями и часовой cloud receipt. Не ставить POS-sync/KitchenLAN clients; 072-077 не повторять."
+    },
+    {
+      "id": "pick-box-1112",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pick-box",
+      "scopes": [
+        "apps/mobile/src/games/pick-box",
+        "apps/mobile/assets/games/pick-box",
+        "apps/mobile/src/app/games/pick-box.tsx",
+        "apps/mobile/src/app/_layout.tsx",
+        "apps/mobile/src/screens/GameScreens.tsx",
+        "apps/mobile/package.json",
+        "pnpm-lock.yaml",
+        "tests/mobile/pick-box.test.mjs",
+        "tests/mobile/browser_pick_box.py",
+        "docs/design/pick-box.md",
+        "docs/operations/pick-box-1112.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap",
+        "scripts/mobile/pick-box-assets.py"
+      ],
+      "status": "active",
+      "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
+      "updatedAt": "2026-11-12T12:31:24.818Z"
     }
   ],
   "approvedScopeTransfers": [
