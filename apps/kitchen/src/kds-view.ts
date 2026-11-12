@@ -48,8 +48,21 @@ export function plural(n: number, forms: readonly [string, string, string]) {
 }
 export const deliveryLabel = (d: Delivery) =>
   `ДОСТАВКА · ${providerName[d.provider]} ${d.externalNumber}`;
+/** The same label as markup: the courier number never breaks at its hyphen. */
+const deliveryChip = (d: Delivery) =>
+  `ДОСТАВКА · ${escape(providerName[d.provider])} <span class="nowrap">${escape(d.externalNumber)}</span>`;
 const modeLabel = (o: { serviceMode: Order['serviceMode']; delivery?: Delivery }) =>
   o.delivery ? deliveryLabel(o.delivery) : o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ';
+/** Chip colour: hall, takeaway and delivery read apart at a glance. */
+export const modeClass = (o: { serviceMode: Order['serviceMode']; delivery?: Delivery }) =>
+  'mode ' + (o.delivery ? 'mode-delivery' : 'mode-' + o.serviceMode);
+/** Minutes a ticket may wait before its head turns amber, then red. */
+export const WAIT_WARN_MINUTES = 7;
+export const WAIT_LATE_MINUTES = 12;
+export function waitClass(createdAt: string | undefined, now: number) {
+  const age = (now - Date.parse(createdAt ?? '')) / 60000;
+  return age >= WAIT_LATE_MINUTES ? 'wait-late' : age >= WAIT_WARN_MINUTES ? 'wait-warn' : '';
+}
 const open = (t: Task) => t.state === 'queued' || t.state === 'in_progress';
 /** Orders the regular ticket view shows as today: stopping, or held for the restore review. */
 const special = (o: Order) =>
@@ -112,14 +125,15 @@ function head(
   o: { displayNumber: string | null; serviceMode: Order['serviceMode']; delivery?: Delivery },
   age: string,
   status = '',
+  wait = '',
 ) {
-  return `<div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode${o.delivery ? ' mode-delivery' : ''}">${escape(modeLabel(o))}</span></div><div class="age"><strong>${escape(age)}</strong>${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
+  return `<div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="${modeClass(o)}">${o.delivery ? deliveryChip(o.delivery) : escape(modeLabel(o))}</span></div><div class="age"><strong>${escape(age)}</strong>${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
 }
 const minutes = (from: string, now: number) =>
   `${Math.max(0, Math.floor((now - Date.parse(from)) / 60000))} мин`;
-function line(t: Task, extra = '') {
+function line(t: Task, extra = '', orderComment = '') {
   const d = t.details;
-  return `<section class="line kds-line"><span class="quantity">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.description ? `<p class="description">${escape(d.description)}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
+  return `<section class="line kds-line"><span class="quantity${d.quantity > 1 ? ' many' : ''}">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.description && d.description !== orderComment ? `<p class="description">${escape(d.description)}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
 }
 const comment = (o: Order) =>
   o.kitchenComment
@@ -153,7 +167,7 @@ function breadingScreen(view: Breading | null, now: number) {
         `<article class="ticket kds-ticket" data-breading="${o.orderId}">${head(o, '')}<div class="lines">${o.lines
           .map(
             (l) =>
-              `<section class="line kds-line"><span class="quantity">${l.quantity}×</span><div class="line-info"><h3>${escape(l.title)}</h3>${l.fingers !== undefined ? `<p class="kds-count">Фингерсов: ${l.fingers}</p>` : ''}</div></section>`,
+              `<section class="line kds-line"><span class="quantity${l.quantity > 1 ? ' many' : ''}">${l.quantity}×</span><div class="line-info"><h3>${escape(l.title)}</h3>${l.fingers !== undefined ? `<p class="kds-count">Фингерсов: ${l.fingers}</p>` : ''}</div></section>`,
           )
           .join(
             '',
@@ -180,11 +194,12 @@ function toastsScreen(input: KdsScreenInput, visible: Order[]) {
       if (special(o)) return input.ticket(o);
       const own = o.tasks.filter((t) => t.stationId === input.stationId && open(t));
       const a = input.actions(o).find((x) => x.action === 'complete_station');
-      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
+      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), '', waitClass(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
         .map((t) =>
           line(
             t,
             `${t.details.kds?.units !== undefined && (t.details.kds.unit || t.details.kds.units !== t.details.quantity) ? `<p class="kds-count">${t.details.kds.unit === 'burger' ? 'Бургеров' : t.details.kds.unit === 'toast' ? 'Тостов' : 'Штук'}: ${t.details.kds.units}</p>` : ''}<p class="task-state">Отдать: ${escape(stationName(input.stations, t.details.kds?.upstreamOf))}</p>`,
+            o.kitchenComment,
           ),
         )
         .join(
@@ -206,7 +221,7 @@ function tableScreen(input: KdsScreenInput, visible: Order[]) {
       const upstream = o.tasks.filter((t) => t.details.kds?.upstreamOf === input.stationId);
       const issue = o.tasks.some((t) => t.details.kds?.function === 'issue');
       const a = input.actions(o).find((x) => x.action === 'complete_station');
-      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
+      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), '', waitClass(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
         .map((t) => {
           const toast = upstream.find(
             (u) =>
@@ -223,6 +238,7 @@ function tableScreen(input: KdsScreenInput, visible: Order[]) {
           return line(
             t,
             `${t.details.kds?.fingers !== undefined ? `<p class="kds-count">Фингерсов: ${t.details.kds.fingers}</p>` : ''}${state}`,
+            o.kitchenComment,
           );
         })
         .join(
@@ -244,7 +260,15 @@ function issueScreen(input: KdsScreenInput, visible: Order[]) {
     const hall = o.assemblyStationId === input.stationId;
     const done = o.tasks.every((t) => t.stationId === input.stationId || t.state === 'done');
     const prepare = own.length
-      ? `<div class="kds-block"><h4>Подготовить на выдаче: напитки, соусы</h4><div class="lines">${own.map((t) => line(t, t.state === 'done' ? '<p class="kds-chip kds-chip-done">Готово ✓</p>' : '')).join('')}</div></div>`
+      ? `<div class="kds-block"><h4>Подготовить на выдаче: напитки, соусы</h4><div class="lines">${own
+          .map((t) =>
+            line(
+              t,
+              t.state === 'done' ? '<p class="kds-chip kds-chip-done">Готово ✓</p>' : '',
+              o.kitchenComment,
+            ),
+          )
+          .join('')}</div></div>`
       : '';
     const table = hall
       ? `<div class="kds-block"><h4>${done ? 'Сборка: собран ✓' : 'Сборка: собирается'}</h4><p class="kds-compact">${assembly.map((t) => `${t.details.quantity}× ${escape(t.details.title)}`).join(' · ') || '-'}</p></div>`
@@ -262,7 +286,7 @@ function issueScreen(input: KdsScreenInput, visible: Order[]) {
         ? command(o, a, 'Готов - позвать гостя', input.blocked(o))
         : '<p>Ждём сборку со стола</p>';
     }
-    return `<article class="ticket kds-ticket${o.state === 'ready' ? ' kds-ready' : ''}" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), o.state === 'ready' ? 'Готов к выдаче' : '')}${comment(o)}${prepare}${table}<div class="ticket-actions">${buttons}</div></article>`;
+    return `<article class="ticket kds-ticket${o.state === 'ready' ? ' kds-ready' : ''}" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), o.state === 'ready' ? 'Готов к выдаче' : '', o.state === 'ready' ? '' : waitClass(o.createdAt, input.now))}${comment(o)}${prepare}${table}<div class="ticket-actions">${buttons}</div></article>`;
   };
   const preparing = visible.filter((o) => o.state !== 'ready');
   const ready = visible.filter((o) => o.state === 'ready');

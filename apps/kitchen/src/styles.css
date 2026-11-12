@@ -70,30 +70,25 @@ input:focus-visible {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(1100px 640px at 6% -10%, #0047bb12, transparent 62%),
-    linear-gradient(#e2e8f2f5, #dbe2eff7),
-    url('/bg-blue.png') center/cover;
+  /* Plain, calm field: tickets are the only thing on screen that asks for attention. */
+  background: #e6ebf3;
 }
 header {
   flex: none;
-  min-height: 130px;
+  min-height: 84px;
   display: flex;
   align-items: center;
-  gap: 26px;
-  padding: 18px 40px;
+  gap: 20px;
+  padding: 10px 32px;
   color: #fff;
   border-bottom: 3px solid var(--orange);
-  background:
-    radial-gradient(800px 280px at 6% 120%, #ff671f38, transparent 60%),
-    linear-gradient(90deg, #002c7cf7, #00184cfc),
-    url('/bg-blue.png') center/1400px auto;
+  background: linear-gradient(90deg, #002c7c, #00184c);
 }
 .brand {
-  width: 78px;
-  height: 78px;
+  width: 58px;
+  height: 58px;
   flex: none;
-  border-radius: 22px;
+  border-radius: 16px;
   overflow: hidden;
 }
 .brand img {
@@ -109,51 +104,63 @@ header {
 h1 {
   font-family: Montserrat, Golos, sans-serif;
   font-weight: 800;
-  font-size: 32px;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
   margin: 0;
   overflow-wrap: anywhere;
 }
 header p {
-  font-size: 19px;
+  font-size: 16px;
   color: #ffffffc7;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
 }
 .stat {
-  padding: 14px 22px;
-  border: 1px solid #ffffff1a;
-  background: #ffffff0f;
-  border-radius: 20px;
-  min-width: 150px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  border: 1px solid #ffffff26;
+  background: #ffffff12;
+  border-radius: 16px;
 }
 .stat span {
   display: block;
-  font-size: 14px;
+  max-width: 124px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #ffffffa8;
+  line-height: 1.25;
+  letter-spacing: 0.08em;
+  color: #ffffffb8;
 }
 .stat strong {
   font:
-    800 34px Montserrat,
+    800 34px/1 Montserrat,
     Golos,
     sans-serif;
 }
+/* Orders past the red threshold: the header says it before anyone reads a ticket. */
+.stat-late {
+  background: #c62828;
+  border-color: #ff8a80;
+}
+.stat-late span {
+  color: #fff;
+}
 time {
   font:
-    800 44px Montserrat,
+    800 40px Montserrat,
     Golos,
     sans-serif;
-  margin-left: 10px;
+  margin-left: 6px;
 }
 nav {
   flex: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 14px 40px;
+  padding: 10px 32px;
   border-bottom: 1px solid #cad3e3;
   background: #f4f6fb;
 }
@@ -165,15 +172,16 @@ nav button[aria-pressed='true'] {
 .station-switcher {
   display: flex;
   flex-wrap: wrap;
-  flex-basis: 100%;
-  gap: 12px;
+  flex: 1 1 440px;
+  order: -1;
+  gap: 10px;
   max-height: 180px;
   overflow: auto;
 }
 .station-button {
-  flex: 1 1 220px;
+  flex: 1 1 200px;
   min-width: 0;
-  min-height: 76px;
+  min-height: 72px;
   max-width: 420px;
   display: flex;
   flex-direction: column;
@@ -200,7 +208,8 @@ nav button[aria-pressed='true'] {
   flex: 1;
   text-align: right;
   font-size: 14px;
-  color: #35674f;
+  font-weight: 600;
+  color: #2e6b4a;
 }
 .connection.offline {
   color: #9b350a;
@@ -289,14 +298,14 @@ nav button[aria-pressed='true'] {
 .tickets {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 22px;
-  padding: 26px 40px;
+  gap: 20px;
+  padding: 20px 32px;
   align-items: start;
 }
 .ticket {
-  border-radius: 26px;
-  border: 3px solid #d8e0ed;
-  box-shadow: 0 10px 26px #0e152424;
+  border-radius: 22px;
+  border: 3px solid #d3dcea;
+  box-shadow: 0 4px 14px #0e15241f;
   background: #fff;
   overflow: hidden;
   min-width: 0;
@@ -305,16 +314,16 @@ nav button[aria-pressed='true'] {
   border-color: var(--orange);
 }
 .ticket-head {
-  padding: 18px 22px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   background: #f0f4fc;
   border-bottom: 1px solid #e1e7f2;
 }
 .number {
   font:
-    800 46px/1 Montserrat,
+    800 54px/1 Montserrat,
     Golos,
     sans-serif;
   letter-spacing: -0.02em;
@@ -324,11 +333,12 @@ nav button[aria-pressed='true'] {
 }
 .mode {
   display: inline-block;
-  padding: 6px 10px;
-  border-radius: 14px;
+  padding: 6px 12px;
+  border-radius: 12px;
   background: #dce7ff;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   color: var(--blue);
 }
@@ -343,11 +353,34 @@ nav button[aria-pressed='true'] {
   min-width: 0;
 }
 .age strong {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
   font:
-    800 22px Montserrat,
+    800 24px Montserrat,
     Golos,
     sans-serif;
   white-space: nowrap;
+}
+/* Waiting time: amber from 7 minutes, red from 12 (WAIT_*_MINUTES in kds-view.ts). */
+.wait-warn {
+  background: #fff3cd;
+  border-bottom-color: #f2d27a;
+}
+.wait-warn .age strong {
+  background: #f5b400;
+  color: #2b1d00;
+}
+.wait-late {
+  background: #ffe1de;
+  border-bottom-color: #f3a39b;
+}
+.wait-late .age strong {
+  background: #c62828;
+  color: #fff;
+}
+.ticket:has(> .wait-late) {
+  border-color: #e05a4f;
 }
 .age small {
   display: block;
@@ -373,17 +406,22 @@ nav button[aria-pressed='true'] {
   border-radius: 10px;
   background: #eef2f9;
   font:
-    700 19px Montserrat,
+    800 21px Montserrat,
     Golos,
     sans-serif;
   flex: none;
+}
+/* Two or more of one item: a cook must not miss it. */
+.quantity.many {
+  background: var(--orange);
+  color: #fff;
 }
 .line-info {
   min-width: 0;
   flex: 1;
 }
 .line h3 {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.2;
   margin: 0;
   overflow-wrap: anywhere;
@@ -452,7 +490,7 @@ nav button[aria-pressed='true'] {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 10px 40px;
+  padding: 6px 32px;
   background: #f4f6fb;
   border-top: 1px solid #cad3e3;
 }
@@ -556,7 +594,7 @@ nav button[aria-pressed='true'] {
 }
 .board h2 {
   font:
-    800 30px Montserrat,
+    800 40px Montserrat,
     Golos,
     sans-serif;
   letter-spacing: 0.1em;
@@ -565,9 +603,7 @@ nav button[aria-pressed='true'] {
 }
 .board .ready {
   color: white;
-  background:
-    linear-gradient(#00286ec7, #001a50ed),
-    url('/bg-blue.png') center/cover;
+  background: linear-gradient(#00286e, #001a50);
 }
 .board .ready h2 {
   color: var(--orange);
@@ -577,17 +613,25 @@ nav button[aria-pressed='true'] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
+.board .numbers {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.board .ready .numbers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .numbers article {
   border-radius: 26px;
   background: white;
   border: 2px solid #e3e9f5;
-  padding: 28px;
+  padding: 24px 16px;
   min-width: 0;
+  text-align: center;
   box-shadow: 0 6px 18px #0e15240f;
 }
 .numbers strong {
+  display: block;
   font:
-    800 clamp(42px, 4.5vw, 88px)/1.1 Montserrat,
+    800 clamp(48px, 6vw, 132px)/1.05 Montserrat,
     Golos,
     sans-serif;
   letter-spacing: -0.02em;
@@ -598,47 +642,46 @@ nav button[aria-pressed='true'] {
   color: var(--orange);
 }
 .take-hint {
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1.5;
   color: #ffffffb8;
   margin-top: 30px;
 }
 @media (max-width: 1500px) {
   header {
-    gap: 18px;
-    padding: 16px 26px;
+    gap: 14px;
+    padding: 8px 24px;
   }
   h1 {
-    font-size: 27px;
+    font-size: 26px;
   }
   .stat {
-    padding: 12px 16px;
-    min-width: 120px;
+    padding: 6px 14px;
   }
   time {
-    font-size: 36px;
+    font-size: 34px;
   }
   .tickets {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: 22px 26px;
-    gap: 18px;
+    padding: 18px 24px;
+    gap: 16px;
   }
   .ticket-head {
-    padding: 16px;
+    padding: 12px 14px;
   }
   .lines {
-    padding: 16px;
+    padding: 14px 16px;
   }
   .number {
-    font-size: 40px;
+    font-size: 46px;
   }
   .age strong {
-    font-size: 19px;
+    font-size: 21px;
   }
   nav,
   .pagination {
-    padding-left: 26px;
-    padding-right: 26px;
+    padding-left: 24px;
+    padding-right: 24px;
   }
   nav {
     gap: 8px;
@@ -753,7 +796,7 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
 }
 
 .numbers strong.long-number {
-  font-size: clamp(26px, 2.2vw, 42px);
+  font-size: clamp(30px, 3vw, 64px);
 }
 
 .description {
@@ -1023,21 +1066,22 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
   border-top: 4px solid #e5742b;
 }
 .order-note {
-  margin: 10px 14px 0;
-  border-left: 3px solid #ecad3c;
-  padding: 9px 10px;
-  background: #fff7e5;
-  border-radius: 4px 8px 8px 4px;
+  margin: 12px 16px 0;
+  border-left: 6px solid #f5a300;
+  padding: 10px 14px;
+  background: #fff4c7;
+  border-radius: 6px 12px 12px 6px;
 }
 .order-note strong {
-  color: #7e5714;
-  font-size: 11px;
+  color: #6b4a00;
+  font-size: 13px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 .order-note p {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2b1d00;
   line-height: 1.4;
   margin: 4px 0 0;
   overflow-wrap: anywhere;
@@ -1395,6 +1439,13 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.courier-filter input::placeholder {
+  font-size: 24px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #8a96a8;
+}
 .courier-filter button {
   min-height: 72px;
 }
@@ -1525,4 +1576,30 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
   .kds-columns {
     grid-template-columns: 1fr;
   }
+}
+/* Readability pass 12.11: ready column reads green, guest board stays legible on narrow screens. */
+.kds-column[data-column='ready'] h2 {
+  color: #1d6b3f;
+}
+.kds-ready .ticket-head {
+  background: #e3f5ea;
+}
+@media (max-width: 1000px) {
+  .board .numbers,
+  .board .ready .numbers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.nowrap {
+  white-space: nowrap;
+}
+/* The order number never breaks; the mode chip takes the remaining width and wraps by words. */
+.ticket-head .number {
+  flex: none;
+  max-width: none;
+  white-space: nowrap;
+}
+.ticket-head > div:not(.age) {
+  flex: 1;
+  min-width: 0;
 }

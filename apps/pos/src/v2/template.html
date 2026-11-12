@@ -5677,7 +5677,9 @@
           <div class="ops-column">
             <sc-if value="{{ opsCardView }}" hint-placeholder-val="{{ true }}">
               <sc-if value="{{ opsCardCanVoid }}" hint-placeholder-val="{{ false }}">
-                <div onClick="{{ opsCardVoidPick }}" class="sale-button">Отменить заказ</div>
+                <div onClick="{{ opsCardVoidPick }}" class="sale-button ops-danger">
+                  Отменить заказ
+                </div>
               </sc-if>
               <sc-if value="{{ opsCardCanRefund }}" hint-placeholder-val="{{ false }}">
                 <div onClick="{{ opsCardRefundPick }}" class="sale-button">Возврат</div>
