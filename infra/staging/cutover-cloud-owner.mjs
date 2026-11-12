@@ -946,9 +946,65 @@ const installed = (text, expected) =>
     'Installed compose differs from the reviewed hash',
   );
 
+// The installed 6630eb0f release is Docker's resolved JSON, with no provision service.
+// Accept that explicit shape as well as the historical YAML. Canonical JSON is required:
+// parsing must not silently discard duplicate keys or change numeric/string representations.
+const serializeCompose = (value) => JSON.stringify(value, null, 2) + '\n';
+function resolvedCompose(text) {
+  if (!text.trimStart().startsWith('{')) return null;
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new OwnerGuardError('Invalid resolved compose JSON');
+  }
+  guard(serializeCompose(value) === text, 'Resolved compose must be canonical JSON');
+  const services = value.services;
+  guard(
+    services && equal(Object.keys(services).sort(), ['api', 'cloud-db', 'redis-cache']),
+    'Unexpected resolved compose services',
+  );
+  const env = services.api?.environment;
+  guard(env && typeof env === 'object' && !Array.isArray(env), 'API environment map required');
+  let url;
+  try {
+    url = new URL(env.CLOUD_DATABASE_URL);
+  } catch {
+    url = null;
+  }
+  guard(
+    ['postgres:', 'postgresql:'].includes(url?.protocol) &&
+      url.username === API_ROLE &&
+      url.hostname === 'cloud-db' &&
+      url.pathname === '/pickchick_cloud' &&
+      !url.search &&
+      !url.hash,
+    'Resolved compose API database differs',
+  );
+  return value;
+}
+
+function resolvedFlags(text, add, required = []) {
+  const value = resolvedCompose(text);
+  if (!value) return null;
+  const env = value.services.api.environment;
+  for (const key of required)
+    guard(['false', 'true'].includes(env[key]), 'Required resolved compose flag missing: ' + key);
+  for (const key of add) {
+    guard(!Object.hasOwn(env, key), 'Installed compose already mentions ' + key);
+    env[key] = 'false';
+  }
+  const result = serializeCompose(value);
+  for (const key of add) delete env[key];
+  guard(serializeCompose(value) === text, 'Compose changed more than the flag keys');
+  return result;
+}
+
 /** Installed compose plus the cutover keys, all "false"; nothing else changes. */
 export function composeCandidate(text, expectedSha256) {
   installed(text, expectedSha256);
+  const resolved = resolvedFlags(text, Object.values(COMPOSE_FLAGS));
+  if (resolved !== null) return resolved;
   for (const key of Object.values(COMPOSE_FLAGS))
     guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
   guard(
@@ -976,6 +1032,12 @@ const supplyLines = () =>
  */
 export function composeSupply(text, expectedSha256) {
   installed(text, expectedSha256);
+  const resolved = resolvedFlags(
+    text,
+    Object.values(SUPPLY_COMPOSE).map(({ key }) => key),
+    Object.values(COMPOSE_FLAGS),
+  );
+  if (resolved !== null) return resolved;
   for (const { key } of Object.values(SUPPLY_COMPOSE))
     guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
   for (const key of Object.values(COMPOSE_FLAGS))
@@ -995,6 +1057,11 @@ export function composeSupply(text, expectedSha256) {
  */
 export function composeExpenses(text, expectedSha256) {
   installed(text, expectedSha256);
+  const resolved = resolvedFlags(text, Object.values(EXPENSES_COMPOSE), [
+    ...Object.values(COMPOSE_FLAGS),
+    ...Object.values(SUPPLY_COMPOSE).map(({ key }) => key),
+  ]);
+  if (resolved !== null) return resolved;
   const key = EXPENSES_COMPOSE.expenses;
   guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
   for (const { key: supply } of Object.values(SUPPLY_COMPOSE))
@@ -1022,6 +1089,28 @@ export function composeFlag(text, expectedSha256, flag, enabled) {
     'Invalid flag',
   );
   const key = COMPOSE_FLAGS[flag] ?? SUPPLY_COMPOSE[flag]?.key ?? EXPENSES_COMPOSE[flag];
+  const resolved = resolvedCompose(text);
+  if (resolved) {
+    const env = resolved.services.api.environment;
+    if (flag in SUPPLY_COMPOSE && enabled)
+      guard(
+        env[COMPOSE_FLAGS[SUPPLY_COMPOSE[flag].requires]] === 'true',
+        'Required cutover flag must be enabled first',
+      );
+    if (flag in COMPOSE_FLAGS && !enabled)
+      for (const dependent of Object.values(SUPPLY_COMPOSE))
+        guard(
+          dependent.requires !== flag || env[dependent.key] !== 'true',
+          'Dependent second-wave flag must be disabled first',
+        );
+    const [from, to] = enabled ? ['false', 'true'] : ['true', 'false'];
+    guard(env[key] === from, `${key} is not in the expected state in the installed compose`);
+    env[key] = to;
+    const result = serializeCompose(resolved);
+    env[key] = from;
+    guard(serializeCompose(resolved) === text, 'Compose changed more than the flag key');
+    return result;
+  }
   if (flag in SUPPLY_COMPOSE && enabled) {
     const needed = COMPOSE_FLAGS[SUPPLY_COMPOSE[flag].requires];
     guard(text.includes(line(needed, 'true')), `${key} requires ${needed} "true" first`);
