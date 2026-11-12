@@ -101,6 +101,7 @@ function AppLayout() {
                   <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen name="games/pick-man" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen name="games/magic-sort" options={ARCADE_SCREEN_OPTIONS} />
+                  <Stack.Screen name="games/pick-box" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen name="games/pick-farm" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen
                     name="cart"
