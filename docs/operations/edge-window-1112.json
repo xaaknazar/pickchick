@@ -29,8 +29,9 @@
   "foundation": {
     "run_id": 43202325943,
     "url": "https://github.com/xaaknazar/pickchick/actions/runs/43202325943",
-    "status": "in_progress",
-    "conclusion": null,
+    "head_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
+    "status": "completed",
+    "conclusion": "success",
     "jobs": [
       {
         "name": "Foundation POS and backoffice integration",
@@ -49,8 +50,8 @@
       },
       {
         "name": "Foundation static checks and transaction invariants",
-        "status": "in_progress",
-        "conclusion": null
+        "status": "completed",
+        "conclusion": "success"
       },
       {
         "name": "Private staging image and restricted database role",
@@ -81,6 +82,11 @@
         "name": "Cloud-edge fulfillment transport and recovery",
         "status": "completed",
         "conclusion": "success"
+      },
+      {
+        "name": "Build, contracts and PostgreSQL integration",
+        "status": "completed",
+        "conclusion": "success"
       }
     ]
   },
@@ -89,7 +95,55 @@
     "url": "https://github.com/xaaknazar/pickchick/actions/runs/43208223740",
     "mode": "ci",
     "head_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
-    "status": "in_progress"
+    "status": "completed",
+    "conclusion": "success",
+    "report_status": "passed",
+    "duration_seconds": 649,
+    "artifact_id": 13939872700,
+    "artifact_sha256": "0e63fbdd4c7862f747c1b0a33a3ba116204f38ea47779c09cd1c879dd86c9fc1",
+    "known_issues": [],
+    "scenarios": [
+      {
+        "id": "baseline",
+        "status": "passed"
+      },
+      {
+        "id": "backlog",
+        "status": "passed"
+      },
+      {
+        "id": "wan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "wan_chaos",
+        "status": "passed"
+      },
+      {
+        "id": "lan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restart",
+        "status": "passed"
+      },
+      {
+        "id": "cloud_restart",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restore",
+        "status": "passed"
+      },
+      {
+        "id": "paid_day",
+        "status": "passed"
+      },
+      {
+        "id": "staff_wan_vs_lan",
+        "status": "passed"
+      }
+    ]
   },
   "blockers": [
     {
