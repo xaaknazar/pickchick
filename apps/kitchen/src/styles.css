@@ -884,6 +884,29 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
   background: #edf3ff;
   color: #254777;
 }
+/* A workplace that was never linked: the form must not look ready to type in. */
+.login .setup-blocked {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #f0c36d;
+  background: #fff6df;
+  color: #5c3d00;
+}
+.login .setup-blocked strong {
+  font-size: 17px;
+}
+.password-login-off label {
+  color: #7b8798;
+}
+.password-login-off input:disabled {
+  border-style: dashed;
+  background: #e6ebf3;
+  color: #7b8798;
+  cursor: not-allowed;
+}
+.password-login-off input:disabled::placeholder {
+  color: #9aa5b5;
+}
 .login .error {
   margin: 14px 0;
 }
@@ -1602,4 +1625,123 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
 .ticket-head > div:not(.age) {
   flex: 1;
   min-width: 0;
+}
+
+/* On-screen keyboard (components/ScreenKeyboard.ts): monoblocks have no keyboard. */
+.screen-keyboard-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px max(10px, calc((100vw - 1180px) / 2)) 12px;
+  border-top: 1px solid #aebbd2;
+  background: #cfd8e8;
+  box-shadow: 0 -6px 18px #0e152426;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.screen-keyboard-panel[hidden],
+.screen-keyboard-launcher[hidden] {
+  display: none;
+}
+.screen-keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.screen-keyboard .screen-key {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 104px;
+  min-height: 58px;
+  padding: 0;
+  border: 1px solid #aab7cf;
+  border-radius: 10px;
+  background: #fff;
+  color: #0e1524;
+  font:
+    600 24px/1 Golos,
+    system-ui,
+    sans-serif;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  -webkit-tap-highlight-color: transparent;
+}
+.screen-keyboard .screen-key:hover:not(:disabled) {
+  background: #fff;
+}
+.screen-keyboard .screen-key-pressed,
+.screen-keyboard .screen-key-pressed:hover:not(:disabled) {
+  background: #c9d8f8;
+}
+.screen-keyboard .screen-key-wide {
+  flex: 1.7 1 0;
+  max-width: 176px;
+  background: #e6edf9;
+  color: #0047bb;
+  font-size: 18px;
+}
+.screen-keyboard .screen-key-wide:hover:not(:disabled) {
+  background: #e6edf9;
+}
+.screen-keyboard .screen-key-space {
+  flex: 6 1 0;
+  max-width: 560px;
+}
+.screen-keyboard .screen-key-enter,
+.screen-keyboard .screen-key-enter:hover:not(:disabled),
+.screen-keyboard .screen-key[aria-pressed='true'],
+.screen-keyboard .screen-key[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.screen-keyboard .screen-key-locked {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 5px;
+}
+.screen-keyboard .screen-keyboard-launcher {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 1px solid #aab7cf;
+  border-radius: 14px;
+  background: #fff;
+  color: #0047bb;
+  font:
+    700 16px/1 Golos,
+    system-ui,
+    sans-serif;
+  box-shadow: 0 6px 18px #0e152426;
+}
+/* While the keys are shown the page ends above them, so nothing is typed or tapped blind. */
+html.screen-keyboard-open #app {
+  height: calc(100dvh - var(--screen-keyboard-height, 0px));
+}
+html.screen-keyboard-open .login {
+  place-items: safe center;
+}
+/* Only the dialog that holds the keys makes room for them; any other dialog stays centred. */
+html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
+  margin-block: 12px calc(var(--screen-keyboard-height, 0px) + 12px);
+  max-height: calc(100dvh - var(--screen-keyboard-height, 0px) - 24px);
+}
+@media (max-height: 720px) {
+  .screen-keyboard-panel {
+    gap: 4px;
+    padding-block: 6px 8px;
+  }
+  .screen-keyboard .screen-key {
+    min-height: 48px;
+    font-size: 20px;
+  }
 }

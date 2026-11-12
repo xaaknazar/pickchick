@@ -1,5 +1,6 @@
 import { openRestoreReview } from './restore-review.js';
 import { passwordReset } from './components/PasswordReset.js';
+import { installScreenKeyboard } from './components/ScreenKeyboard.js';
 import { TerminalAccess } from './terminal-access.js';
 import { terminalPairing } from './components/TerminalPairing.js';
 import { DisplayAccess } from './components/DisplayAccess.js';
@@ -157,12 +158,34 @@ function addBack() {
   };
   root.querySelector('main section')?.append(back);
 }
+/**
+ * Pairing forms are rebuilt on every render, and a paired screen redraws every 5 s. What the
+ * person has half typed and the caret stay, so a one-time code can be typed on the screen keys.
+ * A submitted code is emptied by the form itself, so nothing is carried after a submit.
+ */
+function replaceKeepingField(id: string, view: HTMLElement) {
+  const old = root.querySelector<HTMLInputElement>('#' + id);
+  const value = old?.value ?? '';
+  const caret =
+    old && document.activeElement === old
+      ? ([old.selectionStart, old.selectionEnd] as const)
+      : null;
+  root.replaceChildren(view);
+  const input = root.querySelector<HTMLInputElement>('#' + id);
+  if (!input) return;
+  if (value && !input.value) input.value = value;
+  if (caret && !input.disabled) {
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(caret[0], caret[1]);
+  }
+}
 function render() {
   if (configLoaded && cloudMode) {
     terminalId = terminalAccess.terminalId ?? terminalId;
     if (!model.state.screenPaired) {
       const mode = (portalMode ?? 'prep') as 'prep' | 'assembly' | 'display';
-      root.replaceChildren(
+      replaceKeepingField(
+        'cloud-code',
         cloudPairing({
           mode,
           branch,
@@ -177,14 +200,14 @@ function render() {
     }
     // The cashier stream is optional: it needs the existing edge pairing and a cook login.
     if (cookLogin && !model.state.actor && terminalAccess.enabled && !terminalAccess.paired) {
-      root.replaceChildren(terminalPairing(terminalAccess, branch));
+      replaceKeepingField('terminal-code', terminalPairing(terminalAccess, branch));
       addBack();
       return;
     }
   } else if (configLoaded && terminalAccess.enabled) {
     terminalId = terminalAccess.terminalId;
     if (!terminalAccess.paired) {
-      root.replaceChildren(terminalPairing(terminalAccess, branch));
+      replaceKeepingField('terminal-code', terminalPairing(terminalAccess, branch));
       return;
     }
     if (terminalAccess.mode === 'display') {
@@ -243,15 +266,35 @@ function render() {
   if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
+    // The fields stay open while a request runs (a paired screen polls every 5 s): switching them
+    // off would drop the focus and the caret under the cook's finger. Only the buttons wait.
+    const fieldsOff = !terminalId ? ' disabled' : '';
+    // The form is rebuilt on every render. What the person has typed, the field with the caret
+    // and the "show password" choice are carried over, so a redraw never eats a half-typed
+    // password. The password is read from the old field and written to the new one right here;
+    // it is not kept anywhere else, and a submit still clears it before the request.
+    const typedField = root.querySelector<HTMLInputElement>('#staff-password');
+    const typed = typedField
+      ? { value: typedField.value, shown: typedField.type === 'text' }
+      : null;
+    const caret =
+      document.activeElement instanceof HTMLInputElement &&
+      ['staff-login', 'staff-password'].includes(document.activeElement.id)
+        ? {
+            id: document.activeElement.id,
+            start: document.activeElement.selectionStart,
+            end: document.activeElement.selectionEnd,
+          }
+        : null;
     root.innerHTML =
       header +
       `<main class="login"><section>
       <span class="login-eyebrow">РАБОЧИЙ ЭКРАН PICK CHICK</span><h2>Вход на кухню</h2><p>Войдите под своим логином. Вам будут доступны назначенные станции приготовления, сборки и выдачи.</p>
       ${s.error ? `<p class="error" role="alert">${escape(errors[s.error] ?? 'Не удалось подключиться. Проверьте доступ и локальный узел.')}</p>` : ''}
-      ${!configLoaded ? '<p class="setup-notice" role="status">Подключаем рабочее место...</p>' : !terminalId ? '<p class="setup-notice" role="status">Управляющий должен завершить привязку этого терминала перед входом.</p>' : ''}
-      <form id="password-login" class="password-login">
-        <label for="staff-login">Логин</label><input id="staff-login" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escape(loginName)}" placeholder="Ваш логин"${disabled}>
-        <label for="staff-password">Пароль</label><div class="password-field"><input id="staff-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="Введите пароль"${disabled}><button type="button" id="password-toggle" aria-label="Показать пароль" aria-pressed="false"${disabled}>Показать</button></div>
+      ${!configLoaded ? '<p class="setup-notice" role="status">Подключаем рабочее место...</p>' : !terminalId ? '<p class="setup-notice setup-blocked" role="status"><strong>Экран не подключён к серверу ресторана</strong><span>Поля входа выключены, пока этот моноблок не настроен. Сообщите управляющему.</span></p>' : ''}
+      <form id="password-login" class="password-login${configLoaded && !terminalId ? ' password-login-off' : ''}">
+        <label for="staff-login">Логин</label><input id="staff-login" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escape(loginName)}" placeholder="Ваш логин"${fieldsOff}>
+        <label for="staff-password">Пароль</label><div class="password-field"><input id="staff-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="Введите пароль"${fieldsOff}><button type="button" id="password-toggle" aria-label="Показать пароль" aria-pressed="false"${fieldsOff}>Показать</button></div>
         <span id="login-wait" role="status"></span><button class="login-submit" id="sign-in" type="submit"${disabled}>Войти</button>
       </form><p class="muted">Логин и первый пароль выдаёт управляющий. Используйте свою учётную запись.</p>
       <details class="login-service"${serviceOpen ? ' open' : ''}><summary>Обслуживание терминала</summary><p>Вход по файлу для оператора.</p><label class="file">Выбрать файл доступа<input id="credential" type="file" accept="application/json,.json" ${s.busy ? 'disabled' : ''}></label></details>
@@ -264,6 +307,9 @@ function render() {
       reset.onclick = () =>
         passwordReset(terminalId!, () => {
           loginName = 'kitchen';
+          // The old password must not be carried into the form for the new one.
+          const old = root.querySelector<HTMLInputElement>('#staff-password');
+          if (old) old.value = '';
           render();
           document.querySelector<HTMLInputElement>('#staff-password')?.focus();
         });
@@ -272,14 +318,17 @@ function render() {
     document.getElementById('staff-login')?.addEventListener('input', (event) => {
       loginName = (event.target as HTMLInputElement).value;
     });
-    document.getElementById('password-toggle')?.addEventListener('click', () => {
+    const showPassword = (show: boolean) => {
       const input = document.querySelector<HTMLInputElement>('#staff-password')!;
       const button = document.getElementById('password-toggle')!;
-      const show = input.type === 'password';
       input.type = show ? 'text' : 'password';
       button.textContent = show ? 'Скрыть' : 'Показать';
       button.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
       button.setAttribute('aria-pressed', String(show));
+    };
+    document.getElementById('password-toggle')?.addEventListener('click', () => {
+      const input = document.querySelector<HTMLInputElement>('#staff-password')!;
+      showPassword(input.type === 'password');
       input.focus();
     });
     document.getElementById('password-login')?.addEventListener('submit', (event) => {
@@ -294,6 +343,16 @@ function render() {
         if (!model.state.actor) document.getElementById('staff-password')?.focus();
       });
     });
+    const passwordField = root.querySelector<HTMLInputElement>('#staff-password');
+    if (typed && passwordField) {
+      passwordField.value = typed.value;
+      if (typed.shown) showPassword(true);
+    }
+    const focused = caret ? root.querySelector<HTMLInputElement>('#' + caret.id) : null;
+    if (caret && focused && !focused.disabled) {
+      focused.focus({ preventScroll: true });
+      focused.setSelectionRange(caret.start, caret.end);
+    }
     updateLoginWait();
     if (cloudMode) addBack();
     document
@@ -564,6 +623,7 @@ function updateLoginWait() {
   }
 }
 render();
+installScreenKeyboard();
 if (!demo) {
   try {
     const response = await fetch(apiPrefix + '/config.json', {

@@ -62,6 +62,12 @@ export function passwordReset(
   form.onsubmit = (event) => {
     event.preventDefault();
     if (busy) return;
+    // Checked here as well as by `minlength`: the browser applies that rule only to text typed
+    // on a real keyboard, and a kitchen screen types on the on-screen one.
+    if (password.value.length < 12 || password.value.length > 128) {
+      error.textContent = 'Пароль должен быть от 12 до 128 символов.';
+      return;
+    }
     if (password.value !== confirm.value) {
       error.textContent = 'Пароли не совпадают.';
       return;
