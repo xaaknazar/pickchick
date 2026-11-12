@@ -1177,6 +1177,13 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
     assert.match(uninstall, /\$\{ifNot\} \$\{isUpdated\}\n\s+DeleteRegValue /);
     assert.ok(uninstall.includes(`DeleteRegValue ${run} "${runName}"`));
     assert.equal(nsh.split('WriteRegStr').length - 1, 1, 'one registry write');
+    // The silent self-update does not make a deleted desktop shortcut again; the include does.
+    const install = nsh.slice(nsh.indexOf('!macro customInstall'), nsh.indexOf('!macroend'));
+    assert.ok(
+      install.includes(
+        'CreateShortCut "$DESKTOP\\${SHORTCUT_NAME}.lnk" "$INSTDIR\\${APP_EXECUTABLE_FILENAME}"',
+      ),
+    );
     assert.equal(nsh.split('DeleteRegValue').length - 1, 1, 'one registry delete');
     assert.ok(text.includes(`'Programs\\${exe}\\${exe}.exe'`), `${app} path`);
     assert.ok(!text.includes(`'Programs\\${product}\\`), `${app} old path`);
