@@ -1,0 +1,1763 @@
+{
+  "archive-proof-r2.json": {
+    "source_sha": "273aed2a4e98b88b8a396eaf57445753ab9db9af",
+    "compressed_sha256": "f85d6b8f516d85363a3808523665f0335028e2353f8cf9d75003ee27636f79b5",
+    "uncompressed_sha256": "f227d0c5480ba652302f3d377539672533812b2ee1866a617c9a78988a615359",
+    "git_archive_sha256": "f227d0c5480ba652302f3d377539672533812b2ee1866a617c9a78988a615359",
+    "archive_matches_git_bytes": true,
+    "cutover_head": "edb5a937349d6fdcaca00ae5daa49beedf62ba11"
+  },
+  "backup-r2.json": {
+    "service": "Result=success\nExecMainStartTimestamp=Thu 2026-11-12 05:02:11 UTC\nExecMainExitTimestamp=Thu 2026-11-12 05:02:12 UTC\nExecMainStatus=0\nActiveState=inactive\n",
+    "dump": "/opt/pickchick-staging/backups/cloud-20261112T050211Z.dump.age",
+    "bytes": 1893537,
+    "sha256": "11120a0da6b8aeb65916586ffffae13ef495c1910c27f05507ef493a972468ef",
+    "manifest": "/opt/pickchick-staging/backups/cloud-20261112T050211Z.manifest.json.age",
+    "manifest_sha256": "56b3eff14695773f9ac73e2638790c913c2649a08f602447b153ecf0e13a1797",
+    "restore_helper_sha256": "08314b67059081cfaaec016a120769ea2d681315e6382ffcc82026bba13c393c"
+  },
+  "restore-drill-r2.json": {
+    "event": "restore_drill",
+    "mode": "dump",
+    "dump": "cloud-20261112T050211Z.dump.age",
+    "ok": true,
+    "checksum": "verified",
+    "restoreSeconds": 4.8,
+    "migration": "071_cloud_daily_reconciliation.sql",
+    "tables": 186,
+    "rows": 6531,
+    "manifest": "2026-11-12T05:02:11Z",
+    "problems": []
+  },
+  "compose-compatibility-r2.json": {
+    "status": "PREPARED_ONLY",
+    "originalGuard": "Compose database anchors differ",
+    "steps": [
+      {
+        "step": "candidate",
+        "before": "3b6d2f55be5e8dae202de15dfca292b9f33e278c4435befee7ee6623dadd4d4c",
+        "after": "858e2f356fdede2044491768386229d73ad3d11c401ddd593159f2193b79cf0b"
+      },
+      {
+        "step": "supply",
+        "before": "858e2f356fdede2044491768386229d73ad3d11c401ddd593159f2193b79cf0b",
+        "after": "b1dcc72f839fc54125ec8c835a01660f7fe26288d240826cbd27d1506765f5a5"
+      },
+      {
+        "step": "expenses",
+        "before": "b1dcc72f839fc54125ec8c835a01660f7fe26288d240826cbd27d1506765f5a5",
+        "after": "d638ade5363fd366980076ac5895ad34650ed793573798349f9975401c0c6c28"
+      }
+    ],
+    "addedFlags": [
+      "CLOUD_POS_SALES_SYNC_ENABLED",
+      "BACKOFFICE_ROLES_ENABLED",
+      "BACKOFFICE_STOCK_V2_ENABLED",
+      "BACKOFFICE_SALES_REPORT_ENABLED",
+      "CATALOG_AGGREGATOR_PRICES_ENABLED",
+      "BACKOFFICE_POS_DAY_ENABLED",
+      "BACKOFFICE_STOCK_AUTOCONSUME_ENABLED",
+      "BACKOFFICE_MANAGER_SHIFTS_ENABLED",
+      "BACKOFFICE_STAFF_POSITIONS_ENABLED",
+      "BACKOFFICE_DISCOUNTS_ENABLED",
+      "BACKOFFICE_SUPPLY_ENABLED",
+      "BACKOFFICE_STOCK_REPORTS_ENABLED",
+      "BACKOFFICE_STAFF_ASSIGNMENT_ENABLED",
+      "BACKOFFICE_EXPENSES_ENABLED"
+    ],
+    "unrelatedValuesPreserved": true,
+    "expensesRollbackExact": true,
+    "databaseTouched": false,
+    "deployed": false
+  },
+  "candidate-7e312-archive.json": {
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "archive_sha256": "5b4a9244c8235fd17423e47d3b21451269d09f01071f25e5dedda1acc5578ee3",
+    "tar_sha256": "bc54b96f841e9f8b9c258bc873f392b1eb56fd0c6426ef33bdc9be7a208c055d",
+    "bytes": 1956681,
+    "reason": "PR358 installed JSON compatibility; candidate source changed, fresh archive required",
+    "path": "/Users/xaknazar/Documents/ChatGPT/PickChick/.local/cloud-expenses-1112/api-src-7e3120438461cbe561b01a587578060ff2cd9d3b.tar.gz"
+  },
+  "gateway-candidate-r2.json": {
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "base_sha256": "717a9d216fe782a69c7c6ee77a0cdd15b4522c2158e8650fc0885f880b283ba8",
+    "candidate_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+    "added_route_block_sha256": "f1de9d59faa8a9c158b8c4d58d9a3f417d26533a788c22c1be8e0f9efc7839e2",
+    "only_exact_source_expenses_block_added": true,
+    "existing_routes_unchanged": true
+  },
+  "api-prepared-r2.json": {
+    "phase": "prepared_only",
+    "candidate": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "steps": [
+      {
+        "step": "compose-candidate",
+        "composeBefore": "3b6d2f55be5e8dae202de15dfca292b9f33e278c4435befee7ee6623dadd4d4c",
+        "composeAfter": "858e2f356fdede2044491768386229d73ad3d11c401ddd593159f2193b79cf0b"
+      },
+      {
+        "step": "compose-supply",
+        "composeBefore": "858e2f356fdede2044491768386229d73ad3d11c401ddd593159f2193b79cf0b",
+        "composeAfter": "b1dcc72f839fc54125ec8c835a01660f7fe26288d240826cbd27d1506765f5a5"
+      },
+      {
+        "step": "compose-expenses",
+        "composeBefore": "b1dcc72f839fc54125ec8c835a01660f7fe26288d240826cbd27d1506765f5a5",
+        "composeAfter": "d638ade5363fd366980076ac5895ad34650ed793573798349f9975401c0c6c28"
+      }
+    ],
+    "image_only_change": {
+      "before": "d638ade5363fd366980076ac5895ad34650ed793573798349f9975401c0c6c28",
+      "after": "8d21774ed6dac5b175a7d03980decab29b32f3fabcfa0cc4f113a225eebeba98"
+    },
+    "container_changes": false
+  },
+  "rehearsal": [
+    {
+      "at": "2026-11-12T05:16:39Z",
+      "phase": "isolated_clone_ready",
+      "ledger_rows": 64,
+      "network": "none",
+      "ports": [],
+      "role_passwords_replaced": 4
+    },
+    {
+      "at": "2026-11-12T05:16:40Z",
+      "phase": "owner-infra/staging/queue-recovery-cloud-owner.mjs-inspect",
+      "result": {
+        "mode": "inspect",
+        "migration": null,
+        "schema": 71,
+        "existingDataPreserved": true,
+        "fingerprint": "033726507f7f58709f0acd0121a86ef732752a93d64c937c7b9204e071ebb0d6",
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "flagsChanged": false,
+        "apiDeployed": false,
+        "releaseReady": false
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:41Z",
+      "phase": "owner-infra/staging/queue-recovery-cloud-owner.mjs-apply",
+      "result": {
+        "mode": "apply",
+        "migration": "072_cloud_kitchen_restore_review.sql",
+        "schema": 72,
+        "existingDataPreserved": true,
+        "fingerprint": "033726507f7f58709f0acd0121a86ef732752a93d64c937c7b9204e071ebb0d6",
+        "privilegesAdded": [
+          "pos_kitchen_restore_conflicts||SELECT",
+          "pos_kitchen_restore_decisions||INSERT",
+          "pos_kitchen_restore_decisions||SELECT"
+        ],
+        "privilegesRemoved": [],
+        "flagsChanged": false,
+        "apiDeployed": false,
+        "releaseReady": false
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:41Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-inspect",
+      "result": {
+        "ledger": "schema072",
+        "pending": ["073_cloud_pos_sales_sync.sql", "074_cloud_backoffice_cutover.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [
+          "cloud_pos_fiscal_receipts||SELECT",
+          "cloud_pos_refund_tenders||SELECT",
+          "cloud_pos_refunds||SELECT",
+          "cloud_pos_sales||SELECT",
+          "cloud_pos_shift_reports||SELECT",
+          "cloud_pos_tenders||SELECT"
+        ],
+        "flags": {
+          "posSalesSync": false,
+          "roles": false
+        }
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:42Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-deploy",
+      "result": {
+        "applied": ["073_cloud_pos_sales_sync.sql", "074_cloud_backoffice_cutover.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [
+          "cloud_pos_fiscal_receipts||SELECT",
+          "cloud_pos_refund_tenders||SELECT",
+          "cloud_pos_refunds||SELECT",
+          "cloud_pos_sales||SELECT",
+          "cloud_pos_shift_reports||SELECT",
+          "cloud_pos_tenders||SELECT"
+        ],
+        "privilegesRemoved": [],
+        "flags": {
+          "posSalesSync": false,
+          "roles": false,
+          "stockV2": false,
+          "salesReport": false
+        }
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:42Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-inspect-075",
+      "result": {
+        "ledger": "schema074",
+        "pending": ["075_cloud_backoffice_ops.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "p1Privileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:43Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-deploy-075",
+      "result": {
+        "applied": ["075_cloud_backoffice_ops.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "p1Flags": []
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:44Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-inspect-076",
+      "result": {
+        "ledger": "schema075",
+        "pending": ["076_cloud_backoffice_supply.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "supplyPrivileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:45Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-deploy-076",
+      "result": {
+        "applied": ["076_cloud_backoffice_supply.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "supplyFlags": []
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:45Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-inspect-077",
+      "result": {
+        "ledger": "schema076",
+        "pending": ["077_cloud_backoffice_expenses.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "expensesPrivileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:46Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-deploy-077",
+      "result": {
+        "applied": ["077_cloud_backoffice_expenses.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "expenses": false
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:46Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-expenses-grants",
+      "result": {
+        "expenses": true,
+        "privilegesAdded": [
+          "bo_expense_access||INSERT",
+          "bo_expense_access||SELECT",
+          "bo_expense_cash||INSERT",
+          "bo_expense_cash||SELECT",
+          "bo_expense_cash||UPDATE",
+          "bo_expense_entries||DELETE",
+          "bo_expense_entries||INSERT",
+          "bo_expense_entries||SELECT",
+          "bo_expense_entries||UPDATE",
+          "bo_expense_log||INSERT",
+          "bo_expense_log||SELECT",
+          "bo_expense_months||DELETE",
+          "bo_expense_months||INSERT",
+          "bo_expense_months||SELECT",
+          "bo_expense_rows||INSERT",
+          "bo_expense_rows||SELECT",
+          "bo_expense_rows||UPDATE"
+        ],
+        "privilegesRemoved": [],
+        "environment": ["BACKOFFICE_EXPENSES_ENABLED"],
+        "order": "grants set; now set BACKOFFICE_EXPENSES_ENABLED \"true\" in the API environment (restart the API)"
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:47Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-expenses-grants",
+      "result": {
+        "expenses": false,
+        "privilegesAdded": [],
+        "privilegesRemoved": [
+          "bo_expense_access||INSERT",
+          "bo_expense_access||SELECT",
+          "bo_expense_cash||INSERT",
+          "bo_expense_cash||SELECT",
+          "bo_expense_cash||UPDATE",
+          "bo_expense_entries||DELETE",
+          "bo_expense_entries||INSERT",
+          "bo_expense_entries||SELECT",
+          "bo_expense_entries||UPDATE",
+          "bo_expense_log||INSERT",
+          "bo_expense_log||SELECT",
+          "bo_expense_months||DELETE",
+          "bo_expense_months||INSERT",
+          "bo_expense_months||SELECT",
+          "bo_expense_rows||INSERT",
+          "bo_expense_rows||SELECT",
+          "bo_expense_rows||UPDATE"
+        ],
+        "environment": [],
+        "order": "grants removed; BACKOFFICE_EXPENSES_ENABLED must already be \"false\""
+      }
+    },
+    {
+      "at": "2026-11-12T05:16:50Z",
+      "phase": "candidate-off",
+      "status": "STOP",
+      "reason": "RuntimeError",
+      "live_database_changed": false,
+      "isolated_state_retained": true
+    },
+    {
+      "at": "2026-11-12T05:18:32Z",
+      "phase": "resume",
+      "cause": "Probe expected 404; reviewed Expenses controller returns 503 SERVICE_UNAVAILABLE while disabled",
+      "migrations_replayed": false
+    },
+    {
+      "at": "2026-11-12T05:18:32Z",
+      "phase": "candidate-off",
+      "probes": [
+        {
+          "path": "/health/ready",
+          "status": 200
+        },
+        {
+          "path": "/v1/capabilities",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "expenses/meta",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "at": "2026-11-12T05:18:35Z",
+      "phase": "old-api-schema077",
+      "probes": [
+        {
+          "path": "/health/ready",
+          "status": 200
+        },
+        {
+          "path": "/v1/capabilities",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "expenses/meta",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "at": "2026-11-12T05:18:36Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-expenses-grants",
+      "result": {
+        "expenses": true,
+        "privilegesAdded": [
+          "bo_expense_access||INSERT",
+          "bo_expense_access||SELECT",
+          "bo_expense_cash||INSERT",
+          "bo_expense_cash||SELECT",
+          "bo_expense_cash||UPDATE",
+          "bo_expense_entries||DELETE",
+          "bo_expense_entries||INSERT",
+          "bo_expense_entries||SELECT",
+          "bo_expense_entries||UPDATE",
+          "bo_expense_log||INSERT",
+          "bo_expense_log||SELECT",
+          "bo_expense_months||DELETE",
+          "bo_expense_months||INSERT",
+          "bo_expense_months||SELECT",
+          "bo_expense_rows||INSERT",
+          "bo_expense_rows||SELECT",
+          "bo_expense_rows||UPDATE"
+        ],
+        "privilegesRemoved": [],
+        "environment": ["BACKOFFICE_EXPENSES_ENABLED"],
+        "order": "grants set; now set BACKOFFICE_EXPENSES_ENABLED \"true\" in the API environment (restart the API)"
+      }
+    },
+    {
+      "at": "2026-11-12T05:18:39Z",
+      "phase": "candidate-expenses-on",
+      "probes": [
+        {
+          "path": "/health/ready",
+          "status": 200
+        },
+        {
+          "path": "/v1/capabilities",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "expenses/meta",
+          "status": 200,
+          "role": "director"
+        }
+      ]
+    },
+    {
+      "at": "2026-11-12T05:18:39Z",
+      "phase": "owner-infra/staging/cutover-cloud-owner.mjs-expenses-grants",
+      "result": {
+        "expenses": false,
+        "privilegesAdded": [],
+        "privilegesRemoved": [
+          "bo_expense_access||INSERT",
+          "bo_expense_access||SELECT",
+          "bo_expense_cash||INSERT",
+          "bo_expense_cash||SELECT",
+          "bo_expense_cash||UPDATE",
+          "bo_expense_entries||DELETE",
+          "bo_expense_entries||INSERT",
+          "bo_expense_entries||SELECT",
+          "bo_expense_entries||UPDATE",
+          "bo_expense_log||INSERT",
+          "bo_expense_log||SELECT",
+          "bo_expense_months||DELETE",
+          "bo_expense_months||INSERT",
+          "bo_expense_months||SELECT",
+          "bo_expense_rows||INSERT",
+          "bo_expense_rows||SELECT",
+          "bo_expense_rows||UPDATE"
+        ],
+        "environment": [],
+        "order": "grants removed; BACKOFFICE_EXPENSES_ENABLED must already be \"false\""
+      }
+    },
+    {
+      "at": "2026-11-12T05:18:39Z",
+      "phase": "complete",
+      "ok": true,
+      "live_database_changed": false,
+      "containers_removed": true
+    }
+  ],
+  "web-prepared-r2.json": {
+    "phase": "prepared_only",
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+    "compose_sha256": "899b85d0fa17c00e67e395f3fd95300813bc922f85c88c9fbbf095217e4fdf97",
+    "manifest_sha256": "6a5c4e42c258cad843f2a26fcb4c5f35aab1958aa6e79bbab99bfaf099663580",
+    "web_files": 217,
+    "backoffice_files": 85,
+    "other_components_unchanged": true,
+    "desktop_feed_route_and_network_preserved": true,
+    "caddy_validate": "pass",
+    "live_gateway_changed": false
+  },
+  "backup_encrypted_copy_mac": {
+    "encrypted_backup_on_mac": true,
+    "dump_sha256": "11120a0da6b8aeb65916586ffffae13ef495c1910c27f05507ef493a972468ef",
+    "manifest_sha256": "56b3eff14695773f9ac73e2638790c913c2649a08f602447b153ecf0e13a1797",
+    "plaintext_saved": false
+  },
+  "maintenance_prepared": {
+    "at": "2026-11-12T05:36:04Z",
+    "phase": "maintenance-prepare",
+    "owner": {
+      "id": "bc56812c-0886-4443-9114-8681fa5595c1",
+      "sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "action": "cloud-expenses-1112"
+    },
+    "maintenance": "/opt/pickchick-staging/maintenance/expenses-bc56812c-0886-4443-9114-8681fa5595c1",
+    "sha256": {
+      "owner.json": "4b437c448448eef3172321c6f328d65f79f0e41f9a36c5867cc8a81b28b269d2",
+      "maintenance.json": "04b830e51518df279294f8797b71407c8afb7e05a8c50340327ce3b04ddfb883",
+      "compose.json": "1cbcd3018fedaa74a9c8857f9e75a852aa6ec7afe76bc5f210661054e57b2de7"
+    },
+    "validated": true,
+    "deployment_lock_acquired": false,
+    "live_changed": false
+  },
+  "http_baseline": [
+    {
+      "path": "/health/ready",
+      "status": 404,
+      "cache_control": "no-store",
+      "bytes": 44
+    },
+    {
+      "path": "/v1/auth/config",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 245
+    },
+    {
+      "path": "/v1/customer-checkout/catalog",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 69796
+    },
+    {
+      "path": "/v1/customer-checkout/availability",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 2335
+    },
+    {
+      "path": "/v1/kiosk-checkout/config",
+      "status": 400,
+      "cache_control": "no-store",
+      "bytes": 133
+    },
+    {
+      "path": "/v1/admin/backoffice/branches",
+      "status": 404,
+      "cache_control": "no-store",
+      "bytes": 44
+    },
+    {
+      "path": "/backoffice/",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 692
+    },
+    {
+      "path": "/kitchen-live/health",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 78
+    },
+    {
+      "path": "/support/ru.html",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 6344
+    },
+    {
+      "path": "/support/kk.html",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 6726
+    },
+    {
+      "path": "/support/en.html",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 4445
+    },
+    {
+      "path": "/legal/privacy",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 10018
+    },
+    {
+      "path": "/desktop-updates/pos/latest.json",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 209
+    },
+    {
+      "path": "/desktop-updates/kitchen/latest.json",
+      "status": 200,
+      "cache_control": "no-store",
+      "bytes": 217
+    },
+    {
+      "path": "/desktop-updates/",
+      "status": 404,
+      "cache_control": "no-store",
+      "bytes": 44
+    },
+    {
+      "path": "/.release.json",
+      "status": 404,
+      "cache_control": "no-store",
+      "bytes": 44
+    }
+  ],
+  "exact_source_ci": {
+    "run": {
+      "id": 43159477530,
+      "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "head_branch": "codex/cutover-1119",
+      "event": "push",
+      "path": ".github/workflows/ci.yml",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43159477530"
+    },
+    "jobs": [
+      {
+        "id": 130987006610,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:37Z",
+        "completed_at": "2026-11-12T05:17:55Z"
+      },
+      {
+        "id": 130987006840,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Design screens and interaction smoke",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:37Z",
+        "completed_at": "2026-11-12T05:10:48Z"
+      },
+      {
+        "id": 130987006879,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Foundation simulator browser regressions",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:37Z",
+        "completed_at": "2026-11-12T05:19:47Z"
+      },
+      {
+        "id": 130987006884,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:22:41Z"
+      },
+      {
+        "id": 130987006895,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Foundation server account and Kaspi fixtures",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:30:39Z"
+      },
+      {
+        "id": 130987006930,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Local kitchen UI and recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:12:43Z"
+      },
+      {
+        "id": 130987006941,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Foundation static checks and transaction invariants",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:52:26Z"
+      },
+      {
+        "id": 130987006958,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Foundation mobile bundles and checkout recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:21:00Z"
+      },
+      {
+        "id": 130987006966,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Private staging image and restricted database role",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:36Z",
+        "completed_at": "2026-11-12T05:12:21Z"
+      },
+      {
+        "id": 130987006970,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Foundation POS and backoffice integration",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:09:37Z",
+        "completed_at": "2026-11-12T05:32:10Z"
+      },
+      {
+        "id": 131002297411,
+        "run_id": 43159477530,
+        "head_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "name": "Build, contracts and PostgreSQL integration",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-11-12T05:52:29Z",
+        "completed_at": "2026-11-12T05:52:33Z"
+      }
+    ]
+  },
+  "live_steps": [
+    {
+      "at": "2026-11-12T05:28:52Z",
+      "phase": "readonly-owner-connection",
+      "ok": true,
+      "live_database_changed": false,
+      "database_role": "pickchick_owner",
+      "prepared_artifacts_verified": true
+    },
+    {
+      "at": "2026-11-12T05:36:04Z",
+      "phase": "maintenance-prepare",
+      "owner": {
+        "id": "bc56812c-0886-4443-9114-8681fa5595c1",
+        "sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "action": "cloud-expenses-1112"
+      },
+      "maintenance": "/opt/pickchick-staging/maintenance/expenses-bc56812c-0886-4443-9114-8681fa5595c1",
+      "sha256": {
+        "owner.json": "4b437c448448eef3172321c6f328d65f79f0e41f9a36c5867cc8a81b28b269d2",
+        "maintenance.json": "04b830e51518df279294f8797b71407c8afb7e05a8c50340327ce3b04ddfb883",
+        "compose.json": "1cbcd3018fedaa74a9c8857f9e75a852aa6ec7afe76bc5f210661054e57b2de7"
+      },
+      "validated": true,
+      "deployment_lock_acquired": false,
+      "live_changed": false
+    },
+    {
+      "at": "2026-11-12T06:11:31Z",
+      "phase": "enter-window",
+      "deployment_lock_acquired": true,
+      "ci": {
+        "head": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "foundation_run": 43159477530,
+        "jobs": 11
+      },
+      "backup": "/opt/pickchick-staging/backups/cloud-20261112T061111Z.dump.age",
+      "pending_bank_work": 0
+    },
+    {
+      "at": "2026-11-12T06:11:32Z",
+      "phase": "enter-window",
+      "cleanup_flock": {
+        "inode": [64769, 2924915],
+        "owner": "bc56812c-0886-4443-9114-8681fa5595c1",
+        "pid": 3850791,
+        "process_start": "730458912"
+      }
+    },
+    {
+      "at": "2026-11-12T06:13:58Z",
+      "phase": "stop-ingress-guard-restore",
+      "status": "rolled_back",
+      "reason": "Cabinet redirects to separate PickChick staff-login service; gateway maintenance does not cover static cabinet",
+      "schema": 71,
+      "migrations_started": false,
+      "api_unchanged": true,
+      "old_gateway_restored": true,
+      "unrelated_containers_unchanged": 21
+    },
+    {
+      "at": "2026-11-12T06:13:58Z",
+      "phase": "stop-ingress-guard-restore",
+      "cleanup_release": {
+        "owner": "bc56812c-0886-4443-9114-8681fa5595c1",
+        "released": true
+      }
+    },
+    {
+      "at": "2026-11-12T06:13:58Z",
+      "phase": "stop-ingress-guard-restore",
+      "deployment_lock_released": true,
+      "cleanup_flock_released": true,
+      "status": "STOP",
+      "live_version_unchanged": true
+    },
+    {
+      "at": "2026-11-12T06:20:58Z",
+      "phase": "maintenance-prepare",
+      "owner": {
+        "id": "30dd2000-f102-4ec9-8105-92a404b8c2d7",
+        "sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "action": "cloud-expenses-1112"
+      },
+      "maintenance": "/opt/pickchick-staging/maintenance/expenses-30dd2000-f102-4ec9-8105-92a404b8c2d7",
+      "sha256": {
+        "owner.json": "68155b13a8ae1bee780ffbabe997dc9345c81bc2a88ffc9e73b788080f46f2bc",
+        "maintenance.json": "04b830e51518df279294f8797b71407c8afb7e05a8c50340327ce3b04ddfb883",
+        "compose.json": "e96153a867b2f9b863bc5e4f8a12d6339649a97100fc4c204dd126a54c802695"
+      },
+      "validated": true,
+      "deployment_lock_acquired": false,
+      "live_changed": false
+    },
+    {
+      "at": "2026-11-12T06:21:24Z",
+      "phase": "enter-window",
+      "deployment_lock_acquired": true,
+      "ci": {
+        "head": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+        "foundation_run": 43159477530,
+        "jobs": 11
+      },
+      "backup": "/opt/pickchick-staging/backups/cloud-20261112T062059Z.dump.age",
+      "pending_bank_work": 0
+    },
+    {
+      "at": "2026-11-12T06:21:24Z",
+      "phase": "enter-window",
+      "cleanup_flock": {
+        "inode": [64769, 2924915],
+        "owner": "30dd2000-f102-4ec9-8105-92a404b8c2d7",
+        "pid": 3877010,
+        "process_start": "730518150"
+      }
+    },
+    {
+      "at": "2026-11-12T06:21:58Z",
+      "phase": "enter-window",
+      "public_ingress_closed": true,
+      "api_stopped": true,
+      "active_writers": 0,
+      "unrelated_containers_unchanged": 21
+    },
+    {
+      "at": "2026-11-12T06:22:21Z",
+      "phase": "migration-072-inspect",
+      "command": ["infra/staging/queue-recovery-cloud-owner.mjs", "inspect"],
+      "result": {
+        "mode": "inspect",
+        "migration": null,
+        "schema": 71,
+        "existingDataPreserved": true,
+        "fingerprint": "59fbfebeb0b31c2f90154968920e1909d0d793b8e189a8606ece946961b9f1fb",
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "flagsChanged": false,
+        "apiDeployed": false,
+        "releaseReady": false
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:22Z",
+      "phase": "migration-072-apply",
+      "command": ["infra/staging/queue-recovery-cloud-owner.mjs", "apply"],
+      "result": {
+        "mode": "apply",
+        "migration": "072_cloud_kitchen_restore_review.sql",
+        "schema": 72,
+        "existingDataPreserved": true,
+        "fingerprint": "59fbfebeb0b31c2f90154968920e1909d0d793b8e189a8606ece946961b9f1fb",
+        "privilegesAdded": [
+          "pos_kitchen_restore_conflicts||SELECT",
+          "pos_kitchen_restore_decisions||INSERT",
+          "pos_kitchen_restore_decisions||SELECT"
+        ],
+        "privilegesRemoved": [],
+        "flagsChanged": false,
+        "apiDeployed": false,
+        "releaseReady": false
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:23Z",
+      "phase": "migration-inspect",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "inspect"],
+      "result": {
+        "ledger": "schema072",
+        "pending": ["073_cloud_pos_sales_sync.sql", "074_cloud_backoffice_cutover.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [
+          "cloud_pos_fiscal_receipts||SELECT",
+          "cloud_pos_refund_tenders||SELECT",
+          "cloud_pos_refunds||SELECT",
+          "cloud_pos_sales||SELECT",
+          "cloud_pos_shift_reports||SELECT",
+          "cloud_pos_tenders||SELECT"
+        ],
+        "flags": {
+          "posSalesSync": false,
+          "roles": false
+        }
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:24Z",
+      "phase": "migration-deploy",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "deploy"],
+      "result": {
+        "applied": ["073_cloud_pos_sales_sync.sql", "074_cloud_backoffice_cutover.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [
+          "cloud_pos_fiscal_receipts||SELECT",
+          "cloud_pos_refund_tenders||SELECT",
+          "cloud_pos_refunds||SELECT",
+          "cloud_pos_sales||SELECT",
+          "cloud_pos_shift_reports||SELECT",
+          "cloud_pos_tenders||SELECT"
+        ],
+        "privilegesRemoved": [],
+        "flags": {
+          "posSalesSync": false,
+          "roles": false,
+          "stockV2": false,
+          "salesReport": false
+        }
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:24Z",
+      "phase": "migration-inspect-075",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "inspect-075"],
+      "result": {
+        "ledger": "schema074",
+        "pending": ["075_cloud_backoffice_ops.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "p1Privileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:25Z",
+      "phase": "migration-deploy-075",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "deploy-075"],
+      "result": {
+        "applied": ["075_cloud_backoffice_ops.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "p1Flags": []
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:26Z",
+      "phase": "migration-inspect-076",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "inspect-076"],
+      "result": {
+        "ledger": "schema075",
+        "pending": ["076_cloud_backoffice_supply.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "supplyPrivileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:27Z",
+      "phase": "migration-deploy-076",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "deploy-076"],
+      "result": {
+        "applied": ["076_cloud_backoffice_supply.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "supplyFlags": []
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:28Z",
+      "phase": "migration-inspect-077",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "inspect-077"],
+      "result": {
+        "ledger": "schema076",
+        "pending": ["077_cloud_backoffice_expenses.sql"],
+        "reviewedBytes": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "expensesPrivileges": []
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:29Z",
+      "phase": "migration-deploy-077",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "deploy-077"],
+      "result": {
+        "applied": ["077_cloud_backoffice_expenses.sql"],
+        "existingDataPreserved": true,
+        "backofficeGrants": true,
+        "privilegesAdded": [],
+        "privilegesRemoved": [],
+        "expenses": false
+      }
+    },
+    {
+      "at": "2026-11-12T06:22:29Z",
+      "phase": "migration-deploy-077",
+      "schema": 77,
+      "ledger_rows": 70,
+      "ledger_exact": true,
+      "new_feature_flags_enabled": false
+    },
+    {
+      "at": "2026-11-12T06:22:54Z",
+      "phase": "candidate-api-off",
+      "image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+      "flags_off": true,
+      "read_only_probes": [
+        {
+          "path": "/health/ready",
+          "status": 200
+        },
+        {
+          "path": "/v1/capabilities",
+          "status": 200
+        },
+        {
+          "path": "/v1/auth/config",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "/v1/kiosk-checkout/config",
+          "status": 400
+        },
+        {
+          "path": "/v1/admin/catalog/branches",
+          "status": 401
+        },
+        {
+          "path": "/v1/admin/backoffice/expenses/meta",
+          "status": 503
+        }
+      ],
+      "unrelated_containers_unchanged": 21
+    },
+    {
+      "at": "2026-11-12T06:22:54Z",
+      "phase": "candidate-api-off",
+      "api_current": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "public_ingress_closed": true
+    },
+    {
+      "at": "2026-11-12T06:23:17Z",
+      "phase": "public-web",
+      "public_current": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "public_probes": [
+        {
+          "path": "/backoffice/",
+          "status": 200
+        },
+        {
+          "path": "/kitchen-live/health",
+          "status": 200
+        },
+        {
+          "path": "/v1/auth/config",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "/support/ru.html",
+          "status": 200
+        },
+        {
+          "path": "/support/kk.html",
+          "status": 200
+        },
+        {
+          "path": "/support/en.html",
+          "status": 200
+        },
+        {
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/pos/latest.json",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/kitchen/latest.json",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/",
+          "status": 404
+        },
+        {
+          "path": "/.release.json",
+          "status": 404
+        },
+        {
+          "path": "/v1/admin/backoffice/expenses/meta",
+          "status": 503
+        }
+      ],
+      "backoffice_http_bytes_verified": 85,
+      "unrelated_containers_unchanged": 21
+    },
+    {
+      "at": "2026-11-12T06:23:31Z",
+      "phase": "enable-expenses",
+      "command": ["infra/staging/cutover-cloud-owner.mjs", "expenses-grants"],
+      "result": {
+        "expenses": true,
+        "privilegesAdded": [
+          "bo_expense_access||INSERT",
+          "bo_expense_access||SELECT",
+          "bo_expense_cash||INSERT",
+          "bo_expense_cash||SELECT",
+          "bo_expense_cash||UPDATE",
+          "bo_expense_entries||DELETE",
+          "bo_expense_entries||INSERT",
+          "bo_expense_entries||SELECT",
+          "bo_expense_entries||UPDATE",
+          "bo_expense_log||INSERT",
+          "bo_expense_log||SELECT",
+          "bo_expense_months||DELETE",
+          "bo_expense_months||INSERT",
+          "bo_expense_months||SELECT",
+          "bo_expense_rows||INSERT",
+          "bo_expense_rows||SELECT",
+          "bo_expense_rows||UPDATE"
+        ],
+        "privilegesRemoved": [],
+        "environment": ["BACKOFFICE_EXPENSES_ENABLED"],
+        "order": "grants set; now set BACKOFFICE_EXPENSES_ENABLED \"true\" in the API environment (restart the API)"
+      }
+    },
+    {
+      "at": "2026-11-12T06:23:31Z",
+      "phase": "enable-expenses",
+      "compose_flag": {
+        "composeBefore": "8d21774ed6dac5b175a7d03980decab29b32f3fabcfa0cc4f113a225eebeba98",
+        "composeAfter": "686635f1a5a86dff3d7bb76b5ebfd6be53c0f8365eb2dc3ff3bd316ec137405c",
+        "environment": "BACKOFFICE_EXPENSES_ENABLED",
+        "enabled": true
+      }
+    },
+    {
+      "at": "2026-11-12T06:23:42Z",
+      "phase": "enable-expenses",
+      "expenses_enabled": true,
+      "compose_before": "8d21774ed6dac5b175a7d03980decab29b32f3fabcfa0cc4f113a225eebeba98",
+      "compose_after": "686635f1a5a86dff3d7bb76b5ebfd6be53c0f8365eb2dc3ff3bd316ec137405c",
+      "image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+      "other_cutover_flags": false,
+      "unauthenticated_expenses_status": 401
+    },
+    {
+      "at": "2026-11-12T06:23:53Z",
+      "phase": "enable-expenses",
+      "canonical_cabinet_reopened": true,
+      "owner_expenses_meta": 200,
+      "owner_role": "director",
+      "credentials_changed": false
+    },
+    {
+      "at": "2026-11-12T06:24:07Z",
+      "phase": "verify-and-finish",
+      "status": "deployed",
+      "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "api_current": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "public_current": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "api_image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+      "api_compose_sha256": "686635f1a5a86dff3d7bb76b5ebfd6be53c0f8365eb2dc3ff3bd316ec137405c",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "schema": 77,
+      "expenses_enabled": true,
+      "other_cutover_flags_enabled": false,
+      "unchanged_neighbor_containers": 21,
+      "public_probes": [
+        {
+          "path": "/v1/auth/config",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/catalog",
+          "status": 200
+        },
+        {
+          "path": "/v1/customer-checkout/availability",
+          "status": 200
+        },
+        {
+          "path": "/backoffice/",
+          "status": 200
+        },
+        {
+          "path": "/kitchen-live/health",
+          "status": 200
+        },
+        {
+          "path": "/support/ru.html",
+          "status": 200
+        },
+        {
+          "path": "/support/kk.html",
+          "status": 200
+        },
+        {
+          "path": "/support/en.html",
+          "status": 200
+        },
+        {
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/pos/latest.json",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/kitchen/latest.json",
+          "status": 200
+        },
+        {
+          "path": "/desktop-updates/",
+          "status": 404
+        },
+        {
+          "path": "/v1/admin/backoffice/expenses/meta",
+          "status": 401
+        }
+      ],
+      "owner_acceptance": "pending",
+      "new_live_orders_created": false
+    },
+    {
+      "at": "2026-11-12T06:24:07Z",
+      "phase": "verify-and-finish",
+      "complete": true,
+      "deployment_lock_released": true,
+      "cleanup_flock_released": true,
+      "owner_acceptance": "pending"
+    }
+  ],
+  "live_result": {
+    "status": "deployed",
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_current": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "public_current": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+    "api_compose_sha256": "686635f1a5a86dff3d7bb76b5ebfd6be53c0f8365eb2dc3ff3bd316ec137405c",
+    "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+    "schema": 77,
+    "expenses_enabled": true,
+    "other_cutover_flags_enabled": false,
+    "unchanged_neighbor_containers": 21,
+    "public_probes": [
+      {
+        "path": "/v1/auth/config",
+        "status": 200
+      },
+      {
+        "path": "/v1/customer-checkout/catalog",
+        "status": 200
+      },
+      {
+        "path": "/v1/customer-checkout/availability",
+        "status": 200
+      },
+      {
+        "path": "/backoffice/",
+        "status": 200
+      },
+      {
+        "path": "/kitchen-live/health",
+        "status": 200
+      },
+      {
+        "path": "/support/ru.html",
+        "status": 200
+      },
+      {
+        "path": "/support/kk.html",
+        "status": 200
+      },
+      {
+        "path": "/support/en.html",
+        "status": 200
+      },
+      {
+        "path": "/legal/privacy",
+        "status": 200
+      },
+      {
+        "path": "/desktop-updates/pos/latest.json",
+        "status": 200
+      },
+      {
+        "path": "/desktop-updates/kitchen/latest.json",
+        "status": 200
+      },
+      {
+        "path": "/desktop-updates/",
+        "status": 404
+      },
+      {
+        "path": "/v1/admin/backoffice/expenses/meta",
+        "status": 401
+      }
+    ],
+    "owner_acceptance": "pending",
+    "new_live_orders_created": false,
+    "deployment_lock_released": true,
+    "cleanup_flock_released": true,
+    "finished_at": "2026-11-12T06:24:07Z"
+  },
+  "backup_before_first_window": {
+    "service": "Result=success\nExecMainStartTimestamp=Thu 2026-11-12 06:11:11 UTC\nExecMainExitTimestamp=Thu 2026-11-12 06:11:12 UTC\nExecMainStatus=0\nActiveState=inactive\n",
+    "dump": "/opt/pickchick-staging/backups/cloud-20261112T061111Z.dump.age",
+    "bytes": 1893537,
+    "sha256": "1e674e08b8669bea3c1370b8b9f0788bfb3f0bb3b766da613577b61b468412ee",
+    "manifest": "/opt/pickchick-staging/backups/cloud-20261112T061111Z.manifest.json.age",
+    "manifest_sha256": "fdc723dad4186c5106a2eb9197b5f6976d61cd175dd39b5e2b206829d630688a",
+    "restore": {
+      "event": "restore_drill",
+      "mode": "dump",
+      "dump": "cloud-20261112T061111Z.dump.age",
+      "ok": true,
+      "checksum": "verified",
+      "restoreSeconds": 6.1,
+      "migration": "071_cloud_daily_reconciliation.sql",
+      "tables": 186,
+      "rows": 6531,
+      "manifest": "2026-11-12T06:11:12Z",
+      "problems": []
+    },
+    "checked_at_epoch": 1794463879.488222,
+    "encrypted_copy_on_mac": true
+  },
+  "backup_before_successful_window": {
+    "service": "Result=success\nExecMainStartTimestamp=Thu 2026-11-12 06:20:59 UTC\nExecMainExitTimestamp=Thu 2026-11-12 06:21:00 UTC\nExecMainStatus=0\nActiveState=inactive\n",
+    "dump": "/opt/pickchick-staging/backups/cloud-20261112T062059Z.dump.age",
+    "bytes": 1893537,
+    "sha256": "e44b4d26e57393e916470408fecc8037bf1857d7a226b9632ac3b450b3da3b39",
+    "manifest": "/opt/pickchick-staging/backups/cloud-20261112T062059Z.manifest.json.age",
+    "manifest_sha256": "228bb4c5846b979d05722e1a267a8507d62bf183cedc0c0455e27fbe00b696dd",
+    "restore": {
+      "event": "restore_drill",
+      "mode": "dump",
+      "dump": "cloud-20261112T062059Z.dump.age",
+      "ok": true,
+      "checksum": "verified",
+      "restoreSeconds": 5.2,
+      "migration": "071_cloud_daily_reconciliation.sql",
+      "tables": 186,
+      "rows": 6531,
+      "manifest": "2026-11-12T06:21:00Z",
+      "problems": []
+    },
+    "checked_at_epoch": 1794464466.6976871,
+    "encrypted_copy_on_mac": true
+  },
+  "portal_preflight": {
+    "validated": true,
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "existing_portal_sha": "59f0c0d98a6d0667c3b2ae8d8bbb0b1b6b7f41c1"
+  },
+  "portal_install": {
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "previous_sha": "59f0c0d98a6d0667c3b2ae8d8bbb0b1b6b7f41c1",
+    "rollback_container": "pickchick-staff-login-backup-7e3120438461",
+    "url": "https://pickchick.kz/backoffice/",
+    "healthy": true,
+    "assets_verified": true,
+    "image": "sha256:2389ce322e3b057912a771cff27401fcaae9c77f6f94011f9fa89c441d7febf4",
+    "private_backup_restore": "passed",
+    "unchanged_neighbor_count": 13,
+    "api_database_credentials_ingress_unchanged": true,
+    "existing_services_preserved": true
+  },
+  "canonical_assets": {
+    "canonical_assets": [
+      {
+        "file": "index.html",
+        "status": 200,
+        "sha256": "7635a8e22bdcf972de0e55f78b86d58134869b622d0a927899a857cafe965716"
+      },
+      {
+        "file": "app.js",
+        "status": 200,
+        "sha256": "ee1b9bb6d21eaf1ef56790ca1a9f6abafebea18ef8a4fa72024a30b58b4ab41b"
+      },
+      {
+        "file": "api.js",
+        "status": 200,
+        "sha256": "2e77b28ea57be0060e8ecdf7ada05f0dfb59471483ddca04da6249b581d937bb"
+      },
+      {
+        "file": "expenses.js",
+        "status": 200,
+        "sha256": "c9ad3e3fa1fc48168adfe559024867fae7bf2877aab03793d3e26c9a55e109db"
+      },
+      {
+        "file": "expenses-model.js",
+        "status": 200,
+        "sha256": "3d591fd9fcae0f7c56eb427420da8c17954ecc2a186a424b756fd584e64daa9f"
+      },
+      {
+        "file": "expenses.css",
+        "status": 200,
+        "sha256": "7271ca8cc50a1c1075460bb57f0676d9964942bae96b309ece8935aa8334931d"
+      }
+    ],
+    "foreign_caddy_unchanged": true,
+    "deployment_lock_present": false
+  },
+  "stops_before_migrations": [
+    {
+      "reason": "Backup older than 900-second entry limit",
+      "observed_age_seconds": 1214.3237323760986,
+      "deployment_lock_present": false,
+      "live_changed": false,
+      "resolution": "Fresh backup and isolated restore repeated; age guard retained"
+    },
+    {
+      "reason": "Canonical cabinet remained HTTP200 while gateway API returned503",
+      "diagnosis": "api.pickchick.kz/backoffice redirects308 to pickchick.kz/backoffice served by separate pickchick-staff-login; its API proxy bypasses public gateway",
+      "migrations_started": false,
+      "api_unchanged": true,
+      "old_gateway_restored": true,
+      "locks_released": true,
+      "resolution": "Stock portal prepare/update from same exact green SHA; subsequent maintenance stops portal before API; no external Caddy changes"
+    }
+  ],
+  "owner_acceptance": {
+    "date": "2026-11-12",
+    "confirmed_by": "owner in Codex chat",
+    "question": "Войти в кабинет, открыть Расходы, внести одну реальную сумму и проверить журнал",
+    "answer": "Да, сумма появилась в журнале",
+    "accepted": true,
+    "amount_or_personal_data_recorded": false
+  },
+  "online_roadmap": {
+    "package_sha256": "196036ce1298773ed0c1fba77eea18a262ea9b3b617f6a939c4b63c15eeac5d8",
+    "inspect": {
+      "status": "inspected",
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "current_public_release": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "current_api_release": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "roadmap_installed": true,
+      "deployment_lock_present": false
+    },
+    "apply": {
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "status": "deployed",
+      "phase": "publish_pointers",
+      "previous_state_backup": "/opt/pickchick-staging/roadmap/backups/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b-0aa6e363218448a1b21022642331eb2a",
+      "public_release": "/opt/pickchick-staging/public-https/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "app_release": "/opt/pickchick-staging/roadmap/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "previous_public_release": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "public_manifest_sha256": "6a5c4e42c258cad843f2a26fcb4c5f35aab1958aa6e79bbab99bfaf099663580",
+      "unchanged_services": [
+        "pickchick-staging-api-1",
+        "pickchick-staff-login",
+        "pickchick-desktop-updates",
+        "pickchick-kitchen-portal",
+        "pickchick-kaspi-worker",
+        "pickchick-kiosk-kaspi-qr-worker",
+        "pickchick-staff-login-backup-7e3120438461",
+        "pickchick-staff-login-backup-59f0c0d98a6d",
+        "pickchick-staff-login-backup-4caca195a4a5",
+        "pickchick-staff-login-backup-ab73aae4d5ab",
+        "pickchick-staff-login-backup-661f84c20b47",
+        "pickchick-staff-login-backup-d379075bf678",
+        "pickchick-staff-login-backup-f01cb45f441d",
+        "pickchick-staff-login-backup-8468e3aed72c",
+        "pickchick-kaspi-bridge",
+        "pickchick-staff-login-backup-23fb39e152fc",
+        "pickchick-staff-login-backup-3f55929a0f17",
+        "pickchick-staging-cloud-db-1",
+        "pickchick-staging-redis-cache-1",
+        "deploy-server-1",
+        "deploy-caddy-1",
+        "deploy-db-1"
+      ]
+    },
+    "online_check": {
+      "health": {
+        "status": "up",
+        "sourceSha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b"
+      },
+      "task_id": "backoffice-expenses-live",
+      "status": "done",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": true
+      },
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "public_current": "/opt/pickchick-staging/public-https/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "api_current": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "lock_present": false
+    }
+  },
+  "portal_archive": {
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "artifact_sha256": "f75c3ddfc05c17d310e9540ba5e0404fb0e87975747076c5da3600232ff5c236",
+    "operator_tests_passed": 18
+  },
+  "postdeploy_observation": {
+    "status": "passed",
+    "elapsed_since_deploy_seconds": 900,
+    "api_not_restarted_during_observation": true,
+    "health_samples": [
+      {
+        "at": "2026-11-12T06:29:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:29:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:30:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:30:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:31:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:31:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:32:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:32:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:33:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:33:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:34:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:34:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:35:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:35:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:36:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:36:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:37:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:37:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:38:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:38:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:39:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:39:07Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      }
+    ]
+  },
+  "final_server_state": {
+    "at": "2026-11-12T06:39:28Z",
+    "api_source": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+    "public_source": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+    "portal_image": "sha256:2389ce322e3b057912a771cff27401fcaae9c77f6f94011f9fa89c441d7febf4",
+    "schema_migrations": 70,
+    "expenses_enabled": true,
+    "other_cutover_flags_enabled": false,
+    "owner_meta_status": 200,
+    "owner_role": "director",
+    "public_probes": [
+      {
+        "path": "/v1/auth/config",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/v1/customer-checkout/catalog",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/kitchen-live/health",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/backoffice/",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/pos/latest.json",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/kitchen/latest.json",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/",
+        "status": 404,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/v1/admin/backoffice/expenses/meta",
+        "status": 401,
+        "cache_control": "no-store"
+      }
+    ],
+    "deployment_lock_present": false
+  }
+}
