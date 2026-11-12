@@ -1825,3 +1825,12 @@ button:focus-visible {
     flex-wrap: wrap;
   }
 }
+
+/* Order card: void and refund are ordinary-height actions, not page-tall blocks; void reads red. */
+.ops-column > .sale-button {
+  flex: none;
+}
+.ops-danger {
+  border-color: #e3a19b;
+  color: #b42318;
+}

@@ -834,7 +834,7 @@ export class SaleView {
       saleEntryTitle: title,
       saleEntrySub: spec.sub,
       saleEntryShown: entry.value || 'Пусто',
-      saleEntryFg: entry.value ? 'var(--n900)' : 'var(--n600)',
+      saleEntryFg: entry.value ? 'var(--n900)' : '#98a2b3',
       saleEntryKeys: spec.keys.map((label) => ({ label, tap: g(() => this.type(label)) })),
       saleEntrySpace: Boolean(spec.space),
       saleEntrySpaceTap: g(() => {

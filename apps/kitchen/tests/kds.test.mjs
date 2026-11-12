@@ -17,7 +17,15 @@ import {
   order as parseOrder,
   taskKds,
 } from '../dist/types.js';
-import { incidentBanner, kdsScreen, kdsVisible, plural, toastTotals } from '../dist/kds-view.js';
+import {
+  incidentBanner,
+  kdsScreen,
+  kdsVisible,
+  modeClass,
+  plural,
+  toastTotals,
+  waitClass,
+} from '../dist/kds-view.js';
 import { looksLikePhone } from '../dist/courier.js';
 
 const id = () => randomUUID();
@@ -652,7 +660,8 @@ test('views: tables show toasts state and unmapped, 5 counts units, 2 has two co
   assert.match(issue, /Ждём сборку со стола/);
   assert.match(issue, />Выдан</);
   assert.match(issue, />Напитки переданы</);
-  assert.match(issue, /ДОСТАВКА · Glovo G-456/);
+  // The courier number sits in a no-wrap span so it never breaks at its hyphen.
+  assert.match(issue, /ДОСТАВКА · Glovo <span class="nowrap">G-456<\/span>/);
 
   const counter = view('delivery_handover', stationIds.counter, [f.deliveryOrder], {
     courierNumber: 'g-45',
@@ -701,7 +710,7 @@ test('breading view, incident banner, plural and the phone guard of the refusal 
   });
   assert.match(html, /1 заказ/);
   assert.match(html, /data-testid="total-fingers">6</);
-  assert.match(html, /ДОСТАВКА · Яндекс Еда Y-777/);
+  assert.match(html, /ДОСТАВКА · Яндекс Еда <span class="nowrap">Y-777<\/span>/);
   assert.ok(!html.includes('data-command'), 'station 6 has no buttons');
   const banner = incidentBanner(
     [
@@ -727,4 +736,22 @@ test('breading view, incident banner, plural and the phone guard of the refusal 
     assert.equal(looksLikePhone(text), true, text);
   for (const text of ['Заказ 211105-123456 не совпал', 'Glovo G-456', 'ждал 10 минут'])
     assert.equal(looksLikePhone(text), false, text);
+});
+
+test('readability: waiting time turns amber at 7 and red at 12 minutes; chip colour by service', () => {
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  const at = (minutes) => new Date(now - minutes * 60000).toISOString();
+  assert.equal(waitClass(at(0), now), '');
+  assert.equal(waitClass(at(6.9), now), '');
+  assert.equal(waitClass(at(7), now), 'wait-warn');
+  assert.equal(waitClass(at(11.9), now), 'wait-warn');
+  assert.equal(waitClass(at(12), now), 'wait-late');
+  assert.equal(waitClass(undefined, now), '');
+  assert.equal(waitClass('not a date', now), '');
+  assert.equal(modeClass({ serviceMode: 'dine_in' }), 'mode mode-dine_in');
+  assert.equal(modeClass({ serviceMode: 'takeaway' }), 'mode mode-takeaway');
+  assert.equal(
+    modeClass({ serviceMode: 'takeaway', delivery: { provider: 'glovo', externalNumber: 'G-1' } }),
+    'mode mode-delivery',
+  );
 });

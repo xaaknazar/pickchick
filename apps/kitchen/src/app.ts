@@ -11,7 +11,7 @@ import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js'
 import { createDemo, memoryStorage } from './demo.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
-import { kdsScreen, kdsVisible } from './kds-view.js';
+import { kdsScreen, kdsVisible, modeClass, waitClass, WAIT_LATE_MINUTES } from './kds-view.js';
 import { openHandover, openIncident } from './courier.js';
 import { HANDOVER_MARKS, UUID, type Action, type Order } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -229,12 +229,17 @@ function render() {
         (ownerOf(o) === 'cloud' ? !s.screenLease || !!s.cloudPending : !s.lease || !!s.pending) ||
         model.ownerOffline(o)
       : blocked;
+  // Orders past the red threshold on this screen (ready ones wait for the guest, not the kitchen).
+  const late = visibleOrders.filter(
+    (o) =>
+      'createdAt' in o && o.state !== 'ready' && waitClass(o.createdAt, Date.now()) === 'wait-late',
+  ).length;
   const clock = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'Asia/Almaty',
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${WAIT_LATE_MINUTES} МИН</span><strong>${late}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
@@ -343,12 +348,12 @@ function render() {
     const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
     const visibleTasks = prepTicket ? o.tasks.filter((t) => t.stationId === s.stationId) : o.tasks;
     const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
-    return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
+    return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head ${o.state === 'ready' ? '' : waitClass(o.createdAt, Date.now())}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="${modeClass({ serviceMode: o.serviceMode })}">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
       .map((t) => {
         const index = o.tasks.indexOf(t);
         const own = t.stationId === s.stationId;
         const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
-        return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, ticketBlocked) : ''}</div></section>`;
+        return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity${t.details.quantity > 1 ? ' many' : ''}">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, ticketBlocked) : ''}</div></section>`;
       })
       .join(
         '',
