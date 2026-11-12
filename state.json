@@ -7739,13 +7739,12 @@
       "branch": "codex/expenses-installed-compose-1112",
       "scopes": [
         "infra/staging/cutover-cloud-owner.mjs",
-        "tests/unit/cutover-installed-compose.test.mjs",
-        "docs/operations/cloud-expenses-now-1111.md"
+        "tests/unit/cutover-installed-compose.test.mjs"
       ],
       "status": "available",
       "head": "67da908d21df152ecd662e8663c54aa6b16a4aef",
-      "updatedAt": "2026-11-12T05:39:52.000Z",
-      "summary": "PR #358 merged into cutover 7e312043; 6 JSON/YAML/CLI tests and 3 existing API environment tests passed; pinned build and lint passed. Full cutover CI 43159477530 running.",
+      "updatedAt": "2026-11-12T06:32:38.535Z",
+      "summary": "PR358 merged into cutover; exact source 7e312043 full Foundation 11/11 passed and expenses deployed/accepted. Runbook scope handed to final deployment report.",
       "nextAction": "Deployment continues in cloud-expenses-live-1112; do not change the installed compose helper during that window."
     },
     {
@@ -7764,11 +7763,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps/roadmap",
-        "@vps/backoffice-login"
+        "@vps/backoffice-login",
+        "docs/operations/cloud-expenses-now-1111.md"
       ],
       "status": "active",
       "head": "743eb263b01f3cd93d08e1048071a256cfc659f3",
-      "updatedAt": "2026-11-12T06:15:04.451Z",
+      "updatedAt": "2026-11-12T06:32:38.535Z",
       "summary": "Archive verified; PR #358 merged; isolated 072-077/grants/old-new API rehearsal passed; backup restored. Candidate 7e312043 awaiting full CI 43159477530. Live pointers and schema unchanged.",
       "nextAction": "After exact-head green CI, fresh backup/restore, guarded live window, enable only expenses, owner acceptance and roadmap update."
     }
