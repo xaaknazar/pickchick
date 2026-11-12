@@ -7766,10 +7766,10 @@
         "@vps/roadmap"
       ],
       "status": "active",
-      "head": "54ae74549fc014594f29785be744813d3d99c9c5",
-      "updatedAt": "2026-11-12T05:29:50.764Z",
-      "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
-      "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
+      "head": "743eb263b01f3cd93d08e1048071a256cfc659f3",
+      "updatedAt": "2026-11-12T05:41:53.264Z",
+      "summary": "Archive verified; PR #358 merged; isolated 072-077/grants/old-new API rehearsal passed; backup restored. Candidate 7e312043 awaiting full CI 43159477530. Live pointers and schema unchanged.",
+      "nextAction": "After exact-head green CI, fresh backup/restore, guarded live window, enable only expenses, owner acceptance and roadmap update."
     }
   ],
   "approvedScopeTransfers": [
