@@ -42,9 +42,23 @@
 
 ## 4. Живое окно
 
+До окна подготовить также канонический кабинет `https://pickchick.kz/backoffice/`.
+Его обслуживает отдельный `pickchick-staff-login` с UI и HTTP allowlist внутри образа:
+замена `public-web/backoffice` обновляет только gateway/nip.io. Использовать штатные
+`infra/backoffice-login/prepare.py` и `update.py` по
+[device-access-backoffice.md](device-access-backoffice.md), тот же источник и полную CI.
+Prepare требует Python 3.12+, опубликованную чистую ветку и закреплённые Node/corepack pnpm.
+В окне 12.11 портал обновлён до миграций, затем остановлен вместе с API. Его update-оператор
+имеет собственную общую release lock: не запускать его внутри уже взятой блокировки.
+Аккаунты/пароли сохраняются; после обновления потребуется повторный вход.
+
 1. Проверить `current` и SHA-256 compose (`cloud-1-handover-1110.md` §1). Иначе стоп.
 2. Свежая копия базы (`pickchick-backup.service`), сверка манифеста, пробное восстановление.
-3. Блокировка выпуска, остановка писателей по прежнему порядку.
+3. Блокировка выпуска и штатный cleanup flock. Закрыть наш gateway, затем остановить
+   `pickchick-staff-login`, который проксирует API напрямую, и только затем API.
+   Gateway maintenance не закрывает канонический кабинет: `/backoffice/` на api-домене
+   перенаправляется туда через 308. Проверить закрытие обоих путей и отсутствие пишущих
+   сессий перед миграциями. Внешний Caddy не менять.
 4. 072 (`queue-recovery-cloud-owner.mjs inspect`, `apply`).
 5. `cutover-cloud-owner.mjs`: `inspect`, `deploy`; `inspect-075`, `deploy-075`;
    `inspect-076`, `deploy-076`; `inspect-077`, `deploy-077`. Каждый ответ в протокол.
@@ -64,13 +78,20 @@
    маршрут `/v1/admin/backoffice/expenses/*` в `infra/public-staging/gateway.Caddyfile`. Отдельный
    выпуск `pickchick-public-gateway` по прежнему порядку web-выпусков
    (`docs/operations/operations-ui-release.md`, сборка `infra/public-staging/prepare-web.py`):
-   новый public-web и Caddyfile репозитория, `caddy validate`, перезапуск только шлюза, проверка
-   mount и static smoke. API и база этим шагом не меняются. Без этого шага кабинет остаётся
-   прежним, а запросы раздела шлюз не пропускает.
+   новый public-web и точный expenses-блок из Caddyfile репозитория, добавленный к фактически
+   установленному файлу. Сохранить checkout/support/legal/desktop-updates и все сети;
+   полная замена шаблоном может удалить уже выпущенные маршруты. `caddy validate`, перезапуск только шлюза, проверка
+   mount и static smoke. API и база этим шагом не меняются. Без этого шага статический
+   кабинет gateway/nip.io остаётся прежним, а шлюз не пропускает запросы расходов.
+   Канонический кабинет обновляется отдельно через staff-login, как указано выше.
 9. Включение раздела: `expenses-grants on`, затем
    `compose-flag expenses true --compose <файл шага 6> --sha256 <его hash> --out <новый>`,
    перезапуск API с этим compose. В кабинете появляется «Расходы» вместо «Финансы».
    Нужен `BACKOFFICE_ENABLED=true` (он на сервере уже задан, сверить).
+   Запустить подготовленный staff-login, проверить его здоровье и точные app/api/expenses
+   JS/CSS на `pickchick.kz`, а также expenses/meta 200 с ролью владельца. После всех проверок
+   освободить только свои блокировки. Фактический compose с включёнными расходами должен
+   стать effective `compose.yaml`; сохранить выключенную копию и оба hash для отката.
 10. Проверка владельцем: вход в кабинет, раздел «Расходы», ввод одной суммы, она видна в журнале.
 
 Флаги перехода (продажи кассы, роли, склад и прочие) этим окном не включаются: только «Расходы».

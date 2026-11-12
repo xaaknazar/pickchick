@@ -1497,6 +1497,267 @@
     "amount_or_personal_data_recorded": false
   },
   "online_roadmap": {
-    "status": "pending_publication"
+    "package_sha256": "196036ce1298773ed0c1fba77eea18a262ea9b3b617f6a939c4b63c15eeac5d8",
+    "inspect": {
+      "status": "inspected",
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "current_public_release": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "current_api_release": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "roadmap_installed": true,
+      "deployment_lock_present": false
+    },
+    "apply": {
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "status": "deployed",
+      "phase": "publish_pointers",
+      "previous_state_backup": "/opt/pickchick-staging/roadmap/backups/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b-0aa6e363218448a1b21022642331eb2a",
+      "public_release": "/opt/pickchick-staging/public-https/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "app_release": "/opt/pickchick-staging/roadmap/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "previous_public_release": "/opt/pickchick-staging/public-https/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "gateway_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+      "public_manifest_sha256": "6a5c4e42c258cad843f2a26fcb4c5f35aab1958aa6e79bbab99bfaf099663580",
+      "unchanged_services": [
+        "pickchick-staging-api-1",
+        "pickchick-staff-login",
+        "pickchick-desktop-updates",
+        "pickchick-kitchen-portal",
+        "pickchick-kaspi-worker",
+        "pickchick-kiosk-kaspi-qr-worker",
+        "pickchick-staff-login-backup-7e3120438461",
+        "pickchick-staff-login-backup-59f0c0d98a6d",
+        "pickchick-staff-login-backup-4caca195a4a5",
+        "pickchick-staff-login-backup-ab73aae4d5ab",
+        "pickchick-staff-login-backup-661f84c20b47",
+        "pickchick-staff-login-backup-d379075bf678",
+        "pickchick-staff-login-backup-f01cb45f441d",
+        "pickchick-staff-login-backup-8468e3aed72c",
+        "pickchick-kaspi-bridge",
+        "pickchick-staff-login-backup-23fb39e152fc",
+        "pickchick-staff-login-backup-3f55929a0f17",
+        "pickchick-staging-cloud-db-1",
+        "pickchick-staging-redis-cache-1",
+        "deploy-server-1",
+        "deploy-caddy-1",
+        "deploy-db-1"
+      ]
+    },
+    "online_check": {
+      "health": {
+        "status": "up",
+        "sourceSha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b"
+      },
+      "task_id": "backoffice-expenses-live",
+      "status": "done",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": true
+      },
+      "source_sha": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "public_current": "/opt/pickchick-staging/public-https/releases/21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "api_current": "/opt/pickchick-staging/releases/7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "lock_present": false
+    }
+  },
+  "portal_archive": {
+    "source_sha": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "artifact_sha256": "f75c3ddfc05c17d310e9540ba5e0404fb0e87975747076c5da3600232ff5c236",
+    "operator_tests_passed": 18
+  },
+  "postdeploy_observation": {
+    "status": "passed",
+    "elapsed_since_deploy_seconds": 900,
+    "api_not_restarted_during_observation": true,
+    "health_samples": [
+      {
+        "at": "2026-11-12T06:29:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:29:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:30:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:30:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:31:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:31:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:32:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:32:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:33:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:33:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:34:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:34:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:35:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:35:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:36:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:36:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:37:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:37:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:38:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:38:30Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:39:00Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      },
+      {
+        "at": "2026-11-12T06:39:07Z",
+        "status": 200,
+        "ready": true,
+        "degraded": false
+      }
+    ]
+  },
+  "final_server_state": {
+    "at": "2026-11-12T06:39:28Z",
+    "api_source": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_image": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+    "public_source": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+    "portal_image": "sha256:2389ce322e3b057912a771cff27401fcaae9c77f6f94011f9fa89c441d7febf4",
+    "schema_migrations": 70,
+    "expenses_enabled": true,
+    "other_cutover_flags_enabled": false,
+    "owner_meta_status": 200,
+    "owner_role": "director",
+    "public_probes": [
+      {
+        "path": "/v1/auth/config",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/v1/customer-checkout/catalog",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/kitchen-live/health",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/backoffice/",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/pos/latest.json",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/kitchen/latest.json",
+        "status": 200,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/desktop-updates/",
+        "status": 404,
+        "cache_control": "no-store"
+      },
+      {
+        "path": "/v1/admin/backoffice/expenses/meta",
+        "status": 401,
+        "cache_control": "no-store"
+      }
+    ],
+    "deployment_lock_present": false
   }
 }
