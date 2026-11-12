@@ -7818,9 +7818,9 @@
         "tests/mobile/android-config.test.mjs",
         "@android/emulator"
       ],
-      "status": "available",
+      "status": "active",
       "head": "fe84eb1051161c50a1178f61cee0b8a99c1cbb4e",
-      "updatedAt": "2026-11-12T15:38:01.096Z",
+      "updatedAt": "2026-11-12T15:44:16.921Z",
       "summary": "Pick Box selected Alex-side cover. iOS 1.0.1(34) uploaded and assigned Internal/Testing; external beta review submitted. Android 1.0.1(8) closed Alpha submitted. Source 53ec5d41 full CI 11/11, 599 Node + 96 Python PASS; report fe84eb10.",
       "nextAction": "Confirm Apple/Google review decisions and physical phone acceptance. Native Android gameplay remains unverified. Integrate PR368 and merge roadmap facts into the newer live roadmap without replacing operations data."
     }
