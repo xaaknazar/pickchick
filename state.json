@@ -7279,8 +7279,6 @@
         "tests/operations/test_watchdog_telegram_setup.py",
         "infra/pickchick-ingress",
         "tests/operations/test_pickchick_ingress.py",
-        "@vps/api",
-        "@vps/postgres",
         "infra/staging/release-stage2-1024.py",
         "tests/operations/test_stage2_release_1024.py",
         ".github/workflows/offline-stand.yml",
@@ -7315,9 +7313,9 @@
       ],
       "status": "available",
       "head": "36f05455845a917ae82c7a79d16190440a4c0b29",
-      "updatedAt": "2026-11-06T20:06:40.746Z",
+      "updatedAt": "2026-11-12T04:56:33.786Z",
       "summary": "С1 сохранён, С3 PASS 06.11 в разрешённом вечернем окне. CI818524ec Foundation11/11 и Offline PASS; свежие копии068/071 на VPS/Mac, восстановление и репетиции PASS. Установлены069-071 и API6630eb0f, новые флаги false. Domain12/12,7маршрутов и15.1мин наблюдения PASS; активная работа0,73/18 неизменны. Все собственные release locks сняты. Протокол36f05455 опубликован в PR311, shared не менялся. Онлайн-пульт не обновлён.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.",
-      "nextAction": "Серверное окно завершено, ночной повтор С3 не нужен. Владелец может ввести ключ бота через setup-telegram.command со скрытым вводом; ключ в чат не передавать. Watchdog/shadow, Caddy, касса, магазины,072 и включение флагов отдельно по прежнему плану. Кандидат PR310 и протокол PR311 не слиты; finish запрещён до shared. Android P6/поддержка ожидает согласованной передачи нужных резервов; не считать серверный lock занятым после этого handoff.\nП6 передан android-play-1106; широкие @vps и @vps/public-https сняты только у завершённого окна. Перед будущим глобальным серверным окном заново согласовать полный резерв; API/БД/банк/roadmap и остальные области остаются здесь."
+      "nextAction": "Серверное окно завершено, ночной повтор С3 не нужен. Владелец может ввести ключ бота через setup-telegram.command со скрытым вводом; ключ в чат не передавать. Watchdog/shadow, Caddy, касса, магазины,072 и включение флагов отдельно по прежнему плану. Кандидат PR310 и протокол PR311 не слиты; finish запрещён до shared. Android P6/поддержка ожидает согласованной передачи нужных резервов; не считать серверный lock занятым после этого handoff.\nП6 передан android-play-1106; широкие @vps и @vps/public-https сняты только у завершённого окна. Перед будущим глобальным серверным окном заново согласовать полный резерв; API/БД/банк/roadmap и остальные области остаются здесь.\n12.11: exact API/PostgreSQL/gateway scopes transferred to cloud-expenses-live-1112 for the owner-authorized 072-077 and expenses-only window."
     },
     {
       "id": "mobile-cart-location-1106",
@@ -7731,25 +7729,27 @@
       "scopes": [
         "docs/operations/desktop-updates-install-1111.md",
         "@vps/desktop-updates",
-        "@vps/public-https/gateway",
         "@vps/ssh-access"
       ],
       "status": "available",
       "head": "c505e0124b18a2163cfce1388460d2233227d22a",
-      "updatedAt": "2026-11-11T15:18:33.857Z",
+      "updatedAt": "2026-11-12T04:56:33.786Z",
       "summary": "DEPLOYED 11.11 20:10 UTC+5: POS 0.5.0/Kitchen 0.4.0, source46453717, external200/no-store and root404; Cloud-1 candidate gate PASS; foreign SSH key revoked; receipt c505e012.",
-      "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step."
+      "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step.\n12.11: exact API/PostgreSQL/gateway scopes transferred to cloud-expenses-live-1112 for the owner-authorized 072-077 and expenses-only window."
     },
     {
       "id": "cloud-expenses-live-1112",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-expenses-live-1112",
       "scopes": [
-        "docs/operations/cloud-expenses-live-1112.md"
+        "docs/operations/cloud-expenses-live-1112.md",
+        "@vps/api",
+        "@vps/postgres",
+        "@vps/public-https/gateway"
       ],
       "status": "available",
       "head": "61271bbb15c1fc81f9171799c6d4fb20329ae8f8",
-      "updatedAt": "2026-11-11T21:16:23.370Z",
+      "updatedAt": "2026-11-12T04:56:33.786Z",
       "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
       "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
     }
@@ -7761,6 +7761,27 @@
       "from": "mobile-kazakh-review-1030",
       "to": "launch-ci-1109",
       "authorization": "Owner explicitly approved in this chat: Да, передать этот файл и исправить тест"
+    },
+    {
+      "at": "2026-11-12T04:56:33.786Z",
+      "path": "@vps/api",
+      "from": "stage2-candidate-1105",
+      "to": "cloud-expenses-live-1112",
+      "authorization": "Owner explicitly requested this API/database/gateway deployment in this chat; previous tasks are handed off and owned by this same workstation. No other agent active reservation removed."
+    },
+    {
+      "at": "2026-11-12T04:56:33.786Z",
+      "path": "@vps/postgres",
+      "from": "stage2-candidate-1105",
+      "to": "cloud-expenses-live-1112",
+      "authorization": "Owner explicitly requested this API/database/gateway deployment in this chat; previous tasks are handed off and owned by this same workstation. No other agent active reservation removed."
+    },
+    {
+      "at": "2026-11-12T04:56:33.786Z",
+      "path": "@vps/public-https/gateway",
+      "from": "desktop-updates-install-1111",
+      "to": "cloud-expenses-live-1112",
+      "authorization": "Owner explicitly requested this API/database/gateway deployment in this chat; previous tasks are handed off and owned by this same workstation. No other agent active reservation removed."
     }
   ]
 }
