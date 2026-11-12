@@ -7772,6 +7772,19 @@
       "updatedAt": "2026-11-12T06:41:00.072Z",
       "summary": "DEPLOYED and owner ACCEPTED: API/staff-login 7e312043, schema077, only expenses enabled; exact Foundation11/11; fresh backup/restore and rehearsal PASS; 22 ready probes over post-deploy period, final check at 900s PASS. Roadmap21e95fe2 published/accepted; public pointer21e95fe2; locks released. Evidence and corrected portal maintenance in PR360.",
       "nextAction": "Review/merge documentation PR360 through normal CI. Further cutover flags and Windows installation are separate steps; use final hashes and portal-aware writer shutdown in the runbooks."
+    },
+    {
+      "id": "kitchen-password-1112",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kitchen-password-1112",
+      "scopes": [
+        "@windows/cashier/password-kitchen",
+        "@vps/kitchen-password-recovery",
+        "docs/operations/kitchen-password-1112.md"
+      ],
+      "status": "active",
+      "head": "275c586cc261cd533c7e353c87f11bf99c2bd7d6",
+      "updatedAt": "2026-11-12T08:23:29.727Z"
     }
   ],
   "approvedScopeTransfers": [
