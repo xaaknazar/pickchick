@@ -123,7 +123,7 @@ test('designer POS: real PIN, shared shifts, draft recovery, WAN isolation, lost
       branchLabel: 'Абая 62',
       categories,
       terminalId: terminal,
-      // As pos-desktop 0.5.0 sends it; a desk without payments keeps "0.4 · TEST" (CR client-5).
+      // As pos-desktop 0.5.0 sends it; every desk shows it, never "TEST" (owner, 12.11.2026).
       appVersion: '0.5.0',
     });
     await new Promise((r) => pos.listen(0, '127.0.0.1', r));

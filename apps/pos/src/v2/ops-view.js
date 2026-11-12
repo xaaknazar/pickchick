@@ -721,9 +721,7 @@ export class OpsView {
       kkmBg: count ? '#FFF3C4' : 'rgba(18,161,80,.1)',
       queued: count,
       retryFg: count ? 'var(--orange)' : 'var(--n600)',
-      cashLog: legacy.cashLog.map((row) =>
-        row.what === 'Начальный остаток · тест' ? { ...row, what: 'Начальный остаток' } : row,
-      ),
+      cashLog: legacy.cashLog,
       sayX: g(() => this.openX()),
       sayTotals: () =>
         this.say(

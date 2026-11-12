@@ -1,20 +1,20 @@
-// Cutover 19.11 (CR client-5): a few texts of today's screens say "test". They stay byte for
-// byte while the desk works without payments (pos/config 404 or unpaid_service: installed desks
-// must not change); a desk that sells (pos/config pos_sale) says what is true there instead.
+// Cutover 19.11 (CR client-5): a desk without payments (pos/config 404 or unpaid_service) says
+// so in a few places; a desk that sells (pos/config pos_sale) says what is true there instead.
+// No screen says "test" (owner, 12.11.2026): an unpaid desk is "без оплаты" and shows its real
+// version.
 // DOM-free, like sale-view.js and ops-view.js.
 import { deskNumber } from '../types.js';
 
-/** Today's texts, exactly as the unpaid cashier shows them. */
+/** Texts of a desk without payments. */
 export const TEST_TEXTS = Object.freeze({
-  shiftOpened: 'Тестовая смена открыта',
-  shiftClosed: 'Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',
-  closeReason: 'Тестовая смена без оплаты',
-  unavailable: 'В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.',
-  findGuest: 'Поиск аккаунтов и Чики подключим отдельно. Для теста укажите имя на табло.',
-  kitchenOff: 'Тестовая передача на кухню ещё не включена оператором.',
+  shiftOpened: 'Смена открыта · без оплаты',
+  shiftClosed: 'Смена закрыта. Оплат не было, Z-отчёт не формировался.',
+  closeReason: 'Смена без оплаты',
+  unavailable: 'Эта функция пока не подключена. Деньги и чеки не проводятся.',
+  findGuest: 'Поиск аккаунтов и Чики подключим отдельно. Укажите имя на табло.',
+  kitchenOff: 'Передачу на кухню ещё не включил оператор.',
   deskPrefix: 'Касса 1 · ',
   deskChip: ' · касса 1',
-  appLine: 'Pick Chick POS 0.4 · TEST',
 });
 /**
  * The same places on a desk that sells. Its desk number only when the edge tells it (pos/config
@@ -59,23 +59,19 @@ export const appVersion = (value) =>
   typeof value === 'string' && APP_VERSION.test(value) ? value : null;
 /**
  * Desk line of the lock and opening screens ("Касса 1 · " + clock or date), the role chip of
- * the header and the lock footer. A desk that sells shows the number its edge gave it (1..99,
- * in today's wording) or no number rather than a wrong one, and its real version without
- * "TEST". Without payments the number is never used: today's "Касса 1" byte for byte.
+ * the header and the lock footer. Every desk shows its real version (or only the name when
+ * pos-desktop does not report one). A desk that sells shows the number its edge gave it (1..99,
+ * in today's wording) or no number rather than a wrong one; without payments it is "Касса 1".
  */
 export function deskTexts(paid, version, number = null) {
-  if (!paid)
-    return {
-      deskPrefix: TEST_TEXTS.deskPrefix,
-      deskChip: TEST_TEXTS.deskChip,
-      appLine: TEST_TEXTS.appLine,
-    };
-  const known = appVersion(version),
-    desk = deskNumber(number);
+  const known = appVersion(version);
+  const appLine = PAID_TEXTS.appName + (known ? ' ' + known : '');
+  if (!paid) return { deskPrefix: TEST_TEXTS.deskPrefix, deskChip: TEST_TEXTS.deskChip, appLine };
+  const desk = deskNumber(number);
   return {
     deskPrefix: desk === null ? '' : `Касса ${desk} · `,
     deskChip: desk === null ? '' : ` · касса ${desk}`,
-    appLine: PAID_TEXTS.appName + (known ? ' ' + known : ''),
+    appLine,
   };
 }
 
@@ -116,9 +112,7 @@ export function awaitingValues(legacy, { busy, empty, say }) {
     shiftRevenue: '-',
     shiftPays: [{ name: 'Отчёт смены загружается', sum: '-', color: 'var(--n300)' }],
     kkmLine: 'Чеки: вручную в Webkassa',
-    cashLog: legacy.cashLog.map((row) =>
-      row.what === 'Начальный остаток · тест' ? { ...row, what: 'Начальный остаток' } : row,
-    ),
+    cashLog: legacy.cashLog,
     sayX: wait,
     sayTotals: wait,
     startClose: wait,

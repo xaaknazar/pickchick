@@ -487,7 +487,7 @@ function draw() {
   // Desk number and app line (CR client-5): the session's pos/config once it is read, GET
   // ordering while that read is still missing (review 07.11 R1), and before both (the lock
   // screen, the first moment after a PIN) the edge's last answer to this desk, so a desk that
-  // sells never flashes "Касса 1" or "TEST". Its number: the session's pos/config pos_sale, else
+  // sells never flashes "Касса 1". Its number: the session's pos/config pos_sale, else
   // the number of the desk's last pos_sale answer (none after any other answer).
   deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
   deskNo = rememberDeskNumber(deskStorage, m, deskNo);
@@ -629,7 +629,7 @@ function draw() {
     doneNo: lastOrder ? orderNumber(lastOrder) : '',
     doneGuest: lastOrder?.snapshot.details?.display_name || '-',
     doneMode: lastOrder?.snapshot.service_mode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ',
-    doneMethod: 'Тест · без оплаты',
+    doneMethod: 'Без оплаты',
     doneSum: lastOrder ? money(lastOrder.snapshot.total_minor) : '0 ₸',
     doneNote: 'Заказ сохранён на локальном сервере и передан на кухню. Чек не создавался.',
     nextOrder,
@@ -637,7 +637,7 @@ function draw() {
     shiftRevenue: '0 ₸',
     shiftPays: [
       {
-        name: 'Тестовые заказы без оплаты',
+        name: 'Заказы без оплаты',
         sum: money(m.shift?.unpaid_total_minor ?? '0'),
         color: 'var(--blue)',
       },
@@ -656,7 +656,7 @@ function draw() {
             })),
           {
             time: time(m.shift.opened_at),
-            what: 'Начальный остаток · тест',
+            what: 'Начальный остаток',
             sum: money(m.shift.opening_cash_minor),
             fg: 'var(--green)',
           },
@@ -676,7 +676,7 @@ function draw() {
       }
       reference.setState({ closeOpen: true, closeStep: 1, counted: 0, closePin: '' });
     },
-    queueLine: 'Тестовый режим. Фискальные чеки не создавались.',
+    queueLine: 'Без оплаты. Фискальные чеки не создавались.',
     closeCtaLabel: s.closeStep < 5 ? 'Дальше' : 'Введите PIN начальника смены',
     closeNext: () => {
       if (
@@ -922,8 +922,8 @@ function draw() {
   v.dayRows = rows.map((o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
-    // A desk that sells calls no row a test; "Без оплаты" says what an unpaid row is.
-    channel: o.execution_mode === 'pos_sale' || paid ? 'КАССА' : 'КАССА · ТЕСТ',
+    // No row is called a test; "Без оплаты" says what an unpaid row is.
+    channel: 'КАССА',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
@@ -969,7 +969,7 @@ function draw() {
     ['ДОСТАВКА', []],
   ].map(([label, list]) => ({
     label,
-    note: 'Тест без оплаты',
+    note: 'Без оплаты',
     color: 'var(--blue)',
     orders: String(list.length),
     revenue: money(list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n).toString()),
@@ -980,7 +980,7 @@ function draw() {
           ).toString(),
         )
       : '-',
-    share: 'Сумма тестовых заказов',
+    share: 'Сумма заказов без оплаты',
   }));
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
