@@ -7813,11 +7813,12 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps/roadmap",
-        "scripts/mobile/pick-box-assets.py"
+        "scripts/mobile/pick-box-assets.py",
+        "tests/mobile/android-ux.test.mjs"
       ],
       "status": "active",
       "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
-      "updatedAt": "2026-11-12T12:31:24.818Z"
+      "updatedAt": "2026-11-12T12:56:34.577Z"
     }
   ],
   "approvedScopeTransfers": [
