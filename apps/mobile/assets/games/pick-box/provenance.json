@@ -16,5 +16,7 @@
       "reference": "cover-2d.png"
     }
   ],
-  "packaging": "See packaging-source.json for exact PDF hash and reproducible crop coordinates."
+  "packaging": "See packaging-source.json for exact PDF hash and reproducible crop coordinates.",
+  "activeCover": "cover-alex-2d.png",
+  "coverRevision": "See cover-alex-2d.provenance.json. Owner requested Alex above the tower, holding the rope. Prior cover-2d.png retained as source and rollback."
 }

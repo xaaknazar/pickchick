@@ -44,7 +44,9 @@ The confirmed name is Pick Box, requested by the owner on 12 November 2026.
 Preserve the owner-supplied PickChick packaging artwork and 23 x 23 x 10 cm box
 dimensions. Gameplay uses the original PDF front artwork at a 23:10 face ratio.
 The owner explicitly corrected the visual direction to illustrated 2D. The cover
-is illustrative; it does not replace the original print or physical proportions.
+now shows Alex above the tower, lowering a box on a rope held in both hands,
+as requested in the later 12 November revision. Its size matches the other games.
+It is illustrative; it does not replace the original print or physical proportions.
 Almaty mountain stages are an artistic setting, not exact geographic views.
 Shared PickChick identity and design authorities remain in force.
 

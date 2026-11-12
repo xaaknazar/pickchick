@@ -5,7 +5,7 @@ import { GamePosterCard } from '../GamePosterCard';
 import { pickBoxCopy } from './copy';
 
 export const pickBoxCover =
-  require('../../../assets/games/pick-box/cover-2d.png') as ImageSourcePropType;
+  require('../../../assets/games/pick-box/cover-alex-2d.png') as ImageSourcePropType;
 export function PickBoxCard() {
   const router = useRouter();
   const copy = pickBoxCopy(useLocale());

@@ -21,6 +21,10 @@ records only the Pick Box surface. The existing
   for the printed box artwork; the photo specifies 23 x 23 x 10 cm.
 - First viewport: full-frame arcade illustration, Pick Box title, one start action,
   a short three-lives/collapse rule. The poster also appears in the Games tab.
+- Cover revision, owner 12 November: Alex is above the tower, holding a rope with
+  both hands and lowering a tied Friends Box. The illustrated Almaty background
+  remains. `cover-alex-2d.png` is 1536 x 1024, matching the other Alex game covers,
+  and uses the unchanged shared poster size. Gameplay sprites are unchanged.
 - Gameplay composition: count centered above an open playfield, record left,
   three hearts right, named peak below. A rope enters from above; the player's
   box hangs over the tower. One bottom action remains available to accessibility
@@ -51,7 +55,7 @@ the exact packaging source and crop coordinates are in
 ### QUALITY BAR - constrained reference card
 
 - Reference: the owner's packaging PDF/photo for print fidelity and 23 x 23 x 10 cm
-  dimensions; the final `cover-2d.png` and `mountains-2d.png` for illustrated style.
+  dimensions; `cover-alex-2d.png` and `mountains-2d.png` for illustrated style.
 - Incumbent component: [`GamePosterCard.tsx`](../../apps/mobile/src/games/GamePosterCard.tsx),
   already used by [`MagicSortCard.tsx`](../../apps/mobile/src/games/magic-sort/MagicSortCard.tsx),
   governs entry-card composition. The game retains its own open playfield.
