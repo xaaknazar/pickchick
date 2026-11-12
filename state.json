@@ -7742,9 +7742,11 @@
         "tests/unit/cutover-installed-compose.test.mjs",
         "docs/operations/cloud-expenses-now-1111.md"
       ],
-      "status": "active",
-      "head": "af68b114e57ce6bcc4ac651d9160d7caf6834d6c",
-      "updatedAt": "2026-11-12T05:04:55.222Z"
+      "status": "available",
+      "head": "67da908d21df152ecd662e8663c54aa6b16a4aef",
+      "updatedAt": "2026-11-12T05:39:52.000Z",
+      "summary": "PR #358 merged into cutover 7e312043; 6 JSON/YAML/CLI tests and 3 existing API environment tests passed; pinned build and lint passed. Full cutover CI 43159477530 running.",
+      "nextAction": "Deployment continues in cloud-expenses-live-1112; do not change the installed compose helper during that window."
     },
     {
       "id": "cloud-expenses-live-1112",
