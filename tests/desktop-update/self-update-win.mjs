@@ -1,6 +1,8 @@
 // Windows acceptance of the self-update (docs/operations/desktop-updates.md): the installed
 // previous build finds a newer installer on a local feed, verifies it, installs it silently and
-// comes back up as the new version. Run by the Windows package workflows; never on a desk.
+// comes back up as the new version. The installer itself makes the desktop shortcut and turns
+// on autostart (owner, 12.11.2026); the self-update brings both back, and only a real uninstall
+// removes them. Run by the Windows package workflows; never on a desk.
 // node tests/desktop-update/self-update-win.mjs --app pos|kitchen --old <Setup A> --new <Setup B>
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -10,25 +12,26 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { APPS, CHUNK_BYTES, parseManifest } from '../../apps/pos-desktop/updater.mjs';
 
 const CLIENTS = {
-  pos: { exe: 'PickChickPOS', profile: 'PickChickPOS' },
-  kitchen: { exe: 'PickChickKitchen', profile: 'PickChickKitchen' },
+  pos: { exe: 'PickChickPOS', profile: 'PickChickPOS', shortcut: 'PickChick POS' },
+  kitchen: { exe: 'PickChickKitchen', profile: 'PickChickKitchen', shortcut: 'PickChick Kitchen' },
 };
 const args = {};
 for (let i = 2; i < process.argv.length; i += 2)
   args[process.argv[i].slice(2)] = process.argv[i + 1];
 assert.equal(process.platform, 'win32', 'Windows only');
 assert.ok(Object.hasOwn(CLIENTS, args.app), '--app pos|kitchen');
-const { exe, profile: profileName } = CLIENTS[args.app];
+const { exe, profile: profileName, shortcut } = CLIENTS[args.app];
 const versionOf = (path) => {
   const match = new RegExp(`^${APPS[args.app]}(\\d+\\.\\d+\\.\\d+)-x64\\.exe$`).exec(
     basename(path),
@@ -71,6 +74,28 @@ const leftovers = () => {
 };
 const running = () =>
   Number(powershell(`@(Get-Process -Name '${exe}' -ErrorAction SilentlyContinue).Count`)) > 0;
+const RUN = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+// The autostart value of this app ('' when there is none).
+const autostart = () =>
+  powershell(
+    `$v=Get-ItemProperty -LiteralPath '${RUN}' -Name '${exe}' -ErrorAction SilentlyContinue; if($v){$v.'${exe}'}`,
+  );
+const desktopShortcut = () =>
+  join(powershell(`[Environment]::GetFolderPath('Desktop')`), shortcut + '.lnk');
+const shortcutTarget = () =>
+  existsSync(desktopShortcut())
+    ? powershell(
+        `(New-Object -ComObject WScript.Shell).CreateShortcut('${desktopShortcut()}').TargetPath`,
+      )
+    : '';
+const assertDesktopAndAutostart = (when) => {
+  assert.equal(autostart(), `"${installed}"`, `${when}: autostart value`);
+  assert.equal(
+    shortcutTarget().toLowerCase(),
+    installed.toLowerCase(),
+    `${when}: desktop shortcut`,
+  );
+};
 const state = () => {
   try {
     return JSON.parse(readFileSync(join(updates, 'state.json'), 'utf8'));
@@ -84,6 +109,11 @@ log(`Installing ${basename(args.old)}`);
 const setup = spawnSync(args.old, ['/S'], { stdio: 'ignore' });
 assert.equal(setup.status, 0, 'previous installer exit code');
 assert.equal(installedVersion(), oldVersion, 'previous version installed');
+assertDesktopAndAutostart('after the first install');
+log(`Desktop shortcut and autostart are in place; removing both before the self-update`);
+rmSync(desktopShortcut());
+powershell(`Remove-ItemProperty -LiteralPath '${RUN}' -Name '${exe}'`);
+assert.equal(autostart(), '', 'autostart value removed for the check');
 
 // 2. A local feed with the next build, laid out by the release script.
 const feed = await mkdtemp(join(tmpdir(), 'pickchick-feed-'));
@@ -178,4 +208,17 @@ assert.ok(
   'nothing but the manifest and the installer was requested',
 );
 assert.deepEqual(leftovers(), [], 'the new version removed the used installer');
+assertDesktopAndAutostart('after the self-update');
 log(`OK: ${exe} ${oldVersion} updated itself to ${newVersion} and is running.`);
+
+// 4. A real uninstall removes the program, its desktop shortcut and its autostart value.
+const directory = dirname(installed);
+const uninstaller = readdirSync(directory).find((name) => /^Uninstall .+\.exe$/.test(name));
+assert.ok(uninstaller, 'uninstaller next to the program');
+assert.equal(spawnSync(join(directory, uninstaller), ['/S'], { stdio: 'ignore' }).status, 0);
+// The NSIS uninstaller runs on from a copy of itself: wait for it to finish.
+for (let i = 0; i < 120 && (existsSync(installed) || autostart() !== ''); i += 1) await sleep(1000);
+assert.ok(!existsSync(installed), 'uninstalled');
+assert.equal(autostart(), '', 'uninstall removed the autostart value');
+assert.ok(!existsSync(desktopShortcut()), 'uninstall removed the desktop shortcut');
+log(`OK: uninstall removed ${exe}, its desktop shortcut and its autostart value.`);

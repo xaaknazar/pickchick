@@ -202,7 +202,7 @@ Assert-Throws { New-PosPrinter '' '' 9100 $true } 'POS_PRINTER_INVALID' 'drawer 
 Assert-Throws { New-PosPrinter '' '8.8.8.8' 9100 $false } 'POS_PRINTER_INVALID' 'public printer address'
 Assert-Throws { New-PosPrinter '' '10.20.0.50' 9101 $false } 'POS_PRINTER_INVALID' 'raw printing port other than 9100'
 
-# ---- Files, versions, autostart guard ----
+# ---- Files, versions, autostart of a missing app ----
 $file = Join-Path $out 'written.json'
 Write-LanJsonFile $file '{"a":1}' 'S1'
 Write-LanJsonFile $file '{"a":2}' 'S2'
@@ -210,5 +210,5 @@ $bytes = [IO.File]::ReadAllBytes($file)
 Assert-True ($bytes[0] -eq 0x7B -and $utf8.GetString($bytes) -ceq '{"a":2}' -and [IO.File]::ReadAllText("$file.bak-S2") -ceq '{"a":1}') 'atomic write keeps the previous file, no BOM'
 Assert-True (-not (Test-Path -LiteralPath "$file.new-S2")) 'no temporary file is left'
 Assert-Throws { Get-LanAppVersion (Join-Path $out 'missing.exe') } 'LAN_APP_MISSING' 'app not installed'
-Assert-Throws { Set-LanAutostart 'PickChickPOS' (Join-Path $out 'missing.exe') 'On' ([datetime]'2026-11-19') ([datetime]'2026-11-18T23:59:00') } 'LAN_AUTOSTART_TOO_EARLY' 'autostart before the cutover day'
+Assert-Throws { Set-LanAutostart 'PickChickPOS' (Join-Path $out 'missing.exe') 'On' } 'LAN_APP_MISSING' 'autostart of an app that is not installed'
 "LAN client script checks passed: $script:count"

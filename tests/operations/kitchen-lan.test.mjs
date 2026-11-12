@@ -1087,7 +1087,7 @@ const LAN_SCRIPTS = [
 const psFunction = (source, name) =>
   new RegExp(`^function ${name}\\b[\\s\\S]*?^\\}`, 'm').exec(source)?.[0];
 
-test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostart only on request and never before 19.11, iiko only read', async () => {
+test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostart only from the installer or on request, iiko only read', async () => {
   const source = Object.fromEntries(
     await Promise.all(
       LAN_SCRIPTS.map(async (name) => [name, await readFile(windowsFile(name), 'utf8')]),
@@ -1135,9 +1135,10 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
     [kitchen, 'kitchen-desktop', '0.4.0'],
     [pos, 'pos-desktop', '0.5.0'],
   ]) {
-    // Registry writes only inside Set-LanAutostart, called only for -Autostart, guarded by date.
+    // Registry writes only inside Set-LanAutostart, called only for -Autostart. The app
+    // installer itself turns autostart on (owner, 12.11.2026); the script no longer waits for 19.11.
     const autostart = psFunction(text, 'Set-LanAutostart');
-    assert.ok(autostart.includes('$Today.Date -lt $CutoverDate.Date'));
+    assert.ok(!text.includes('CutoverDate'));
     for (const write of ['New-ItemProperty', 'Remove-ItemProperty', 'Set-ItemProperty'])
       assert.equal(
         text.split(write).length - 1,
@@ -1146,7 +1147,6 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
       );
     assert.equal(text.split("Set-LanAutostart '").length - 1, 1);
     assert.match(text, /ParameterSetName -ceq 'Autostart'\) \{\n\s+Set-LanAutostart '/);
-    assert.match(text, /\[datetime\]\$CutoverDate=\[datetime\]'2026-11-19'/);
     assert.ok(text.includes(`[version]'${minimum}'`));
     // The default app path is where the per-user NSIS installer of that app puts it: a silent
     // install on a Windows runner (windows-kitchen.yml) put both apps in Programs\<executableName>,
@@ -1158,6 +1158,26 @@ test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostar
     const product = /^productName: (.+)$/m.exec(builder)[1];
     const exe = /^\s+executableName: (.+)$/m.exec(builder)[1];
     assert.match(builder, /perMachine: false/);
+    // The installer writes the same Run value the script reads and changes, and makes the
+    // desktop shortcut even on a reinstall.
+    const runName = /Set-LanAutostart '([A-Za-z]+)'/.exec(text)[1];
+    assert.equal(runName, exe);
+    assert.match(builder, /^ {2}createDesktopShortcut: always$/m);
+    assert.match(builder, /^ {2}include: build\/installer\.nsh$/m);
+    const nsh = await readFile(
+      new URL(`../../apps/${app}/resources/installer.nsh`, import.meta.url),
+      'utf8',
+    );
+    const run = 'HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Run"';
+    assert.ok(
+      nsh.includes(`WriteRegStr ${run} "${runName}" '"$INSTDIR\\\${APP_EXECUTABLE_FILENAME}"'`),
+      `${app} installer turns autostart on`,
+    );
+    const uninstall = nsh.slice(nsh.indexOf('!macro customUnInstall'));
+    assert.match(uninstall, /\$\{ifNot\} \$\{isUpdated\}\n\s+DeleteRegValue /);
+    assert.ok(uninstall.includes(`DeleteRegValue ${run} "${runName}"`));
+    assert.equal(nsh.split('WriteRegStr').length - 1, 1, 'one registry write');
+    assert.equal(nsh.split('DeleteRegValue').length - 1, 1, 'one registry delete');
     assert.ok(text.includes(`'Programs\\${exe}\\${exe}.exe'`), `${app} path`);
     assert.ok(!text.includes(`'Programs\\${product}\\`), `${app} old path`);
   }

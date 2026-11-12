@@ -38,6 +38,7 @@ export const inputPaths = [
     'scripts/inputs.mjs',
     'scripts/verify-package.mjs',
     'resources/config.example.json',
+    'resources/installer.nsh',
   ].map((name) => `apps/kitchen-desktop/${name}`),
   ...[
     'logo.png',

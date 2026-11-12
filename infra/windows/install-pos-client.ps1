@@ -12,7 +12,7 @@ The script:
 - writes edgeHost, edgePort, edgeCertificatePem, terminalId and optionally printer into
   %APPDATA%\PickChickPOS\config.json, keeping the other keys (previous file kept as
   config.json.bak-<UTC>).
-It never enables autostart (off until 19.11; use -Autostart On on the cutover day), never
+Configuring never changes autostart (the app installer turns it on; -Autostart On|Off changes it), never
 touches iiko, its files, services, autostart or printer settings, and needs no elevation.
 Rollback: restore config.json.bak-<UTC> (or remove edgeHost/edgeCertificatePem) and restart. #>
 [CmdletBinding(DefaultParameterSetName='Install')]
@@ -27,7 +27,6 @@ param(
     [Parameter(ParameterSetName='Install')][switch]$DrawerKick,
     [Parameter(ParameterSetName='Install')][switch]$Replace,
     [Parameter(Mandatory=$true,ParameterSetName='Autostart')][ValidateSet('On','Off')][string]$Autostart,
-    [datetime]$CutoverDate=[datetime]'2026-11-19',
     [string]$AppPath=(Join-Path $env:LOCALAPPDATA 'Programs\PickChickPOS\PickChickPOS.exe')
 )
 Set-StrictMode -Version Latest
@@ -193,11 +192,10 @@ function Get-LanAppVersion([string]$Path) {
     if($raw -cnotmatch '\A(\d+)\.(\d+)\.(\d+)') {throw 'LAN_APP_VERSION_UNKNOWN'}
     return [version]::new([int]$Matches[1],[int]$Matches[2],[int]$Matches[3])
 }
-function Set-LanAutostart([string]$Name,[string]$Exe,[string]$State,[datetime]$CutoverDate,[datetime]$Today) {
+function Set-LanAutostart([string]$Name,[string]$Exe,[string]$State) {
     # Per-user Run value of this PickChick app only; other values (iiko) are never read or changed.
     $key='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     if($State -ceq 'On') {
-        if($Today.Date -lt $CutoverDate.Date) {throw ('LAN_AUTOSTART_TOO_EARLY: PickChick autostart stays off until '+$CutoverDate.ToString('yyyy-MM-dd')+' (iiko keeps running until then).')}
         if(-not [IO.File]::Exists($Exe)) {throw 'LAN_APP_MISSING'}
         if(-not (Test-Path -LiteralPath $key)) {$null=New-Item -Path $key -Force}
         $null=New-ItemProperty -LiteralPath $key -Name $Name -Value ('"'+$Exe+'"') -PropertyType String -Force
@@ -259,7 +257,7 @@ $stamp=[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
 $profileDir=Join-Path $env:APPDATA 'PickChickPOS'
 $configPath=Join-Path $profileDir 'config.json'
 if($PSCmdlet.ParameterSetName -ceq 'Autostart') {
-    Set-LanAutostart 'PickChickPOS' $AppPath $Autostart $CutoverDate (Get-Date)
+    Set-LanAutostart 'PickChickPOS' $AppPath $Autostart
     Write-Output ('POS_AUTOSTART='+$Autostart.ToUpperInvariant()+' user='+[Environment]::UserName)
     return
 }
@@ -280,4 +278,4 @@ if($written.edgeHost -cne $public.edgeHost -or $written.edgePort -ne $public.edg
 if(@(Get-Process -Name 'iiko*' -ErrorAction SilentlyContinue).Count) {Write-Output 'iiko is running on this desk; it was not changed.'}
 Write-Output ('POS_CLIENT_CONFIGURED profile='+$probe.Profile+' app='+$version+' terminalId='+$config.terminalId+' printer='+$(if($config.Contains('printer')){$config.printer.mode}else{'none'})+' certificateSha256='+$certificate.Sha256)
 Write-Output ('Config: '+$configPath+'. Restart PickChick POS to apply it; the unsent command journal is kept.')
-Write-Output ('Autostart: '+$(if(Get-LanAutostart 'PickChickPOS'){'ON'}else{'OFF'})+' (stays off until '+$CutoverDate.ToString('yyyy-MM-dd')+').')
+Write-Output ('Autostart: '+$(if(Get-LanAutostart 'PickChickPOS'){'ON'}else{'OFF'})+' (the app installer turns it on; -Autostart Off lasts until the next install).')

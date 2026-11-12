@@ -66,11 +66,12 @@ nsis:
   allowElevation: false
   allowToChangeInstallationDirectory: false
   deleteAppDataOnUninstall: false
-  createDesktopShortcut: true
+  createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: PickChick Kitchen
   installerLanguages: [ru_RU, en_US]
   packElevateHelper: false
+  include: build/installer.nsh
 portable:
   artifactName: PickChick-Kitchen-Portable-${version}-${arch}.${ext}
   requestExecutionLevel: user

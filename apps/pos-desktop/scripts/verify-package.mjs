@@ -75,6 +75,7 @@ const expectedInputs = [
     'scripts/build.mjs',
     'scripts/verify-package.mjs',
     'resources/config.example.json',
+    'resources/installer.nsh',
   ].map((name) => `apps/pos-desktop/${name}`),
   'apps/pos/tsconfig.json',
   'apps/pos-desktop/v2-assets.mjs',
