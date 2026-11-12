@@ -7810,11 +7810,17 @@
         "@vps/roadmap",
         "scripts/mobile/pick-box-assets.py",
         "tests/mobile/android-ux.test.mjs",
-        "docs/operations/pick-box-1112"
+        "docs/operations/pick-box-1112",
+        "apps/mobile/app.json",
+        "@release/ios",
+        "@release/android",
+        "@apple/appstore",
+        "@google-play/pickchick",
+        "docs/operations/pick-box-test-release-1112.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "0af4781760b65eddc7375cffc0109757665d4e13",
-      "updatedAt": "2026-11-12T13:49:27.546Z",
+      "updatedAt": "2026-11-12T13:56:13.069Z",
       "summary": "Checkpoint 0af47817 in PR368: latest owner-requested realistic Alex cover, dimensional materials and Almaty. Composition and1536x1024 retained; card/start connected. Web export,393/320 visual checks and scoped lint/format PASS. Gameplay unchanged.",
       "nextAction": "Physical iPhone/Android acceptance, CI and integration remain before separately authorized store release. Online roadmap must preserve newer live operational facts."
     }
