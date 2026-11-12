@@ -102,7 +102,22 @@ with sync_playwright() as pw:
 
         # ---- Phone width: the same report, nothing wider than the screen ----
         page = session(393)
+        # The phone menu stays open while the page redraws. Every redraw builds the shell anew,
+        # and the menu used to close under the finger on each background refresh (which is also
+        # how this script once failed: the first loads after sign-in closed the menu between the
+        # two clicks of open_reports). A period change is a redraw the script can start itself.
+        toggle = page.get_by_test_id('navigation-toggle')
+        toggle.click()
+        expect(toggle).to_have_attribute('aria-expanded', 'true')
+        with page.expect_response(lambda r: 'period=week' in r.url):
+            page.get_by_test_id('period-week').click()
+        expect(page.get_by_test_id('period-week')).to_have_attribute('aria-pressed', 'true')
+        expect(toggle).to_have_attribute('aria-expanded', 'true')
+        expect(page.get_by_test_id('nav-reports')).to_be_visible()
+        # Choosing a section closes it, as before.
         open_reports(page)
+        expect(toggle).to_have_attribute('aria-expanded', 'false')
+        expect(page.get_by_test_id('nav-reports')).to_be_hidden()
         page.locator('#sales-report-start').fill(DAY)
         page.locator('#sales-report-end').fill(DAY)
         page.get_by_test_id('sales-report-run').click()

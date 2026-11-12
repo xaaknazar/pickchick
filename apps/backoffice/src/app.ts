@@ -62,6 +62,14 @@ import { renderExternalMenu } from './external-menu.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
+/**
+ * Phone menu («Разделы кабинета»): open or closed. Kept here and not in the shell: every redraw
+ * builds the shell anew, and a background refresh used to close the menu under the manager's
+ * finger (the first loads after sign-in, every 3 s on «Устройства», every minute elsewhere).
+ * Choosing a section or a change of the section closes it, as before.
+ */
+let navigationOpen = false;
+let shownPage = page;
 // Lane bo-ui «Касса»: #pos opens only once the server reports capabilities.pos_day.
 let wantPos = location.hash === '#pos';
 // Lane bo-ui step 7 «Скидки»: #discounts opens only once the server reports capabilities.discounts.
@@ -561,6 +569,7 @@ function render() {
   ui.fixes = Boolean(model.actor) && operations.fixes;
   document.documentElement.classList.toggle('bo-fixes', ui.fixes);
   if (!model.actor) {
+    navigationOpen = false;
     login();
     return;
   }
@@ -592,6 +601,8 @@ function render() {
   }
   if (page === 'finance' && expenses.available) page = 'expenses';
   if (page === 'expenses' && expenses.available === false) page = 'finance';
+  if (page !== shownPage) navigationOpen = false;
+  shownPage = page;
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
@@ -644,6 +655,7 @@ function render() {
           workforceView.clear();
           if (finance.pending && page === 'finance') return;
           financeView.clear();
+          navigationOpen = false;
           page = id;
           if (
             id === 'shifts' &&
@@ -684,14 +696,16 @@ function render() {
   const menuToggle = button(
     'Разделы кабинета',
     () => {
-      const open = navigation.classList.toggle('is-open');
-      menuToggle.setAttribute('aria-expanded', String(open));
+      navigationOpen = !navigationOpen;
+      navigation.classList.toggle('is-open', navigationOpen);
+      menuToggle.setAttribute('aria-expanded', String(navigationOpen));
     },
     'mobile-navigation-toggle',
     'navigation-toggle',
   );
   menuToggle.prepend(navigationIcon('items'));
-  menuToggle.setAttribute('aria-expanded', 'false');
+  navigation.classList.toggle('is-open', navigationOpen);
+  menuToggle.setAttribute('aria-expanded', String(navigationOpen));
   menuToggle.setAttribute('aria-controls', navigation.id);
   sidebar.append(menuToggle, navigation);
   const user = el('div', 'user');
