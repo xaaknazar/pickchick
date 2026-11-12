@@ -69,8 +69,14 @@ function Assert-QueueCloudReceipt($Proof,[string]$Source,[string]$Branch,[DateTi
  if($finished -gt $Now -or ($Now-$finished).TotalMinutes -gt 60){throw 'Cloud receipt must be from the last hour.'}
 }
 function Assert-QueueMigrationSet($Ledger) {
- $expected=@(Get-Content (Join-Path $PSScriptRoot 'native-edge-backup-ledger.json') -Raw|ConvertFrom-Json)
- if($expected.Count -ne 25 -or $expected[24].version -cne '025_edge_kitchen_restore_review.sql' -or $expected[24].checksum -cne 'ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a'){throw 'Reviewed queue ledger required.'}
+ # The reviewed ledger file is pinned by SHA-256 (Assert-Stage2ToolPins) and runs past 025: the
+ # backup tool of this delivery accepts every schema up to 028. This step takes exactly its
+ # first 25 rows. The read is not wrapped in @(): Windows PowerShell 5.1 emits a JSON array as
+ # one object, and @() around the pipeline would hold the whole array as a single element.
+ $reviewed=Get-Content (Join-Path $PSScriptRoot 'native-edge-backup-ledger.json') -Raw|ConvertFrom-Json
+ if(@($reviewed).Count -lt 25){throw 'Reviewed queue ledger required.'}
+ $expected=@($reviewed[0..24])
+ if($expected[24].version -cne '025_edge_kitchen_restore_review.sql' -or $expected[24].checksum -cne 'ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a'){throw 'Reviewed queue ledger required.'}
  Assert-RuntimeLedger $Ledger $expected
 }
 function Assert-QueueResumeBindings($Bindings) {
