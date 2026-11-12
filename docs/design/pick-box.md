@@ -7,6 +7,12 @@ games. The confirmed name is Pick Box. The later visual correction explicitly
 requires a playful 2D arcade, not a realistic 3D presentation. Local records only;
 no purchases, financial rewards, account requirement or backend writes.
 
+The scope-local product record is
+[`PRODUCT.md`](../../apps/mobile/src/games/pick-box/PRODUCT.md). This document
+records only the Pick Box surface. The existing
+[design system](design-system.md), `packages/design-tokens` and
+[design workflow](ai-design-workflow.md) remain the shared authorities.
+
 ## Direction contract
 
 - User: a restaurant guest playing a short, repeatable one-thumb game on a phone.
@@ -26,6 +32,36 @@ no purchases, financial rewards, account requirement or backend writes.
   panorama pan. Pause/backgrounding stop play. Reduced Motion removes decorative
   shake, particles, score scaling and camera easing, preserving essential physics.
 
+### FORM and direction provenance
+
+Mode: Experience. Form: portrait illustrated stacking arcade, extending the
+existing Games collection through `GamePosterCard`. The owner supplied the
+packaging PDF/photo, specified the stacking behavior and Almaty setting, then
+explicitly corrected the direction to illustrated 2D. The blue/orange identity
+and Jost/Manrope typography are inherited PickChick commitments.
+
+No concept roll, ranked form list or random FORM seed was used. Seed and list
+position are not applicable to this constrained extension; none is reconstructed
+after implementation. The generated cover is illustration, not an approved
+full-screen interface comp. Its generation prompts and provenance are recorded in
+[`provenance.json`](../../apps/mobile/assets/games/pick-box/provenance.json);
+the exact packaging source and crop coordinates are in
+[`packaging-source.json`](../../apps/mobile/assets/games/pick-box/packaging-source.json).
+
+### QUALITY BAR - constrained reference card
+
+- Reference: the owner's packaging PDF/photo for print fidelity and 23 x 23 x 10 cm
+  dimensions; the final `cover-2d.png` and `mountains-2d.png` for illustrated style.
+- Incumbent component: [`GamePosterCard.tsx`](../../apps/mobile/src/games/GamePosterCard.tsx),
+  already used by [`MagicSortCard.tsx`](../../apps/mobile/src/games/magic-sort/MagicSortCard.tsx),
+  governs entry-card composition. The game retains its own open playfield.
+- Required result: recognizable original box print, readable count and lives,
+  unobstructed tower/rope, visible bottom action, consistent 2D mountains and
+  safe-area controls. The generated cover does not define collision dimensions.
+- Ceiling: no external QUALITY BAR reference or independent reference board was
+  selected. These constrained sources establish fidelity and continuity, not
+  an externally calibrated quality rating or owner acceptance of the final UI.
+
 ## Tokens and components
 
 Uses incumbent Jost display / Manrope body families. Main ink #04143A, box blue
@@ -40,6 +76,11 @@ The exact PDF front face is used as a flat sprite, with a narrow blue lid edge.
 The generated cover is illustrative, not the collision geometry. Artwork source
 hash and crop coordinates are in the asset directory. The extracted lid remains
 available as source art but is not perspectively rendered in the 2D game.
+
+Observed local type: Jost 54/66 for the start title, 64/74 for the live count,
+30/39 for overlay titles; Manrope 15/21 for the subtitle, 13/20 for rules and
+18/25 for primary actions. These are game-specific sizes, not new global tokens.
+The local primary action uses #FF842F; it does not replace brand orange #FF6900.
 
 ## Route and interaction
 
@@ -60,3 +101,14 @@ available as source art but is not perspectively rendered in the 2D game.
 See `docs/operations/pick-box-1112.md` for the exact completed checks. Browser
 phone layouts and platform bundle exports are distinct from native device tests.
 Do not describe a source change as an App Store / Play release or owner acceptance.
+
+Current local captures are in `.local/pick-box/browser/` and
+`.local/pick-box/native/`. Native evidence covers an iOS simulator build/runtime;
+physical iPhone/Android acceptance remains open. Local files are inspection
+evidence, not shared durable acceptance records; the operations report owns the
+published check results.
+
+Not canonized: the shared poster component retains its existing 9-unit category
+label and 11-unit description. This extension does not change that component or
+promote its compact text to a new typography rule. Native readability acceptance
+remains open. No global DESIGN.md, product record or token authority is replaced.

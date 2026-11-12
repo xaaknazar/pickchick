@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Text } from '../../components/LocalizedText';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -243,6 +244,7 @@ export function PickBoxScreen() {
               : '';
   return (
     <View style={s.screen}>
+      <StatusBar style={hud.phase === 'paused' || resultVisible ? 'light' : 'dark'} />
       <View testID="pick-box-screen" style={[s.frame, { width }]}>
         <Animated.Image
           source={MOUNTAINS}
