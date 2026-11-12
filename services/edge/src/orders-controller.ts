@@ -34,6 +34,7 @@ import {
 } from '@pickchick/local-orders';
 import { localUnpaidExecution } from '@pickchick/edge-fulfillment';
 import type { StaffAuth } from '@pickchick/local-orders';
+import { staffCredentials } from './staff-credentials.js';
 
 @Controller('edge/v1')
 export class LocalOrdersController {
@@ -43,12 +44,8 @@ export class LocalOrdersController {
     headers: Record<string, string | undefined>,
     action: (auth: StaffAuth) => Promise<T>,
   ) {
-    const auth = {
-      sessionId: headers['x-staff-session-id'] ?? '',
-      token: headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
-    };
     try {
-      return await action(auth);
+      return await action(staffCredentials(headers));
     } catch (error) {
       if (error instanceof OrderError)
         throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
