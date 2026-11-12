@@ -7782,9 +7782,11 @@
         "@vps/kitchen-password-recovery",
         "docs/operations/kitchen-password-1112.md"
       ],
-      "status": "active",
-      "head": "275c586cc261cd533c7e353c87f11bf99c2bd7d6",
-      "updatedAt": "2026-11-12T08:23:29.727Z"
+      "status": "available",
+      "head": "1b382bcf59230cb1a16e8ec95b55507937d8cde2",
+      "updatedAt": "2026-11-12T11:21:06.030Z",
+      "summary": "Смена пароля заменена решением владельца об окне сервера точки. Только чтение, код восстановления не выдан, пароль и сессии не менялись. Протокол 1b382bcf опубликован.",
+      "nextAction": "Не возобновлять сброс пароля в окне сервера точки. Продолжение в edge-window-1112; после установки проверить существующий вход kitchen."
     },
     {
       "id": "edge-window-1112",
