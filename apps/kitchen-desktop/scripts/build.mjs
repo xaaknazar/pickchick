@@ -66,10 +66,7 @@ await copyFile(
   new URL('resources/config.example.json', base),
   new URL('config.example.json', buildResources),
 );
-await copyFile(
-  new URL('resources/installer.nsh', base),
-  new URL('installer.nsh', buildResources),
-);
+await copyFile(new URL('resources/installer.nsh', base), new URL('installer.nsh', buildResources));
 for (const name of modules) {
   const text = await readFile(new URL(`${name}.ts`, source), 'utf8');
   const compiled = ts.transpileModule(text, {
