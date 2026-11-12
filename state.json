@@ -7814,11 +7814,12 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap",
         "scripts/mobile/pick-box-assets.py",
-        "tests/mobile/android-ux.test.mjs"
+        "tests/mobile/android-ux.test.mjs",
+        "docs/operations/pick-box-1112"
       ],
       "status": "active",
-      "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
-      "updatedAt": "2026-11-12T12:56:34.577Z"
+      "head": "786c8d29e7009017b35dec72dd7196cb5820aa6e",
+      "updatedAt": "2026-11-12T13:20:29.152Z"
     }
   ],
   "approvedScopeTransfers": [
