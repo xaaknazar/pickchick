@@ -1,0 +1,40 @@
+name: Windows KitchenLAN guards
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'infra/windows/**'
+      - 'tests/operations/kitchen-lan-files.test.ps1'
+      - '.github/workflows/windows-kitchen-lan.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/windows/**'
+      - 'tests/operations/kitchen-lan-files.test.ps1'
+      - '.github/workflows/windows-kitchen-lan.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-kitchen-lan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: LAN client list file replacement on Windows PowerShell 5.1
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Replace files as the client list script does, on NTFS
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) {
+            throw 'Windows PowerShell 5.1 is required.'
+          }
+          & ./tests/operations/kitchen-lan-files.test.ps1

@@ -151,10 +151,12 @@ function Write-LanNewFile([string]$Path,[byte[]]$Bytes) {
 }
 function Set-LanFile([string]$Path,[byte[]]$Bytes,[string]$Stamp,[string]$Suffix) {
     # Complete on disk first, then replaces the target; ReplaceFile keeps the target's ACL.
+    # No backup file: Windows PowerShell 5.1 passes $null to a string parameter as an empty
+    # string, which File.Replace refuses, so the null is spelled out with NullString.
     $temporary="$Path.$Suffix-$Stamp"
     Write-LanNewFile $temporary $Bytes
     try {
-        if([IO.File]::Exists($Path)) {[IO.File]::Replace($temporary,$Path,$null)} else {[IO.File]::Move($temporary,$Path)}
+        if([IO.File]::Exists($Path)) {[IO.File]::Replace($temporary,$Path,[Management.Automation.Language.NullString]::Value)} else {[IO.File]::Move($temporary,$Path)}
     } finally {if([IO.File]::Exists($temporary)) {Remove-Item -LiteralPath $temporary -Force}}
 }
 function Get-LanFileSha256([string]$Path) {
@@ -272,7 +274,7 @@ try {
     Stop-Service PickChickKitchenLAN
     (Get-Service PickChickKitchenLAN).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))
     $stopped=$true
-    [IO.File]::Replace($newConfigPath,$configPath,$null)
+    [IO.File]::Replace($newConfigPath,$configPath,[Management.Automation.Language.NullString]::Value)
     Assert-LanAcl $configPath 'ReadAndExecute'
     foreach($item in $code) {
         $buffer=[IO.MemoryStream]::new()
