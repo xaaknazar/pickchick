@@ -27,7 +27,7 @@ def capture(page, name):
 
 
 PAID_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
-TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.4 · TEST'
+TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
 HINT = "() => localStorage.getItem('pickchick.pos.desk-mode.v1')"
 DESK_HINT = "() => localStorage.getItem('pickchick.pos.desk-number.v1')"
 DESK_NUMBER = re.compile('[Кк]асса [0-9]')
@@ -397,7 +397,7 @@ with sync_playwright() as pw:
         # Shift tab: real money and the X report; no printer is configured here.
         nav.get_by_role('button', name=re.compile('^СМЕНА')).click()
         expect(page.get_by_text('Чеки: вручную в Webkassa · не оформлено: 0')).to_be_visible()
-        expect(page.get_by_text('Тестовые заказы без оплаты')).to_have_count(0)
+        expect(page.get_by_text('Заказы без оплаты',exact=True)).to_have_count(0)
         button(page, 'X-отчёт · печать').click()
         expect(page.get_by_test_id('ops-report-title')).to_have_text('X-отчёт PickChick (не фискальный)')
         no_long_dashes(page)

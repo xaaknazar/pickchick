@@ -18,7 +18,7 @@ HINT = "() => localStorage.getItem('pickchick.pos.desk-mode.v1')"
 DESK_HINT = "() => localStorage.getItem('pickchick.pos.desk-number.v1')"
 DESK = fixture['desk_number']
 CHIP = f' · касса {DESK}' if DESK else ''
-TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.4 · TEST'
+TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
 PAID_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
 # Synthetic names carry no "тест": any match is a test-mode text of the cashier screens.
 TEST_WORDS = re.compile('тест|TEST|касса 1', re.I)

@@ -55,6 +55,7 @@ for (const path of [
     'scripts/build.mjs',
     'scripts/verify-package.mjs',
     'resources/config.example.json',
+    'resources/installer.nsh',
   ].map((name) => `apps/pos-desktop/${name}`),
   'apps/pos/tsconfig.json',
   'apps/pos-desktop/v2-assets.mjs',
@@ -100,6 +101,7 @@ await copyFile(
   new URL('resources/config.example.json', base),
   new URL('config.example.json', buildResources),
 );
+await copyFile(new URL('resources/installer.nsh', base), new URL('installer.nsh', buildResources));
 for (const name of ['app', 'model', 'api', 'types', 'auth-view', 'order-view']) {
   const text = await readFile(new URL(`${name}.ts`, source), 'utf8');
   const compiled = ts.transpileModule(text, {

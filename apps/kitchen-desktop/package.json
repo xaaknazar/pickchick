@@ -1,6 +1,6 @@
 {
   "name": "@pickchick/kitchen-desktop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Installed PickChick local kitchen and assembly pre-release client",
   "author": "PickChick",

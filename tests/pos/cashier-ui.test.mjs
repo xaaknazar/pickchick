@@ -1244,7 +1244,7 @@ test('a failed first pos/config on an edge that sells: asked again at the next r
     totalLabel: '6 990 ₸',
     cashLog: [
       { time: '09:00', what: 'Внесение · Размен', sum: '+1 000 ₸', fg: 'var(--green)' },
-      { time: '08:00', what: 'Начальный остаток · тест', sum: '5 000 ₸', fg: 'var(--green)' },
+      { time: '08:00', what: 'Начальный остаток', sum: '5 000 ₸', fg: 'var(--green)' },
     ],
   };
   const values = awaitingValues(legacy, { busy: false, empty: false, say: (t) => said.push(t) });
@@ -3241,9 +3241,7 @@ const legacyShift = {
   ...legacyValues,
   shiftOrders: 137,
   drawerLabel: '5 000 ₸',
-  cashLog: [
-    { time: '09:00', what: 'Начальный остаток · тест', sum: '5 000 ₸', fg: 'var(--green)' },
-  ],
+  cashLog: [{ time: '09:00', what: 'Начальный остаток', sum: '5 000 ₸', fg: 'var(--green)' }],
   navItems: [{ label: 'ЗАКАЗ' }],
 };
 const pinTap = (view, pin) => tap(view.values().saleApprovalKeys, pin.split(''));
@@ -4056,28 +4054,28 @@ test('screens: voiding a cash sale opens the drawer once; the void slip prints',
 
 // ---- CR client-5: test-mode texts of today's screens on a desk that sells ------------------
 
-test('mode texts: a desk without payments keeps today texts byte for byte', () => {
-  // Exactly the strings of D0 (apps/pos/src/v2/app.js and template.html before CR client-5).
+test('mode texts: a desk without payments says so, never "test", and shows its real version', () => {
+  // The owner asked for no "test" on the screens (12.11.2026).
   assert.deepEqual(TEST_TEXTS, {
-    shiftOpened: 'Тестовая смена открыта',
-    shiftClosed: 'Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',
-    closeReason: 'Тестовая смена без оплаты',
-    unavailable: 'В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.',
-    findGuest: 'Поиск аккаунтов и Чики подключим отдельно. Для теста укажите имя на табло.',
-    kitchenOff: 'Тестовая передача на кухню ещё не включена оператором.',
+    shiftOpened: 'Смена открыта · без оплаты',
+    shiftClosed: 'Смена закрыта. Оплат не было, Z-отчёт не формировался.',
+    closeReason: 'Смена без оплаты',
+    unavailable: 'Эта функция пока не подключена. Деньги и чеки не проводятся.',
+    findGuest: 'Поиск аккаунтов и Чики подключим отдельно. Укажите имя на табло.',
+    kitchenOff: 'Передачу на кухню ещё не включил оператор.',
     deskPrefix: 'Касса 1 · ',
     deskChip: ' · касса 1',
-    appLine: 'Pick Chick POS 0.4 · TEST',
   });
+  for (const text of texts(TEST_TEXTS)) {
+    assert.doesNotMatch(text, /тест|test/i, text);
+    assert.doesNotMatch(text, /[‒-―]/, 'plain hyphen only: ' + text);
+  }
   const testShift = fixture().shift;
   assert.equal(testShift.payment_processing_available, false);
   for (const shift of [testShift, null, undefined]) {
-    assert.equal(shiftOpenedText(shift), 'Тестовая смена открыта');
-    assert.equal(
-      shiftClosedText(shift),
-      'Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',
-    );
-    assert.equal(closeReasonText(shift), 'Тестовая смена без оплаты');
+    assert.equal(shiftOpenedText(shift), 'Смена открыта · без оплаты');
+    assert.equal(shiftClosedText(shift), 'Смена закрыта. Оплат не было, Z-отчёт не формировался.');
+    assert.equal(closeReasonText(shift), 'Смена без оплаты');
   }
   assert.equal(unavailableText(false), TEST_TEXTS.unavailable);
   assert.equal(findGuestText(false), TEST_TEXTS.findGuest);
@@ -4088,13 +4086,14 @@ test('mode texts: a desk without payments keeps today texts byte for byte', () =
     {},
   ])
     assert.equal(kitchenOffText(ordering), TEST_TEXTS.kitchenOff, JSON.stringify(ordering));
-  // The app version never reaches a desk without payments: its footer stays as it was.
-  for (const version of ['0.5.0', undefined, 'x'])
-    assert.deepEqual(deskTexts(false, version), {
-      deskPrefix: 'Касса 1 · ',
-      deskChip: ' · касса 1',
-      appLine: 'Pick Chick POS 0.4 · TEST',
-    });
+  // The footer names the installed build; "Касса 1" stays until the edge sells.
+  assert.deepEqual(deskTexts(false, '0.5.3'), {
+    deskPrefix: 'Касса 1 · ',
+    deskChip: ' · касса 1',
+    appLine: 'Pick Chick POS 0.5.3',
+  });
+  for (const version of [undefined, 'x'])
+    assert.equal(deskTexts(false, version).appLine, 'Pick Chick POS', String(version));
 });
 
 test('mode texts: a desk that sells names no test, no wrong desk and its real version', () => {
@@ -4187,12 +4186,12 @@ test('mode texts: a desk that sells shows the number of pos/config in today word
     deskChip: '',
     appLine: 'Pick Chick POS 0.5.0',
   });
-  // Without payments the number is never used: today's «Касса 1» byte for byte.
+  // Without payments the number is never used: today's «Касса 1».
   for (const number of [2, 99, null])
     assert.deepEqual(deskTexts(false, '0.5.0', number), {
       deskPrefix: TEST_TEXTS.deskPrefix,
       deskChip: TEST_TEXTS.deskChip,
-      appLine: TEST_TEXTS.appLine,
+      appLine: 'Pick Chick POS 0.5.0',
     });
 });
 
@@ -4266,7 +4265,7 @@ test('desk number on the screens: the session, the lock, a restart; no number an
     appLine: 'Pick Chick POS 0.5.0',
   };
   const unnumbered = { deskPrefix: '', deskChip: '', appLine: 'Pick Chick POS 0.5.0' };
-  const today = deskTexts(false);
+  const today = deskTexts(false, '0.5.0');
   const edge = saleEdge({ config: posConfigFor({ desk_number: 2 }) });
   // Before the first PIN login on this desk nothing is known: today's lock texts.
   assert.deepEqual(
@@ -4304,7 +4303,7 @@ test('desk number on the screens: the session, the lock, a restart; no number an
   edge.edge.config = posConfigFor();
   assert.deepEqual(screen(await saleCashier(edge)), unnumbered);
   assert.equal(hints.data.has(DESK_NUMBER_KEY), false);
-  // Without payments (unpaid_service with a number, or 404): today's «Касса 1» byte for byte,
+  // Without payments (unpaid_service with a number, or 404): today's «Касса 1»,
   // on the session screens and on the next lock screen.
   edge.edge.config = posConfigFor({ desk_number: 2 });
   await saleCashier(edge).then(screen);
