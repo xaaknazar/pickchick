@@ -1829,6 +1829,7 @@ button:focus-visible {
 /* Order card: void and refund are ordinary-height actions, not page-tall blocks; void reads red. */
 .ops-column > .sale-button {
   flex: none;
+  min-height: 64px;
 }
 .ops-danger {
   border-color: #e3a19b;
