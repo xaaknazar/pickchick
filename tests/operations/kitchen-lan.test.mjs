@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createServer } from 'node:http';
 import { request } from 'node:https';
 import { networkInterfaces, tmpdir } from 'node:os';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -1086,6 +1086,29 @@ const LAN_SCRIPTS = [
 /** A top-level PowerShell function of these scripts: `function Name...` up to its `}` line. */
 const psFunction = (source, name) =>
   new RegExp(`^function ${name}\\b[\\s\\S]*?^\\}`, 'm').exec(source)?.[0];
+
+// Windows PowerShell 5.1 hands $null to a .NET string parameter as an empty string, and
+// File.Replace refuses an empty backup path ("The path is not of a legal form"). PowerShell 7,
+// which runs the script checks here, accepts it, so only the text can be checked on Linux; the
+// real call runs in tests/operations/kitchen-lan-files.test.ps1 on Windows PowerShell 5.1.
+test('no Windows script passes $null as the backup path of File.Replace', async () => {
+  const names = (await readdir(windowsFile(''))).filter((name) => name.endsWith('.ps1')).sort();
+  let calls = 0;
+  for (const name of names) {
+    const text = await readFile(windowsFile(name), 'utf8');
+    for (const line of text.split('\n')) {
+      const found = line.match(/\[(?:System\.)?IO\.File\]::Replace\(/g);
+      if (!found) continue;
+      calls += found.length;
+      assert.doesNotMatch(
+        line,
+        /\[(?:System\.)?IO\.File\]::Replace\([^\n]*?,\s*\$null\s*\)/,
+        `${name}: ${line.trim()}`,
+      );
+    }
+  }
+  assert.ok(calls >= 15, `File.Replace calls found in the Windows scripts: ${calls}`);
+});
 
 test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostart only from the installer or on request, iiko only read', async () => {
   const source = Object.fromEntries(
