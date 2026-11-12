@@ -34,18 +34,23 @@ import {
 } from '@pickchick/local-orders';
 import { localUnpaidExecution } from '@pickchick/edge-fulfillment';
 import type { StaffAuth } from '@pickchick/local-orders';
-import { staffCredentials } from './staff-credentials.js';
+import { deskCredentials, screenCredentials } from './staff-credentials.js';
 
 @Controller('edge/v1')
 export class LocalOrdersController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
 
+  /**
+   * The routes of this controller are cashier-desk routes and take desk credentials. The session
+   * read is the exception: a paired kitchen screen calls it too, so it takes the screen key.
+   */
   private async run<T>(
     headers: Record<string, string | undefined>,
     action: (auth: StaffAuth) => Promise<T>,
+    credentials: (headers: Record<string, string | undefined>) => StaffAuth = deskCredentials,
   ) {
     try {
-      return await action(staffCredentials(headers));
+      return await action(credentials(headers));
     } catch (error) {
       if (error instanceof OrderError)
         throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
@@ -80,7 +85,11 @@ export class LocalOrdersController {
 
   @Get('session')
   session(@Headers() headers: Record<string, string | undefined>) {
-    return this.run(headers, (auth) => readSession(this.pool, this.branchId, auth));
+    return this.run(
+      headers,
+      (auth) => readSession(this.pool, this.branchId, auth),
+      screenCredentials,
+    );
   }
 
   @Post('checkout/quotes')
