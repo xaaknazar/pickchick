@@ -7767,11 +7767,11 @@
         "docs/operations/cloud-expenses-now-1111.md",
         "docs/operations/cloud-1-handover-1110.md"
       ],
-      "status": "active",
-      "head": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
-      "updatedAt": "2026-11-12T06:34:44.906Z",
-      "summary": "Archive verified; PR #358 merged; isolated 072-077/grants/old-new API rehearsal passed; backup restored. Candidate 7e312043 awaiting full CI 43159477530. Live pointers and schema unchanged.",
-      "nextAction": "After exact-head green CI, fresh backup/restore, guarded live window, enable only expenses, owner acceptance and roadmap update."
+      "status": "available",
+      "head": "a2daa8319012bb8c730f0239765687c2f27d231f",
+      "updatedAt": "2026-11-12T06:41:00.072Z",
+      "summary": "DEPLOYED and owner ACCEPTED: API/staff-login 7e312043, schema077, only expenses enabled; exact Foundation11/11; fresh backup/restore and rehearsal PASS; 22 ready probes over post-deploy period, final check at 900s PASS. Roadmap21e95fe2 published/accepted; public pointer21e95fe2; locks released. Evidence and corrected portal maintenance in PR360.",
+      "nextAction": "Review/merge documentation PR360 through normal CI. Further cutover flags and Windows installation are separate steps; use final hashes and portal-aware writer shutdown in the runbooks."
     }
   ],
   "approvedScopeTransfers": [
