@@ -7818,11 +7818,11 @@
         "tests/mobile/android-config.test.mjs",
         "@android/emulator"
       ],
-      "status": "active",
-      "head": "53ec5d4106e3c2008f8d454b696bfcaa47c643d2",
-      "updatedAt": "2026-11-12T15:11:21.768Z",
-      "summary": "Checkpoint 0af47817 in PR368: latest owner-requested realistic Alex cover, dimensional materials and Almaty. Composition and1536x1024 retained; card/start connected. Web export,393/320 visual checks and scoped lint/format PASS. Gameplay unchanged.",
-      "nextAction": "Physical iPhone/Android acceptance, CI and integration remain before separately authorized store release. Online roadmap must preserve newer live operational facts."
+      "status": "available",
+      "head": "fe84eb1051161c50a1178f61cee0b8a99c1cbb4e",
+      "updatedAt": "2026-11-12T15:38:01.096Z",
+      "summary": "Pick Box selected Alex-side cover. iOS 1.0.1(34) uploaded and assigned Internal/Testing; external beta review submitted. Android 1.0.1(8) closed Alpha submitted. Source 53ec5d41 full CI 11/11, 599 Node + 96 Python PASS; report fe84eb10.",
+      "nextAction": "Confirm Apple/Google review decisions and physical phone acceptance. Native Android gameplay remains unverified. Integrate PR368 and merge roadmap facts into the newer live roadmap without replacing operations data."
     }
   ],
   "approvedScopeTransfers": [
