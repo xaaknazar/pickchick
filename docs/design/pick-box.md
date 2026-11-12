@@ -18,8 +18,8 @@ records only the Pick Box surface. The existing
 ## Direction contract
 
 - User: a restaurant guest playing a short, repeatable one-thumb game on a phone.
-- World: vivid 2D Almaty, flat illustrated mountain silhouettes, cream clouds,
-  cobalt and orange packaging, dark outlines. The supplied PDF is authoritative
+- World: painted 2D Almaty, snowy summits above clouds and an orbital Earth view.
+  Original cobalt/orange packaging has a projected printed lid and soft material shadows. The supplied PDF is authoritative
   for the printed box artwork; the photo specifies 23 x 23 x 10 cm.
 - First viewport: full-frame arcade illustration, Pick Box title, one start action,
   a short three-lives/collapse rule. The poster also appears in the Games tab.
@@ -27,16 +27,19 @@ records only the Pick Box surface. The existing
   beside the tower and holding the rope. `cover-alex-side.png` is 1536 x 1024,
   matching other game covers and using the unchanged shared poster size.
   The above-tower and realistic alternatives are retained as artwork history.
-  This final choice supersedes those alternatives. Gameplay sprites are unchanged.
+  This final choice supersedes those alternatives. The cover remains unchanged in the
+  12-13 November gameplay revision.
 - Gameplay composition: count centered above an open playfield, record left,
   three hearts right, named peak below. A rope enters from above; the player's
-  box hangs over the tower. One bottom action remains available to accessibility
-  and keyboard users; the whole playfield accepts a tap.
+  box hangs over the tower. The whole playfield is the labelled drop button for touch,
+  screen readers and keyboards. The bottom instruction block has been removed.
+  The tower continues to the physical screen edge, with no artificial footer clipping.
 - Signature interaction: release, physical impact, a small spark burst and score
   response, followed by a camera rise. Exact alignment earns a PERFECT streak,
   without altering collisions or offering money. No simulated reward economy.
 - Motion: fixed-step rigid bodies; UI-thread sprite transforms; camera easing and
-  panorama pan. Pause/backgrounding stop play. Reduced Motion removes decorative
+  scenic ascent from city through mountain, summit and atmosphere into space.
+  Slow star parallax, occasional meteors and Alex on a rocket appear in space. Pause/backgrounding stop play. Reduced Motion removes decorative
   shake, particles, score scaling and camera easing, preserving essential physics.
 
 ### FORM and direction provenance
@@ -65,7 +68,7 @@ the exact packaging source and crop coordinates are in
   already used by [`MagicSortCard.tsx`](../../apps/mobile/src/games/magic-sort/MagicSortCard.tsx),
   governs entry-card composition. The game retains its own open playfield.
 - Required result: recognizable original box print, readable count and lives,
-  unobstructed tower/rope, visible bottom action, consistent 2D mountains and
+  unobstructed tower/rope, full-height tap field, coherent painted scenery and
   safe-area controls. The generated cover does not define collision dimensions.
 - Ceiling: no external QUALITY BAR reference or independent reference board was
   selected. These constrained sources establish fidelity and continuity, not
@@ -78,13 +81,15 @@ Uses incumbent Jost display / Manrope body families. Main ink #04143A, box blue
 The 2D stage is a deliberate game surface within the existing mobile shell;
 global navigation, branding and design tokens are unchanged. Icon buttons are
 48 x 48, primary actions at least 54 high, safe-area insets protect controls.
-World width 360 logical units; body width 126, height 126 * 10 / 23. Display caps
-at 540 while larger screens retain side margins. Score and HUD are event-driven.
+Physics world width 360 logical units; body width 126, height 126 * 10 / 23.
+The renderer adds 24 units at each side so the full pendulum swing stays visible.
+Display caps at 540 while larger screens retain side margins. Score and HUD are event-driven.
 
-The exact PDF front face is used as a flat sprite, with a narrow blue lid edge.
-The generated cover is illustrative, not the collision geometry. Artwork source
-hash and crop coordinates are in the asset directory. The extracted lid remains
-available as source art but is not perspectively rendered in the 2D game.
+The exact PDF front face and lid are used without regenerating the logos. The
+lid is projected with a 77-degree X rotation and perspective 400; a seam, fold and
+soft shadow suggest printed cardboard. Upper boxes naturally occlude the lid below.
+The collision face keeps its 23:10 dimensions. Artwork source hash and crop coordinates
+are in the asset directory. This is dimensional 2D rendering, not a 3D physics game.
 
 Observed local type: Jost 54/66 for the start title, 64/74 for the live count,
 30/39 for overlay titles; Manrope 15/21 for the subtitle, 13/20 for rules and
@@ -99,7 +104,7 @@ The local primary action uses #FF842F; it does not replace brand orange #FF6900.
 - Three lives. Each missed release costs one; a lost foundation or a majority of
   the counted tower falling ends the attempt. One falling box is never charged twice.
 - Count increments only after 300 ms of supported, sufficiently calm contact.
-- Mountain stages: Алматы (0), Пик Фурманова (8), Кумбель (20), Талгар (36).
+- Ascent stages: Алматы (0), Пик Фурманова (8), Талгар (20), Атмосфера (28), Космос (36).
   This is an artistic route, not a claim of geographic elevation or exact views.
 - A local best persists; an interrupted round is intentionally not restored.
 - Pause/resume, replay, exit, Android Back and browser visibility handling.
@@ -121,3 +126,19 @@ Not canonized: the shared poster component retains its existing 9-unit category
 label and 11-unit description. This extension does not change that component or
 promote its compact text to a new typography rule. Native readability acceptance
 remains open. No global DESIGN.md, product record or token authority is replaced.
+
+## Gameplay revision, 12-13 November 2026
+
+Owner feedback from TestFlight: recognizable physical packaging, no bottom tap
+panel, no artificial lower crop, quieter controls, city-to-space ascent and Alex
+flying on a rocket. New assets and generation prompts are recorded in
+`apps/mobile/assets/games/pick-box/ascent.provenance.json`. The generated scenery
+is an artistic setting, not geographic navigation. Alex retains the selected
+cover's white rooster / sunglasses / orange shirt / blue overalls identity.
+
+Scenery uses one UI-thread clock. Pausing or backgrounding freezes stars, meteors,
+rocket and transitions; Reduced Motion shows static scenery and a stationary Alex
+in space. A rocket pass takes 9 seconds in a 25-second cycle. Decorative layers
+ignore touch and are hidden from accessibility. The full playfield exposes the
+drop action; exit and pause retain 48-unit hit targets with restrained translucent
+16-radius surfaces. Lives have a grouped accessible label.

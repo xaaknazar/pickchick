@@ -27,7 +27,7 @@ const ru = {
   rule: '3 жизни. Промах - минус жизнь. Обрушение завершает игру.',
   local: 'Рекорд хранится на этом устройстве',
   storage: 'Не удалось сохранить рекорд на устройстве',
-  peaks: ['Алматы', 'Пик Фурманова', 'Кумбель', 'Талгар'],
+  peaks: ['Алматы', 'Пик Фурманова', 'Талгар', 'Атмосфера', 'Космос'],
   next: 'Следующая вершина',
 };
 type Copy = typeof ru;
@@ -59,7 +59,7 @@ const kk: Copy = {
   rule: '3 өмір. Мүлт кетсе - бір өмір кемиді. Мұнара құласа, ойын аяқталады.',
   local: 'Рекорд осы құрылғыда сақталады',
   storage: 'Рекордты құрылғыда сақтау мүмкін болмады',
-  peaks: ['Алматы', 'Фурманов шыңы', 'Күмбел', 'Талғар'],
+  peaks: ['Алматы', 'Фурманов шыңы', 'Талғар', 'Атмосфера', 'Ғарыш'],
   next: 'Келесі шың',
 };
 const en: Copy = {
@@ -89,7 +89,7 @@ const en: Copy = {
   rule: '3 lives. A miss costs one life. A collapse ends the game.',
   local: 'Your best stays on this device',
   storage: 'Your best has not been saved on this device',
-  peaks: ['Almaty', 'Furmanov Peak', 'Kumbel', 'Talgar'],
+  peaks: ['Almaty', 'Furmanov Peak', 'Talgar', 'Atmosphere', 'Space'],
   next: 'Next peak',
 };
 export const pickBoxCopy = (locale: Locale) => ({ ru, kk, en })[locale];

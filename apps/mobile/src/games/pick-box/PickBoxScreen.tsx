@@ -22,17 +22,17 @@ import { Icon, type IconName } from '../../components/UI';
 import { useReducedMotion } from '../../components/Motion';
 import { useLocale } from '../../i18n';
 import { font } from '../../theme';
-import { PickBoxEngine, PEAK_THRESHOLDS, type Cue, type Snapshot } from './engine';
+import { PickBoxEngine, type Cue, type Snapshot } from './engine';
 import { pickBoxCopy } from './copy';
 import { pickBoxCover } from './PickBoxCard';
 import { PickBoxRecords, RECORD_KEY } from './storage';
 import { World } from './World';
+import { Scenery } from './Scenery';
 
 const records = new PickBoxRecords({
   read: () => AsyncStorage.getItem(RECORD_KEY),
   write: (value) => AsyncStorage.setItem(RECORD_KEY, value),
 });
-const MOUNTAINS = require('../../../assets/games/pick-box/mountains-2d.png');
 const INK = '#04143A';
 
 function Control({
@@ -40,7 +40,9 @@ function Control({
   label,
   onPress,
   testID,
+  dark = false,
 }: {
+  dark?: boolean;
   icon: IconName;
   label: string;
   onPress(): void;
@@ -52,9 +54,9 @@ function Control({
       accessibilityLabel={label}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [s.control, pressed && s.pressed]}
+      style={({ pressed }) => [s.control, dark && s.controlDark, pressed && s.pressed]}
     >
-      <Icon name={icon} size={24} color="#FFF6DC" />
+      <Icon name={icon} size={22} color={dark ? '#FFF6DC' : INK} />
     </Pressable>
   );
 }
@@ -94,14 +96,9 @@ export function PickBoxScreen() {
   const [feedback, setFeedback] = useState<Cue['kind'] | null>(null);
   const [resultVisible, setResultVisible] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bg = useSharedValue(0);
   const toast = useSharedValue(0);
   const scorePop = useSharedValue(1);
   const width = Math.min(window.width, 540);
-  const bgWidth = window.height * 1.5;
-  const bgStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -Math.max(0, bgWidth - width) * bg.value }],
-  }));
   const feedbackStyle = useAnimatedStyle(() => ({
     opacity: toast.value,
     transform: [{ translateY: (1 - toast.value) * 10 }],
@@ -173,9 +170,6 @@ export function PickBoxScreen() {
     };
   }, [hud.score]);
   useEffect(() => {
-    bg.value = withTiming(Math.min(hud.score / 36, 1), { duration: reduced ? 0 : 1400 });
-  }, [bg, hud.score, reduced]);
-  useEffect(() => {
     if (hud.phase !== 'over') return;
     const timer = setTimeout(() => setResultVisible(true), reduced ? 0 : 1100);
     return () => clearTimeout(timer);
@@ -229,7 +223,8 @@ export function PickBoxScreen() {
     return () => document.removeEventListener('keydown', key);
   }, [drop, pause]);
 
-  const nextThreshold = PEAK_THRESHOLDS[hud.peak + 1];
+  const darkSky = hud.score >= 28;
+  const ink = darkSky ? '#FFF6DC' : INK;
   const feedbackText =
     feedback === 'perfect'
       ? copy.perfect
@@ -244,18 +239,32 @@ export function PickBoxScreen() {
               : '';
   return (
     <View style={s.screen}>
-      <StatusBar style={hud.phase === 'paused' || resultVisible ? 'light' : 'dark'} />
+      <StatusBar style={hud.phase === 'paused' || resultVisible || darkSky ? 'light' : 'dark'} />
       <View testID="pick-box-screen" style={[s.frame, { width }]}>
-        <Animated.Image
-          source={MOUNTAINS}
-          accessible={false}
-          style={[s.background, { width: bgWidth, height: window.height }, bgStyle]}
+        <Scenery
+          score={hud.score}
+          active={hud.phase === 'playing'}
+          reduced={reduced}
+          width={width}
+          height={window.height}
         />
         <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-          <Control icon="close" label={copy.exit} onPress={exit} testID="pick-box-exit" />
-          <Text style={s.wordmark}>Pick Box</Text>
+          <Control
+            icon="close"
+            label={copy.exit}
+            onPress={exit}
+            testID="pick-box-exit"
+            dark={darkSky}
+          />
+          <Text style={[s.wordmark, { color: ink }]}>Pick Box</Text>
           {hud.phase !== 'ready' ? (
-            <Control icon="pause" label={copy.pause} onPress={pause} testID="pick-box-pause" />
+            <Control
+              icon="pause"
+              label={copy.pause}
+              onPress={pause}
+              testID="pick-box-pause"
+              dark={darkSky}
+            />
           ) : (
             <View style={{ width: 48 }} />
           )}
@@ -295,6 +304,7 @@ export function PickBoxScreen() {
                   </Text>
                 </View>
                 <View
+                  accessible
                   accessibilityLabel={`${copy.lives}: ${hud.lives}`}
                   testID="pick-box-lives"
                   style={s.hearts}
@@ -310,21 +320,32 @@ export function PickBoxScreen() {
                 </View>
               </View>
               <Animated.View style={[s.scoreWrap, scoreStyle]}>
-                <Text testID="pick-box-score" accessibilityLiveRegion="polite" style={s.score}>
+                <Text
+                  testID="pick-box-score"
+                  accessibilityLiveRegion="polite"
+                  style={[s.score, { color: ink }]}
+                >
                   {hud.score}
                 </Text>
               </Animated.View>
               <View style={s.peakRow}>
-                <Icon name="trail-sign" size={17} color={INK} />
-                <Text testID="pick-box-peak" style={s.peak}>
+                <Icon
+                  name={hud.peak >= 3 ? 'planet-outline' : 'trail-sign'}
+                  size={15}
+                  color={ink}
+                />
+                <Text testID="pick-box-peak" style={[s.peak, { color: ink }]}>
                   {copy.peaks[hud.peak]}
                 </Text>
               </View>
             </View>
             <Pressable
-              testID="pick-box-drop-zone"
-              accessible={false}
-              onPressIn={drop}
+              testID="pick-box-drop"
+              accessibilityRole="button"
+              accessibilityLabel={copy.drop}
+              accessibilityState={{ disabled: !hud.canDrop }}
+              disabled={!hud.canDrop}
+              onPress={drop}
               style={s.playfield}
             >
               <World game={game} reduced={reduced} onChange={change} onCue={cue} />
@@ -339,27 +360,6 @@ export function PickBoxScreen() {
                 ) : null}
               </Animated.View>
             </Pressable>
-            <View style={[s.bottom, { paddingBottom: Math.max(14, insets.bottom + 8) }]}>
-              <Pressable
-                testID="pick-box-drop"
-                accessibilityRole="button"
-                accessibilityLabel={copy.drop}
-                accessibilityState={{ disabled: !hud.canDrop }}
-                disabled={!hud.canDrop}
-                onPress={drop}
-                style={({ pressed }) => [s.drop, !hud.canDrop && s.dropBusy, pressed && s.pressed]}
-              >
-                <Icon
-                  name={hud.canDrop ? 'hand-left' : 'hourglass-outline'}
-                  size={20}
-                  color={INK}
-                />
-                <Text style={s.dropText}>{hud.canDrop ? copy.hint : copy.falling}</Text>
-              </Pressable>
-              <Text style={s.progress}>
-                {nextThreshold ? `${copy.next}: ${nextThreshold - hud.score}` : copy.peaks[3]}
-              </Text>
-            </View>
           </>
         )}
 
@@ -435,7 +435,6 @@ export function PickBoxScreen() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: INK, alignItems: 'center' },
   frame: { flex: 1, backgroundColor: '#16C2DC', overflow: 'hidden' },
-  background: { position: 'absolute', left: 0, top: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -446,13 +445,14 @@ const s = StyleSheet.create({
   control: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: INK,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF38',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.75 },
-  wordmark: { fontFamily: font.display, color: INK, fontSize: 25, letterSpacing: -0.5 },
+  controlDark: { backgroundColor: '#FFFFFF18' },
+  pressed: { opacity: 0.65 },
+  wordmark: { fontFamily: font.display, color: INK, fontSize: 21, letterSpacing: -0.4 },
   start: { flex: 1 },
   startHeading: { paddingTop: 8, paddingHorizontal: 24, alignItems: 'center' },
   heroTitle: {
@@ -538,7 +538,7 @@ const s = StyleSheet.create({
   },
   peakRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 0 },
   peak: { fontFamily: font.bold, color: INK, fontSize: 14, lineHeight: 21 },
-  playfield: { flex: 1, overflow: 'hidden' },
+  playfield: { flex: 1 },
   feedback: { position: 'absolute', left: 0, right: 0, top: '13%', alignItems: 'center' },
   feedbackText: {
     fontFamily: font.display,
@@ -561,36 +561,6 @@ const s = StyleSheet.create({
     fontSize: 12,
     paddingVertical: 3,
     marginTop: 4,
-  },
-  bottom: { paddingHorizontal: 22, paddingTop: 4, gap: 7 },
-  drop: {
-    backgroundColor: '#FFF4D5',
-    minHeight: 54,
-    borderRadius: 18,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  dropBusy: { backgroundColor: '#D3E7DB' },
-  dropText: {
-    color: INK,
-    fontFamily: font.bold,
-    fontSize: 12,
-    lineHeight: 19,
-    flexShrink: 1,
-    textAlign: 'center',
-  },
-  progress: {
-    color: '#FFF8DC',
-    fontFamily: font.bold,
-    fontSize: 11,
-    textAlign: 'center',
-    textShadowColor: INK,
-    textShadowRadius: 3,
-    textShadowOffset: { width: 0, height: 1 },
   },
   modalBackdrop: { flex: 1, backgroundColor: '#04143AF2', alignItems: 'center' },
   overlay: { flex: 1, width: '100%', maxWidth: 540 },

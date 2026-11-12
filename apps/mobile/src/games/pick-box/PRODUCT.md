@@ -43,12 +43,13 @@ The confirmed name is Pick Box, requested by the owner on 12 November 2026.
 
 Preserve the owner-supplied PickChick packaging artwork and 23 x 23 x 10 cm box
 dimensions. Gameplay uses the original PDF front artwork at a 23:10 face ratio.
-The owner explicitly corrected the visual direction to illustrated 2D. The cover
-now shows Alex above the tower, lowering a box on a rope held in both hands,
-as requested in the later 12 November revision. Its size matches the other games.
-The latest owner correction makes this cover more realistic and dimensional,
-matching the other Alex game covers. The interactive gameplay remains 2D.
-It is illustrative; it does not replace the original print or physical proportions.
+The owner explicitly corrected the visual direction to 2D. The final selected cover
+shows Alex standing beside the tower and stays unchanged. On 12 November the owner
+requested more recognizable boxes and a painted city-to-space journey. Gameplay
+therefore uses the original front/lid print with subtle dimensional projection,
+without changing the physical dimensions. Alex flies on a rocket in space.
+The footer instruction block is removed; the accessible tap field reaches the screen
+bottom. Quiet translucent exit/pause controls keep 48-unit touch targets.
 Almaty mountain stages are an artistic setting, not exact geographic views.
 Shared PickChick identity and design authorities remain in force.
 

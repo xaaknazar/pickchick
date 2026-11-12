@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Icon } from '../../components/UI';
+import { cameraFloor } from './ascent';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,6 +29,7 @@ type Frame = {
   particles: boolean;
 };
 const FRONT = require('../../../assets/games/pick-box/front.png');
+const LID = require('../../../assets/games/pick-box/lid.png');
 const BASE_FRAME: Frame = {
   bodies: {},
   held: { x: 180, y: 120, angle: 0, visible: true },
@@ -66,11 +68,13 @@ function BoxSprite({
       pointerEvents="none"
       style={[s.box, style]}
     >
-      <Image source={FRONT} resizeMode="stretch" style={s.print} accessible={false} />
-      <View style={s.lid}>
-        <View style={s.lidShine} />
+      <Image source={LID} resizeMode="stretch" style={s.boxLid} accessible={false} />
+      <View style={s.face}>
+        <Image source={FRONT} resizeMode="stretch" style={s.print} accessible={false} />
+        <View style={s.lidSeam} />
+        <View style={s.fold} />
+        <View style={s.boxBottom} />
       </View>
-      <View style={s.boxBottom} />
     </Animated.View>
   );
 }
@@ -80,7 +84,7 @@ function Rope({ frame }: { frame: SharedValue<Frame> }) {
     opacity: frame.value.rope.visible ? 1 : 0,
     height: frame.value.rope.length,
     transform: [
-      { translateX: frame.value.rope.x - 3 },
+      { translateX: frame.value.rope.x - 2 },
       { translateY: frame.value.rope.y },
       { rotate: `${frame.value.rope.angle}rad` },
     ],
@@ -131,13 +135,13 @@ export function World({
   const frame = useSharedValue<Frame>(BASE_FRAME);
   const callbacks = useRef({ onChange, onCue });
   callbacks.current = { onChange, onCue };
-  const scale = size.width / 360;
+  const scale = size.width / 408; // 24 world units of breathing room on each side.
   const height = size.height / scale;
   useEffect(() => {
     let request = 0,
       previous = 0,
       lastCue = -1,
-      camera = height - 52;
+      camera = height - 56;
     let lastIds = '';
     const tick = (now: number) => {
       const elapsed = previous ? Math.min(now - previous, 50) : 0;
@@ -156,7 +160,7 @@ export function World({
       }
       if (game.cues.length) lastCue = game.cues[game.cues.length - 1]!.time;
       if (game.phase !== 'paused') {
-        const target = Math.max(height - 52, height * 0.66 - game.top);
+        const target = cameraFloor(height, game.top);
         camera = reduced ? target : camera + (target - camera) * (1 - Math.exp(-elapsed / 210));
       }
       const held = game.held;
@@ -216,7 +220,10 @@ export function World({
       style={s.viewport}
       onLayout={({ nativeEvent }) => setSize(nativeEvent.layout)}
     >
-      <Animated.View style={[s.world, { height, transformOrigin: 'top left' }, worldStyle]}>
+      <Animated.View
+        testID="pick-box-coordinate-space"
+        style={[s.world, { height, left: 24 * scale, transformOrigin: 'top left' }, worldStyle]}
+      >
         <Animated.View style={[s.platform, floorStyle]}>
           <View style={s.platformTop} />
           <View style={s.platformFace}>
@@ -247,35 +254,59 @@ const s = StyleSheet.create({
     top: 0,
     width: BOX_WIDTH,
     height: BOX_HEIGHT,
-    borderWidth: 2,
-    borderColor: '#061B53',
-    borderRadius: 3,
-    overflow: 'hidden',
+  },
+  face: {
+    width: '100%',
+    height: '100%',
     backgroundColor: '#0047BB',
+    borderRadius: 1,
+    overflow: 'hidden',
+    boxShadow: '0px 3px 5px rgba(0, 17, 57, 0.3), inset -2px -1px 3px rgba(0, 17, 57, 0.16)',
   },
   print: { width: '100%', height: '100%' },
-  lid: {
+  // Original lid print, projected above the collision face. It is occluded naturally
+  // by the next box, while the collision width and 23:10 face remain unchanged.
+  boxLid: {
+    position: 'absolute',
+    top: -BOX_WIDTH,
+    left: 0,
+    width: BOX_WIDTH,
+    height: BOX_WIDTH,
+    transformOrigin: 'bottom center',
+    transform: [{ perspective: 400 }, { rotateX: '77deg' }],
+    backgroundColor: '#0047BB',
+  },
+  lidSeam: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: 8,
-    backgroundColor: '#0047BB',
-    borderBottomWidth: 2,
-    borderBottomColor: '#05276D',
+    height: 3,
+    backgroundColor: '#0051C4',
+    borderTopWidth: 0.7,
+    borderTopColor: '#76A8FF',
+    borderBottomWidth: 0.8,
+    borderBottomColor: '#002E82',
   },
-  lidShine: { height: 2, backgroundColor: '#719DFD', marginTop: 1, marginHorizontal: 2 },
+  fold: {
+    position: 'absolute',
+    top: 3,
+    bottom: 1,
+    right: 1,
+    width: 1,
+    backgroundColor: '#002D8044',
+  },
   boxBottom: {
     position: 'absolute',
-    height: 2,
+    height: 1,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#C34F06',
+    backgroundColor: '#8C350E66',
   },
   rope: {
     position: 'absolute',
-    width: 6,
+    width: 4,
     borderRadius: 3,
     backgroundColor: '#C27B28',
     borderWidth: 1,

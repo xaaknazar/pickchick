@@ -7,6 +7,7 @@ import {
   BOX_HEIGHT,
   peakForScore,
 } from '../../apps/mobile/src/games/pick-box/engine.ts';
+import { cameraFloor } from '../../apps/mobile/src/games/pick-box/ascent.ts';
 import { PickBoxRecords, parseRecord } from '../../apps/mobile/src/games/pick-box/storage.ts';
 
 const require = createRequire(new URL('../../apps/mobile/package.json', import.meta.url));
@@ -161,8 +162,21 @@ test('frame grouping does not change a seeded physics outcome', () => {
   a.dispose();
   b.dispose();
 });
-test('mountain stages have deterministic boundaries', () => {
-  assert.deepEqual([0, 7, 8, 19, 20, 35, 36, 100].map(peakForScore), [0, 0, 1, 1, 2, 2, 3, 3]);
+test('ascent reaches mountains, summit, atmosphere and space at stable boundaries', () => {
+  assert.deepEqual(
+    [0, 7, 8, 19, 20, 27, 28, 35, 36, 100].map(peakForScore),
+    [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+  );
+});
+test('camera keeps the held box and landing face visible as the tower rises', () => {
+  for (const height of [340, 500, 720, 920]) {
+    for (const top of [0, -100, -600, -2000, -9000]) {
+      const floor = cameraFloor(height, top);
+      assert(top + floor >= 250, 'landing target must leave room for pendulum');
+      assert(top + floor < height - 20, 'landing target must remain on screen');
+      assert(top - 185 + floor - BOX_HEIGHT / 2 > 0, 'held box cannot clip the top');
+    }
+  }
 });
 test('records reject corrupt input and preserve the largest concurrent result', async () => {
   assert.equal(parseRecord(null), 0);
@@ -204,4 +218,25 @@ test('storage failure keeps gameplay available and never overwrites an unread re
   });
   assert.equal((await corrupt.record(3)).saved, false);
   assert.equal(writes, 0);
+});
+
+test('a well-aligned forty-box tower can reach space through unmodified physics', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let score = 0; score < 40; score++) {
+    for (
+      let i = 0;
+      i < 2400 && !(game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - 180) < 0.8);
+      i++
+    )
+      game.advance(1000 / 120);
+    assert(game.drop());
+    for (let i = 0; i < 2400 && game.score === score && game.phase === 'playing'; i++)
+      game.advance(1000 / 120);
+    assert.equal(game.score, score + 1);
+  }
+  assert.equal(game.snapshot().peak, 4);
+  assert.equal(game.phase, 'playing');
+  assert(game.boxes.every((box) => !box.body.isStatic));
+  game.dispose();
 });

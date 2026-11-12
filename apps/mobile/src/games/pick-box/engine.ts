@@ -1,4 +1,5 @@
 import Matter from 'matter-js';
+import { ASCENT_STEPS, ascentStage } from './ascent.ts';
 
 const { Engine, Bodies, Body, Composite, Events } = Matter;
 export const WORLD_WIDTH = 360;
@@ -27,9 +28,8 @@ export type Snapshot = {
   canDrop: boolean;
 };
 
-export const PEAK_THRESHOLDS = [0, 8, 20, 36] as const;
-export const peakForScore = (score: number) =>
-  score >= 36 ? 3 : score >= 20 ? 2 : score >= 8 ? 1 : 0;
+export const PEAK_THRESHOLDS = ASCENT_STEPS;
+export const peakForScore = ascentStage;
 
 /** All physics uses world coordinates, independent of screen size, camera and effects. */
 export class PickBoxEngine {

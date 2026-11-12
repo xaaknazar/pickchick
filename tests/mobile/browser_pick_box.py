@@ -10,7 +10,7 @@ from browser_network import isolated_context
 ROOT = Path(__file__).resolve().parents[2]
 URL = os.environ.get('PICK_BOX_URL', 'http://127.0.0.1:4199').rstrip('/')
 assert urlparse(URL).hostname in ('localhost', '127.0.0.1')
-OUT = ROOT / '.local/pick-box/browser'
+OUT = ROOT / '.local/pick-box/ascent-browser'
 OUT.mkdir(parents=True, exist_ok=True)
 
 
@@ -27,17 +27,14 @@ def drop_at(page, edge=False):
       const loop = time => {
         const button = document.querySelector('[data-testid="pick-box-drop"]');
         const held = document.querySelector('[data-testid="pick-box-held"]');
-        const world = document.querySelector('[data-testid="pick-box-world"]');
-        if (++n > 2400) return reject(Error('No drop opportunity'));
+        const world = document.querySelector('[data-testid="pick-box-coordinate-space"]');
+        if (++n > 2400) return reject(Error('No drop opportunity: ' + document.body.innerText));
         if (held && world && button && button.getAttribute('aria-disabled') !== 'true') {
           const r = held.getBoundingClientRect(), w = world.getBoundingClientRect();
           const scale = w.width / 360, x = (r.x + r.width / 2 - w.x) / scale;
           const speed = lastX === null || time === lastTime ? 0 : (x - lastX) / (time - lastTime) * (1000 / 60);
-          const boxes = [...document.querySelectorAll('[data-testid^="pick-box-body-"]')]
-            .filter(el => getComputedStyle(el).opacity !== '0')
-            .map(el => el.getBoundingClientRect()).sort((a,b) => a.y-b.y);
-          const target = boxes.length ? (boxes[0].x + boxes[0].width / 2 - w.x) / scale : 180;
-          if (lastX !== null && (edge ? x > 291 : Math.abs(x + speed * 4.32 - target) < 1.5)) {
+          const target = 180; // Aim above the foundation, not the accumulated lean of the last box.
+          if (lastX !== null && (edge ? x > 291 : Math.abs(x + speed * 4.32 - target) < 0.95)) {
             button.click(); return resolve({x, target});
           }
           lastX = x; lastTime = time;
@@ -51,7 +48,7 @@ def drop_at(page, edge=False):
 results = []
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
-    for width, height, reduced, target_score in [(393, 852, False, 8), (320, 568, True, 2), (768, 1024, False, 2)]:
+    for width, height, reduced, target_score in [(393, 852, False, 36 if os.environ.get('PICK_BOX_LONG_RUN') == '1' else 8), (320, 568, True, 2), (768, 1024, False, 2)]:
         context = isolated_context(browser, viewport={'width': width, 'height': height},
                                    device_scale_factor=1, reduced_motion='reduce' if reduced else 'no-preference')
         page = context.new_page()
@@ -64,18 +61,43 @@ with sync_playwright() as p:
         shot(page, f'start-{width}')
         page.get_by_test_id('pick-box-start').click()
         expect(page.get_by_test_id('pick-box-score')).to_have_text('0')
+        bounds = page.get_by_test_id('pick-box-world').bounding_box()
+        assert abs(bounds['y'] + bounds['height'] - height) < 2, 'World must reach screen bottom'
+        expect(page.get_by_text('Коснись экрана - отпусти коробку', exact=True)).to_have_count(0)
         for number in range(1, target_score + 1):
             drop_at(page)
             expect(page.get_by_test_id('pick-box-score')).to_have_text(str(number), timeout=12000)
+            if number in [1, 8, 20, 28, 36]:
+                page.wait_for_timeout(2100)
+                shot(page, f'ascent-{number}-{width}')
         page.wait_for_timeout(1600)
+        page.evaluate('''() => new Promise((resolve, reject) => {
+          let start;
+          const tick = t => {
+            start ??= t;
+            const r = document.querySelector('[data-testid="pick-box-held"]').getBoundingClientRect();
+            if (r.left < -1 || r.right > innerWidth + 1) return reject(Error('Held box clips horizontal edge'));
+            if (t - start > 4800) return resolve(true);
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        })''')
         shot(page, f'tower-{width}')
-        if target_score == 8:
-            expect(page.get_by_test_id('pick-box-peak')).to_have_text('Пик Фурманова')
+        if target_score == 36:
+            expect(page.get_by_test_id('pick-box-peak')).to_have_text('Космос')
+            page.wait_for_function('''() => {
+              const rocket = document.querySelector('[data-testid="pick-box-alex-rocket"]');
+              const r = rocket.getBoundingClientRect();
+              return getComputedStyle(rocket).opacity === '1' && r.x > 35 && r.right < innerWidth - 20;
+            }''', timeout=30000)
+            shot(page, 'space-alex')
         page.get_by_test_id('pick-box-pause').click()
         expect(page.get_by_test_id('pick-box-resume')).to_be_visible()
         before = page.get_by_test_id('pick-box-held').get_attribute('style')
+        rocket_before = page.get_by_test_id('pick-box-alex-rocket').get_attribute('style')
         page.wait_for_timeout(350)
         assert before == page.get_by_test_id('pick-box-held').get_attribute('style'), 'Paused pendulum moved'
+        assert rocket_before == page.get_by_test_id('pick-box-alex-rocket').get_attribute('style'), 'Paused scenery moved'
         shot(page, f'pause-{width}')
         page.get_by_test_id('pick-box-resume').click()
         expect(page.get_by_test_id('pick-box-score')).to_have_text(str(target_score))
