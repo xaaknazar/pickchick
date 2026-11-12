@@ -673,6 +673,231 @@ test('restricted worker cannot read password hashes; restricted runtime executes
     }
   }));
 
+test('paired prep screen signs in like the kitchen page: login, session read with the screen key, then stations; a missing, wrong or foreign key stays refused and the key opens no cashier-desk route', async () =>
+  fixture(async (ctx) => {
+    await setStaffPassword(
+      ctx.pool,
+      ctx.scope.branchId,
+      ctx.cook.auth,
+      'kitchen',
+      'Kitchen-test-password-18',
+    );
+    const access = repo(ctx),
+      item = make(ctx, { mode: 'prep' }),
+      second = make(ctx, { mode: 'assembly' }),
+      third = make(ctx);
+    await access.receive(item.command);
+    await access.receive(second.command);
+    await access.receive(third.command);
+    const key = await access.pair({ code: item.code });
+    const other = await access.pair({ code: second.code });
+    const board = await access.pair({ code: third.code });
+    const status = async (call, path, headers) => (await call(path, { headers })).status;
+    const post = async (call, path, headers, body) =>
+      (
+        await call(path, {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': randomUUID(),
+          },
+          body: JSON.stringify(body),
+        })
+      ).status;
+    const sessionOn = async (terminal, person, role) =>
+      staffHeaders(
+        terminal,
+        await provisionStaff(ctx.pool, ctx.scope.branchId, {
+          staff_id: person.staff_id,
+          terminal_id: terminal.terminalId,
+          name: 'Synthetic staff',
+          role,
+        }),
+      );
+    const ordering = async () =>
+      (
+        await ctx.pool.query('SELECT ordering_enabled FROM branch_config WHERE id=$1', [
+          ctx.scope.branchId,
+        ])
+      ).rows[0].ordering_enabled;
+    await http(ctx, async (call) => {
+      const login = await call('/edge/v1/staff/login', {
+        method: 'POST',
+        headers: { ...terminalHeaders(key), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          login: 'kitchen',
+          password: 'Kitchen-test-password-18',
+          terminal_id: key.terminalId,
+        }),
+      });
+      assert.equal(login.status, 200);
+      const actor = await login.json();
+      const staff = staffHeaders(key, actor);
+      // The page's next request (apps/kitchen/src/model.ts signInWithPassword): it compares every
+      // field of the login answer with this one and refuses to continue on any difference.
+      const session = await call('/edge/v1/session', { headers: staff });
+      assert.equal(session.status, 200);
+      const read = await session.json();
+      for (const field of [
+        'session_id',
+        'staff_id',
+        'terminal_id',
+        'branch_id',
+        'role',
+        'expires_at',
+      ])
+        assert.equal(read[field], actor[field], field);
+      assert.equal(read.token, undefined);
+      assert.equal(read.terminal_id, key.terminalId);
+      assert.equal(read.role, 'kitchen');
+      // The rest of the sign-in sequence.
+      assert.equal(await status(call, '/edge/v1/fulfillment/config', terminalHeaders(key)), 200);
+      const stations = await call('/edge/v1/fulfillment/stations', { headers: staff });
+      assert.equal(stations.status, 200);
+      assert.deepEqual(
+        (await stations.json()).items.map((s) => s.id),
+        [ctx.prep],
+      );
+      assert.equal(
+        await status(call, '/edge/v1/fulfillment/kitchen?stationId=' + ctx.prep, staff),
+        200,
+      );
+
+      // A managed terminal can never omit the key, and a presented key is always verified.
+      const noKey = { ...staff };
+      delete noKey['X-Terminal-Key'];
+      assert.equal(await status(call, '/edge/v1/session', noKey), 401);
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...staff,
+          'X-Terminal-Key': randomBytes(32).toString('hex'),
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...staff,
+          'X-Terminal-Key': other.terminalKey,
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', { ...staff, ...terminalHeaders(other) }),
+        403,
+      );
+      // A key without the screen's id belongs to no screen; a malformed key is no key.
+      const noId = { ...staff };
+      delete noId['X-Terminal-ID'];
+      assert.equal(await status(call, '/edge/v1/session', noId), 403);
+      assert.equal(
+        await status(call, '/edge/v1/session', { ...staff, 'X-Terminal-Key': 'x' }),
+        401,
+      );
+      // A display screen never becomes staff, even with a session row and its own valid key.
+      assert.equal(
+        await status(
+          call,
+          '/edge/v1/session',
+          await sessionOn(board, ctx.manager, 'shift_manager'),
+        ),
+        403,
+      );
+
+      // The key opens the session read and nothing else outside the kitchen routes. A session
+      // held on a kitchen screen stays refused on every cashier-desk route, with the key as
+      // without it, whoever signed in there: the cook, a cashier or the shift manager.
+      const shifts = await ctx.count('local_cash_shifts'),
+        open = await ordering();
+      for (const onScreen of [
+        staff,
+        await sessionOn(key, ctx.cashier, 'cashier'),
+        await sessionOn(key, ctx.manager, 'shift_manager'),
+      ]) {
+        assert.equal(await status(call, '/edge/v1/session', onScreen), 200);
+        for (const path of [
+          '/edge/v1/cash-shifts/current',
+          '/edge/v1/cash-shifts',
+          '/edge/v1/availability/stops',
+          '/edge/v1/ordering',
+          '/edge/v1/orders',
+          // Routes of the POS sales and cloud-link controllers: they never take a screen key.
+          '/edge/v1/pos/config',
+          '/edge/v1/pos/fiscal-receipts/pending',
+          '/edge/v1/cloud-link',
+        ])
+          assert.equal(await status(call, path, onScreen), 401, path);
+        assert.equal(
+          await post(call, '/edge/v1/cash-shifts', onScreen, { opening_cash_minor: '0' }),
+          401,
+        );
+        assert.equal(
+          await post(call, '/edge/v1/ordering/close', onScreen, { expected_version: 1 }),
+          401,
+        );
+        assert.equal(
+          await post(call, '/edge/v1/staff/approvals', onScreen, {
+            staff_id: ctx.manager.staff_id,
+            pin: '1234',
+            action: 'void',
+            subject: { order_id: randomUUID(), amount_minor: '100' },
+          }),
+          401,
+        );
+      }
+      assert.equal(await ctx.count('local_cash_shifts'), shifts, 'no cash shift on a screen');
+      assert.equal(await ordering(), open, 'ordering untouched');
+
+      // A legacy (unpaired) terminal needs no key, as before. A key it presents on the session
+      // read is verified now (the route ignored it before); the cashier-desk routes still do
+      // not look at it.
+      const legacy = {
+        Authorization: 'Bearer ' + ctx.manager.token,
+        'X-Staff-Session-ID': ctx.manager.session_id,
+      };
+      assert.equal(await status(call, '/edge/v1/session', legacy), 200);
+      assert.equal(
+        await status(call, '/edge/v1/ordering', { ...legacy, ...terminalHeaders(key) }),
+        200,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...legacy,
+          'X-Terminal-ID': ctx.manager.terminal_id,
+          'X-Terminal-Key': key.terminalKey,
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', { ...legacy, ...terminalHeaders(key) }),
+        403,
+      );
+
+      // With device access switched off the paired screen stays closed and a legacy desk open.
+      process.env.EDGE_DEVICE_ACCESS_ENABLED = 'false';
+      try {
+        assert.equal(await status(call, '/edge/v1/session', staff), 401);
+        assert.equal(await status(call, '/edge/v1/session', legacy), 200);
+      } finally {
+        process.env.EDGE_DEVICE_ACCESS_ENABLED = 'true';
+      }
+      assert.equal(await status(call, '/edge/v1/session', staff), 200);
+
+      // Revoking the screen in the back office closes it at once: its key stops working, so the
+      // staff session held on it is refused.
+      await access.receive(
+        make(ctx, {
+          terminalId: key.terminalId,
+          mode: 'prep',
+          generation: 2,
+          action: 'revoke',
+          codeHash: null,
+        }).command,
+      );
+      assert.equal(await status(call, '/edge/v1/session', staff), 401);
+    });
+  }));
+
 test('managed credentials cannot downgrade with feature off; password login validates terminal key inside its transaction', async () =>
   fixture(async (ctx) => {
     await setStaffPassword(
