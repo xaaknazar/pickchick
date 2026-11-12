@@ -46,6 +46,8 @@ dimensions. Gameplay uses the original PDF front artwork at a 23:10 face ratio.
 The owner explicitly corrected the visual direction to illustrated 2D. The cover
 now shows Alex above the tower, lowering a box on a rope held in both hands,
 as requested in the later 12 November revision. Its size matches the other games.
+The latest owner correction makes this cover more realistic and dimensional,
+matching the other Alex game covers. The interactive gameplay remains 2D.
 It is illustrative; it does not replace the original print or physical proportions.
 Almaty mountain stages are an artistic setting, not exact geographic views.
 Shared PickChick identity and design authorities remain in force.

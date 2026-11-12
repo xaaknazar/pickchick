@@ -4,7 +4,8 @@
 
 Owner, 12 November 2026: add a tower-stacking game alongside existing PickChick
 games. The confirmed name is Pick Box. The later visual correction explicitly
-requires a playful 2D arcade, not a realistic 3D presentation. Local records only;
+requires playful 2D gameplay. A subsequent owner revision asks for a more
+realistic dimensional cover, matching other Alex game covers; gameplay stays 2D. Local records only;
 no purchases, financial rewards, account requirement or backend writes.
 
 The scope-local product record is
@@ -23,8 +24,11 @@ records only the Pick Box surface. The existing
   a short three-lives/collapse rule. The poster also appears in the Games tab.
 - Cover revision, owner 12 November: Alex is above the tower, holding a rope with
   both hands and lowering a tied Friends Box. The illustrated Almaty background
-  remains. `cover-alex-2d.png` is 1536 x 1024, matching the other Alex game covers,
+  remains. The latest `cover-alex-realistic.png` is 1536 x 1024, matching the other Alex game covers,
   and uses the unchanged shared poster size. Gameplay sprites are unchanged.
+- Final cover style, owner 12 November: realistic dimensional feathers, fabric,
+  cardboard and rope, natural lighting and an atmospheric Almaty backdrop.
+  This supersedes the flat cover only, preserving its above-the-tower composition.
 - Gameplay composition: count centered above an open playfield, record left,
   three hearts right, named peak below. A rope enters from above; the player's
   box hangs over the tower. One bottom action remains available to accessibility
@@ -41,7 +45,8 @@ records only the Pick Box surface. The existing
 Mode: Experience. Form: portrait illustrated stacking arcade, extending the
 existing Games collection through `GamePosterCard`. The owner supplied the
 packaging PDF/photo, specified the stacking behavior and Almaty setting, then
-explicitly corrected the direction to illustrated 2D. The blue/orange identity
+explicitly corrected gameplay to illustrated 2D, then requested a more realistic
+cover like the other Alex games. The blue/orange identity
 and Jost/Manrope typography are inherited PickChick commitments.
 
 No concept roll, ranked form list or random FORM seed was used. Seed and list
@@ -55,7 +60,8 @@ the exact packaging source and crop coordinates are in
 ### QUALITY BAR - constrained reference card
 
 - Reference: the owner's packaging PDF/photo for print fidelity and 23 x 23 x 10 cm
-  dimensions; `cover-alex-2d.png` and `mountains-2d.png` for illustrated style.
+  dimensions; Magic Sort's `cover-alex.png` for the final cover's character and
+  dimensional materials, `mountains-2d.png` for the 2D gameplay background.
 - Incumbent component: [`GamePosterCard.tsx`](../../apps/mobile/src/games/GamePosterCard.tsx),
   already used by [`MagicSortCard.tsx`](../../apps/mobile/src/games/magic-sort/MagicSortCard.tsx),
   governs entry-card composition. The game retains its own open playfield.
