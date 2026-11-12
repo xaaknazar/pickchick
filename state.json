@@ -7754,6 +7754,19 @@
       "updatedAt": "2026-11-12T04:56:39.055Z",
       "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
       "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
+    },
+    {
+      "id": "expenses-installed-compose-1112",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/expenses-installed-compose-1112",
+      "scopes": [
+        "infra/staging/cutover-cloud-owner.mjs",
+        "tests/unit/cutover-installed-compose.test.mjs",
+        "docs/operations/cloud-expenses-now-1111.md"
+      ],
+      "status": "active",
+      "head": "af68b114e57ce6bcc4ac651d9160d7caf6834d6c",
+      "updatedAt": "2026-11-12T05:04:55.222Z"
     }
   ],
   "approvedScopeTransfers": [
