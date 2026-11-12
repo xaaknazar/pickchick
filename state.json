@@ -7817,11 +7817,11 @@
         "tests/mobile/android-ux.test.mjs",
         "docs/operations/pick-box-1112"
       ],
-      "status": "active",
-      "head": "916651e3dd765c4861e7dfdd0e81b704aa3e2317",
-      "updatedAt": "2026-11-12T13:45:20.937Z",
-      "summary": "PR368 checkpoint 916651e3: owner-requested Alex above tower cover, hands on rope and tied Friends Box, Almaty. 1536x1024 matches other covers; shared card remains212 high. Web export, real393/320 card/start inspection and lint/format PASS. Previous gameplay evidence retained.",
-      "nextAction": "Review CI and physical iPhone/Android acceptance; integrate with current mobile branch and prepare separately authorized store release. Online roadmap still requires merge into newer live facts."
+      "status": "available",
+      "head": "0af4781760b65eddc7375cffc0109757665d4e13",
+      "updatedAt": "2026-11-12T13:49:27.546Z",
+      "summary": "Checkpoint 0af47817 in PR368: latest owner-requested realistic Alex cover, dimensional materials and Almaty. Composition and1536x1024 retained; card/start connected. Web export,393/320 visual checks and scoped lint/format PASS. Gameplay unchanged.",
+      "nextAction": "Physical iPhone/Android acceptance, CI and integration remain before separately authorized store release. Online roadmap must preserve newer live operational facts."
     }
   ],
   "approvedScopeTransfers": [
