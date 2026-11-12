@@ -333,7 +333,7 @@ export async function createPortal({
         mode = 'prep';
         pathOnGateway = path.slice('/kitchen-live/assets'.length);
         if (
-          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset|StreamStatus|CloudPairing)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
+          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset|StreamStatus|CloudPairing|ScreenKeyboard)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
             pathOnGateway,
           )
         ) {

@@ -15,6 +15,7 @@ export const modules = [
   'components/PasswordReset',
   'components/StreamStatus',
   'components/CloudPairing',
+  'components/ScreenKeyboard',
 ];
 export const inputPaths = [
   ...modules.map((name) => `apps/kitchen/src/${name}.ts`),

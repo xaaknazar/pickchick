@@ -55,6 +55,7 @@ export function openRestoreReview(
   reason.required = true;
   reason.minLength = 3;
   reason.maxLength = 500;
+  reason.dataset.keyboard = 'ru';
   reasonLabel.append(reason);
   const feedback = document.createElement('p');
   feedback.setAttribute('role', 'status');
@@ -118,7 +119,12 @@ export function openRestoreReview(
     event.preventDefault();
     if (busy || blocked) return;
     if (!sent) {
-      if (!['resume', 'retire'].includes(choice.value) || reason.value.trim().length < 3) return;
+      if (!['resume', 'retire'].includes(choice.value)) return;
+      // Said in words: `minlength` does not stop text typed on the on-screen keyboard.
+      if (reason.value.trim().length < 3) {
+        feedback.textContent = 'Укажите причину: от 3 до 500 символов.';
+        return;
+      }
       const candidate: Decision = {
         commandId: crypto.randomUUID(),
         epoch: ticket.restoreReview!.epoch,

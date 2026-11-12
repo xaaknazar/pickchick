@@ -206,6 +206,8 @@ export function openIncident(input: {
     rows: 3,
     placeholder: 'Что произошло',
   });
+  // Free text in Russian: the on-screen keyboard opens with Russian letters.
+  description.dataset.keyboard = 'ru';
   const feedback = element('p', { className: 'courier-hint' });
   feedback.setAttribute('role', 'status');
   feedback.setAttribute('aria-live', 'polite');

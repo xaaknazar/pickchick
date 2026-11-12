@@ -162,6 +162,23 @@ with sync_playwright() as p:
     expect(ticket(page, 'glovo')).to_have_class(re.compile('courier-match'))
     expect(number).to_be_focused()
     expect(number).to_have_value('g-456')
+    # The same number on the screen keys of a monoblock without a keyboard. The screen is
+    # redrawn after every character: the keys, the focus and the upper case all stay.
+    page.locator('#courier-clear').tap()
+    expect(number).to_have_value('')
+    expect(number).to_be_focused()
+    keys = page.locator('.screen-keyboard-panel')
+    expect(keys).to_be_visible()
+    expect(keys.locator('[data-key="shift"]')).to_have_attribute('aria-pressed', 'true')
+    for character in 'G-456':
+        keys.locator('button[data-key="type"]').filter(has_text=re.compile('^' + re.escape(character) + '$')).first.tap()
+    expect(number).to_have_value('G-456')
+    expect(number).to_be_focused()
+    expect(keys).to_be_visible()
+    expect(keys.locator('[data-key="shift"]')).to_have_attribute('aria-pressed', 'true')
+    assert number.bounding_box()['y'] + number.bounding_box()['height'] <= keys.bounding_box()['y'] + 1, 'Field under the keys'
+    expect(ticket(page, 'yandex')).to_have_count(0)
+    expect(ticket(page, 'glovo')).to_have_class(re.compile('courier-match'))
     ticket(page, 'glovo').get_by_role('button', name='Передать курьеру', exact=True).tap()
     dialog = page.locator('dialog.courier-dialog')
     expect(dialog).to_be_visible()
@@ -190,6 +207,14 @@ with sync_playwright() as p:
     expect(page.locator('#incident-provider')).to_have_value('yandex_eda')
     expect(page.locator('#incident-number')).to_have_value('Y-123')
     page.locator('#incident-kind').select_option('courier_refused')
+    # Free Russian text: the screen keys open inside the dialog with Russian letters, the first
+    # one a capital.
+    page.locator('#incident-description').tap()
+    keys = form.locator('.screen-keyboard-panel')
+    expect(keys).to_be_visible()
+    for character in 'Ку':
+        keys.locator('button[data-key="type"]').filter(has_text=re.compile('^' + re.escape(character) + '$')).first.tap()
+    expect(page.locator('#incident-description')).to_have_value('Ку')
     page.locator('#incident-description').fill('Курьер отказался, просил звонить +7 700 000 00 00')
     page.locator('#incident-save').tap()
     expect(form).to_contain_text('Уберите номер телефона из описания')

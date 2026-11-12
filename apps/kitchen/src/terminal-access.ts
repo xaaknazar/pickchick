@@ -32,9 +32,14 @@ export class TerminalAccess {
     this.terminalId = v.terminalId;
     this.paired = true;
   }
+  /** What a screen draws from this object; a check that leaves it as it was redraws nothing. */
+  private shown() {
+    return JSON.stringify([this.paired, this.terminalId ?? null, this.error]);
+  }
   async check() {
     if (!this.enabled || !this.paired || this.busy) return;
     this.busy = true;
+    const before = this.shown();
     try {
       const response = await fetch(apiPrefix + '/edge/v1/terminals/session', {
         credentials: 'same-origin',
@@ -55,7 +60,9 @@ export class TerminalAccess {
       this.error = 'Нет ответа кассы. Привязка сохранена, повторный код не нужен.';
     } finally {
       this.busy = false;
-      this.changed();
+      // The page asks every 15 seconds. Redrawing on each steady answer rebuilt the login form
+      // and wiped a half-typed password, so only a real change is reported.
+      if (before !== this.shown()) this.changed();
     }
   }
   async pair(code: string) {
