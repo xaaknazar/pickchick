@@ -7764,11 +7764,12 @@
         "docs/collaboration/handoff.md",
         "@vps/roadmap",
         "@vps/backoffice-login",
-        "docs/operations/cloud-expenses-now-1111.md"
+        "docs/operations/cloud-expenses-now-1111.md",
+        "docs/operations/cloud-1-handover-1110.md"
       ],
       "status": "active",
-      "head": "743eb263b01f3cd93d08e1048071a256cfc659f3",
-      "updatedAt": "2026-11-12T06:32:38.535Z",
+      "head": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+      "updatedAt": "2026-11-12T06:34:44.906Z",
       "summary": "Archive verified; PR #358 merged; isolated 072-077/grants/old-new API rehearsal passed; backup restored. Candidate 7e312043 awaiting full CI 43159477530. Live pointers and schema unchanged.",
       "nextAction": "After exact-head green CI, fresh backup/restore, guarded live window, enable only expenses, owner acceptance and roadmap update."
     }
