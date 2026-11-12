@@ -1730,7 +1730,8 @@ html.screen-keyboard-open #app {
 html.screen-keyboard-open .login {
   place-items: safe center;
 }
-html.screen-keyboard-open dialog[open] {
+/* Only the dialog that holds the keys makes room for them; any other dialog stays centred. */
+html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
   margin-block: 12px calc(var(--screen-keyboard-height, 0px) + 12px);
   max-height: calc(100dvh - var(--screen-keyboard-height, 0px) - 24px);
 }

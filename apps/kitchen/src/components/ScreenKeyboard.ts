@@ -71,6 +71,12 @@ export function installScreenKeyboard() {
   let watch: number | undefined;
   let repeat: number | undefined;
   let idle = 0;
+  /**
+   * The field whose keys were put away with "Скрыть" (or "Ввод" outside a form). A redraw gives
+   * the focus back to the field by itself; that must not bring the keys back over the buttons the
+   * person wanted to reach. Only a tap on the field or on "Клавиатура" does.
+   */
+  let dismissed = '';
 
   /** The field to type into: the focused one, or its replacement after the page was redrawn. */
   function current(): Field | null {
@@ -78,6 +84,12 @@ export function installScreenKeyboard() {
     const again = ownerId ? document.getElementById(ownerId) : null;
     if (editable(again)) {
       again.focus({ preventScroll: true });
+      // A field that never had the focus has its caret at the start: type at the end instead.
+      try {
+        again.setSelectionRange(again.value.length, again.value.length);
+      } catch {
+        // Types such as number have no caret to place.
+      }
       return again;
     }
     return null;
@@ -165,8 +177,10 @@ export function installScreenKeyboard() {
             ? 1
             : 0;
     }
+    const replaced = same && field !== owner;
     owner = field;
     ownerId = field.id;
+    dismissed = '';
     own(field);
     open = true;
     idle = 0;
@@ -175,8 +189,30 @@ export function installScreenKeyboard() {
     draw();
     document.documentElement.classList.add('screen-keyboard-open');
     measure();
-    if (!same) field.scrollIntoView({ block: 'center', inline: 'nearest' });
+    if (!same || replaced) reveal(field, !same);
     watch ??= window.setInterval(settle, 400);
+  }
+  /**
+   * Bring the field into the part of the page above the keys. A message of the form (a refused
+   * sign-in) stays in sight too: it is shown above the field and would be scrolled away if the
+   * field were centred. A redrawn form starts at the top again, so the replacement field is
+   * brought back without a jump when it is already visible.
+   */
+  function reveal(field: Field, centre: boolean) {
+    const alert =
+      [
+        ...(field.closest('dialog, main') ?? document).querySelectorAll<HTMLElement>(
+          '[role="alert"]:not([hidden])',
+        ),
+      ].find((node) => node.textContent?.trim()) ?? null;
+    if (centre && !alert) {
+      field.scrollIntoView({ block: 'center', inline: 'nearest' });
+      return;
+    }
+    alert?.scrollIntoView({ block: 'start', inline: 'nearest' });
+    const box = field.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > window.innerHeight - panel.offsetHeight)
+      field.scrollIntoView({ block: alert ? 'end' : 'center', inline: 'nearest' });
   }
   /** Hide the keys. With a text field still focused the small button stays to bring them back. */
   function close() {
@@ -255,6 +291,8 @@ export function installScreenKeyboard() {
       next.focus();
       return;
     }
+    // Outside a form "Ввод" only puts the keys away, like "Скрыть".
+    if (!field.form) dismissed = field.id;
     close();
     // Like the Enter key: a form whose button is switched off (a login wait) is not sent.
     const submit = field.form?.querySelector<HTMLButtonElement>(
@@ -273,8 +311,10 @@ export function installScreenKeyboard() {
     } else if (action === 'space') insert(' ');
     else if (action === 'backspace') erase();
     else if (action === 'enter') enter();
-    else if (action === 'hide') close();
-    else {
+    else if (action === 'hide') {
+      dismissed = ownerId;
+      close();
+    } else {
       if (action === 'shift') shift = shift === 0 ? 1 : shift === 1 ? 2 : 0;
       else if (action === 'language') {
         letters = letters === 'ru' ? 'latin' : 'ru';
@@ -292,6 +332,7 @@ export function installScreenKeyboard() {
     if (event.target === launcher) {
       const field = current();
       auto = true;
+      dismissed = '';
       if (field) show(field);
       return;
     }
@@ -312,6 +353,8 @@ export function installScreenKeyboard() {
     }
   });
   root.addEventListener('mousedown', (event) => event.preventDefault());
+  // A held key (the erase key) must not open the browser's menu over the keys.
+  root.addEventListener('contextmenu', (event) => event.preventDefault());
   for (const name of ['pointerup', 'pointercancel', 'blur'] as const)
     window.addEventListener(name, () => {
       window.clearInterval(repeat);
@@ -323,14 +366,18 @@ export function installScreenKeyboard() {
     (event) => {
       if (event.target instanceof Node && root.contains(event.target)) return;
       if (event.pointerType === 'touch' || event.pointerType === 'pen') auto = true;
-      if (auto && editable(event.target)) own(event.target);
+      if (!editable(event.target)) return;
+      // The person taps the field: the keys may come back.
+      if (event.target.id === dismissed) dismissed = '';
+      if (auto) own(event.target);
     },
     true,
   );
   document.addEventListener('focusin', (event) => {
     if (!editable(event.target)) return;
     idle = 0;
-    if (open || auto) show(event.target);
+    if (event.target.id !== dismissed) dismissed = '';
+    if (open || (auto && !dismissed)) show(event.target);
     else {
       mount(event.target);
       launcher.hidden = false;
@@ -339,8 +386,10 @@ export function installScreenKeyboard() {
   });
   // A tap on the field that already has the focus brings the keys back after "Скрыть".
   document.addEventListener('click', (event) => {
-    if (auto && !open && editable(event.target) && event.target === document.activeElement)
+    if (auto && !open && editable(event.target) && event.target === document.activeElement) {
+      dismissed = '';
       show(event.target);
+    }
   });
   // Somebody types on a real keyboard: the screen keys only get in the way.
   document.addEventListener('keydown', (event) => {

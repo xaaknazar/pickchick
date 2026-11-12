@@ -182,6 +182,8 @@ with sync_playwright() as p:
         expect(password).not_to_have_attribute('data-kept', 'again')
         expect(password).to_have_value(secret[:half])
         expect(password).to_be_focused()
+        # The redrawn form starts at the top again: the new field is brought back above the keys.
+        above_keys(page, password, 'Password after the redraw')
         # A wrong key is taken back with the erase key; the rest of the password follows.
         type_on_screen(page, '9')
         expect(password).to_have_value(secret[:half] + '9')
@@ -191,6 +193,38 @@ with sync_playwright() as p:
         expect(password).to_have_value(secret)
         page.locator('#password-toggle').tap()
         expect(password).to_have_attribute('type', 'password')
+        expect(password).to_have_value(secret)
+        # "Скрыть" keeps the keys away. A redraw gives the focus back to the field by itself;
+        # before 12.11.2026 that brought the keys back over the buttons the cook wanted to reach.
+        press(page, '[data-key="hide"]')
+        expect(page.locator(PANEL)).to_be_hidden()
+        expect(page.locator(LAUNCHER)).to_be_visible()
+        page.route('**/edge/v1/terminals/session', lambda route: route.abort('failed'))
+        session_check(page, 'lost')
+        page.unroute('**/edge/v1/terminals/session')
+        session_check(page, 200)
+        expect(password).to_be_focused()
+        expect(password).to_have_value(secret)
+        page.clock.run_for(1000)
+        expect(page.locator(PANEL)).to_be_hidden()
+        expect(page.locator(LAUNCHER)).to_be_visible()
+        # A tap on the field brings them back.
+        password.tap()
+        expect(page.locator(PANEL)).to_be_visible()
+        # A wrong password: the field is emptied, the keys come back for the next try and the
+        # message stays in sight above them (before 12.11.2026 it was scrolled away).
+        press(page, '[data-key="backspace"]')
+        expect(password).to_have_value(secret[:-1])
+        press(page, '[data-key="enter"]')
+        alert = page.get_by_role('alert')
+        expect(alert).to_be_visible()
+        expect(password).to_have_value('')
+        expect(password).to_be_focused()
+        expect(page.locator(PANEL)).to_be_visible()
+        above_keys(page, alert, 'Message about the refused sign-in')
+        above_keys(page, password, 'Password after the refused sign-in')
+        capture(page, 'refused')
+        type_on_screen(page, secret)
         expect(password).to_have_value(secret)
 
     # "Ввод" in the last field signs in. Before 12.11.2026 a paired screen got «Сессия истекла
@@ -307,7 +341,7 @@ with sync_playwright() as p:
         page.goto(fixture['unlinked'])
         notice = page.locator('.setup-blocked')
         expect(notice).to_contain_text('Экран не подключён к серверу ресторана')
-        expect(notice).to_contain_text('Настройку делает управляющий')
+        expect(notice).to_contain_text('Сообщите управляющему')
         for name in ['#staff-login', '#staff-password', '#password-toggle', '#sign-in']:
             expect(page.locator(name)).to_be_disabled()
         field = page.locator('#staff-login')
