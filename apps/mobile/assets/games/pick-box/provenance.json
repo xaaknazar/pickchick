@@ -17,6 +17,6 @@
     }
   ],
   "packaging": "See packaging-source.json for exact PDF hash and reproducible crop coordinates.",
-  "activeCover": "cover-alex-realistic.png",
-  "coverRevision": "Latest owner revision 12 November: more realistic dimensional Alex cover, matching the other game covers; Alex remains above the tower. See cover-alex-realistic.provenance.json. Gameplay stays 2D. Earlier covers retained as sources and rollback."
+  "activeCover": "cover-alex-side.png",
+  "coverRevision": "Final owner selection for test release: first generated Alex standing beside the tower. See cover-alex-side.provenance.json. Other variants retained as history."
 }

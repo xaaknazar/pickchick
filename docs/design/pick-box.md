@@ -5,7 +5,8 @@
 Owner, 12 November 2026: add a tower-stacking game alongside existing PickChick
 games. The confirmed name is Pick Box. The later visual correction explicitly
 requires playful 2D gameplay. A subsequent owner revision asks for a more
-realistic dimensional cover, matching other Alex game covers; gameplay stays 2D. Local records only;
+realistic dimensional cover, then explicitly selects the first illustrated cover with
+Alex standing beside the tower for the test release. Gameplay stays 2D. Local records only;
 no purchases, financial rewards, account requirement or backend writes.
 
 The scope-local product record is
@@ -22,13 +23,11 @@ records only the Pick Box surface. The existing
   for the printed box artwork; the photo specifies 23 x 23 x 10 cm.
 - First viewport: full-frame arcade illustration, Pick Box title, one start action,
   a short three-lives/collapse rule. The poster also appears in the Games tab.
-- Cover revision, owner 12 November: Alex is above the tower, holding a rope with
-  both hands and lowering a tied Friends Box. The illustrated Almaty background
-  remains. The latest `cover-alex-realistic.png` is 1536 x 1024, matching the other Alex game covers,
-  and uses the unchanged shared poster size. Gameplay sprites are unchanged.
-- Final cover style, owner 12 November: realistic dimensional feathers, fabric,
-  cardboard and rope, natural lighting and an atmospheric Almaty backdrop.
-  This supersedes the flat cover only, preserving its above-the-tower composition.
+- Final selection, owner 12 November: the first Alex cover, with Alex standing
+  beside the tower and holding the rope. `cover-alex-side.png` is 1536 x 1024,
+  matching other game covers and using the unchanged shared poster size.
+  The above-tower and realistic alternatives are retained as artwork history.
+  This final choice supersedes those alternatives. Gameplay sprites are unchanged.
 - Gameplay composition: count centered above an open playfield, record left,
   three hearts right, named peak below. A rope enters from above; the player's
   box hangs over the tower. One bottom action remains available to accessibility
