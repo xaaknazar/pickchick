@@ -7293,7 +7293,6 @@
         "infra/ingress",
         "tests/operations/test_own_ingress.py",
         "docs/operations/staging-vps.md",
-        "@vps/roadmap",
         "@vps/kaspi",
         "infra/public-staging/gateway.Caddyfile",
         "infra/staging/watchdog-grants.mjs",
@@ -7313,7 +7312,7 @@
       ],
       "status": "available",
       "head": "36f05455845a917ae82c7a79d16190440a4c0b29",
-      "updatedAt": "2026-11-12T04:56:33.786Z",
+      "updatedAt": "2026-11-12T05:29:50.764Z",
       "summary": "С1 сохранён, С3 PASS 06.11 в разрешённом вечернем окне. CI818524ec Foundation11/11 и Offline PASS; свежие копии068/071 на VPS/Mac, восстановление и репетиции PASS. Установлены069-071 и API6630eb0f, новые флаги false. Domain12/12,7маршрутов и15.1мин наблюдения PASS; активная работа0,73/18 неизменны. Все собственные release locks сняты. Протокол36f05455 опубликован в PR311, shared не менялся. Онлайн-пульт не обновлён.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.",
       "nextAction": "Серверное окно завершено, ночной повтор С3 не нужен. Владелец может ввести ключ бота через setup-telegram.command со скрытым вводом; ключ в чат не передавать. Watchdog/shadow, Caddy, касса, магазины,072 и включение флагов отдельно по прежнему плану. Кандидат PR310 и протокол PR311 не слиты; finish запрещён до shared. Android P6/поддержка ожидает согласованной передачи нужных резервов; не считать серверный lock занятым после этого handoff.\nП6 передан android-play-1106; широкие @vps и @vps/public-https сняты только у завершённого окна. Перед будущим глобальным серверным окном заново согласовать полный резерв; API/БД/банк/roadmap и остальные области остаются здесь.\n12.11: exact API/PostgreSQL/gateway scopes transferred to cloud-expenses-live-1112 for the owner-authorized 072-077 and expenses-only window."
     },
@@ -7417,16 +7416,13 @@
         "docs/operations/mobile-play-2026-11/listing-1106.json",
         "@google-play/pickchick",
         "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
-        "docs/collaboration/handoff.md",
         "infra/public-staging/support/render.py",
         "infra/public-staging/support/style.css",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
       "status": "available",
       "head": "4544cc368eb6e7694eab7be6d7475bd37db1ed11",
-      "updatedAt": "2026-11-08T13:31:12.296Z",
+      "updatedAt": "2026-11-12T05:29:50.764Z",
       "summary": "08.11: список Google Play расширен с2 до16 адресов, все15 из сообщения владельца плюс прежний второй; частные email не сохранены в Git. История запроса1 Опубликовано, dashboard задача Alpha выполнена,0 вступивших. Приглашение работает с Become a tester. SupportRU/KK/EN HTTP200+delete-account. Commit4544cc36 / PR322 опубликован, remote SHA verified; format/diff/JSON/secret-pattern checks PASS. Бинарник, сервер, iOS, Windows и production не менялись.",
       "nextAction": "Участники вступают и устанавливают на Android с Google Play под внесёнными аккаунтами; проверить12+непрерывных14дней, отзывы и физическую приёмку. Не утверждать, что16адресов означают16вступивших. Не вступали от имени владельца. Production только отдельное да. PR322 ждётCI; онлайн-пульт не обновлён. Windows-файлы не менять до окончания сведения Claude."
     },
@@ -7761,11 +7757,15 @@
         "@vps/public-https/gateway",
         "@vps/backups",
         "@vps/rehearsal/expenses",
-        "docs/operations/cloud-expenses-live-1112-evidence.json"
+        "docs/operations/cloud-expenses-live-1112-evidence.json",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "54ae74549fc014594f29785be744813d3d99c9c5",
-      "updatedAt": "2026-11-12T05:19:51.115Z",
+      "updatedAt": "2026-11-12T05:29:50.764Z",
       "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
       "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
     }
@@ -7798,6 +7798,34 @@
       "from": "desktop-updates-install-1111",
       "to": "cloud-expenses-live-1112",
       "authorization": "Owner explicitly requested this API/database/gateway deployment in this chat; previous tasks are handed off and owned by this same workstation. No other agent active reservation removed."
+    },
+    {
+      "at": "2026-11-12T05:29:50.764Z",
+      "from": "android-play-1106",
+      "to": "cloud-expenses-live-1112",
+      "path": "docs/project-status.md",
+      "authorization": "Current owner-authorized Expenses deployment requires status/roadmap/handoff updates under AGENTS.md. Source tasks are available and owned by the same workstation; no active or other-owner reservation changed."
+    },
+    {
+      "at": "2026-11-12T05:29:50.764Z",
+      "from": "android-play-1106",
+      "to": "cloud-expenses-live-1112",
+      "path": "docs/roadmap/project.json",
+      "authorization": "Current owner-authorized Expenses deployment requires status/roadmap/handoff updates under AGENTS.md. Source tasks are available and owned by the same workstation; no active or other-owner reservation changed."
+    },
+    {
+      "at": "2026-11-12T05:29:50.764Z",
+      "from": "android-play-1106",
+      "to": "cloud-expenses-live-1112",
+      "path": "docs/collaboration/handoff.md",
+      "authorization": "Current owner-authorized Expenses deployment requires status/roadmap/handoff updates under AGENTS.md. Source tasks are available and owned by the same workstation; no active or other-owner reservation changed."
+    },
+    {
+      "at": "2026-11-12T05:29:50.764Z",
+      "from": "stage2-candidate-1105",
+      "to": "cloud-expenses-live-1112",
+      "path": "@vps/roadmap",
+      "authorization": "Current owner-authorized Expenses deployment requires status/roadmap/handoff updates under AGENTS.md. Source tasks are available and owned by the same workstation; no active or other-owner reservation changed."
     }
   ]
 }
