@@ -673,6 +673,135 @@ test('restricted worker cannot read password hashes; restricted runtime executes
     }
   }));
 
+test('paired prep screen signs in like the kitchen page: login, session read with the screen key, then stations; a missing, wrong or foreign key stays refused', async () =>
+  fixture(async (ctx) => {
+    await setStaffPassword(
+      ctx.pool,
+      ctx.scope.branchId,
+      ctx.cook.auth,
+      'kitchen',
+      'Kitchen-test-password-18',
+    );
+    const access = repo(ctx),
+      item = make(ctx, { mode: 'prep' }),
+      second = make(ctx, { mode: 'assembly' });
+    await access.receive(item.command);
+    await access.receive(second.command);
+    const key = await access.pair({ code: item.code });
+    const other = await access.pair({ code: second.code });
+    const status = async (call, path, headers) => (await call(path, { headers })).status;
+    await http(ctx, async (call) => {
+      const login = await call('/edge/v1/staff/login', {
+        method: 'POST',
+        headers: { ...terminalHeaders(key), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          login: 'kitchen',
+          password: 'Kitchen-test-password-18',
+          terminal_id: key.terminalId,
+        }),
+      });
+      assert.equal(login.status, 200);
+      const actor = await login.json();
+      const staff = staffHeaders(key, actor);
+      // The page's next request (apps/kitchen/src/model.ts signInWithPassword): it compares every
+      // field of the login answer with this one and refuses to continue on any difference.
+      const session = await call('/edge/v1/session', { headers: staff });
+      assert.equal(session.status, 200);
+      const read = await session.json();
+      for (const field of [
+        'session_id',
+        'staff_id',
+        'terminal_id',
+        'branch_id',
+        'role',
+        'expires_at',
+      ])
+        assert.equal(read[field], actor[field], field);
+      assert.equal(read.token, undefined);
+      assert.equal(read.terminal_id, key.terminalId);
+      assert.equal(read.role, 'kitchen');
+      // The rest of the sign-in sequence.
+      assert.equal(await status(call, '/edge/v1/fulfillment/config', terminalHeaders(key)), 200);
+      const stations = await call('/edge/v1/fulfillment/stations', { headers: staff });
+      assert.equal(stations.status, 200);
+      assert.deepEqual(
+        (await stations.json()).items.map((s) => s.id),
+        [ctx.prep],
+      );
+      assert.equal(
+        await status(call, '/edge/v1/fulfillment/kitchen?stationId=' + ctx.prep, staff),
+        200,
+      );
+
+      // A managed terminal can never omit the key, and a presented key is always verified.
+      const noKey = { ...staff };
+      delete noKey['X-Terminal-Key'];
+      assert.equal(await status(call, '/edge/v1/session', noKey), 401);
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...staff,
+          'X-Terminal-Key': randomBytes(32).toString('hex'),
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...staff,
+          'X-Terminal-Key': other.terminalKey,
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', { ...staff, ...terminalHeaders(other) }),
+        403,
+      );
+      // The kitchen role still reads nothing of the cashier desk through the same controller.
+      assert.equal(await status(call, '/edge/v1/cash-shifts/current', staff), 403);
+      assert.equal(await status(call, '/edge/v1/availability/stops', staff), 403);
+
+      // A legacy (unpaired) terminal needs no key, as before; a key it presents is still checked.
+      const legacy = {
+        Authorization: 'Bearer ' + ctx.manager.token,
+        'X-Staff-Session-ID': ctx.manager.session_id,
+      };
+      assert.equal(await status(call, '/edge/v1/session', legacy), 200);
+      assert.equal(
+        await status(call, '/edge/v1/session', {
+          ...legacy,
+          'X-Terminal-ID': ctx.manager.terminal_id,
+          'X-Terminal-Key': key.terminalKey,
+        }),
+        401,
+      );
+      assert.equal(
+        await status(call, '/edge/v1/session', { ...legacy, ...terminalHeaders(key) }),
+        403,
+      );
+
+      // With device access switched off the paired screen stays closed and a legacy desk open.
+      process.env.EDGE_DEVICE_ACCESS_ENABLED = 'false';
+      try {
+        assert.equal(await status(call, '/edge/v1/session', staff), 401);
+        assert.equal(await status(call, '/edge/v1/session', legacy), 200);
+      } finally {
+        process.env.EDGE_DEVICE_ACCESS_ENABLED = 'true';
+      }
+      assert.equal(await status(call, '/edge/v1/session', staff), 200);
+
+      // Revoking the screen in the back office ends its staff session at once.
+      await access.receive(
+        make(ctx, {
+          terminalId: key.terminalId,
+          mode: 'prep',
+          generation: 2,
+          action: 'revoke',
+          codeHash: null,
+        }).command,
+      );
+      assert.equal(await status(call, '/edge/v1/session', staff), 401);
+    });
+  }));
+
 test('managed credentials cannot downgrade with feature off; password login validates terminal key inside its transaction', async () =>
   fixture(async (ctx) => {
     await setStaffPassword(
