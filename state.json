@@ -7797,9 +7797,11 @@
         "docs/operations/edge-window-1112.json",
         "@release/windows-edge-1112"
       ],
-      "status": "active",
-      "head": "36e1dbe6827ad2819fc974327ed8c580079901b4",
-      "updatedAt": "2026-11-12T11:18:31.904Z"
+      "status": "available",
+      "head": "39fb6aa37be3100b21b6ab5d27a9c572e8fe20c9",
+      "updatedAt": "2026-11-12T11:35:07.784Z",
+      "summary": "Подготовка окна сохранена в PR364. RC-edge36e1dbe6 SHA256138c9331,8123 файла PASS; packager7/7,Foundation43202325943 11/11,Offline43208223740 10/10 PASS. Живое окно НЕ начато: нет SSD, установщика028, оператор025 ledger25/28, SSH timeout. Пароли/службы/БД/флаги/POS не менялись.",
+      "nextAction": "Нужны отдельный физический SSD и ключ, рабочий доступ на точку, исправленный025 с WindowsPS5.1 и проверенный установщик028. Затем свежий кандидат/CI, резервWindows, backup020+restore, вся лестница с копиями и часовой cloud receipt. Не ставить POS-sync/KitchenLAN clients; 072-077 не повторять."
     }
   ],
   "approvedScopeTransfers": [
