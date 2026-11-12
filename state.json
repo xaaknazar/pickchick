@@ -7738,24 +7738,6 @@
       "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step.\n12.11: exact API/PostgreSQL/gateway scopes transferred to cloud-expenses-live-1112 for the owner-authorized 072-077 and expenses-only window."
     },
     {
-      "id": "cloud-expenses-live-1112",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-expenses-live-1112",
-      "scopes": [
-        "docs/operations/cloud-expenses-live-1112.md",
-        "@vps/api",
-        "@vps/postgres",
-        "@vps/public-https/gateway",
-        "@vps/backups",
-        "@vps/rehearsal/expenses"
-      ],
-      "status": "active",
-      "head": "ca52de31526194ab6ce768cd338fd6f3fd29bc5c",
-      "updatedAt": "2026-11-12T04:56:39.055Z",
-      "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
-      "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
-    },
-    {
       "id": "expenses-installed-compose-1112",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/expenses-installed-compose-1112",
@@ -7767,6 +7749,25 @@
       "status": "active",
       "head": "af68b114e57ce6bcc4ac651d9160d7caf6834d6c",
       "updatedAt": "2026-11-12T05:04:55.222Z"
+    },
+    {
+      "id": "cloud-expenses-live-1112",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-expenses-live-1112",
+      "scopes": [
+        "docs/operations/cloud-expenses-live-1112.md",
+        "@vps/api",
+        "@vps/postgres",
+        "@vps/public-https/gateway",
+        "@vps/backups",
+        "@vps/rehearsal/expenses",
+        "docs/operations/cloud-expenses-live-1112-evidence.json"
+      ],
+      "status": "active",
+      "head": "54ae74549fc014594f29785be744813d3d99c9c5",
+      "updatedAt": "2026-11-12T05:19:51.115Z",
+      "summary": "STOP before server writes: original pinned API archive not found; local repack SHA differs. Baseline/current/compose match; backup identity recipient matches. Candidate24d35e28 Foundation43098970527 still in progress at check. Protocol61271bbb published.",
+      "nextAction": "Obtain original api-src-27ef0c05 archive with SHA6a428b58 or explicit approved replacement; recheck CI/refs, accept server scopes, backup+restore and rehearsal before live072-077. Enable only expenses, preserve desktop feed gateway route."
     }
   ],
   "approvedScopeTransfers": [
