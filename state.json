@@ -7818,11 +7818,11 @@
         "tests/mobile/android-config.test.mjs",
         "@android/emulator"
       ],
-      "status": "active",
-      "head": "fe84eb1051161c50a1178f61cee0b8a99c1cbb4e",
-      "updatedAt": "2026-11-12T15:44:16.921Z",
-      "summary": "Pick Box selected Alex-side cover. iOS 1.0.1(34) uploaded and assigned Internal/Testing; external beta review submitted. Android 1.0.1(8) closed Alpha submitted. Source 53ec5d41 full CI 11/11, 599 Node + 96 Python PASS; report fe84eb10.",
-      "nextAction": "Confirm Apple/Google review decisions and physical phone acceptance. Native Android gameplay remains unverified. Integrate PR368 and merge roadmap facts into the newer live roadmap without replacing operations data."
+      "status": "available",
+      "head": "50c5ad47b82764f4c84ff8fcbce580c78d32f96f",
+      "updatedAt": "2026-11-13T04:52:44.770Z",
+      "summary": "Pick Box ascent shipped to test channels: iOS 35 Testing Internal+Testing, Android 9 closed Alpha available. Release source 9297365f CI 11/11, 601 mobile tests; report 50c5ad47 pushed and verified. Final roadmap build and 7 tests PASS.",
+      "nextAction": "Physical iPhone/Android acceptance, KK proofreading and larger text remain. PR368 draft; shared not merged. Online roadmap needs newer operational facts integrated before deployment."
     }
   ],
   "approvedScopeTransfers": [
