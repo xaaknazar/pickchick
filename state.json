@@ -6855,13 +6855,12 @@
         "tests/mobile/slide-pay-intent.test.mjs",
         "docs/operations/mobile-feedback-2026-10-29.md",
         "tests/mobile/ios/SmokeTests.swift",
-        "docs/operations/mobile-feedback-2026-10-29",
-        "@ios/simulator"
+        "docs/operations/mobile-feedback-2026-10-29"
       ],
       "status": "active",
       "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
-      "updatedAt": "2026-11-13T16:57:30.893Z",
-      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-man/PickManScreen.tsx\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.\n13.11.2026: по согласованному завершению проверки, сообщённому чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только резерв @ios/simulator возвращён от pick-box-1112 задаче mobile-feedback-1029. По сообщению этой задачи Release-сборка 36 собрана и установлена, но полноценный native игровой сценарий не подтверждён из-за нестабильности UI-управления; выключен только её PickChick Review32 iPhone (13F87123-6449-4105-B4CE-82D6BC6F7BAD). Возврат резерва не выполняет действий с устройствами или выпусками. Остальные резервы, owner/branch/head/status и записи других задач сохранены."
+      "updatedAt": "2026-11-13T19:35:20.084Z",
+      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-man/PickManScreen.tsx\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.\n13.11.2026: по согласованному завершению проверки, сообщённому чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только резерв @ios/simulator возвращён от pick-box-1112 задаче mobile-feedback-1029. По сообщению этой задачи Release-сборка 36 собрана и установлена, но полноценный native игровой сценарий не подтверждён из-за нестабильности UI-управления; выключен только её PickChick Review32 iPhone (13F87123-6449-4105-B4CE-82D6BC6F7BAD). Возврат резерва не выполняет действий с устройствами или выпусками. Остальные резервы, owner/branch/head/status и записи других задач сохранены.\n14.11.2026: по согласованию с чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7 и ранее разрешённой владельцем координации симулятора только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для проверки утверждённого нового HUD. Перед передачей запущенных симуляторов не обнаружено. После проверки резерв вернуть. Остальные резервы, owner/branch/head/status и чужие задачи сохранены. Эта передача не выполняет загрузок iOS 37 / Android 11 и не меняет Alpha или другие настройки магазинов."
     },
     {
       "id": "mobile-appstore-clean-1029",
@@ -7823,12 +7822,13 @@
         "docs/operations/pick-box-polish-1113.md",
         "docs/operations/pick-box-direct-entry-1113.md",
         "docs/operations/pick-box-game-hud-1114.md",
-        "docs/operations/pick-box-hud-release-1114.md"
+        "docs/operations/pick-box-hud-release-1114.md",
+        "@ios/simulator"
       ],
       "status": "active",
       "head": "00088330a3052d47df80d2bbb1b002ce1cd777c5",
-      "updatedAt": "2026-11-13T19:32:50.523Z",
-      "summary": "Игровой HUD по краям и поднятая верёвка: 00088330 запушен. 23 теста игры, TypeScript, ESLint, web export, 7 тестов пульта и браузерные 4 размера PASS. Новые реальные снимки сохранены, сборки 36/10 не менялись.",
+      "updatedAt": "2026-11-13T19:35:20.088Z",
+      "summary": "Игровой HUD по краям и поднятая верёвка: 00088330 запушен. 23 теста игры, TypeScript, ESLint, web export, 7 тестов пульта и браузерные 4 размера PASS. Новые реальные снимки сохранены, сборки 36/10 не менялись.\n14.11.2026: по согласованию с чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7 и ранее разрешённой владельцем координации симулятора только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для проверки утверждённого нового HUD. Перед передачей запущенных симуляторов не обнаружено. После проверки резерв вернуть. Остальные резервы, owner/branch/head/status и чужие задачи сохранены. Эта передача не выполняет загрузок iOS 37 / Android 11 и не меняет Alpha или другие настройки магазинов.",
       "nextAction": "Ждать утверждения владельцем предпросмотра 14 ноября. До явного подтверждения не загружать в TestFlight/Google Play. Затем полная CI, нативные проверки и тестовый выпуск с прежней обложкой."
     }
   ],
