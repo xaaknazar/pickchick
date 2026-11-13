@@ -98,7 +98,11 @@
     },
     "typescript": "pass",
     "eslint": "pass",
-    "exports": ["ios", "android", "web"]
+    "exports": ["ios", "android", "web"],
+    "roadmap": {
+      "passed": 7,
+      "total": 7
+    }
   },
   "runtime": {
     "browser": ["320x568", "393x852", "768x1024"],
@@ -141,10 +145,11 @@
     "track": "closed Alpha",
     "versionCode": 10,
     "release": 4,
-    "status": "changes in review",
+    "status": "under Google review",
     "changeCount": 1,
     "rolloutPercent": 100,
     "testersAndCountries": "unchanged",
-    "unsupportedDevicesComparedWith9": 0
+    "unsupportedDevicesComparedWith9": 0,
+    "preReviewChecks": "completed without blocking the submission"
   }
 }
