@@ -1,0 +1,178 @@
+{
+  "date": "2026-11-14",
+  "sourceSha": "95ad8add98bd5612464beaa173f191f6dd7e257d",
+  "ios": {
+    "version": "1.0.1",
+    "build": "37",
+    "featureProfile": "production",
+    "gitSha": "95ad8add98bd5612464beaa173f191f6dd7e257d",
+    "dirty": false,
+    "archiveStatus": "complete",
+    "exportStatus": "complete",
+    "temporarySigningSettingsRestored": true,
+    "ipaSha256": "6cd45fe8316fc7a8ff64973acf7bb8147de8a1698099c4fd30b2b3422c14b5ef"
+  },
+  "android": {
+    "versionName": "1.0.1",
+    "versionCode": 11,
+    "featureProfile": "production",
+    "gitSha": "95ad8add98bd5612464beaa173f191f6dd7e257d",
+    "dirty": false,
+    "buildStatus": "complete",
+    "bundleSha256": "a1468832c201f306847fc73073c987bc1573492a1d2d54f13622e4501637d68a",
+    "apkSha256": "f0965244719f198f1aaac24b7ef2dc3ec6a25ad9dd498e5aae33b211885fb32a"
+  },
+  "checks": {
+    "mobileNode": {
+      "passed": 610,
+      "total": 610
+    },
+    "mobilePython": {
+      "passed": 96,
+      "total": 96
+    },
+    "roadmap": {
+      "passed": 7,
+      "total": 7
+    },
+    "typescript": "pass",
+    "scopedEslint": "pass",
+    "productionExports": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "iosSimulator": {
+      "version": "1.0.1 (37)",
+      "build": "pass",
+      "install": "pass",
+      "ui": [
+        "direct entry",
+        "score 0 to 1 to 2",
+        "progress 0 to 12 to 25 percent",
+        "pause and resume",
+        "second drop after resume",
+        "back to games",
+        "record 2 retained on reopening"
+      ],
+      "deviceShutdown": true
+    },
+    "androidNative": "not verified: installed x86_64 emulator cannot run the existing ARM64 AVD",
+    "roadmapInfrastructure": {
+      "passed": 22,
+      "total": 22
+    }
+  },
+  "distribution": {
+    "ios": {
+      "version": "1.0.1 (37)",
+      "buildId": "9f35d52a-989e-4b72-929b-c592663e01af",
+      "status": "testing",
+      "groups": [
+        "PickChick Internal",
+        "Testing"
+      ],
+      "autoNotify": true,
+      "publicRelease": false
+    },
+    "android": {
+      "version": "1.0.1 (11)",
+      "track": "closed Alpha",
+      "trackId": "4701047942306330987",
+      "releaseId": "5",
+      "status": "in review",
+      "prechecks": "completed without blocking issues",
+      "submittedChanges": 1,
+      "rolloutPercent": 100,
+      "deviceCompatibility": "unchanged",
+      "publicRelease": false
+    }
+  },
+  "limitations": [
+    "physical phone acceptance pending",
+    "large system font and native screen reader acceptance pending",
+    "Kazakh human proofreading pending",
+    "online roadmap not overwritten with older operations data"
+  ],
+  "ci": {
+    "run": {
+      "id": 43494149173,
+      "headSha": "95ad8add98bd5612464beaa173f191f6dd7e257d",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43494149173"
+    },
+    "jobs": [
+      {
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:41:38Z"
+      },
+      {
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:41:39Z"
+      },
+      {
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:43:48Z"
+      },
+      {
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T20:00:15Z"
+      },
+      {
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:53:28Z"
+      },
+      {
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:40:31Z"
+      },
+      {
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:49:07Z"
+      },
+      {
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T20:24:51Z"
+      },
+      {
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:48:55Z"
+      },
+      {
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T19:39:10Z",
+        "completedAt": "2026-11-13T19:47:25Z"
+      },
+      {
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success",
+        "startedAt": "2026-11-13T20:24:54Z",
+        "completedAt": "2026-11-13T20:24:57Z"
+      }
+    ]
+  },
+  "warnings": {
+    "ios": "Missing dSYM for prebuilt ExpoImage, React, ReactNativeDependencies, SDWebImage and AVIF/SVG/WebP coders, hermesvm. Upload succeeded.",
+    "android": "No R8/ProGuard deobfuscation file. AAB accepted."
+  }
+}

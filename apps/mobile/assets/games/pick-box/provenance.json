@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-12",
+  "tool": "OpenAI built-in image generation",
+  "ownerDirection": "Pick Box in the existing mobile games; 2D arcade gameplay. Latest owner direction: a more realistic dimensional cover with Alex above the tower, matching other Alex game covers.",
+  "assets": [
+    {
+      "file": "cover-2d.png",
+      "role": "Illustrative game card and start-screen art; gameplay uses the original PDF texture instead.",
+      "prompt": "Create beautiful expressive 2D MOBILE ARCADE GAME cover art for Pick Box. Strictly 2D hand-drawn cartoon game artwork with crisp confident outlines and flat cel-shaded color shapes, like a polished whimsical casual mobile game. NOT 3D, NOT a 3D render, NOT realistic, NOT photographic, no volumetric lighting. Blue and orange square PickChick Friends Box packages stacked in a delightfully crooked tower; one box hanging from a swaying cartoon rope overhead. Use the reference ONLY for packaging identity: vivid cobalt blue, orange flames, white PICK CHICK and PICKED WELL lettering. Boxes viewed mostly from the front as 2D platform-game sprites with a tiny visible lid edge, chunky readable silhouettes. Show excitement with a few drawn impact stars and tiny motion streaks, one tilted box. Background: charming stylized Almaty city, a little TV tower, layered teal pine silhouettes and majestic snowy mountain peaks drawn as clean illustrative shapes with playful curves, aqua sky with soft puffy cartoon clouds, a small warm sun. A strong authored vibrant video-game world, adorable, punchy, premium 2D illustration with restrained painted texture, no gradients pretending to be 3D. Central composition, tower takes middle half; allow card crop. Landscape 3:2. No people, no UI, no written game title. Make it look like an actual exciting 2D game, not an architectural/product rendering.",
+      "reference": "Owner-supplied photograph of the PickChick Friends Box and dieline"
+    },
+    {
+      "file": "mountains-2d.png",
+      "role": "Panning artistic Almaty panorama, not an exact geographic panorama",
+      "prompt": "Create a new BACKGROUND-ONLY asset in exactly the same appealing hand-drawn 2D cartoon mobile arcade style as the reference. Landscape 3:2 panorama of Almaty and its mountains, suitable for panning behind a 2D stacking game. Absolutely NO BOXES, NO ROPE, NO CHARACTERS, NO lettering, NO stars or motion marks, NO UI. A single uninterrupted landscape. Upper 55 percent of image is uncluttered bright turquoise sky, a few small cream-colored puffy clouds and a playful small sun on the far right. Lower half: left third a tiny recognizable Kok Tobe TV tower and light cream-blue Almaty city buildings nestled in rounded green foothills; middle third distinctive layered teal Kumbel-like mountain ridges; right third big dramatic snowy Talgar-like peaks, white snowcaps, blue shadow facets. Deep teal pine trees at the very bottom, no foreground platform. Bold simple silhouettes, clean confident illustrated contours, flat cel shaded colors, vibrant friendly hand-painted 2D arcade art, NO 3D render and no realism. Keep an open, readable central gameplay space. Reference is style only.",
+      "reference": "cover-2d.png"
+    }
+  ],
+  "packaging": "See packaging-source.json for exact PDF hash and reproducible crop coordinates.",
+  "activeCover": "cover-alex-side.png",
+  "coverRevision": "Final owner selection for test release: first generated Alex standing beside the tower. See cover-alex-side.provenance.json. Other variants retained as history."
+}
