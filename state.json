@@ -7822,11 +7822,12 @@
         "tests/mobile/pick-box-polish.test.mjs",
         "docs/operations/pick-box-polish-1113.md",
         "docs/operations/pick-box-direct-entry-1113.md",
-        "docs/operations/pick-box-game-hud-1114.md"
+        "docs/operations/pick-box-game-hud-1114.md",
+        "docs/operations/pick-box-hud-release-1114.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "00088330a3052d47df80d2bbb1b002ce1cd777c5",
-      "updatedAt": "2026-11-13T19:26:56.404Z",
+      "updatedAt": "2026-11-13T19:32:50.523Z",
       "summary": "Игровой HUD по краям и поднятая верёвка: 00088330 запушен. 23 теста игры, TypeScript, ESLint, web export, 7 тестов пульта и браузерные 4 размера PASS. Новые реальные снимки сохранены, сборки 36/10 не менялись.",
       "nextAction": "Ждать утверждения владельцем предпросмотра 14 ноября. До явного подтверждения не загружать в TestFlight/Google Play. Затем полная CI, нативные проверки и тестовый выпуск с прежней обложкой."
     }
