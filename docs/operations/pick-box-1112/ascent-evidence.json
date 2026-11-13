@@ -1,0 +1,39 @@
+{
+  "source": "9297365f0c42a5f688b157c2572355ec2bf516fc",
+  "ios": {
+    "version": "1.0.1",
+    "build": 35,
+    "dirty": false,
+    "ipaSha256": "d1632f4e8fde9a340922c43f29dc4b3797ab1d9987f552dba283cfb81faeb975"
+  },
+  "android": {
+    "version": "1.0.1",
+    "versionCode": 9,
+    "dirty": false,
+    "aabSha256": "56a6a1a4b3e35fda7d5700b24401e4ae52c6f498b05d34d5c2272746ba67df53",
+    "apkInstall": "PASS, Android 36 arm64 emulator; UI gameplay not verified"
+  },
+  "checks": {
+    "nodeMobile": 601,
+    "pickBox": 14,
+    "typecheck": "PASS",
+    "eslint": "PASS",
+    "format": "PASS",
+    "productionExports": ["ios", "android", "web"],
+    "browserFinal": "PASS 393/320/768, 8/2/2 boxes, 0 page errors, KK/EN",
+    "nativeIos": "iPad Simulator iOS 26.5, iPhone compatibility mode, development JS; not signed IPA acceptance",
+    "foundationCI": "PASS 11/11 on exact source",
+    "foundationRun": 43295700602
+  },
+  "visuals": {
+    "ascent-tower-393.png": "Final horizontal gutter and full-height playfield",
+    "ascent-tower-320.png": "Final reduced-motion small-screen view",
+    "ascent-space-early.png": "36-box real physics run before horizontal gutter change; scenery unchanged"
+  },
+  "release": {
+    "testFlight": "Testing: 1.0.1 (35); PickChick Internal (2) and Testing (11); 13 invitations, installs not displayed; automatic notification enabled",
+    "closedAlpha": "Available to selected testers: 1.0.1 (9) - Pick Box ascent; released 2026-11-13 02:30 as shown by Play",
+    "publicStores": "not submitted",
+    "proofs": ["ascent-testflight-35.png", "ascent-alpha-9.png"]
+  }
+}
