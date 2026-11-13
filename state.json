@@ -7823,11 +7823,11 @@
         "docs/operations/pick-box-polish-1113.md",
         "docs/operations/pick-box-direct-entry-1113.md"
       ],
-      "status": "active",
-      "head": "4c6e18e9a16286a451916bb6ef6096d17468814f",
-      "updatedAt": "2026-11-13T18:50:54.310Z",
-      "summary": "Pick Box polish implemented; cover unchanged. Binary source 28777ab8: Foundation CI 11/11, 610 Node + 96 Python and browser scenarios pass. TestFlight 1.0.1 (36) Testing in PickChick Internal (2) and Testing (11). Android 1.0.1 (10) closed Alpha submitted, automatic prechecks complete, under Google review. Release evidence committed; no public release.",
-      "nextAction": "Check Google Alpha 10 availability and collect physical iPhone/Android acceptance; long-session performance, accessibility and native Kazakh review remain open. Native simulator gameplay is not accepted. PR #368 remains draft; live roadmap not overwritten due newer operational facts."
+      "status": "available",
+      "head": "3d0306f7a016550904346fc3ab19cc84c3a0cd64",
+      "updatedAt": "2026-11-13T19:05:15.704Z",
+      "summary": "Прямой вход без заставки, центральный подвес ниже HUD. 23 теста игры, TypeScript, ESLint, web export и 7 тестов пульта PASS. Реальный браузерный предпросмотр сохранён и запушен: 3d0306f7. В магазины не загружено.",
+      "nextAction": "Ждать утверждения владельцем показанных снимков. Только после явного подтверждения - новый тестовый выпуск и полная CI/нативные проверки. Обложку сохранить."
     }
   ],
   "approvedScopeTransfers": [
