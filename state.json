@@ -7817,11 +7817,14 @@
         "docs/operations/pick-box-test-release-1112.md",
         "tests/mobile/android-config.test.mjs",
         "@android/emulator",
-        "docs/design/pick-box-review-1113.md"
+        "docs/design/pick-box-review-1113.md",
+        "scripts/mobile/pick-box-sounds.py",
+        "tests/mobile/pick-box-polish.test.mjs",
+        "docs/operations/pick-box-polish-1113.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3c74130bcd3e47da7fd381ccc1e5fdc7237a6096",
-      "updatedAt": "2026-11-13T12:09:12.690Z",
+      "updatedAt": "2026-11-13T12:12:05.264Z",
       "summary": "Readiness audit 3c74130b: independent design/code reviews, 14 game tests PASS, 45-box physics probe, storage record-loss reproduced. Report and priorities in docs/design/pick-box-review-1113.md; no game code or store changes. Roadmap build and 7 tests PASS.",
       "nextAction": "Implement first-tap/readiness, safe exit/resume, failed record persistence; then audio, milestone/result feedback. Physical native performance, large text and accessibility remain open. Preserve chosen cover. PR368 draft; online roadmap not overwritten."
     }
