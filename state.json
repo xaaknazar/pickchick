@@ -7819,11 +7819,11 @@
         "@android/emulator",
         "docs/design/pick-box-review-1113.md"
       ],
-      "status": "active",
-      "head": "50c5ad47b82764f4c84ff8fcbce580c78d32f96f",
-      "updatedAt": "2026-11-13T12:02:26.123Z",
-      "summary": "Pick Box ascent shipped to test channels: iOS 35 Testing Internal+Testing, Android 9 closed Alpha available. Release source 9297365f CI 11/11, 601 mobile tests; report 50c5ad47 pushed and verified. Final roadmap build and 7 tests PASS.",
-      "nextAction": "Physical iPhone/Android acceptance, KK proofreading and larger text remain. PR368 draft; shared not merged. Online roadmap needs newer operational facts integrated before deployment."
+      "status": "available",
+      "head": "3c74130bcd3e47da7fd381ccc1e5fdc7237a6096",
+      "updatedAt": "2026-11-13T12:09:12.690Z",
+      "summary": "Readiness audit 3c74130b: independent design/code reviews, 14 game tests PASS, 45-box physics probe, storage record-loss reproduced. Report and priorities in docs/design/pick-box-review-1113.md; no game code or store changes. Roadmap build and 7 tests PASS.",
+      "nextAction": "Implement first-tap/readiness, safe exit/resume, failed record persistence; then audio, milestone/result feedback. Physical native performance, large text and accessibility remain open. Preserve chosen cover. PR368 draft; online roadmap not overwritten."
     }
   ],
   "approvedScopeTransfers": [
