@@ -32,6 +32,8 @@ type Frame = {
 };
 const FRONT = require('../../../assets/games/pick-box/front.png');
 const LID = require('../../../assets/games/pick-box/lid.png');
+// The edge HUD leaves a clear central corridor above the playfield for the longer rope.
+const ROPE_ANCHOR_Y = -72;
 const BASE_FRAME: Frame = {
   bodies: {},
   held: { x: 180, y: 120, angle: 0, visible: true },
@@ -205,8 +207,8 @@ export function World({
       // Rope stays attached to the box's top; it is a visual pendulum, never a physics constraint after release.
       const endX = held.x,
         endY = held.y + camera - BOX_HEIGHT / 2;
-      // The fixed central mount belongs to the playfield, below all HUD text and controls.
-      const anchorY = 12;
+      // Only the rope reaches above the playfield; bodies keep their separate clipping area.
+      const anchorY = ROPE_ANCHOR_Y;
       const anchorX = WORLD_WIDTH / 2;
       const dx = endX - anchorX;
       const dy = endY - anchorY;
@@ -286,7 +288,7 @@ export function World({
 
 const s = StyleSheet.create({
   spark: { position: 'absolute', left: 0, top: 0 },
-  viewport: { flex: 1, overflow: 'hidden' },
+  viewport: { flex: 1, overflow: 'visible' },
   bodyClip: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   world: { position: 'absolute', width: 360, left: 0, top: 0 },
   box: {
@@ -357,7 +359,7 @@ const s = StyleSheet.create({
   ropeMount: {
     position: 'absolute',
     left: WORLD_WIDTH / 2 - 8,
-    top: 4,
+    top: ROPE_ANCHOR_Y - 8,
     width: 16,
     height: 16,
     borderRadius: 8,

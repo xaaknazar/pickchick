@@ -31,7 +31,7 @@ import {
   parsePreferences,
   type Preferences,
 } from './preferences';
-import { nextMilestone } from './ascent';
+import { ASCENT_STEPS, nextMilestone } from './ascent';
 import { usePickBoxAudio } from './audio';
 import { World } from './World';
 import { Scenery } from './Scenery';
@@ -347,8 +347,12 @@ export function PickBoxScreen() {
   }, [drop, pause]);
 
   const darkSky = hud.score >= 28;
-  const ink = darkSky ? '#FFF6DC' : INK;
   const goal = nextMilestone(hud.score);
+  const stageStart = hud.peak < 4 ? ASCENT_STEPS[hud.peak]! : Math.floor(hud.score / 10) * 10;
+  const goalProgress = Math.max(
+    0,
+    Math.min(1, (hud.score - stageStart) / (goal.target - stageStart)),
+  );
   const goalName = hud.peak === 4 ? `${copy.height}: ${goal.target}` : copy.peaks[goal.stage];
   const goalText =
     locale === 'en'
@@ -412,100 +416,104 @@ export function PickBoxScreen() {
             testID="pick-box-exit"
             dark={darkSky}
           />
-          <Text style={[s.wordmark, { color: ink }]}>Pick Box</Text>
-          <Control
-            icon="pause"
-            label={copy.pause}
-            onPress={pause}
-            testID="pick-box-pause"
-            dark={darkSky}
-          />
-        </View>
-        <>
-          <View testID="pick-box-hud" style={s.hud} pointerEvents="none">
-            <View style={s.statRow}>
-              <View style={s.best} accessible accessibilityLabel={`${copy.best}: ${best}`}>
-                <Icon name="trophy" size={16} color="#FFE28A" />
-                <Text testID="pick-box-best" maxFontSizeMultiplier={1.4} style={s.bestText}>
-                  {best}
-                </Text>
-              </View>
-              <View
-                accessible
-                accessibilityLabel={`${copy.lives}: ${hud.lives}`}
-                testID="pick-box-lives"
-                style={s.hearts}
-              >
-                {[0, 1, 2].map((i) => (
-                  <Icon
-                    key={i}
-                    name={i < hud.lives ? 'heart' : 'heart-outline'}
-                    size={23}
-                    color={i < hud.lives ? '#FF6900' : '#17466B'}
-                  />
-                ))}
-              </View>
+          <View style={s.headerRight}>
+            <View
+              accessible
+              accessibilityLabel={`${copy.lives}: ${hud.lives}`}
+              testID="pick-box-lives"
+              style={s.hearts}
+            >
+              {[0, 1, 2].map((i) => (
+                <Icon
+                  key={i}
+                  name={i < hud.lives ? 'heart' : 'heart-outline'}
+                  size={21}
+                  color={i < hud.lives ? '#FF6900' : '#17466B'}
+                />
+              ))}
             </View>
-            <Animated.View style={[s.scoreWrap, compact && { marginTop: 0 }, scoreStyle]}>
+            <Control
+              icon="pause"
+              label={copy.pause}
+              onPress={pause}
+              testID="pick-box-pause"
+              dark={darkSky}
+            />
+          </View>
+        </View>
+        <View testID="pick-box-hud" style={s.hud} pointerEvents="none">
+          <View testID="pick-box-score-panel" style={s.scorePanel}>
+            <Animated.View style={[s.scoreWrap, scoreStyle]}>
+              <Icon name="cube" size={22} color="#FFE28A" />
               <Text
                 testID="pick-box-score"
                 accessibilityLabel={boxCount(hud.score, locale)}
                 accessibilityLiveRegion="polite"
                 maxFontSizeMultiplier={1.25}
-                style={[s.score, compact && { fontSize: 46, lineHeight: 52 }, { color: ink }]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                style={[s.score, compact && { fontSize: 40, lineHeight: 46 }]}
               >
                 {hud.score}
               </Text>
             </Animated.View>
-            <View style={s.peakRow}>
-              <Icon name={hud.peak >= 3 ? 'planet-outline' : 'trail-sign'} size={15} color={ink} />
+            <View style={s.best} accessible accessibilityLabel={`${copy.best}: ${best}`}>
+              <Icon name="trophy" size={13} color="#FFE28A" />
+              <Text testID="pick-box-best" maxFontSizeMultiplier={1.4} style={s.bestText}>
+                {best}
+              </Text>
+            </View>
+            <View style={s.feedbackSlot}>
               <Text
-                testID="pick-box-peak"
+                testID="pick-box-status"
+                accessibilityLiveRegion="polite"
                 maxFontSizeMultiplier={1.4}
-                style={[s.peak, { color: ink }]}
+                style={[s.stateText, darkSky && { color: '#FFF4D5' }]}
               >
+                {feedback
+                  ? `${feedbackText}${hud.combo > 1 && feedback === 'perfect' ? ` · ${hud.combo} ${copy.combo}` : ''}`
+                  : coaching
+                    ? copy.drop
+                    : ''}
+              </Text>
+            </View>
+          </View>
+          <View testID="pick-box-ascent-panel" style={s.ascentPanel}>
+            <View style={s.peakRow}>
+              <Icon name={hud.peak >= 3 ? 'planet' : 'flag'} size={16} color="#FFE28A" />
+              <Text testID="pick-box-peak" maxFontSizeMultiplier={1.4} style={s.peak}>
                 {copy.peaks[hud.peak]}
               </Text>
             </View>
-            <Text
+            <View
               testID="pick-box-goal"
-              accessibilityLiveRegion="polite"
-              maxFontSizeMultiplier={1.4}
-              style={[s.goal, { color: ink }]}
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel={goalText}
+              accessibilityValue={{ min: stageStart, max: goal.target, now: hud.score }}
+              style={s.goalWrap}
             >
-              {milestone !== null ? `${copy.opened}: ${copy.peaks[milestone]}` : goalText}
-            </Text>
-            <View pointerEvents="none" style={s.stateWrap}>
-              <View style={[s.stateBadge, coaching && !feedback && s.coach]}>
-                {coaching && !feedback ? (
-                  <Icon name="hand-left-outline" size={16} color={INK} />
-                ) : null}
-                <Text
-                  testID="pick-box-status"
-                  accessibilityLiveRegion="polite"
-                  maxFontSizeMultiplier={1.4}
-                  style={[s.stateText, coaching && !feedback && { color: INK }]}
-                >
-                  {feedback
-                    ? `${feedbackText}${hud.combo > 1 && feedback === 'perfect' ? ` · ${hud.combo} ${copy.combo}` : ''}`
-                    : statusText}
-                </Text>
+              <View style={s.progressTrack}>
+                <View style={[s.progressFill, { width: `${goalProgress * 100}%` }]} />
               </View>
+              <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.4} style={s.goal}>
+                {milestone !== null ? copy.opened : `${hud.score} / ${goal.target}`}
+              </Text>
             </View>
           </View>
-          <Pressable
-            testID="pick-box-drop"
-            accessibilityRole="button"
-            accessibilityLabel={copy.drop}
-            accessibilityHint={statusText}
-            accessibilityState={{ disabled: !hud.canDrop }}
-            disabled={!hud.canDrop}
-            onPress={drop}
-            style={s.playfield}
-          >
-            <World game={game} reduced={reduced} phase={hud.phase} onChange={change} onCue={cue} />
-          </Pressable>
-        </>
+        </View>
+        <Pressable
+          testID="pick-box-drop"
+          accessibilityRole="button"
+          accessibilityLabel={copy.drop}
+          accessibilityHint={statusText}
+          accessibilityState={{ disabled: !hud.canDrop }}
+          disabled={!hud.canDrop}
+          onPress={drop}
+          style={s.playfield}
+        >
+          <World game={game} reduced={reduced} phase={hud.phase} onChange={change} onCue={cue} />
+        </Pressable>
         {(hud.phase === 'paused' && countdown === 0) || resultVisible ? (
           <Modal
             transparent
@@ -596,33 +604,20 @@ const s = StyleSheet.create({
   settings: { width: '100%', gap: 2 },
   setting: { minHeight: 48, flexDirection: 'row', gap: 10, alignItems: 'center' },
   settingLabel: { flex: 1, color: '#C7DDFB', fontFamily: font.medium, fontSize: 14 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  goalWrap: { width: '100%', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 6 },
   goal: {
-    fontFamily: font.medium,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginTop: 3,
-    marginBottom: 4,
-  },
-  stateWrap: { alignItems: 'center', minHeight: 40, paddingTop: 2, paddingBottom: 6 },
-  stateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: '#04143AC9',
-  },
-  coach: { backgroundColor: '#FFF4D5' },
-  stateText: {
-    flexShrink: 1,
     color: '#FFF4D5',
-    fontFamily: font.medium,
+    fontFamily: font.bold,
     fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
+    lineHeight: 16,
+    textAlign: 'right',
+    marginTop: 4,
   },
+  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#415879' },
+  progressFill: { height: '100%', backgroundColor: '#FF842F', borderRadius: 3 },
+  feedbackSlot: { minHeight: 36, paddingTop: 4, paddingRight: 4 },
+  stateText: { color: INK, fontFamily: font.bold, fontSize: 11, lineHeight: 16, textAlign: 'left' },
   resultDetails: { gap: 10, marginTop: 16, maxWidth: 340 },
   goalLight: {
     color: '#FFE28A',
@@ -668,7 +663,6 @@ const s = StyleSheet.create({
   },
   controlDark: { backgroundColor: '#FFFFFF18' },
   pressed: { opacity: 0.65 },
-  wordmark: { fontFamily: font.display, color: INK, fontSize: 21, letterSpacing: -0.4 },
   action: {
     minHeight: 56,
     paddingVertical: 14,
@@ -686,41 +680,61 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   secondary: { backgroundColor: '#18315A' },
-  hud: { zIndex: 2, paddingHorizontal: 20, paddingTop: 8, alignItems: 'center' },
-  statRow: {
+  hud: {
+    zIndex: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 64,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  scorePanel: { width: 112, maxWidth: '38%' },
+  scoreWrap: {
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
-    width: '100%',
+    paddingHorizontal: 10,
+    backgroundColor: INK,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  score: {
+    flexShrink: 1,
+    color: '#FFF4D5',
+    fontFamily: font.display,
+    fontSize: 46,
+    lineHeight: 52,
+    fontVariant: ['tabular-nums'],
   },
   best: {
     flexDirection: 'row',
-    gap: 7,
+    gap: 6,
     alignItems: 'center',
     backgroundColor: INK,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
-  bestText: { color: '#FFF4D5', fontFamily: font.bold, fontSize: 15 },
+  bestText: { color: '#FFF4D5', fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
   hearts: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#FFFAE4',
     borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
-  scoreWrap: { marginTop: -28, minWidth: 85, alignItems: 'center' },
-  score: {
-    color: INK,
-    fontFamily: font.display,
-    fontSize: 64,
-    lineHeight: 74,
-    fontVariant: ['tabular-nums'],
+  ascentPanel: {
+    width: 128,
+    maxWidth: '40%',
+    backgroundColor: INK,
+    borderRadius: 12,
+    paddingTop: 10,
   },
-  peakRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 0 },
-  peak: { fontFamily: font.bold, color: INK, fontSize: 14, lineHeight: 21 },
+  peakRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 },
+  peak: { flexShrink: 1, fontFamily: font.bold, color: '#FFF4D5', fontSize: 12, lineHeight: 17 },
   playfield: { flex: 1 },
   modalBackdrop: { flex: 1, backgroundColor: '#04143AF2', alignItems: 'center' },
   overlay: { flex: 1, width: '100%', maxWidth: 540 },

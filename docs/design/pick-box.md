@@ -1,6 +1,19 @@
 # Pick Box - mobile game surface
 
-## Latest owner correction - 13 November 2026
+## Latest owner correction - 14 November 2026
+
+Use a compact arcade HUD: score and record left, current peak and ascent progress
+right, hearts beside pause. Keep the centre clear, with no central title, score or
+status badge. The central rope mount is raised into the gap between the HUD
+panels, lengthening the visible rope. Only the rope leaves the playfield clipping
+area; the boxes retain their own clip. First-drop and landing messages sit under
+the score. Preserve direct entry and the selected games-card cover. Owner preview
+approval is still required before the next upload.
+
+References, measurements and screenshots:
+[game HUD preview](../operations/pick-box-game-hud-1114.md).
+
+## Previous owner correction - 13 November 2026
 
 Open directly from the games card into gameplay, without a cover/rules/start
 page. Keep the existing cover on the card. Place the rope mount in the centre
@@ -33,16 +46,16 @@ records only the Pick Box surface. The existing
 - World: painted 2D Almaty, snowy summits above clouds and an orbital Earth view.
   Original cobalt/orange packaging has a projected printed lid and soft material shadows. The supplied PDF is authoritative
   for the printed box artwork; the photo specifies 23 x 23 x 10 cm.
-- First viewport: full-frame arcade illustration, Pick Box title, one start action,
-  a short three-lives/collapse rule. The poster also appears in the Games tab.
+- First viewport: direct gameplay with a compact edge HUD. No start action or
+  separate rules/cover page. The poster remains in the Games tab.
 - Final selection, owner 12 November: the first Alex cover, with Alex standing
   beside the tower and holding the rope. `cover-alex-side.png` is 1536 x 1024,
   matching other game covers and using the unchanged shared poster size.
   The above-tower and realistic alternatives are retained as artwork history.
   This final choice supersedes those alternatives. The cover remains unchanged in the
   12-13 November gameplay revision.
-- Gameplay composition: count centered above an open playfield, record left,
-  three hearts right, named peak below. A rope enters from above; the player's
+- Gameplay composition: count and record left, three hearts and named peak with
+  ascent progress right. A central rope enters from above; the player's
   box hangs over the tower. The whole playfield is the labelled drop button for touch,
   screen readers and keyboards. The bottom instruction block has been removed.
   The tower continues to the physical screen edge, with no artificial footer clipping.

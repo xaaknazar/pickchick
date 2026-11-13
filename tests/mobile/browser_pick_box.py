@@ -64,9 +64,12 @@ with sync_playwright() as p:
         bounds = page.get_by_test_id('pick-box-world').bounding_box()
         assert abs(bounds['y'] + bounds['height'] - height) < 2, 'World must reach screen bottom'
         mount = page.get_by_test_id('pick-box-rope-mount').bounding_box()
-        hud_bounds = page.get_by_test_id('pick-box-hud').bounding_box()
         assert abs(mount['x'] + mount['width'] / 2 - (bounds['x'] + bounds['width'] / 2)) < 2, 'Rope mount must be centered'
-        assert mount['y'] >= hud_bounds['y'] + hud_bounds['height'], 'Rope must stay below the HUD'
+        score_bounds = page.get_by_test_id('pick-box-score-panel').bounding_box()
+        peak_bounds = page.get_by_test_id('pick-box-ascent-panel').bounding_box()
+        assert score_bounds['x'] + score_bounds['width'] < mount['x'], 'Score must stay left of the rope'
+        assert peak_bounds['x'] > mount['x'] + mount['width'], 'Peak must stay right of the rope'
+        assert mount['y'] < bounds['y'], 'Mount must sit higher, in the clear HUD corridor'
         for number in range(1, target_score + 1):
             drop_at(page)
             expect(page.get_by_test_id('pick-box-score')).to_have_text(str(number), timeout=12000)
@@ -128,7 +131,7 @@ with sync_playwright() as p:
                         'backgroundPause': True, 'pageErrors': errors})
         print(json.dumps(results[-1]), flush=True)
         context.close()
-    for locale, hint in [('kk', 'Экранды түрт - қорапты жібер'), ('en', 'Tap the screen to drop a box')]:
+    for locale, hint in [('kk', 'Қорапты жіберу'), ('en', 'Drop the box')]:
         context = isolated_context(browser, viewport={'width': 393, 'height': 852})
         preferences = {'version': 2, 'catalogMode': 'design', 'diningMode': 'takeaway', 'locale': locale,
                        'nickname': '', 'branchId': None, 'releaseId': None, 'lines': []}

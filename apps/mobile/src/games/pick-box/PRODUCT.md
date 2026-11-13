@@ -50,6 +50,9 @@ therefore uses the original front/lid print with subtle dimensional projection,
 without changing the physical dimensions. Alex flies on a rocket in space.
 The footer instruction block is removed; the accessible tap field reaches the screen
 bottom. Quiet translucent exit/pause controls keep 48-unit touch targets.
+Owner correction, 14 November: direct gameplay, compact score/record at the left,
+peak/progress at the right, and a raised central rope with a clear corridor between
+the HUD panels. The owner must approve the preview before the next test upload.
 Almaty mountain stages are an artistic setting, not exact geographic views.
 Shared PickChick identity and design authorities remain in force.
 
