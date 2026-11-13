@@ -7821,11 +7821,12 @@
         "scripts/mobile/pick-box-sounds.py",
         "tests/mobile/pick-box-polish.test.mjs",
         "docs/operations/pick-box-polish-1113.md",
-        "docs/operations/pick-box-direct-entry-1113.md"
+        "docs/operations/pick-box-direct-entry-1113.md",
+        "docs/operations/pick-box-game-hud-1114.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3d0306f7a016550904346fc3ab19cc84c3a0cd64",
-      "updatedAt": "2026-11-13T19:05:15.704Z",
+      "updatedAt": "2026-11-13T19:12:34.094Z",
       "summary": "Прямой вход без заставки, центральный подвес ниже HUD. 23 теста игры, TypeScript, ESLint, web export и 7 тестов пульта PASS. Реальный браузерный предпросмотр сохранён и запушен: 3d0306f7. В магазины не загружено.",
       "nextAction": "Ждать утверждения владельцем показанных снимков. Только после явного подтверждения - новый тестовый выпуск и полная CI/нативные проверки. Обложку сохранить."
     }
