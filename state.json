@@ -7822,11 +7822,11 @@
         "tests/mobile/pick-box-polish.test.mjs",
         "docs/operations/pick-box-polish-1113.md"
       ],
-      "status": "active",
-      "head": "3c74130bcd3e47da7fd381ccc1e5fdc7237a6096",
-      "updatedAt": "2026-11-13T16:57:30.894Z",
-      "summary": "Readiness audit 3c74130b: independent design/code reviews, 14 game tests PASS, 45-box physics probe, storage record-loss reproduced. Report and priorities in docs/design/pick-box-review-1113.md; no game code or store changes. Roadmap build and 7 tests PASS.\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.\n13.11.2026: по согласованному завершению проверки, сообщённому чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только резерв @ios/simulator возвращён от pick-box-1112 задаче mobile-feedback-1029. По сообщению этой задачи Release-сборка 36 собрана и установлена, но полноценный native игровой сценарий не подтверждён из-за нестабильности UI-управления; выключен только её PickChick Review32 iPhone (13F87123-6449-4105-B4CE-82D6BC6F7BAD). Возврат резерва не выполняет действий с устройствами или выпусками. Остальные резервы, owner/branch/head/status и записи других задач сохранены.",
-      "nextAction": "Implement first-tap/readiness, safe exit/resume, failed record persistence; then audio, milestone/result feedback. Physical native performance, large text and accessibility remain open. Preserve chosen cover. PR368 draft; online roadmap not overwritten."
+      "status": "available",
+      "head": "4c6e18e9a16286a451916bb6ef6096d17468814f",
+      "updatedAt": "2026-11-13T17:11:48.291Z",
+      "summary": "Pick Box polish implemented; cover unchanged. Binary source 28777ab8: Foundation CI 11/11, 610 Node + 96 Python and browser scenarios pass. TestFlight 1.0.1 (36) Testing in PickChick Internal (2) and Testing (11). Android 1.0.1 (10) closed Alpha submitted, automatic prechecks complete, under Google review. Release evidence committed; no public release.",
+      "nextAction": "Check Google Alpha 10 availability and collect physical iPhone/Android acceptance; long-session performance, accessibility and native Kazakh review remain open. Native simulator gameplay is not accepted. PR #368 remains draft; live roadmap not overwritten due newer operational facts."
     }
   ],
   "approvedScopeTransfers": [
