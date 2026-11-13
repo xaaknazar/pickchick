@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Icon } from '../../components/UI';
-import { cameraFloor } from './ascent';
+import { cameraFloor, worldScale } from './ascent';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -27,6 +27,7 @@ type Frame = {
   impactX: number;
   impactY: number;
   particles: boolean;
+  impactId: number;
 };
 const FRONT = require('../../../assets/games/pick-box/front.png');
 const LID = require('../../../assets/games/pick-box/lid.png');
@@ -40,6 +41,7 @@ const BASE_FRAME: Frame = {
   impactX: 180,
   impactY: 420,
   particles: false,
+  impactId: -1,
 };
 
 function BoxSprite({
@@ -62,13 +64,23 @@ function BoxSprite({
       ],
     };
   });
+  const lidStyle = useAnimatedStyle(() => {
+    const pulse = !held && frame.value.impactId === id && frame.value.impact < 220;
+    const lift = pulse ? Math.sin((frame.value.impact / 220) * Math.PI) * 0.8 : 0;
+    return { transform: [{ perspective: 400 }, { rotateX: `${77 - lift}deg` }] };
+  });
   return (
     <Animated.View
       testID={held ? 'pick-box-held' : `pick-box-body-${id}`}
       pointerEvents="none"
       style={[s.box, style]}
     >
-      <Image source={LID} resizeMode="stretch" style={s.boxLid} accessible={false} />
+      <Animated.Image
+        source={LID}
+        resizeMode="stretch"
+        style={[s.boxLid, lidStyle]}
+        accessible={false}
+      />
       <View style={s.face}>
         <Image source={FRONT} resizeMode="stretch" style={s.print} accessible={false} />
         <View style={s.lidSeam} />
@@ -124,24 +136,29 @@ export function World({
   reduced,
   onChange,
   onCue,
+  phase,
+  headroom,
 }: {
   game: PickBoxEngine;
   reduced: boolean;
   onChange(snapshot: Snapshot): void;
   onCue(cue: Cue): void;
+  phase: Snapshot['phase'];
+  headroom: number;
 }) {
   const [size, setSize] = useState({ width: 360, height: 440 });
   const [ids, setIds] = useState<number[]>([]);
   const frame = useSharedValue<Frame>(BASE_FRAME);
   const callbacks = useRef({ onChange, onCue });
   callbacks.current = { onChange, onCue };
-  const scale = size.width / 408; // 24 world units of breathing room on each side.
+  const scale = worldScale(size.width, size.height);
   const height = size.height / scale;
+  const offsetX = (size.width - 360 * scale) / 2;
+  const view = useRef({ game, camera: height - 56, lastCue: -1 });
+  if (view.current.game !== game) view.current = { game, camera: height - 56, lastCue: -1 };
   useEffect(() => {
     let request = 0,
-      previous = 0,
-      lastCue = -1,
-      camera = height - 56;
+      previous = 0;
     let lastIds = '';
     const tick = (now: number) => {
       const elapsed = previous ? Math.min(now - previous, 50) : 0;
@@ -149,30 +166,35 @@ export function World({
       game.advance(elapsed);
       const snapshot = game.changed();
       if (snapshot) callbacks.current.onChange(snapshot);
-      const currentIds = game.boxes.map((box) => box.id);
-      const signature = currentIds.join(',');
-      if (signature !== lastIds) {
-        setIds(currentIds);
-        lastIds = signature;
-      }
       for (const cue of game.cues) {
-        if (cue.time > lastCue) callbacks.current.onCue(cue);
+        if (game.phase !== 'paused' && cue.time > view.current.lastCue)
+          callbacks.current.onCue(cue);
       }
-      if (game.cues.length) lastCue = game.cues[game.cues.length - 1]!.time;
+      if (game.cues.length) view.current.lastCue = game.cues[game.cues.length - 1]!.time;
       if (game.phase !== 'paused') {
         const target = cameraFloor(height, game.top);
-        camera = reduced ? target : camera + (target - camera) * (1 - Math.exp(-elapsed / 210));
+        view.current.camera = reduced
+          ? target
+          : view.current.camera + (target - view.current.camera) * (1 - Math.exp(-elapsed / 210));
       }
+      const camera = view.current.camera;
       const held = game.held;
       const bodyPoses: Frame['bodies'] = {};
       for (const box of game.boxes) {
         const y = box.body.position.y + camera;
+        if (y < -100 || y > height + 100) continue;
         bodyPoses[box.id] = {
           x: box.body.position.x,
           y,
           angle: box.body.angle,
           visible: y > -100 && y < height + 100,
         };
+      }
+      const currentIds = Object.keys(bodyPoses).map(Number);
+      const signature = currentIds.join(',');
+      if (signature !== lastIds) {
+        setIds(currentIds);
+        lastIds = signature;
       }
       const recentImpact = [...game.cues]
         .reverse()
@@ -183,8 +205,9 @@ export function World({
       // Rope stays attached to the box's top; it is a visual pendulum, never a physics constraint after release.
       const endX = held.x,
         endY = held.y + camera - BOX_HEIGHT / 2;
-      const anchorY = -40;
-      const dx = endX - 180;
+      const anchorY = -headroom / scale - 40;
+      const anchorX = -60;
+      const dx = endX - anchorX;
       const dy = endY - anchorY;
       frame.value = {
         bodies: bodyPoses,
@@ -195,19 +218,27 @@ export function World({
         impactX: recentImpact?.x ?? 180,
         impactY: (recentImpact?.y ?? 0) + camera,
         particles: !reduced && age < 520,
+        impactId:
+          !reduced && recentImpact
+            ? (game.boxes.find(
+                (box) =>
+                  Math.abs(box.body.position.x - recentImpact.x) < 15 &&
+                  Math.abs(box.body.position.y - recentImpact.y) < BOX_HEIGHT,
+              )?.id ?? -1)
+            : -1,
         rope: {
-          x: 180,
+          x: anchorX,
           y: anchorY,
           length: Math.sqrt(dx * dx + dy * dy),
           angle: -Math.atan2(dx, dy),
           visible: game.isHolding,
         },
       };
-      request = requestAnimationFrame(tick);
+      if (game.needsFrames) request = requestAnimationFrame(tick);
     };
     request = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(request);
-  }, [game, frame, height, reduced]);
+  }, [game, frame, height, reduced, phase, headroom, scale]);
 
   const floorStyle = useAnimatedStyle(() => ({ transform: [{ translateY: frame.value.floor }] }));
   const worldStyle = useAnimatedStyle(() => ({
@@ -221,32 +252,40 @@ export function World({
       onLayout={({ nativeEvent }) => setSize(nativeEvent.layout)}
     >
       <Animated.View
-        testID="pick-box-coordinate-space"
-        style={[s.world, { height, left: 24 * scale, transformOrigin: 'top left' }, worldStyle]}
+        pointerEvents="none"
+        style={[s.world, { height, left: offsetX, transformOrigin: 'top left' }, worldStyle]}
       >
-        <Animated.View style={[s.platform, floorStyle]}>
-          <View style={s.platformTop} />
-          <View style={s.platformFace}>
-            <View style={s.platformLine} />
-          </View>
-          <View style={s.platformFoot} />
-        </Animated.View>
-        {ids.map((id) => (
-          <BoxSprite key={id} frame={frame} id={id} />
-        ))}
         <Rope frame={frame} />
-        <BoxSprite frame={frame} id={0} held />
-        {[0, 1, 2, 3].map((index) => (
-          <Spark key={index} frame={frame} index={index} />
-        ))}
       </Animated.View>
+      <View pointerEvents="none" style={s.bodyClip}>
+        <Animated.View
+          testID="pick-box-coordinate-space"
+          style={[s.world, { height, left: offsetX, transformOrigin: 'top left' }, worldStyle]}
+        >
+          <Animated.View style={[s.platform, floorStyle]}>
+            <View style={s.platformTop} />
+            <View style={s.platformFace}>
+              <View style={s.platformLine} />
+            </View>
+            <View style={s.platformFoot} />
+          </Animated.View>
+          {ids.map((id) => (
+            <BoxSprite key={id} frame={frame} id={id} />
+          ))}
+          <BoxSprite frame={frame} id={0} held />
+          {[0, 1, 2, 3].map((index) => (
+            <Spark key={index} frame={frame} index={index} />
+          ))}
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   spark: { position: 'absolute', left: 0, top: 0 },
-  viewport: { flex: 1, overflow: 'hidden' },
+  viewport: { flex: 1, overflow: 'visible' },
+  bodyClip: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   world: { position: 'absolute', width: 360, left: 0, top: 0 },
   box: {
     position: 'absolute',

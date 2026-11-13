@@ -23,6 +23,9 @@ export type Snapshot = {
   score: number;
   lives: number;
   combo: number;
+  bestCombo: number;
+  drops: number;
+  settling: boolean;
   peak: number;
   reason: 'lives' | 'collapse' | null;
   canDrop: boolean;
@@ -40,6 +43,7 @@ export class PickBoxEngine {
   score = 0;
   lives = INITIAL_LIVES;
   combo = 0;
+  bestCombo = 0;
   reason: Snapshot['reason'] = null;
   time = 0;
   top = 0;
@@ -58,7 +62,10 @@ export class PickBoxEngine {
   private version = 0;
   private lastVersion = -1;
 
-  constructor() {
+  private readonly options: { guideFirstDrop?: boolean };
+
+  constructor(options: { guideFirstDrop?: boolean } = {}) {
+    this.options = options;
     this.physics = Engine.create({
       enableSleeping: true,
       positionIterations: 12,
@@ -74,6 +81,7 @@ export class PickBoxEngine {
       if (!this.active || this.impactPlayed) return;
       if (pairs.some((p) => p.bodyA === this.active?.body || p.bodyB === this.active?.body)) {
         this.impactPlayed = true;
+        this.version++;
         this.emit('impact', this.active.body.position.x, this.active.body.position.y);
       }
     });
@@ -97,7 +105,15 @@ export class PickBoxEngine {
   }
 
   get isHolding() {
-    return !this.active && this.phase !== 'over';
+    return !this.active && this.cooldown <= 0 && this.phase !== 'over';
+  }
+
+  get isWaiting() {
+    return !this.active && this.cooldown > 0;
+  }
+
+  get needsFrames() {
+    return this.phase === 'playing' || (this.phase === 'over' && this.time - this.endedAt <= 1800);
   }
 
   start() {
@@ -161,6 +177,8 @@ export class PickBoxEngine {
   }
 
   private step() {
+    // A new player's first box waits calmly for the taught tap. Later rounds use the normal swing.
+    if (this.phase === 'playing' && this.options.guideFirstDrop && this.sequence === 0) return;
     this.time += STEP_MS;
     Engine.update(this.physics, STEP_MS);
     if (this.phase === 'playing') {
@@ -226,6 +244,7 @@ export class PickBoxEngine {
       const previousPeak = peakForScore(this.score);
       this.score++;
       this.combo = perfect ? this.combo + 1 : 0;
+      this.bestCombo = Math.max(this.bestCombo, this.combo);
       this.top = Math.min(
         0,
         ...this.boxes.filter((b) => b.counted && !b.fallen).map((b) => b.body.bounds.min.y),
@@ -271,6 +290,9 @@ export class PickBoxEngine {
       score: this.score,
       lives: this.lives,
       combo: this.combo,
+      bestCombo: this.bestCombo,
+      drops: this.sequence,
+      settling: !!this.active && this.impactPlayed,
       peak: peakForScore(this.score),
       reason: this.reason,
       canDrop: this.canDrop,

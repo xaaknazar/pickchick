@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -23,9 +24,17 @@ import { useReducedMotion } from '../../components/Motion';
 import { useLocale } from '../../i18n';
 import { font } from '../../theme';
 import { PickBoxEngine, type Cue, type Snapshot } from './engine';
-import { pickBoxCopy } from './copy';
+import { pickBoxCopy, boxCount } from './copy';
 import { pickBoxCover } from './PickBoxCard';
 import { PickBoxRecords, RECORD_KEY } from './storage';
+import {
+  DEFAULT_PREFERENCES,
+  PREFERENCES_KEY,
+  parsePreferences,
+  type Preferences,
+} from './preferences';
+import { nextMilestone } from './ascent';
+import { usePickBoxAudio } from './audio';
 import { World } from './World';
 import { Scenery } from './Scenery';
 
@@ -65,72 +74,189 @@ function Action({
   onPress,
   testID,
   secondary = false,
+  disabled = false,
 }: {
   children: string;
   onPress(): void;
   testID: string;
   secondary?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [s.action, secondary && s.secondary, pressed && s.pressed]}
+      style={({ pressed }) => [
+        s.action,
+        secondary && s.secondary,
+        (pressed || disabled) && s.pressed,
+      ]}
     >
       <Text style={[s.actionText, secondary && { color: '#FFFFFF' }]}>{children}</Text>
     </Pressable>
   );
 }
+function Setting({
+  label,
+  icon,
+  value,
+  onChange,
+  testID,
+}: {
+  label: string;
+  icon: IconName;
+  value: boolean;
+  onChange(value: boolean): void;
+  testID: string;
+}) {
+  return (
+    <View style={s.setting}>
+      <Icon name={icon} size={19} color="#C7DDFB" />
+      <Text style={s.settingLabel}>{label}</Text>
+      <Switch
+        testID={testID}
+        accessibilityLabel={label}
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: '#415879', true: '#FF842F' }}
+        thumbColor="#FFF4D5"
+      />
+    </View>
+  );
+}
 
 export function PickBoxScreen() {
   const router = useRouter();
-  const copy = pickBoxCopy(useLocale());
+  const locale = useLocale();
+  const copy = pickBoxCopy(locale);
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const [game, setGame] = useState(() => new PickBoxEngine());
   const [hud, setHud] = useState<Snapshot>(game.snapshot());
   const [best, setBest] = useState(0);
+  const [bestAtStart, setBestAtStart] = useState(0);
   const [saveError, setSaveError] = useState(false);
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const preferencesRef = useRef(preferences);
+  const preferencesWrites = useRef(Promise.resolve());
+  const [loaded, setLoaded] = useState(false);
   const [feedback, setFeedback] = useState<Cue['kind'] | null>(null);
+  const [milestone, setMilestone] = useState<number | null>(null);
   const [resultVisible, setResultVisible] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [headroom, setHeadroom] = useState(0);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const milestoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { play, stop } = usePickBoxAudio(preferences.sound);
   const toast = useSharedValue(0);
   const scorePop = useSharedValue(1);
   const width = Math.min(window.width, 540);
+  const compact = window.width < 360 || window.height < 700 || window.fontScale > 1.3;
   const feedbackStyle = useAnimatedStyle(() => ({
     opacity: toast.value,
     transform: [{ translateY: (1 - toast.value) * 10 }],
   }));
   const scoreStyle = useAnimatedStyle(() => ({ transform: [{ scale: scorePop.value }] }));
 
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      AsyncStorage.getItem(PREFERENCES_KEY).catch(() => null),
+      records.record(),
+    ]).then(([raw, record]) => {
+      if (!live) return;
+      preferencesRef.current = parsePreferences(raw);
+      setPreferences(preferencesRef.current);
+      setBest(record.best);
+      setSaveError(!record.saved);
+      setLoaded(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const updatePreferences = useCallback((patch: Partial<Preferences>) => {
+    const value = { ...preferencesRef.current, ...patch };
+    preferencesRef.current = value;
+    setPreferences(value);
+    preferencesWrites.current = preferencesWrites.current
+      .catch(() => {})
+      .then(() => AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(value)))
+      .catch(() => {});
+  }, []);
+  const cancelCountdown = useCallback(() => {
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    countdownTimer.current = null;
+    setCountdown(0);
+  }, []);
   const exit = useCallback(() => {
+    cancelCountdown();
+    stop();
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)/events');
-  }, [router]);
+  }, [router, cancelCountdown, stop]);
   const change = useCallback((snapshot: Snapshot) => setHud(snapshot), []);
   const pause = useCallback(() => {
+    cancelCountdown();
+    stop();
     game.pause();
     setHud(game.snapshot());
-  }, [game]);
+  }, [game, cancelCountdown, stop]);
+  const close = useCallback(() => {
+    if (game.phase === 'playing' || game.phase === 'paused') pause();
+    else exit();
+  }, [game, pause, exit]);
+  const resume = useCallback(() => {
+    if (game.phase !== 'paused' || countdownTimer.current) return;
+    let remaining = 3;
+    setCountdown(remaining);
+    countdownTimer.current = setInterval(() => {
+      remaining--;
+      if (remaining === 0) {
+        cancelCountdown();
+        game.resume();
+        setHud(game.snapshot());
+      } else setCountdown(remaining);
+    }, 500);
+  }, [game, cancelCountdown]);
   const restart = () => {
-    const next = new PickBoxEngine();
+    cancelCountdown();
+    stop();
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
+    const next = new PickBoxEngine({ guideFirstDrop: !preferencesRef.current.tutorialDone });
     next.start();
+    setBestAtStart(best);
     setGame(next);
     setHud(next.snapshot());
     setFeedback(null);
+    setMilestone(null);
     setResultVisible(false);
+    toast.value = 0;
   };
   const drop = useCallback(() => {
-    if (game.drop()) setHud(game.snapshot());
-  }, [game]);
+    if (!game.drop()) return;
+    setHud(game.snapshot());
+    if (!preferencesRef.current.tutorialDone) updatePreferences({ tutorialDone: true });
+  }, [game, updatePreferences]);
   const cue = useCallback(
     (event: Cue) => {
-      if (event.kind === 'impact' && !reduced && Platform.OS !== 'web') {
+      play(event.kind, game.combo);
+      if (event.kind === 'peak') {
+        setMilestone(game.snapshot().peak);
+        if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
+        milestoneTimer.current = setTimeout(() => setMilestone(null), 2400);
+        return;
+      }
+      if (event.kind === 'impact' && preferencesRef.current.haptics && Platform.OS !== 'web') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }
-      if (['land', 'perfect', 'miss', 'peak', 'collapse'].includes(event.kind)) {
+      if (['land', 'perfect', 'miss', 'collapse'].includes(event.kind)) {
         setFeedback(event.kind);
         toast.value = 1;
         if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
@@ -143,7 +269,7 @@ export function PickBoxScreen() {
         }
         if (
           (event.kind === 'miss' || event.kind === 'perfect') &&
-          !reduced &&
+          preferencesRef.current.haptics &&
           Platform.OS !== 'web'
         ) {
           void Haptics.notificationAsync(
@@ -154,14 +280,13 @@ export function PickBoxScreen() {
         }
       }
     },
-    [reduced, scorePop, toast],
+    [game, play, reduced, scorePop, toast],
   );
-
   useEffect(() => {
     let live = true;
     void records.record(hud.score).then((value) => {
       if (live) {
-        setBest(Math.max(value.best, hud.score));
+        setBest(value.best);
         setSaveError(!value.saved);
       }
     });
@@ -178,6 +303,8 @@ export function PickBoxScreen() {
   useEffect(
     () => () => {
       if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
+      if (countdownTimer.current) clearInterval(countdownTimer.current);
     },
     [],
   );
@@ -196,16 +323,20 @@ export function PickBoxScreen() {
   }, [pause]);
   useFocusEffect(
     useCallback(() => {
-      const back = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (game.phase === 'playing') pause();
-        else exit();
-        return true;
-      });
+      const back =
+        Platform.OS === 'android'
+          ? BackHandler.addEventListener('hardwareBackPress', () => {
+              close();
+              return true;
+            })
+          : undefined;
       return () => {
-        back.remove();
+        back?.remove();
         game.pause();
+        stop();
+        if (countdownTimer.current) clearInterval(countdownTimer.current);
       };
-    }, [game, pause, exit]),
+    }, [game, close, stop]),
   );
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -225,6 +356,23 @@ export function PickBoxScreen() {
 
   const darkSky = hud.score >= 28;
   const ink = darkSky ? '#FFF6DC' : INK;
+  const goal = nextMilestone(hud.score);
+  const goalName = hud.peak === 4 ? `${copy.height}: ${goal.target}` : copy.peaks[goal.stage];
+  const goalText =
+    locale === 'en'
+      ? `${goalName} · ${boxCount(goal.remaining, locale)} ${copy.toGo}`
+      : `${goalName} · ${copy.toGo} ${boxCount(goal.remaining, locale)}`;
+  const coaching = !preferences.tutorialDone && hud.drops === 0;
+  const statusText = coaching
+    ? copy.hint
+    : hud.canDrop
+      ? copy.ready
+      : hud.settling
+        ? copy.settling
+        : game.isWaiting
+          ? copy.waiting
+          : copy.falling;
+  const newBest = hud.score > bestAtStart && hud.score > 0;
   const feedbackText =
     feedback === 'perfect'
       ? copy.perfect
@@ -232,11 +380,27 @@ export function PickBoxScreen() {
         ? copy.land
         : feedback === 'miss'
           ? copy.miss
-          : feedback === 'peak'
-            ? copy.peak
-            : feedback === 'collapse'
-              ? copy.collapse
-              : '';
+          : feedback === 'collapse'
+            ? copy.collapse
+            : '';
+  const settings = (
+    <View style={s.settings}>
+      <Setting
+        label={copy.sound}
+        icon={preferences.sound ? 'volume-high-outline' : 'volume-mute-outline'}
+        value={preferences.sound}
+        onChange={(sound) => updatePreferences({ sound })}
+        testID="pick-box-sound"
+      />
+      <Setting
+        label={copy.haptics}
+        icon="phone-portrait-outline"
+        value={preferences.haptics}
+        onChange={(haptics) => updatePreferences({ haptics })}
+        testID="pick-box-haptics"
+      />
+    </View>
+  );
   return (
     <View style={s.screen}>
       <StatusBar style={hud.phase === 'paused' || resultVisible || darkSky ? 'light' : 'dark'} />
@@ -251,12 +415,14 @@ export function PickBoxScreen() {
         <View style={[s.header, { paddingTop: insets.top + 8 }]}>
           <Control
             icon="close"
-            label={copy.exit}
-            onPress={exit}
+            label={hud.phase === 'playing' ? copy.pause : copy.exit}
+            onPress={close}
             testID="pick-box-exit"
             dark={darkSky}
           />
-          <Text style={[s.wordmark, { color: ink }]}>Pick Box</Text>
+          <Text style={[s.wordmark, { color: ink }]}>
+            {hud.phase !== 'ready' ? 'Pick Box' : ''}
+          </Text>
           {hud.phase !== 'ready' ? (
             <Control
               icon="pause"
@@ -269,37 +435,38 @@ export function PickBoxScreen() {
             <View style={{ width: 48 }} />
           )}
         </View>
-
         {hud.phase === 'ready' ? (
-          <View style={s.start}>
+          <ScrollView style={s.start} contentContainerStyle={s.startContent}>
             <View style={s.startHeading}>
-              <Text style={s.heroTitle}>Pick Box</Text>
+              <Text accessibilityRole="header" style={s.heroTitle}>
+                Pick Box
+              </Text>
               <Text style={s.heroSubtitle}>{copy.description}</Text>
             </View>
-            <Image source={pickBoxCover} resizeMode="cover" style={s.hero} accessible={false} />
+            <Image
+              source={pickBoxCover}
+              resizeMode="cover"
+              style={[s.hero, { height: (width * 2) / 3 }]}
+              accessible={false}
+            />
             <View style={[s.startBottom, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
-              <Text style={s.rule}>{copy.rule}</Text>
-              <Action
-                testID="pick-box-start"
-                onPress={() => {
-                  game.start();
-                  setHud(game.snapshot());
-                }}
-              >
+              <Text style={s.rule}>{copy.tutorial}</Text>
+              <Action testID="pick-box-start" onPress={restart} disabled={!loaded}>
                 {copy.start}
               </Action>
+              {settings}
               <Text style={s.local}>
-                {copy.best}: {best} · {copy.local}
+                {copy.best}: {best} · {saveError ? copy.storage : copy.local}
               </Text>
             </View>
-          </View>
+          </ScrollView>
         ) : (
           <>
             <View style={s.hud} pointerEvents="none">
               <View style={s.statRow}>
-                <View style={s.best}>
+                <View style={s.best} accessible accessibilityLabel={`${copy.best}: ${best}`}>
                   <Icon name="trophy" size={16} color="#FFE28A" />
-                  <Text testID="pick-box-best" style={s.bestText}>
+                  <Text testID="pick-box-best" maxFontSizeMultiplier={1.4} style={s.bestText}>
                     {best}
                   </Text>
                 </View>
@@ -319,11 +486,13 @@ export function PickBoxScreen() {
                   ))}
                 </View>
               </View>
-              <Animated.View style={[s.scoreWrap, scoreStyle]}>
+              <Animated.View style={[s.scoreWrap, compact && { marginTop: 0 }, scoreStyle]}>
                 <Text
                   testID="pick-box-score"
+                  accessibilityLabel={boxCount(hud.score, locale)}
                   accessibilityLiveRegion="polite"
-                  style={[s.score, { color: ink }]}
+                  maxFontSizeMultiplier={1.25}
+                  style={[s.score, compact && { fontSize: 46, lineHeight: 52 }, { color: ink }]}
                 >
                   {hud.score}
                 </Text>
@@ -334,23 +503,58 @@ export function PickBoxScreen() {
                   size={15}
                   color={ink}
                 />
-                <Text testID="pick-box-peak" style={[s.peak, { color: ink }]}>
+                <Text
+                  testID="pick-box-peak"
+                  maxFontSizeMultiplier={1.4}
+                  style={[s.peak, { color: ink }]}
+                >
                   {copy.peaks[hud.peak]}
                 </Text>
               </View>
+              <Text
+                testID="pick-box-goal"
+                maxFontSizeMultiplier={1.4}
+                style={[s.goal, { color: ink }]}
+              >
+                {goalText}
+              </Text>
             </View>
             <Pressable
               testID="pick-box-drop"
               accessibilityRole="button"
               accessibilityLabel={copy.drop}
+              accessibilityHint={statusText}
               accessibilityState={{ disabled: !hud.canDrop }}
               disabled={!hud.canDrop}
               onPress={drop}
               style={s.playfield}
+              onLayout={({ nativeEvent }) => setHeadroom(nativeEvent.layout.y)}
             >
-              <World game={game} reduced={reduced} onChange={change} onCue={cue} />
+              <World
+                game={game}
+                reduced={reduced}
+                phase={hud.phase}
+                headroom={headroom}
+                onChange={change}
+                onCue={cue}
+              />
+              <View pointerEvents="none" style={s.stateWrap}>
+                <View style={[s.stateBadge, coaching && s.coach]}>
+                  {coaching ? <Icon name="hand-left-outline" size={16} color={INK} /> : null}
+                  <Text
+                    testID="pick-box-status"
+                    maxFontSizeMultiplier={1.4}
+                    style={[s.stateText, coaching && { color: INK }]}
+                  >
+                    {statusText}
+                  </Text>
+                </View>
+              </View>
               <Animated.View pointerEvents="none" style={[s.feedback, feedbackStyle]}>
-                <Text style={[s.feedbackText, feedback === 'miss' && { color: '#FFE28A' }]}>
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={[s.feedbackText, feedback === 'miss' && { color: '#FFE28A' }]}
+                >
                   {feedbackText}
                 </Text>
                 {hud.combo > 1 && feedback === 'perfect' ? (
@@ -359,22 +563,27 @@ export function PickBoxScreen() {
                   </Text>
                 ) : null}
               </Animated.View>
+              {milestone !== null ? (
+                <View pointerEvents="none" style={s.milestone}>
+                  <Icon
+                    name={milestone === 4 ? 'rocket-outline' : 'flag-outline'}
+                    size={22}
+                    color="#FFE28A"
+                  />
+                  <Text accessibilityLiveRegion="polite" style={s.milestoneText}>
+                    {copy.opened}: {copy.peaks[milestone]}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           </>
         )}
-
-        {hud.phase === 'paused' || resultVisible ? (
+        {(hud.phase === 'paused' && countdown === 0) || resultVisible ? (
           <Modal
             transparent
             visible
             animationType={reduced ? 'none' : 'fade'}
-            onRequestClose={() => {
-              if (resultVisible) exit();
-              else {
-                game.resume();
-                setHud(game.snapshot());
-              }
-            }}
+            onRequestClose={resultVisible ? exit : resume}
           >
             <View style={s.modalBackdrop}>
               <ScrollView
@@ -385,57 +594,149 @@ export function PickBoxScreen() {
                   { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
                 ]}
               >
-                <Icon name={resultVisible ? 'trophy' : 'pause'} size={44} color="#FFE28A" />
+                <Icon
+                  name={
+                    resultVisible
+                      ? newBest
+                        ? 'trophy'
+                        : hud.score
+                          ? 'trail-sign'
+                          : 'refresh'
+                      : 'pause'
+                  }
+                  size={44}
+                  color="#FFE28A"
+                />
                 <Text
                   testID="pick-box-overlay-title"
                   accessibilityRole="header"
                   style={s.overlayTitle}
                 >
-                  {resultVisible
-                    ? hud.reason === 'collapse'
-                      ? copy.collapse
-                      : copy.missed
-                    : copy.pause}
+                  {resultVisible ? (newBest ? copy.newBest : copy.over) : copy.pause}
                 </Text>
                 <Text style={s.resultScore}>{hud.score}</Text>
                 <Text style={s.resultLabel}>
-                  {copy.boxes} · {copy.peaks[hud.peak]}
+                  {boxCount(hud.score, locale)} · {copy.peaks[hud.peak]}
                 </Text>
                 <Text style={s.resultBest}>
                   {copy.best}: {best}
                 </Text>
+                {resultVisible ? (
+                  <View style={s.resultDetails}>
+                    <Text style={s.resultLabel}>
+                      {hud.reason === 'collapse' ? copy.collapse : copy.missed}
+                    </Text>
+                    <Text style={s.resultLabel}>
+                      {copy.bestCombo}: {hud.bestCombo}
+                    </Text>
+                    <Text style={s.goalLight}>{goalText}</Text>
+                    <Text style={s.resultTip}>
+                      {hud.reason === 'collapse' ? copy.collapseTip : copy.missTip}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={s.overlayActions}>
                   <Action
                     testID={resultVisible ? 'pick-box-retry' : 'pick-box-resume'}
-                    onPress={
-                      resultVisible
-                        ? restart
-                        : () => {
-                            game.resume();
-                            setHud(game.snapshot());
-                          }
-                    }
+                    onPress={resultVisible ? restart : resume}
                   >
                     {resultVisible ? copy.retry : copy.resume}
                   </Action>
                   <Action secondary testID="pick-box-menu" onPress={exit}>
                     {copy.exit}
                   </Action>
+                  {settings}
                 </View>
                 <Text style={s.overlayNote}>{saveError ? copy.storage : copy.local}</Text>
               </ScrollView>
             </View>
           </Modal>
         ) : null}
+        {countdown > 0 ? (
+          <View style={s.countdown} pointerEvents="none" accessibilityLiveRegion="assertive">
+            <Text style={s.countdownLabel}>{copy.countdown}</Text>
+            <Text testID="pick-box-countdown" style={s.countdownNumber}>
+              {countdown}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
 }
-
 const s = StyleSheet.create({
+  settings: { width: '100%', gap: 2 },
+  setting: { minHeight: 48, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  settingLabel: { flex: 1, color: '#C7DDFB', fontFamily: font.medium, fontSize: 14 },
+  goal: {
+    fontFamily: font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  stateWrap: { position: 'absolute', top: 10, left: 16, right: 16, alignItems: 'center' },
+  stateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#04143AC9',
+  },
+  coach: { backgroundColor: '#FFF4D5' },
+  stateText: {
+    flexShrink: 1,
+    color: '#FFF4D5',
+    fontFamily: font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  milestone: {
+    position: 'absolute',
+    top: 58,
+    alignSelf: 'center',
+    maxWidth: '90%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: '#04143AE8',
+  },
+  milestoneText: { flexShrink: 1, color: '#FFF4D5', fontFamily: font.bold, fontSize: 15 },
+  resultDetails: { gap: 10, marginTop: 16, maxWidth: 340 },
+  goalLight: {
+    color: '#FFE28A',
+    fontFamily: font.medium,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  resultTip: {
+    color: '#C7DDFB',
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  countdown: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 5,
+    backgroundColor: '#04143A80',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownLabel: { color: '#FFF4D5', fontFamily: font.bold, fontSize: 22 },
+  countdownNumber: { color: '#FFE28A', fontFamily: font.display, fontSize: 110, lineHeight: 140 },
+
   screen: { flex: 1, backgroundColor: INK, alignItems: 'center' },
   frame: { flex: 1, backgroundColor: '#16C2DC', overflow: 'hidden' },
   header: {
+    zIndex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -454,6 +755,7 @@ const s = StyleSheet.create({
   pressed: { opacity: 0.65 },
   wordmark: { fontFamily: font.display, color: INK, fontSize: 21, letterSpacing: -0.4 },
   start: { flex: 1 },
+  startContent: { flexGrow: 1 },
   startHeading: { paddingTop: 8, paddingHorizontal: 24, alignItems: 'center' },
   heroTitle: {
     fontFamily: font.display,
@@ -470,8 +772,14 @@ const s = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 310,
   },
-  hero: { flex: 1, width: '100%', marginTop: 12 },
-  startBottom: { paddingTop: 18, paddingHorizontal: 24, backgroundColor: INK, gap: 14 },
+  hero: { width: '100%', marginTop: 12 },
+  startBottom: {
+    flexGrow: 1,
+    paddingTop: 18,
+    paddingHorizontal: 24,
+    backgroundColor: INK,
+    gap: 14,
+  },
   rule: {
     fontFamily: font.medium,
     fontSize: 13,
@@ -503,7 +811,7 @@ const s = StyleSheet.create({
     lineHeight: 16,
     textAlign: 'center',
   },
-  hud: { paddingHorizontal: 20, paddingTop: 8, alignItems: 'center' },
+  hud: { zIndex: 2, paddingHorizontal: 20, paddingTop: 8, alignItems: 'center' },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -539,7 +847,7 @@ const s = StyleSheet.create({
   peakRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 0 },
   peak: { fontFamily: font.bold, color: INK, fontSize: 14, lineHeight: 21 },
   playfield: { flex: 1 },
-  feedback: { position: 'absolute', left: 0, right: 0, top: '13%', alignItems: 'center' },
+  feedback: { position: 'absolute', left: 0, right: 0, top: '23%', alignItems: 'center' },
   feedbackText: {
     fontFamily: font.display,
     fontSize: 25,

@@ -7,7 +7,19 @@ const ru = {
   drop: 'Отпустить коробку',
   hint: 'Коснись экрана - отпусти коробку',
   ready: 'Поймай момент',
-  falling: 'Держим баланс...',
+  falling: 'Коробка летит',
+  settling: 'Держим баланс',
+  waiting: 'Готовим коробку',
+  sound: 'Звуки',
+  haptics: 'Вибрация',
+  newBest: 'Новый рекорд!',
+  bestCombo: 'Точно подряд',
+  countdown: 'Приготовься',
+  opened: 'Открыто',
+  toGo: 'ещё',
+  height: 'Следующая высота',
+  collapseTip: 'Ставь ближе к центру: наклон передаётся всей башне.',
+  missTip: 'Отпускай чуть раньше: коробка сохраняет движение в сторону.',
   best: 'Рекорд',
   boxes: 'коробок',
   lives: 'Жизни',
@@ -20,7 +32,7 @@ const ru = {
   missed: 'Попытки закончились',
   perfect: 'ТОЧНО!',
   land: '+1 КОРОБКА',
-  miss: 'МИМО! -1',
+  miss: 'МИМО! -1 ЖИЗНЬ',
   peak: 'НОВАЯ ВЕРШИНА!',
   combo: 'ПОДРЯД',
   tutorial: 'Один тап - одна коробка.\nПромах забирает жизнь. Обрушение - конец игры.',
@@ -38,7 +50,19 @@ const kk: Copy = {
   drop: 'Қорапты жіберу',
   hint: 'Экранды түрт - қорапты жібер',
   ready: 'Сәтін тап',
-  falling: 'Тепе-теңдікті сақтаймыз...',
+  falling: 'Қорап түсіп келеді',
+  settling: 'Тепе-теңдік сақталуда',
+  waiting: 'Қорап дайындалуда',
+  sound: 'Дыбыс',
+  haptics: 'Діріл',
+  newBest: 'Жаңа рекорд!',
+  bestCombo: 'Қатарынан дәл түсті',
+  countdown: 'Дайындал',
+  opened: 'Ашылды',
+  toGo: 'тағы',
+  height: 'Келесі биіктік',
+  collapseTip: 'Ортасына жақын қой: қисайған қорап бүкіл мұнараға әсер етеді.',
+  missTip: 'Сәл ертерек жібер: қорап бүйірге қарай қозғала береді.',
   best: 'Рекорд',
   boxes: 'қорап',
   lives: 'Өмір',
@@ -51,7 +75,7 @@ const kk: Copy = {
   missed: 'Мүмкіндіктер таусылды',
   perfect: 'ДӘЛ ТҮСТІ!',
   land: '+1 ҚОРАП',
-  miss: 'МҮЛТ КЕТТІ! -1',
+  miss: 'МҮЛТ КЕТТІ! -1 ӨМІР',
   peak: 'ЖАҢА ШЫҢ!',
   combo: 'ҚАТАРЫНАН',
   tutorial:
@@ -69,7 +93,19 @@ const en: Copy = {
   drop: 'Drop the box',
   hint: 'Tap the screen to drop a box',
   ready: 'Find your moment',
-  falling: 'Finding balance...',
+  falling: 'Box on its way',
+  settling: 'Finding balance',
+  waiting: 'Next box coming',
+  sound: 'Sound',
+  haptics: 'Haptics',
+  newBest: 'New best!',
+  bestCombo: 'Best perfect streak',
+  countdown: 'Get ready',
+  opened: 'Unlocked',
+  toGo: 'to go',
+  height: 'Next height',
+  collapseTip: 'Aim closer to the centre: a lean travels through the whole tower.',
+  missTip: 'Release a little earlier: the box keeps its sideways momentum.',
   best: 'Best',
   boxes: 'boxes',
   lives: 'Lives',
@@ -82,7 +118,7 @@ const en: Copy = {
   missed: 'No lives left',
   perfect: 'PERFECT!',
   land: '+1 BOX',
-  miss: 'MISSED! -1',
+  miss: 'MISSED! -1 LIFE',
   peak: 'NEW PEAK!',
   combo: 'IN A ROW',
   tutorial: 'One tap. One box.\nA miss costs one life. If the tower collapses, the game ends.',
@@ -93,3 +129,19 @@ const en: Copy = {
   next: 'Next peak',
 };
 export const pickBoxCopy = (locale: Locale) => ({ ru, kk, en })[locale];
+
+export function boxCount(count: number, locale: Locale) {
+  if (locale === 'kk') return `${count} қорап`;
+  if (locale === 'en') return `${count} ${count === 1 ? 'box' : 'boxes'}`;
+  const last = count % 10,
+    lastTwo = count % 100;
+  const noun =
+    lastTwo >= 11 && lastTwo <= 14
+      ? 'коробок'
+      : last === 1
+        ? 'коробка'
+        : last >= 2 && last <= 4
+          ? 'коробки'
+          : 'коробок';
+  return `${count} ${noun}`;
+}

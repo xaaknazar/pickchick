@@ -142,3 +142,22 @@ in space. A rocket pass takes 9 seconds in a 25-second cycle. Decorative layers
 ignore touch and are hidden from accessibility. The full playfield exposes the
 drop action; exit and pause retain 48-unit hit targets with restrained translucent
 16-radius surfaces. Lives have a grouped accessible label.
+
+## Polish revision, 13 November 2026
+
+The owner approved implementation of the readiness audit and updates to existing
+test channels. Preserve the exact selected cover. First-time coaching holds the
+first pendulum until one tap; later rounds retain normal timing. The status badge
+distinguishes ready, falling, settling and cooldown. X pauses an active round;
+resume freezes physics through a 1.5-second countdown. Backgrounding cancels it.
+
+Sound and haptics are independent local settings. Six original sub-second effects
+respect silent mode and never record or play in the background. Milestone feedback
+and landing feedback use separate channels. The result distinguishes a new best,
+shows the best perfect streak and a close next goal, with no trophy for zero.
+
+Record persistence retains the unsaved session maximum and retries writes. The
+renderer culls offscreen sprites without making their physical bodies static; its
+frame loop stops on pause and after the final fall. Short fields scale the world,
+not the touch controls. See `../operations/pick-box-polish-1113.md` for the exact
+verification and release facts; physical acceptance is still separate.

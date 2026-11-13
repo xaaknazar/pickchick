@@ -9,6 +9,7 @@ export const parseRecord = (raw: string | null): number | null => {
 /** Serialize load/save so a late read or older write cannot erase a newer best. */
 export class PickBoxRecords {
   private best = 0;
+  private persisted = 0;
   private loaded = false;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly io: { read(): Promise<string | null>; write(value: string): Promise<void> };
@@ -17,20 +18,25 @@ export class PickBoxRecords {
   }
   record(score = 0): Promise<{ best: number; saved: boolean }> {
     const operation = this.queue.then(async () => {
+      if (Number.isSafeInteger(score) && score >= 0 && score < 10_000_000) {
+        this.best = Math.max(this.best, score);
+      }
       try {
         if (!this.loaded) {
           const parsed = parseRecord(await this.io.read());
-          if (parsed === null) return { best: Math.max(this.best, score), saved: false };
+          if (parsed === null) return { best: this.best, saved: false };
           this.best = Math.max(this.best, parsed);
+          this.persisted = parsed;
           this.loaded = true;
         }
-        if (Number.isSafeInteger(score) && score > this.best && score < 10_000_000) {
-          await this.io.write(String(score));
-          this.best = score;
+        if (this.best > this.persisted) {
+          const pending = this.best;
+          await this.io.write(String(pending));
+          this.persisted = pending;
         }
         return { best: this.best, saved: true };
       } catch {
-        return { best: Math.max(this.best, score), saved: false };
+        return { best: this.best, saved: false };
       }
     });
     this.queue = operation;
