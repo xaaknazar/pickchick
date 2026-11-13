@@ -7816,11 +7816,12 @@
         "@google-play/pickchick",
         "docs/operations/pick-box-test-release-1112.md",
         "tests/mobile/android-config.test.mjs",
-        "@android/emulator"
+        "@android/emulator",
+        "docs/design/pick-box-review-1113.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "50c5ad47b82764f4c84ff8fcbce580c78d32f96f",
-      "updatedAt": "2026-11-13T04:52:44.770Z",
+      "updatedAt": "2026-11-13T12:02:26.123Z",
       "summary": "Pick Box ascent shipped to test channels: iOS 35 Testing Internal+Testing, Android 9 closed Alpha available. Release source 9297365f CI 11/11, 601 mobile tests; report 50c5ad47 pushed and verified. Final roadmap build and 7 tests PASS.",
       "nextAction": "Physical iPhone/Android acceptance, KK proofreading and larger text remain. PR368 draft; shared not merged. Online roadmap needs newer operational facts integrated before deployment."
     }
