@@ -6855,12 +6855,13 @@
         "tests/mobile/slide-pay-intent.test.mjs",
         "docs/operations/mobile-feedback-2026-10-29.md",
         "tests/mobile/ios/SmokeTests.swift",
-        "docs/operations/mobile-feedback-2026-10-29"
+        "docs/operations/mobile-feedback-2026-10-29",
+        "@ios/simulator"
       ],
       "status": "active",
       "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
-      "updatedAt": "2026-11-13T12:48:09.371Z",
-      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-man/PickManScreen.tsx\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва."
+      "updatedAt": "2026-11-13T16:57:30.893Z",
+      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-man/PickManScreen.tsx\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.\n13.11.2026: по согласованному завершению проверки, сообщённому чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только резерв @ios/simulator возвращён от pick-box-1112 задаче mobile-feedback-1029. По сообщению этой задачи Release-сборка 36 собрана и установлена, но полноценный native игровой сценарий не подтверждён из-за нестабильности UI-управления; выключен только её PickChick Review32 iPhone (13F87123-6449-4105-B4CE-82D6BC6F7BAD). Возврат резерва не выполняет действий с устройствами или выпусками. Остальные резервы, owner/branch/head/status и записи других задач сохранены."
     },
     {
       "id": "mobile-appstore-clean-1029",
@@ -7819,13 +7820,12 @@
         "docs/design/pick-box-review-1113.md",
         "scripts/mobile/pick-box-sounds.py",
         "tests/mobile/pick-box-polish.test.mjs",
-        "docs/operations/pick-box-polish-1113.md",
-        "@ios/simulator"
+        "docs/operations/pick-box-polish-1113.md"
       ],
       "status": "active",
       "head": "3c74130bcd3e47da7fd381ccc1e5fdc7237a6096",
-      "updatedAt": "2026-11-13T12:48:09.373Z",
-      "summary": "Readiness audit 3c74130b: independent design/code reviews, 14 game tests PASS, 45-box physics probe, storage record-loss reproduced. Report and priorities in docs/design/pick-box-review-1113.md; no game code or store changes. Roadmap build and 7 tests PASS.\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.",
+      "updatedAt": "2026-11-13T16:57:30.894Z",
+      "summary": "Readiness audit 3c74130b: independent design/code reviews, 14 game tests PASS, 45-box physics probe, storage record-loss reproduced. Report and priorities in docs/design/pick-box-review-1113.md; no game code or store changes. Roadmap build and 7 tests PASS.\n13.11.2026: по согласованию через чат 01a12c0a-d82c-72e2-a966-741480ecf596 и явному разрешению владельца, переданному чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для изолированного теста PickChick. Остальные резервы, owner/branch/head/status сохранены. Без изменения чужих устройств и без отправки выпусков. После проверки согласовать освобождение или возврат резерва.\n13.11.2026: по согласованному завершению проверки, сообщённому чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7, только резерв @ios/simulator возвращён от pick-box-1112 задаче mobile-feedback-1029. По сообщению этой задачи Release-сборка 36 собрана и установлена, но полноценный native игровой сценарий не подтверждён из-за нестабильности UI-управления; выключен только её PickChick Review32 iPhone (13F87123-6449-4105-B4CE-82D6BC6F7BAD). Возврат резерва не выполняет действий с устройствами или выпусками. Остальные резервы, owner/branch/head/status и записи других задач сохранены.",
       "nextAction": "Implement first-tap/readiness, safe exit/resume, failed record persistence; then audio, milestone/result feedback. Physical native performance, large text and accessibility remain open. Preserve chosen cover. PR368 draft; online roadmap not overwritten."
     }
   ],
