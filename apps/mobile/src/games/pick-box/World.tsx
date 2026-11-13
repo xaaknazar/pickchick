@@ -11,6 +11,7 @@ import {
   BOX_HEIGHT,
   BOX_WIDTH,
   PLATFORM_WIDTH,
+  WORLD_WIDTH,
   PickBoxEngine,
   type Cue,
   type Snapshot,
@@ -137,14 +138,12 @@ export function World({
   onChange,
   onCue,
   phase,
-  headroom,
 }: {
   game: PickBoxEngine;
   reduced: boolean;
   onChange(snapshot: Snapshot): void;
   onCue(cue: Cue): void;
   phase: Snapshot['phase'];
-  headroom: number;
 }) {
   const [size, setSize] = useState({ width: 360, height: 440 });
   const [ids, setIds] = useState<number[]>([]);
@@ -154,8 +153,9 @@ export function World({
   const scale = worldScale(size.width, size.height);
   const height = size.height / scale;
   const offsetX = (size.width - 360 * scale) / 2;
-  const view = useRef({ game, camera: height - 56, lastCue: -1 });
-  if (view.current.game !== game) view.current = { game, camera: height - 56, lastCue: -1 };
+  const view = useRef({ game, height, camera: cameraFloor(height, game.top), lastCue: -1 });
+  if (view.current.game !== game || view.current.height !== height)
+    view.current = { game, height, camera: cameraFloor(height, game.top), lastCue: -1 };
   useEffect(() => {
     let request = 0,
       previous = 0;
@@ -205,8 +205,9 @@ export function World({
       // Rope stays attached to the box's top; it is a visual pendulum, never a physics constraint after release.
       const endX = held.x,
         endY = held.y + camera - BOX_HEIGHT / 2;
-      const anchorY = -headroom / scale - 40;
-      const anchorX = -60;
+      // The fixed central mount belongs to the playfield, below all HUD text and controls.
+      const anchorY = 12;
+      const anchorX = WORLD_WIDTH / 2;
       const dx = endX - anchorX;
       const dy = endY - anchorY;
       frame.value = {
@@ -238,7 +239,7 @@ export function World({
     };
     request = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(request);
-  }, [game, frame, height, reduced, phase, headroom, scale]);
+  }, [game, frame, height, reduced, phase, scale]);
 
   const floorStyle = useAnimatedStyle(() => ({ transform: [{ translateY: frame.value.floor }] }));
   const worldStyle = useAnimatedStyle(() => ({
@@ -256,6 +257,7 @@ export function World({
         style={[s.world, { height, left: offsetX, transformOrigin: 'top left' }, worldStyle]}
       >
         <Rope frame={frame} />
+        <View testID="pick-box-rope-mount" style={s.ropeMount} />
       </Animated.View>
       <View pointerEvents="none" style={s.bodyClip}>
         <Animated.View
@@ -284,7 +286,7 @@ export function World({
 
 const s = StyleSheet.create({
   spark: { position: 'absolute', left: 0, top: 0 },
-  viewport: { flex: 1, overflow: 'visible' },
+  viewport: { flex: 1, overflow: 'hidden' },
   bodyClip: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   world: { position: 'absolute', width: 360, left: 0, top: 0 },
   box: {
@@ -351,6 +353,17 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#6B431D',
     transformOrigin: 'top center',
+  },
+  ropeMount: {
+    position: 'absolute',
+    left: WORLD_WIDTH / 2 - 8,
+    top: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 4,
+    borderColor: '#18315A',
+    backgroundColor: '#FFE1A4',
   },
   ropeLight: {
     position: 'absolute',

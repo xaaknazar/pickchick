@@ -56,14 +56,17 @@ with sync_playwright() as p:
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/games/pick-box')
         page.wait_for_load_state('networkidle')
-        expect(page.get_by_test_id('pick-box-start')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('pick-box-drop')).to_be_enabled(timeout=20000)
+        expect(page.get_by_test_id('pick-box-start')).to_have_count(0)
         page.wait_for_timeout(700)
         shot(page, f'start-{width}')
-        page.get_by_test_id('pick-box-start').click()
         expect(page.get_by_test_id('pick-box-score')).to_have_text('0')
         bounds = page.get_by_test_id('pick-box-world').bounding_box()
         assert abs(bounds['y'] + bounds['height'] - height) < 2, 'World must reach screen bottom'
-        expect(page.get_by_text('Коснись экрана - отпусти коробку', exact=True)).to_have_count(0)
+        mount = page.get_by_test_id('pick-box-rope-mount').bounding_box()
+        hud_bounds = page.get_by_test_id('pick-box-hud').bounding_box()
+        assert abs(mount['x'] + mount['width'] / 2 - (bounds['x'] + bounds['width'] / 2)) < 2, 'Rope mount must be centered'
+        assert mount['y'] >= hud_bounds['y'] + hud_bounds['height'], 'Rope must stay below the HUD'
         for number in range(1, target_score + 1):
             drop_at(page)
             expect(page.get_by_test_id('pick-box-score')).to_have_text(str(number), timeout=12000)
@@ -103,8 +106,8 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('pick-box-score')).to_have_text(str(target_score))
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
         page.reload(); page.wait_for_load_state('networkidle')
-        expect(page.get_by_test_id('pick-box-start')).to_be_visible()
-        page.get_by_test_id('pick-box-start').click()
+        expect(page.get_by_test_id('pick-box-drop')).to_be_enabled()
+        expect(page.get_by_test_id('pick-box-start')).to_have_count(0)
         expect(page.get_by_test_id('pick-box-best')).to_have_text(str(target_score))
         for lost in range(1, 4):
             drop_at(page, edge=True)
@@ -125,19 +128,20 @@ with sync_playwright() as p:
                         'backgroundPause': True, 'pageErrors': errors})
         print(json.dumps(results[-1]), flush=True)
         context.close()
-    for locale, start in [('kk', 'Бастайық!'), ('en', "Let's go!")]:
+    for locale, hint in [('kk', 'Экранды түрт - қорапты жібер'), ('en', 'Tap the screen to drop a box')]:
         context = isolated_context(browser, viewport={'width': 393, 'height': 852})
         preferences = {'version': 2, 'catalogMode': 'design', 'diningMode': 'takeaway', 'locale': locale,
                        'nickname': '', 'branchId': None, 'releaseId': None, 'lines': []}
         context.add_init_script("localStorage.setItem('pickchick.mobile.preferences.v1', JSON.stringify(%s))" % json.dumps(preferences))
         page = context.new_page(); page.goto(URL + '/games/pick-box'); page.wait_for_load_state('networkidle')
-        expect(page.get_by_test_id('pick-box-start')).to_have_text(start, timeout=20000)
+        expect(page.get_by_test_id('pick-box-drop')).to_be_enabled(timeout=20000)
+        expect(page.get_by_test_id('pick-box-status')).to_have_text(hint)
+        expect(page.get_by_test_id('pick-box-start')).to_have_count(0)
         shot(page, 'start-' + locale)
-        page.get_by_test_id('pick-box-start').click()
         expect(page.get_by_test_id('pick-box-score')).to_have_text('0')
         page.get_by_test_id('pick-box-drop').focus(); page.keyboard.press('Enter')
         expect(page.get_by_test_id('pick-box-body-1')).to_be_attached()
-        results.append({'locale': locale, 'localizedStart': True, 'keyboardDrop': True})
+        results.append({'locale': locale, 'localizedDirectEntry': True, 'keyboardDrop': True})
         context.close()
     browser.close()
 (OUT / 'results.json').write_text(json.dumps(results, indent=2) + '\n')

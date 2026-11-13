@@ -1,5 +1,17 @@
 # Pick Box - mobile game surface
 
+## Latest owner correction - 13 November 2026
+
+Open directly from the games card into gameplay, without a cover/rules/start
+page. Keep the existing cover on the card. Place the rope mount in the centre
+of the playfield below the HUD. Status and landing feedback share a slot above
+the playfield; milestone feedback replaces the goal line temporarily. No text
+or control overlays the rope or boxes. Sound/haptic settings remain in pause
+and result. Show the owner real preview screenshots and wait for explicit
+approval before uploading the next test build.
+
+Evidence: [direct entry preview](../operations/pick-box-direct-entry-1113.md).
+
 ## Product and scope
 
 Owner, 12 November 2026: add a tower-stacking game alongside existing PickChick
