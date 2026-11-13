@@ -7820,11 +7820,12 @@
         "docs/design/pick-box-review-1113.md",
         "scripts/mobile/pick-box-sounds.py",
         "tests/mobile/pick-box-polish.test.mjs",
-        "docs/operations/pick-box-polish-1113.md"
+        "docs/operations/pick-box-polish-1113.md",
+        "docs/operations/pick-box-direct-entry-1113.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "4c6e18e9a16286a451916bb6ef6096d17468814f",
-      "updatedAt": "2026-11-13T17:11:48.291Z",
+      "updatedAt": "2026-11-13T18:50:54.310Z",
       "summary": "Pick Box polish implemented; cover unchanged. Binary source 28777ab8: Foundation CI 11/11, 610 Node + 96 Python and browser scenarios pass. TestFlight 1.0.1 (36) Testing in PickChick Internal (2) and Testing (11). Android 1.0.1 (10) closed Alpha submitted, automatic prechecks complete, under Google review. Release evidence committed; no public release.",
       "nextAction": "Check Google Alpha 10 availability and collect physical iPhone/Android acceptance; long-session performance, accessibility and native Kazakh review remain open. Native simulator gameplay is not accepted. PR #368 remains draft; live roadmap not overwritten due newer operational facts."
     }
