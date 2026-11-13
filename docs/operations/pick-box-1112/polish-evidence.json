@@ -1,0 +1,150 @@
+{
+  "source": {
+    "ios": {
+      "gitSha": "28777ab8d8021c5ae24a0d5baba976458a522c3c",
+      "dirty": false,
+      "featureProfile": "production"
+    },
+    "android": {
+      "gitSha": "28777ab8d8021c5ae24a0d5baba976458a522c3c",
+      "dirty": false,
+      "featureProfile": "production"
+    }
+  },
+  "ios": {
+    "build": "36",
+    "version": "1.0.1",
+    "microphone": null,
+    "backgroundModes": [],
+    "wavCount": 7
+  },
+  "android": {
+    "wavCount": 7
+  },
+  "artifacts": [
+    {
+      "path": "~/Library/Caches/PickChick/releases/pick-box-20261113-36-r2/export/PickChick.ipa",
+      "sha256": "54917a4d9e5fd4f512d515ae9db1c719ee88ecc7845036602234a2c8e91c0192",
+      "bytes": 134721473
+    },
+    {
+      "path": "~/Library/Caches/PickChick/android-releases/pick-box-20261113-10-r2/PickChick-1.0.1-10-production.aab",
+      "sha256": "ab2ace5dd7c9c9cd4656375786dc23d3001a8a73887350b550854ef6e0f745c5",
+      "bytes": 169675521
+    }
+  ],
+  "foundationCI": {
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43426621323",
+    "headSha": "28777ab8d8021c5ae24a0d5baba976458a522c3c",
+    "jobs": [
+      {
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success"
+      },
+      {
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success"
+      },
+      {
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success"
+      },
+      {
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success"
+      },
+      {
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "tests": {
+    "node": {
+      "passed": 610,
+      "total": 610
+    },
+    "python": {
+      "passed": 96,
+      "total": 96
+    },
+    "pickBox": {
+      "passed": 23,
+      "total": 23
+    },
+    "typescript": "pass",
+    "eslint": "pass",
+    "exports": ["ios", "android", "web"]
+  },
+  "runtime": {
+    "browser": ["320x568", "393x852", "768x1024"],
+    "androidApkInstall": "success, versionCode 10",
+    "iosSimulatorReleaseBuild": "success",
+    "iosSimulatorInstall": "success",
+    "nativeGameplay": "not accepted - UI automation unavailable or unstable",
+    "physicalDevices": "pending owner test"
+  },
+  "audioNote": "Seven WAV files in each bundle, including the six new Pick Box cues; no microphone or background audio permission.",
+  "iosUpload": {
+    "status": "testing",
+    "version": "1.0.1",
+    "build": 36,
+    "missingDsymFrameworks": [
+      "ExpoImage",
+      "React",
+      "ReactNativeDependencies",
+      "SDWebImage",
+      "SDWebImageAVIFCoder",
+      "SDWebImageSVGCoder",
+      "SDWebImageWebPCoder",
+      "hermesvm"
+    ],
+    "groups": [
+      {
+        "name": "PickChick Internal",
+        "testers": 2
+      },
+      {
+        "name": "Testing",
+        "testers": 11
+      }
+    ],
+    "invitations": 13,
+    "autoNotify": true,
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/ca010588-2175-4e13-b453-1bdaad853458"
+  },
+  "googlePlay": {
+    "track": "closed Alpha",
+    "versionCode": 10,
+    "release": 4,
+    "status": "changes in review",
+    "changeCount": 1,
+    "rolloutPercent": 100,
+    "testersAndCountries": "unchanged",
+    "unsupportedDevicesComparedWith9": 0
+  }
+}
