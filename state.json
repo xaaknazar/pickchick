@@ -7822,12 +7822,11 @@
         "docs/operations/pick-box-polish-1113.md",
         "docs/operations/pick-box-direct-entry-1113.md",
         "docs/operations/pick-box-game-hud-1114.md",
-        "docs/operations/pick-box-hud-release-1114.md",
-        "@ios/simulator"
+        "docs/operations/pick-box-hud-release-1114.md"
       ],
       "status": "active",
       "head": "00088330a3052d47df80d2bbb1b002ce1cd777c5",
-      "updatedAt": "2026-11-13T19:37:20.641Z",
+      "updatedAt": "2026-11-13T20:04:07.705Z",
       "summary": "Игровой HUD по краям и поднятая верёвка: 00088330 запушен. 23 теста игры, TypeScript, ESLint, web export, 7 тестов пульта и браузерные 4 размера PASS. Новые реальные снимки сохранены, сборки 36/10 не менялись.\n14.11.2026: по согласованию с чатом 01a1b172-e24c-70f0-a62c-14f3516a36d7 и ранее разрешённой владельцем координации симулятора только @ios/simulator временно передан от mobile-feedback-1029 задаче pick-box-1112 для проверки утверждённого нового HUD. Перед передачей запущенных симуляторов не обнаружено. После проверки резерв вернуть. Остальные резервы, owner/branch/head/status и чужие задачи сохранены. Эта передача не выполняет загрузок iOS 37 / Android 11 и не меняет Alpha или другие настройки магазинов.",
       "nextAction": "Ждать утверждения владельцем предпросмотра 14 ноября. До явного подтверждения не загружать в TestFlight/Google Play. Затем полная CI, нативные проверки и тестовый выпуск с прежней обложкой."
     }
