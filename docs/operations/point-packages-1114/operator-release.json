@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "39f8ec85385953917080257eef9d656392eb0519",
+  "archive": "operators-release-39f8ec85.zip",
+  "sha256": "5f83fa65549384f0a105bd960cd13f52ce778bf54af43d04d05204d469aec342",
+  "bytes": 466275,
+  "pinsChecked": 24,
+  "helperPinsVerified": true,
+  "readyForHandoff": true,
+  "validation": {
+    "windowsRun": 43599326552,
+    "windowsConclusion": "success",
+    "windowsJobs": 3,
+    "nativeGuardJob": 132460485874,
+    "foundationRun": 43599326539,
+    "foundationStatus": "in_progress",
+    "foundationObservedAt": "2026-11-14T13:30:58Z",
+    "runtimeSourceUnchanged": "dec8b48cd899fe015baee17a3853affbe7eee774",
+    "runtimeFoundationRun": 43237506018,
+    "runtimeFoundationConclusion": "success"
+  }
+}

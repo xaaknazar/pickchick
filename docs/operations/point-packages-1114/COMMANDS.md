@@ -33,8 +33,8 @@ Get-Content (Join-Path $Root 'SHA256SUMS.txt') | ForEach-Object {
   if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expected) { throw 'Delivery file mismatch' }
 }
 
-# operators-release будет предоставлен ТОЛЬКО после итогового слияния и проверки.
-if (!(Test-Path -LiteralPath $Operator -PathType Container)) { throw 'Final merged operators not delivered - STOP' }
+# operators-release из operators-release-39f8ec85.zip, исходник 39f8ec85385953917080257eef9d656392eb0519.
+if (!(Test-Path -LiteralPath $Operator -PathType Container)) { throw 'Extract the verified final operator archive - STOP' }
 ```
 
 Перед использованием обеспечить защищённые ACL у поставки и CI proof: запись только

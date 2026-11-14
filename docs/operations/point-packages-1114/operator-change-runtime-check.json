@@ -1,7 +1,7 @@
 {
   "runtimeSource": "dec8b48cd899fe015baee17a3853affbe7eee774",
-  "candidateOperatorSource": "81e8a197d24c9b543ba665dd4fd4bfd55415b53f",
-  "merged": false,
+  "operatorSource": "39f8ec85385953917080257eef9d656392eb0519",
+  "merged": true,
   "changedPaths": [
     ".github/workflows/windows-pos.yml",
     "docs/operations/cutover-2026-11-19.md",

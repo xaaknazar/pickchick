@@ -5,8 +5,9 @@
     "pass": true
   },
   {
-    "archive": "operators-PENDING-MERGE-81e8a197.zip",
+    "archive": "operators-release-39f8ec85.zip",
     "pinsChecked": 24,
-    "pass": true
+    "pass": true,
+    "sourceCommit": "39f8ec85385953917080257eef9d656392eb0519"
   }
 ]
