@@ -1110,6 +1110,61 @@ test('no Windows script passes $null as the backup path of File.Replace', async 
   assert.ok(calls >= 15, `File.Replace calls found in the Windows scripts: ${calls}`);
 });
 
+// The kitchen and cash desk apps run in Electron, whose Node is built on BoringSSL. BoringSSL (like
+// OpenSSL 1.1) treats a pinned self-signed certificate as its own issuer only when keyUsage allows
+// keyCertSign; without it every pinned request fails. New-SelfSignedCertificate -Type
+// SSLServerAuthentication alone gives only digitalSignature and keyEncipherment. On the test point
+// server (14.11.2026) the kitchen answered 504 EDGE_TIMEOUT to every edge call and pairing failed,
+// while kitchen-lan-check.mjs on plain Node with OpenSSL 3 accepted the same certificate, so only
+// the script text can guard it here.
+test('every self-signed certificate of the Windows scripts allows keyCertSign (Electron/BoringSSL)', async () => {
+  const names = (await readdir(windowsFile(''))).filter((name) => name.endsWith('.ps1')).sort();
+  const calls = [];
+  for (const name of names)
+    for (const line of (await readFile(windowsFile(name), 'utf8')).split('\n'))
+      if (/New-SelfSignedCertificate\b/.test(line) && !/^\s*#/.test(line)) calls.push([name, line]);
+  assert.deepEqual(
+    calls.map(([name]) => name),
+    ['install-kitchen-lan.ps1'],
+    'the kitchen gateway installer makes the only self-signed certificate',
+  );
+  for (const [name, line] of calls)
+    assert.match(
+      line,
+      / -KeyUsage DigitalSignature,KeyEncipherment,CertSign /,
+      `${name}: the pinned gateway certificate must allow keyCertSign`,
+    );
+});
+
+// Windows PowerShell 5.1 with -File bound the parameter defaults with an empty $PSScriptRoot on the
+// point server (14.11.2026): Join-Path stopped the installer before any check. The delivered files
+// are found in the script body instead, before their first use.
+test('LAN server scripts resolve the delivered files in the body, not in parameter defaults', async () => {
+  for (const name of ['install-kitchen-lan.ps1', 'update-kitchen-lan-clients.ps1']) {
+    const text = await readFile(windowsFile(name), 'utf8');
+    const params = text.slice(text.indexOf('param('), text.indexOf('\n)\n'));
+    assert.doesNotMatch(params, /PSScriptRoot|Join-Path/, `${name}: no script-relative default`);
+    assert.ok(
+      text.includes(
+        '\n$scriptRoot=$PSScriptRoot\nif(-not $scriptRoot -and $MyInvocation.MyCommand.Path) {$scriptRoot=Split-Path -Parent $MyInvocation.MyCommand.Path}\n',
+      ),
+      `${name}: falls back to the invocation path`,
+    );
+    for (const [parameter, file] of [
+      ['FoundationScript', 'install-native-foundation.ps1'],
+      ['GatewayScript', 'kitchen-lan-gateway.mjs'],
+      ['ProfilesScript', 'lan-route-profiles.mjs'],
+      ['CheckScript', 'kitchen-lan-check.mjs'],
+    ]) {
+      assert.ok(params.includes(`[string]$${parameter}=''`), `${name}: -${parameter} stays`);
+      const resolve = `\nif(-not $${parameter}) {$${parameter}=Join-Path $scriptRoot '${file}'}\n`;
+      assert.ok(text.includes(resolve), `${name}: -${parameter} defaults to ${file} beside it`);
+      const firstFunction = text.indexOf('\nfunction ');
+      assert.ok(text.indexOf(resolve) < firstFunction, `${name}: -${parameter} resolved first`);
+    }
+  }
+});
+
 test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostart only from the installer or on request, iiko only read', async () => {
   const source = Object.fromEntries(
     await Promise.all(

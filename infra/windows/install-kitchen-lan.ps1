@@ -10,13 +10,23 @@ param(
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$GatewaySha256,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$CheckSha256,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$ProfilesSha256,
-    [string]$FoundationScript=(Join-Path $PSScriptRoot 'install-native-foundation.ps1'),
-    [string]$GatewayScript=(Join-Path $PSScriptRoot 'kitchen-lan-gateway.mjs'),
-    [string]$CheckScript=(Join-Path $PSScriptRoot 'kitchen-lan-check.mjs'),
-    [string]$ProfilesScript=(Join-Path $PSScriptRoot 'lan-route-profiles.mjs')
+    [string]$FoundationScript='',
+    [string]$GatewayScript='',
+    [string]$CheckScript='',
+    [string]$ProfilesScript=''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# The delivered files beside this script are found here, not in the parameter defaults:
+# powershell.exe -File on the point server (14.11.2026) bound the defaults with an empty
+# $PSScriptRoot and Join-Path stopped the installer before any check.
+$scriptRoot=$PSScriptRoot
+if(-not $scriptRoot -and $MyInvocation.MyCommand.Path) {$scriptRoot=Split-Path -Parent $MyInvocation.MyCommand.Path}
+if(-not $scriptRoot -and -not ($FoundationScript -and $GatewayScript -and $CheckScript -and $ProfilesScript)) {throw 'The folder of this script is unknown. Pass -FoundationScript, -GatewayScript, -CheckScript and -ProfilesScript.'}
+if(-not $FoundationScript) {$FoundationScript=Join-Path $scriptRoot 'install-native-foundation.ps1'}
+if(-not $GatewayScript) {$GatewayScript=Join-Path $scriptRoot 'kitchen-lan-gateway.mjs'}
+if(-not $CheckScript) {$CheckScript=Join-Path $scriptRoot 'kitchen-lan-check.mjs'}
+if(-not $ProfilesScript) {$ProfilesScript=Join-Path $scriptRoot 'lan-route-profiles.mjs'}
 function Test-LanIPv4([string]$Value) {
     $address=$null
     if(-not [Net.IPAddress]::TryParse($Value,[ref]$address) -or $address.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or $address.ToString() -cne $Value) {return $false}
@@ -130,7 +140,10 @@ try {
     try {$rng.GetBytes($random)} finally {$rng.Dispose()}
     $passphrase=[Convert]::ToBase64String($random);[Array]::Clear($random,0,$random.Length)
     $secure=ConvertTo-SecureString $passphrase -AsPlainText -Force
-    $cert=New-SelfSignedCertificate -Type SSLServerAuthentication -Subject 'CN=PickChick Kitchen LAN' -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy Exportable -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(1) -TextExtension @("2.5.29.17={text}IPAddress=$CashierAddress")
+    # CertSign is required: the kitchen and cash desk apps (Electron, BoringSSL) accept the pinned
+    # self-signed certificate as its own issuer only when keyUsage allows keyCertSign. Without it
+    # every edge call failed (14.11.2026) while kitchen-lan-check.mjs on OpenSSL 3 passed.
+    $cert=New-SelfSignedCertificate -Type SSLServerAuthentication -KeyUsage DigitalSignature,KeyEncipherment,CertSign -Subject 'CN=PickChick Kitchen LAN' -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy Exportable -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(1) -TextExtension @("2.5.29.17={text}IPAddress=$CashierAddress")
     $null=Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $secure -CryptoAlgorithmOption AES256_SHA256 -ChainOption EndEntityCertOnly -NoProperties
     $pem="-----BEGIN CERTIFICATE-----`n"+[Convert]::ToBase64String($cert.RawData,[Base64FormattingOptions]::InsertLineBreaks).Replace("`r`n","`n")+"`n-----END CERTIFICATE-----`n"
     Write-LanFile $configPath ([ordered]@{bindAddress=$CashierAddress;port=3443;clientAddresses=@($KitchenAddress);edgePort=3101;pfxPath=$pfxPath;passphrase=$passphrase} | ConvertTo-Json)
