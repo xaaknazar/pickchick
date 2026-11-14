@@ -7852,9 +7852,9 @@
         "docs/operations/point-packages-1114.md",
         "docs/operations/point-packages-1114"
       ],
-      "status": "available",
+      "status": "active",
       "head": "d0cfde4d6c93da2ed241b217d0286c93d7ae99bb",
-      "updatedAt": "2026-11-14T17:10:16.035Z",
+      "updatedAt": "2026-11-14T17:32:26.227Z",
       "summary": "Проверено облако для assembly: три флага true, 27 прав PASS, active binding, assembly0; код не выпускался. Документ d0cfde4d. Выдача через вход владельца, локальный менеджер не имеет этой точки; серверный CEO credential не читался.",
       "nextAction": "По готовности Claude повторить свежесть связи; владелец выдаёт код assembly в бэк-офисе, затем дождаться applied. Никакого выпуска по таймеру."
     }
