@@ -24,13 +24,23 @@ param(
     [ValidatePattern('^[a-f0-9]{64}$')][string]$GatewaySha256='',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$ProfilesSha256='',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$CheckSha256='',
-    [string]$FoundationScript=(Join-Path $PSScriptRoot 'install-native-foundation.ps1'),
-    [string]$GatewayScript=(Join-Path $PSScriptRoot 'kitchen-lan-gateway.mjs'),
-    [string]$ProfilesScript=(Join-Path $PSScriptRoot 'lan-route-profiles.mjs'),
-    [string]$CheckScript=(Join-Path $PSScriptRoot 'kitchen-lan-check.mjs')
+    [string]$FoundationScript='',
+    [string]$GatewayScript='',
+    [string]$ProfilesScript='',
+    [string]$CheckScript=''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# The delivered files beside this script are found here, not in the parameter defaults:
+# powershell.exe -File on the point server (14.11.2026) bound the defaults with an empty
+# $PSScriptRoot and Join-Path stopped the script before any check.
+$scriptRoot=$PSScriptRoot
+if(-not $scriptRoot -and $MyInvocation.MyCommand.Path) {$scriptRoot=Split-Path -Parent $MyInvocation.MyCommand.Path}
+if(-not $scriptRoot -and -not ($FoundationScript -and $GatewayScript -and $ProfilesScript -and $CheckScript)) {throw 'The folder of this script is unknown. Pass -FoundationScript, -GatewayScript, -ProfilesScript and -CheckScript.'}
+if(-not $FoundationScript) {$FoundationScript=Join-Path $scriptRoot 'install-native-foundation.ps1'}
+if(-not $GatewayScript) {$GatewayScript=Join-Path $scriptRoot 'kitchen-lan-gateway.mjs'}
+if(-not $ProfilesScript) {$ProfilesScript=Join-Path $scriptRoot 'lan-route-profiles.mjs'}
+if(-not $CheckScript) {$CheckScript=Join-Path $scriptRoot 'kitchen-lan-check.mjs'}
 
 function Test-LanIPv4([string]$Value) {
     $address=$null

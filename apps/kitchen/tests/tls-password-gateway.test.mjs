@@ -45,9 +45,12 @@ async function certificate(directory, name, ip) {
   const config = join(directory, name + '.cnf'),
     cert = join(directory, name + '.pem'),
     key = join(directory, name + '.key');
+  // The extensions of the real gateway certificate (install-kitchen-lan.ps1): keyUsage with
+  // keyCertSign and no basicConstraints. Electron's BoringSSL refuses a pinned self-signed
+  // certificate without keyCertSign (test point server, 14.11.2026).
   await writeFile(
     config,
-    `[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=Synthetic kitchen TLS\n[ext]\nsubjectAltName=IP:${ip}\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n`,
+    `[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=Synthetic kitchen TLS\n[ext]\nsubjectAltName=IP:${ip}\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\nextendedKeyUsage=serverAuth\n`,
     { mode: 0o600 },
   );
   const result = spawnSync(

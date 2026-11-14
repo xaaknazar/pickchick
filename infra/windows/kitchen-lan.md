@@ -59,6 +59,32 @@ firewall и config должны обновляться согласованно.
 отказывается перезаписывать существующую службу; сначала проверяется фактическое
 состояние. Исходный edge и его база этим helper не изменяются.
 
+## Сертификат и переустановка шлюза
+
+Сертификат шлюза должен разрешать keyCertSign (`-KeyUsage
+DigitalSignature,KeyEncipherment,CertSign`). Кухня и касса - программы на Electron (BoringSSL):
+закреплённый самоподписанный сертификат без этого права они не считают своим издателем и
+отклоняют соединение. 14.11 на тестовой кассе так было: каждый запрос кухни заканчивался 504
+`EDGE_TIMEOUT`, привязка - «Код не принят», хотя `kitchen-lan-check.mjs` (Node с OpenSSL 3 на
+сервере) проходил. Установщик до этой правки (SHA-256 `4df0d495…`) создавал сертификат без
+keyCertSign; такой шлюз переустанавливают (повышенный Windows PowerShell 5.1 на сервере):
+
+1. Записать `certificateSha256` из `C:\ProgramData\PickChick\KitchenLAN\installation.json`
+   (прежний хеш, для сверки).
+2. `Stop-Service PickChickKitchenLAN`, затем `sc.exe delete PickChickKitchenLAN`.
+3. `Remove-NetFirewallRule -Name PickChickKitchenLAN`.
+4. Найти сертификат: `Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -eq 'CN=PickChick Kitchen LAN'`
+   и удалить его по отпечатку: `Remove-Item Cert:\LocalMachine\My\<Thumbprint>`.
+5. Переименовать в сторону (не удалять) обе папки: `C:\Program Files\PickChick\KitchenLAN` и
+   `C:\ProgramData\PickChick\KitchenLAN`, например с суффиксом `-old-<дата>`.
+6. Запустить новый `install-kitchen-lan.ps1` с теми же параметрами (хеш файла - по manifest).
+   Если список клиентов уже менялся `update-kitchen-lan-clients.ps1`, повторить его с тем же
+   `clients.json`.
+7. На каждом кухонном экране (и на кассе, уже переведённой на шлюз) снова запустить
+   `install-kitchen-client.ps1` (`install-pos-client.ps1`) с новым публичным файлом и новым
+   `certificateSha256` из нового `installation.json`, с тем же режимом и терминалом (без
+   `-Replace`). Существующие привязки экранов сохраняются, привязывать заново не нужно.
+
 ## Несколько клиентов и профили (переход 19.11)
 
 Установщик ставит шлюз с одним кухонным адресом (прежний формат `clientAddresses`).
