@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-11-14T13:01:31.205044+00:00",
+  "source": "read-only cloud device_credentials join devices",
+  "status": "active",
+  "expiresAt": "2026-11-20T07:34:54.977053+00:00",
+  "previousExpiresAt": null,
+  "expired": false,
+  "localIdentityFileVerified": false
+}

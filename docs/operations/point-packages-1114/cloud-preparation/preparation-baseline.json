@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-11-14T13:04:08.516259+00:00",
+  "apiSourceCommit": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+  "apiImageId": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+  "environmentSha256": "6303cb24bd44f56a2da27f8e6240e616e718697e57deae6bee4a7a15c0d90c05",
+  "ledgerSha256": "acd07acb369f64d2ce4faec2f352de063dd5b25093f978c72cc13521ff52fc8f",
+  "databaseVerified": true,
+  "grantsVerified": true,
+  "apiReady": true
+}

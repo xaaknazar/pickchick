@@ -1,0 +1,21 @@
+{
+  "runtimeSource": "dec8b48cd899fe015baee17a3853affbe7eee774",
+  "candidateOperatorSource": "81e8a197d24c9b543ba665dd4fd4bfd55415b53f",
+  "merged": false,
+  "changedPaths": [
+    ".github/workflows/windows-pos.yml",
+    "docs/operations/cutover-2026-11-19.md",
+    "docs/operations/stage2-windows-1030/head-runtime-028.md",
+    "docs/operations/stage2-windows-1030/queue-recovery-025.md",
+    "docs/project-status.md",
+    "infra/windows/edge-backup.md",
+    "infra/windows/install-edge-backup.ps1",
+    "infra/windows/update-runtime-head-028.ps1",
+    "infra/windows/update-runtime-queue-recovery-025.ps1",
+    "infra/windows/update-runtime-stage2-1024.ps1",
+    "tests/operations/test_windows_edge_backup.py",
+    "tests/operations/test_windows_head_runtime_release.py",
+    "tests/operations/test_windows_queue_recovery_release.py"
+  ],
+  "runtimeOverlap": []
+}

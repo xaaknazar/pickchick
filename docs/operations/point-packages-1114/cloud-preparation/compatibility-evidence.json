@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+  "ciRun": 43166859449,
+  "test": "tests/integration/stage2-qa.test.mjs",
+  "testSha256": "4d9c244a771813364621dd6853e5703eecb2cde422cf944f31134b6dc28a74ef",
+  "testName": "QA: combo stop menu and station plan pull on one cashier before and after edge 024, next to an installed worker",
+  "basis": "Foundation CI executes pnpm test:integration, including this test; synthetic test evidence, not a live cashier probe."
+}

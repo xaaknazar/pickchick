@@ -1,0 +1,143 @@
+{
+  "run": {
+    "id": 41056223677,
+    "name": "Foundation CI",
+    "head_branch": "codex/stage2-windows-1030",
+    "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+    "path": ".github/workflows/ci.yml",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677",
+    "run_attempt": 1,
+    "updated_at": "2026-10-30T13:18:12Z",
+    "head_repository": {
+      "full_name": "xaaknazar/pickchick"
+    }
+  },
+  "jobs": {
+    "total_count": 11,
+    "jobs": [
+      {
+        "id": 124064628843,
+        "run_id": 41056223677,
+        "name": "Foundation server account and Kaspi fixtures",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064628843",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:54:29Z"
+      },
+      {
+        "id": 124064628985,
+        "run_id": 41056223677,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064628985",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:46:50Z"
+      },
+      {
+        "id": 124064629008,
+        "run_id": 41056223677,
+        "name": "Local kitchen UI and recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629008",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:37:17Z"
+      },
+      {
+        "id": 124064629014,
+        "run_id": 41056223677,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629014",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:42:58Z"
+      },
+      {
+        "id": 124064629025,
+        "run_id": 41056223677,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629025",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:39:51Z"
+      },
+      {
+        "id": 124064629072,
+        "run_id": 41056223677,
+        "name": "Foundation simulator browser regressions",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629072",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:44:45Z"
+      },
+      {
+        "id": 124064629150,
+        "run_id": 41056223677,
+        "name": "Foundation static checks and transaction invariants",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629150",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T13:18:04Z"
+      },
+      {
+        "id": 124064629158,
+        "run_id": 41056223677,
+        "name": "Foundation POS and backoffice integration",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629158",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:43:43Z"
+      },
+      {
+        "id": 124064629211,
+        "run_id": 41056223677,
+        "name": "Design screens and interaction smoke",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629211",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:35:26Z"
+      },
+      {
+        "id": 124064629337,
+        "run_id": 41056223677,
+        "name": "Private staging image and restricted database role",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124064629337",
+        "started_at": "2026-10-30T12:34:10Z",
+        "completed_at": "2026-10-30T12:36:11Z"
+      },
+      {
+        "id": 124084082784,
+        "run_id": 41056223677,
+        "name": "Build, contracts and PostgreSQL integration",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+        "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677/job/124084082784",
+        "started_at": "2026-10-30T13:18:08Z",
+        "completed_at": "2026-10-30T13:18:11Z"
+      }
+    ]
+  }
+}
