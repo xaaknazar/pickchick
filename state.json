@@ -7849,11 +7849,12 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/point-packages-1114",
       "scopes": [
-        "docs/operations/point-packages-1114.md"
+        "docs/operations/point-packages-1114.md",
+        "docs/operations/point-packages-1114"
       ],
       "status": "active",
       "head": "dec8b48cd899fe015baee17a3853affbe7eee774",
-      "updatedAt": "2026-11-14T12:57:43.171Z"
+      "updatedAt": "2026-11-14T13:05:45.736Z"
     }
   ],
   "approvedScopeTransfers": [
