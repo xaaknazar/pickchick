@@ -163,6 +163,12 @@ try {
  Check ($never.stale -and $null -eq $never.ageMinutes -and $never.error -ceq 'UNREVIEWED_SCHEMA') 'Never succeeded is stale'
 } finally { Remove-Item -LiteralPath $dir -Recurse -Force }
 Rejects {Test-BackupDestination 'C:\PickChickBackup' 'C:\ProgramData\PickChick'} 'Same drive as the database'
+Rejects {Test-BackupDestination 'C:\PickChickBackup' 'C:\ProgramData\PickChick' $true} 'Same drive refused even with the owner switch'
+Check ((Resolve-BackupDiskKind 1 0 'Fixed' $false) -ceq 'disk') 'Second disk'
+Check ((Resolve-BackupDiskKind 1 0 'Removable' $true) -ceq 'disk') 'Second disk stays a disk with the owner switch'
+Rejects {Resolve-BackupDiskKind 0 0 'Fixed' $false} 'Partition of the database disk refused'
+Check ((Resolve-BackupDiskKind 0 0 'Fixed' $true) -ceq 'same-disk') 'Partition of the database disk accepted by the owner switch'
+Rejects {Resolve-BackupDiskKind 0 0 'Removable' $true} 'Removable same disk refused'
 Rejects {Test-BackupDestination 'PickChickBackup' 'C:\ProgramData\PickChick'} 'Relative path'
 Rejects {Test-BackupDestination 'D:' 'C:\ProgramData\PickChick'} 'Drive root'
 Rejects {Test-BackupDestination ('\\nas-'+[guid]::NewGuid().ToString('N').Substring(0,8)+'\missing\x') 'C:\ProgramData\PickChick'} 'Unreachable share'

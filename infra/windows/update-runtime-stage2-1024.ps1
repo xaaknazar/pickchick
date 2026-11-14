@@ -17,6 +17,7 @@ param(
  [Parameter(Mandatory=$true)][string]$BaselineReceipt,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$BaselineSha256,
  [Parameter(Mandatory=$true)][string]$BackupDestination,
+ [switch]$AllowSameDiskBackup,
  [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -84,8 +85,10 @@ function Assert-Stage2ToolPins {
   if((Get-FileHash (Join-Path $PSScriptRoot $pin.Key) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pin.Value){throw 'Stage2 delivery tool drift.'}
  }
 }
-function Get-Stage2BackupArguments([string]$Data,[guid]$Branch,[string]$Destination) {
+function Get-Stage2BackupArguments([string]$Data,[guid]$Branch,[string]$Destination,[bool]$SameDiskAllowed=$false) {
  $args=@{Mode='Install';BranchId=$Branch;Destination=$Destination;HourlyCopies=48;DailyCopies=14;MaxAgeMinutes=120;ReportInHeartbeat=$false}
+ # Owner decision 14.11.2026: copies may stay on the database disk until a second disk is connected.
+ if($SameDiskAllowed){$args.AllowSameDisk=$true}
  $path=Join-Path $Data 'EdgeBackup\private\edge-backup.json'
  if(Test-Path $path){
   Assert-UpdateAcl $path
@@ -125,7 +128,7 @@ function Wait-Stage2Backup([DateTime]$Since) {
 $script:stage2Pins=@{
  'menu-sync-worker-grants.mjs'='d3073cabfb5fad023bc2af179214f91791d568f38daf38d40518634ca8040fc7'
  'native-edge-backup-ledger.json'='66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f'
- 'install-edge-backup.ps1'='ef102045ea0320e2297f53de81c657c231ccb9dad78278b66f3c665e65eb7919'
+ 'install-edge-backup.ps1'='60a937cfb9e702ba9f1039633561d5ae9a9f09bf6e67fb101d482fec105a91d0'
  'station-plan-upgrade-db.mjs'='817cf7d71c7fdca7d311a5d31fb139826ee67ce2d9eff12686754235bf5e607c'
  'cloud-link-grant.mjs'='5b3038025cbf15d5e052aa72c56b77d6f6c08f15f6026609df1a066df0dcc108'
 }
@@ -183,7 +186,7 @@ try{
  $dump=Join-Path (Split-Path $BackupManifest) 'pickchick_edge.dump';if((Get-Item $dump).Length -ne $backup.archiveBytes){throw 'Backup size differs.'};$stream=Open-VerifiedFile $dump $backup.sha256;$stream.Dispose()
  Assert-RuntimePreserved
  Assert-Stage2ToolPins
- $backupArgs=Get-Stage2BackupArguments $data $BranchId $BackupDestination
+ $backupArgs=Get-Stage2BackupArguments $data $BranchId $BackupDestination ([bool]$AllowSameDiskBackup)
  $null=& (Join-Path $PSScriptRoot 'install-edge-backup.ps1') @backupArgs -DryRun
  if(!$Apply){Write-Output 'VERIFIED: runtime, CI, restored backup, backup installer and schema023; no persistent change.';return}
  # Upgrade the backup tool while schema023 still works. This run must finish before pausing it.
