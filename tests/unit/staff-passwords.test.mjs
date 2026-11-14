@@ -3,7 +3,11 @@ import test from 'node:test';
 import { PassThrough } from 'node:stream';
 import { scryptSync } from 'node:crypto';
 import { StaffLoginSchema } from '@pickchick/contracts';
-import { makeStaffPasswordVerifier } from '@pickchick/local-orders';
+import {
+  makeStaffPasswordVerifier,
+  PasswordSlots,
+  StaffRateLimitError,
+} from '@pickchick/local-orders';
 import { readHiddenPassword } from '../../scripts/hidden-password.mjs';
 
 test('staff verifiers use unique random salts, interoperable scrypt parameters and preserve whitespace', async () => {
@@ -125,4 +129,42 @@ test('PIN backoff: free typos, doubling locks capped at 15 minutes, decay only a
     ['a', 'b', 'c'].map((k) => small.status(k).failures),
     [0, 1, 1],
   );
+});
+
+test('a third simultaneous login waits for a password slot instead of a minute-long refusal', async () => {
+  const slots = new PasswordSlots(2, 2, 200, 3);
+  await slots.acquire();
+  await slots.acquire();
+  let third = false;
+  const waiting = slots.acquire().then(() => (third = true));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(third, false);
+  assert.equal(slots.queued, 1);
+  slots.release();
+  await waiting;
+  assert.equal(third, true);
+  assert.equal(slots.inUse, 2);
+  slots.release();
+  slots.release();
+  assert.equal(slots.inUse, 0);
+});
+
+test('password slots refuse with a short retry only when the queue is full or the wait runs out', async () => {
+  const slots = new PasswordSlots(1, 1, 30, 3);
+  await slots.acquire();
+  const timedOut = slots.acquire();
+  await assert.rejects(slots.acquire(), (error) => {
+    assert.ok(error instanceof StaffRateLimitError);
+    assert.equal(error.retryAfterSeconds, 3);
+    return true;
+  });
+  await assert.rejects(
+    timedOut,
+    (error) => error instanceof StaffRateLimitError && error.retryAfterSeconds === 3,
+  );
+  assert.equal(slots.queued, 0);
+  slots.release();
+  assert.equal(slots.inUse, 0);
+  await slots.acquire();
+  slots.release();
 });

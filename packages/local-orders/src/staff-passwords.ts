@@ -18,7 +18,6 @@ import { OrderError } from './errors.js';
 const SCRYPT = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 } as const;
 const dummySalt = randomBytes(32).toString('hex');
 const dummyVerifier = randomBytes(32).toString('hex');
-let activePasswordOperations = 0;
 
 export class StaffRateLimitError extends Error {
   readonly code = 'AUTH_RATE_LIMITED';
@@ -88,6 +87,59 @@ export class PinBackoff {
     return { failures: this.current(key)?.failures ?? 0, lockedMs: this.lockedMs(key) };
   }
 }
+/**
+ * At most two scrypt derivations run at once (each holds 96 MiB on the point server). A third
+ * login waits in a short queue instead of being refused at once: at a shift change the cashier and
+ * several kitchen screens sign in within the same second, and an immediate refusal locked the
+ * third screen for a minute (audit 14.11). Only a queue that stays full for `waitMs` answers
+ * AUTH_RATE_LIMITED, with a retry in seconds, not a minute. State lives in the single edge process.
+ */
+export class PasswordSlots {
+  private active = 0;
+  private readonly waiting: Array<{ grant: () => void; timer: ReturnType<typeof setTimeout> }> = [];
+  constructor(
+    readonly limit = 2,
+    readonly maxWaiting = 8,
+    readonly waitMs = 5_000,
+    readonly retryAfterSeconds = 3,
+  ) {}
+  /** Resolves once a slot is held; the caller must call release() exactly once afterwards. */
+  acquire(): Promise<void> {
+    if (this.active < this.limit) {
+      this.active++;
+      return Promise.resolve();
+    }
+    if (this.waiting.length >= this.maxWaiting)
+      return Promise.reject(new StaffRateLimitError(this.retryAfterSeconds));
+    return new Promise((resolve, reject) => {
+      const entry = {
+        grant: () => {
+          clearTimeout(entry.timer);
+          resolve();
+        },
+        timer: setTimeout(() => {
+          const index = this.waiting.indexOf(entry);
+          if (index >= 0) this.waiting.splice(index, 1);
+          reject(new StaffRateLimitError(this.retryAfterSeconds));
+        }, this.waitMs),
+      };
+      this.waiting.push(entry);
+    });
+  }
+  /** Hands the slot to the oldest waiter, or frees it. */
+  release() {
+    const next = this.waiting.shift();
+    if (next) next.grant();
+    else this.active = Math.max(0, this.active - 1);
+  }
+  get inUse() {
+    return this.active;
+  }
+  get queued() {
+    return this.waiting.length;
+  }
+}
+const passwordSlots = new PasswordSlots();
 const pinBackoff = new PinBackoff();
 const pinBackoffKey = (branchId: string, terminalId: string) =>
   `${branchId.toLowerCase()}:${terminalId.toLowerCase()}`;
@@ -227,8 +279,7 @@ export async function loginStaff(
   if (lockedMs > 0) throw new StaffRateLimitError(Math.ceil(lockedMs / 1000));
   // Reserve and commit before password work. Rejections/failures do not roll the counter back.
   if (!(await reserveAttempt(pool, branchId, terminalId))) throw new OrderError('UNAUTHORIZED');
-  if (activePasswordOperations >= 2) throw new StaffRateLimitError();
-  activePasswordOperations++;
+  await passwordSlots.acquire();
   try {
     const result = await transaction(pool, async (client) => {
       const found = await client.query(
@@ -333,7 +384,7 @@ export async function loginStaff(
     }
     return result;
   } finally {
-    activePasswordOperations--;
+    passwordSlots.release();
   }
 }
 
@@ -441,8 +492,7 @@ export async function verifyStaffPin(
   if (lockedMs > 0) throw new StaffRateLimitError(Math.ceil(lockedMs / 1000));
   const login = await pinLoginName(pool, branchId, pin);
   if (!(await reserveAttempt(pool, branchId, terminalId))) throw new OrderError('UNAUTHORIZED');
-  if (activePasswordOperations >= 2) throw new StaffRateLimitError();
-  activePasswordOperations++;
+  await passwordSlots.acquire();
   try {
     const result = await transaction(pool, async (client) => {
       const found = await client.query(
@@ -503,6 +553,6 @@ export async function verifyStaffPin(
     }
     return result;
   } finally {
-    activePasswordOperations--;
+    passwordSlots.release();
   }
 }
