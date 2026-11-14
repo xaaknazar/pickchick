@@ -7852,9 +7852,11 @@
         "docs/operations/point-packages-1114.md",
         "docs/operations/point-packages-1114"
       ],
-      "status": "active",
-      "head": "dec8b48cd899fe015baee17a3853affbe7eee774",
-      "updatedAt": "2026-11-14T13:05:45.736Z"
+      "status": "available",
+      "head": "f89b58d2f4f8f5491af548154fd4820daf14419d",
+      "updatedAt": "2026-11-14T13:13:37.036Z",
+      "summary": "Prepared four pinned runtime archives (023 preserved, 024/025/028 rebuilt), exact Foundation CI proofs 5x11, manifest and migration-prefix checks PASS, packager tests 7 PASS. Read-only cloud preparation PASS; no hourly receipt issued and no point-server command executed. Owner confirmed E:\\PickChickBackups. Delivery ZIP SHA256 b0a8368aa942bb211740b64689fad4ba5faa5daaf40e0f036e3cf31a30456d5c in ~/Claude/PickChick-exchange/point-window-1114. Published f89b58d2, docs only.",
+      "nextAction": "Await owner final merged SHA for AllowSameDisk operators; cutover-1119 still dec8b48c and candidate 81e8a197 is marked NOT FOR INSTALLATION. Verify merged diff/CI/pins, deliver operators-release. On owner words справка сейчас, rerun collect-cloud.py --issue-receipt from published docs and deliver timestamped JSON and sha256. No Windows diagnostics: automatic approval rejected even TCP check. Owner forwards archive to Claude."
     }
   ],
   "approvedScopeTransfers": [
