@@ -7711,13 +7711,12 @@
       "branch": "codex/desktop-updates-install-1111",
       "scopes": [
         "docs/operations/desktop-updates-install-1111.md",
-        "@vps/desktop-updates",
         "@vps/ssh-access"
       ],
       "status": "available",
       "head": "c505e0124b18a2163cfce1388460d2233227d22a",
-      "updatedAt": "2026-11-12T04:56:33.786Z",
-      "summary": "DEPLOYED 11.11 20:10 UTC+5: POS 0.5.0/Kitchen 0.4.0, source46453717, external200/no-store and root404; Cloud-1 candidate gate PASS; foreign SSH key revoked; receipt c505e012.",
+      "updatedAt": "2026-11-14T12:18:45.101Z",
+      "summary": "DEPLOYED 11.11 20:10 UTC+5: POS 0.5.0/Kitchen 0.4.0, source46453717, external200/no-store and root404; Cloud-1 candidate gate PASS; foreign SSH key revoked; receipt c505e012.\n14.11: only @vps/desktop-updates transferred to desktop-publish-1114 for explicit owner-authorized POS0.5.3/Kitchen0.4.3 publish from dec8b48c. Other scopes preserved.",
       "nextAction": "Server work complete. Do not repeat install. Integrate scoped receipt and update shared status/roadmap in coordination; device feed activation and update acceptance remain a separate step.\n12.11: exact API/PostgreSQL/gateway scopes transferred to cloud-expenses-live-1112 for the owner-authorized 072-077 and expenses-only window."
     },
     {
@@ -7830,6 +7829,20 @@
       "updatedAt": "2026-11-13T20:48:48.510Z",
       "summary": "Утверждённый HUD Pick Box выпущен в тестовые 37/11. iOS 37 Testing в PickChick Internal и Testing; Android 11 - единственное изменение закрытого Alpha на рассмотрении Google. Оба пакета из чистого 95ad8add, полный Foundation CI 11/11, 610 Node + 96 Python, exports PASS. Нативный iPhone Simulator: прямой вход, счёт 2, пауза/продолжение, выход и рекорд PASS. Резерв симулятора возвращён mobile-feedback-1029. Итог и доказательства a4e98d25 опубликованы, PR #368 обновлён; финальные 7 roadmap + 22 infra tests PASS. Публичного выпуска нет, обложка прежняя.",
       "nextAction": "Проверить решение Google по Alpha 11 и физически принять игру на iPhone/Android. Большой шрифт, экранный диктор, длинная сессия, вычитка KK и общая интеграция PR #368 остаются открытыми. Онлайн-пульт не перезаписывать старым операционным срезом этой ветки."
+    },
+    {
+      "id": "desktop-publish-1114",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/desktop-publish-1114",
+      "head": "dec8b48cd899fe015baee17a3853affbe7eee774",
+      "scopes": [
+        "@vps/desktop-updates",
+        "docs/operations/desktop-updates-published.json",
+        "docs/operations/desktop-updates-publish-1114.md"
+      ],
+      "status": "active",
+      "updatedAt": "2026-11-14T12:18:45.101Z",
+      "summary": "Owner authorized exact dec8b48c release: POS0.5.3 Kitchen0.4.3; idle only. Package, inspect, dry-run, tmux apply and published feed CI. No other runtime changes."
     }
   ],
   "approvedScopeTransfers": [
