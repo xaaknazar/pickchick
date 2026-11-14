@@ -1,0 +1,25 @@
+{
+  "releaseId": 445319786,
+  "prerelease": true,
+  "observedAt": "2026-11-14T16:49:50.096550+00:00",
+  "expiresBefore": "2026-11-14T17:49:50.096550+00:00",
+  "checkedAt": "2026-11-14T16:51:28.201112+00:00",
+  "ageSeconds": 98.1,
+  "existingZipUnchanged": true,
+  "assets": [
+    {
+      "name": "cloud-receipt-20261114T164949Z.json",
+      "bytes": 698,
+      "sha256": "baee22dce98ff6f9e23c3e02d711e50e2ff0aba0e6b0aa328547ca71e20cf902",
+      "url": "https://github.com/xaaknazar/pickchick/releases/download/point-kit-1114/cloud-receipt-20261114T164949Z.json",
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "cloud-receipt-20261114T164949Z.json.sha256",
+      "bytes": 102,
+      "sha256": "d508465ce0fdf302399b707f189b3acc7bd867dfa3ff3e85742e8a454b9f26af",
+      "url": "https://github.com/xaaknazar/pickchick/releases/download/point-kit-1114/cloud-receipt-20261114T164949Z.json.sha256",
+      "anonymousDownloadVerified": true
+    }
+  ]
+}
