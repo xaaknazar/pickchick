@@ -1,0 +1,202 @@
+{
+  "format": "pickchick-edge-window-preflight-v1",
+  "date": "2026-11-12",
+  "candidate_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
+  "status": "blocked_before_live_window",
+  "deployed": false,
+  "owner": {
+    "onsite": true,
+    "server_reported_on": true,
+    "separate_physical_ssd": false,
+    "recovery_key_location_verified": false
+  },
+  "package": {
+    "file": "edge-36e1dbe6.zip",
+    "bytes": 8924407,
+    "sha256": "138c933157a4dea523e19dd3996ea5d02a253b765b07e8c95668c4225ed41f2d",
+    "source_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
+    "manifest_files_verified": 8123,
+    "migration_count": 28,
+    "symlinks": 0,
+    "native_addons": 0,
+    "packaging_tests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "windows_runtime_acceptance": false,
+    "installed": false
+  },
+  "foundation": {
+    "run_id": 43202325943,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43202325943",
+    "head_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Foundation POS and backoffice integration",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation server account and Kaspi fixtures",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Design screens and interaction smoke",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation static checks and transaction invariants",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Private staging image and restricted database role",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation mobile bundles and checkout recovery",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Local kitchen UI and recovery",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Foundation simulator browser regressions",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build, contracts and PostgreSQL integration",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "offline": {
+    "run_id": 43208223740,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43208223740",
+    "mode": "ci",
+    "head_sha": "36e1dbe6827ad2819fc974327ed8c580079901b4",
+    "status": "completed",
+    "conclusion": "success",
+    "report_status": "passed",
+    "duration_seconds": 649,
+    "artifact_id": 13939872700,
+    "artifact_sha256": "0e63fbdd4c7862f747c1b0a33a3ba116204f38ea47779c09cd1c879dd86c9fc1",
+    "known_issues": [],
+    "scenarios": [
+      {
+        "id": "baseline",
+        "status": "passed"
+      },
+      {
+        "id": "backlog",
+        "status": "passed"
+      },
+      {
+        "id": "wan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "wan_chaos",
+        "status": "passed"
+      },
+      {
+        "id": "lan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restart",
+        "status": "passed"
+      },
+      {
+        "id": "cloud_restart",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restore",
+        "status": "passed"
+      },
+      {
+        "id": "paid_day",
+        "status": "passed"
+      },
+      {
+        "id": "staff_wan_vs_lan",
+        "status": "passed"
+      }
+    ]
+  },
+  "blockers": [
+    {
+      "code": "SEPARATE_SSD_MISSING",
+      "source": "owner_confirmation"
+    },
+    {
+      "code": "SCHEMA028_RUNTIME_INSTALLER_NOT_FOUND",
+      "source": "all_fetched_refs_infra_windows_and_cutover_runbook"
+    },
+    {
+      "code": "SCHEMA025_LEDGER_COUNT_MISMATCH",
+      "required_rows": 25,
+      "actual_rows": 28,
+      "ledger_sha256": "66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f"
+    }
+  ],
+  "forbidden_lan_operator": {
+    "run_id": 43201155993,
+    "job_id": 131124620301,
+    "conclusion": "failure",
+    "error": "Exception calling \"Replace\" with \"3\" argument(s): \"The path is not of a legal form.\"",
+    "executed_on_site": false
+  },
+  "live_operations": {
+    "password_reset_issued": false,
+    "password_changed": false,
+    "services_changed": false,
+    "database_migrations_applied": [],
+    "cloud_migrations_repeated": false,
+    "flags_changed": false,
+    "pos_sync_installed": false,
+    "pos_application_changed": false
+  },
+  "fresh_cloud_receipt_created": false,
+  "reason_no_cloud_receipt": "Generate only immediately before the eligible live window; expires after one hour.",
+  "backup_and_restore_performed": false,
+  "point_readonly": {
+    "ssh_checked": true,
+    "ssh_result": "timeout_before_powershell",
+    "services_verified": false,
+    "disks_verified": false,
+    "attempts": [
+      {
+        "client": "OpenSSH",
+        "result": "remote username contains invalid characters",
+        "remote_command_started": false
+      },
+      {
+        "client": "Paramiko with saved host keys and RejectPolicy",
+        "result": "timeout timed out",
+        "remote_command_started": false
+      }
+    ]
+  }
+}
