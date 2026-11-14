@@ -7852,9 +7852,9 @@
         "docs/operations/point-packages-1114.md",
         "docs/operations/point-packages-1114"
       ],
-      "status": "available",
+      "status": "active",
       "head": "9fbc4af301f2f194343a84214d6b684146d00196",
-      "updatedAt": "2026-11-14T17:33:11.824Z",
+      "updatedAt": "2026-11-14T18:01:23.960Z",
       "summary": "Диагностика подключения: команда48201d2a от17:27UTC доставлена и applied; mode prep, экран ожидает assembly. Только чтение, код и хеш не запрашивались. Протокол9fbc4af3 опубликован.",
       "nextAction": "Владелец создаёт новый экран с Назначение=Кухня - сборка; по запросу проверить assembly и applied. Старый prep не перепривязывать. Коды и секреты не писать в журнал/GitHub."
     }
