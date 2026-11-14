@@ -7850,12 +7850,11 @@
       "branch": "codex/point-packages-1114",
       "scopes": [
         "docs/operations/point-packages-1114.md",
-        "docs/operations/point-packages-1114",
-        "@github/releases/point-kit-1114"
+        "docs/operations/point-packages-1114"
       ],
       "status": "available",
       "head": "edfcfdf3238f7f4d486733eacd1a26758bb42ad7",
-      "updatedAt": "2026-11-14T13:39:11.524Z",
+      "updatedAt": "2026-11-14T13:39:39.338Z",
       "summary": "Owner replaced four separate runtime assets with one ZIP. Published public GitHub prerelease point-kit-1114, release445319786, exactly1 asset pickchick-point-window-1114-final-39f8ec85.zip,30494116 bytes,SHA256 bd916bc8b6dda82749aa2cdb66fc8d9af6fe234d35b53cb57b57de55262e1d13. GitHub digest and full anonymous HTTPS download verified at13:37:55UTC14Nov. No live owner.env/identity/credentials in package; internal checksums,32448 nested paths and high-confidence secret scan PASS. Tag points ff4078d3. No point-server action. Evidence committed and pushed.",
       "nextAction": "Claude downloads https://github.com/xaaknazar/pickchick/releases/download/point-kit-1114/pickchick-point-window-1114-final-39f8ec85.zip and verifies exact bytes/hash; no need for owner to transfer ZIP. On owner command справка сейчас prepare fresh hourly cloud receipt as documented. Do not republish/replace assets or modify tag. Github release reservation released; scoped documentation task remains available."
     }
