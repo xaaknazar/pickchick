@@ -7853,11 +7853,11 @@
         "docs/operations/point-packages-1114",
         "@github/releases/point-kit-1114"
       ],
-      "status": "active",
+      "status": "available",
       "head": "edfcfdf3238f7f4d486733eacd1a26758bb42ad7",
-      "updatedAt": "2026-11-14T13:39:05.706Z",
-      "summary": "Final file handoff prepared from owner-pinned merged operator source 39f8ec85385953917080257eef9d656392eb0519 (PR369), E:\\PickChickBackups. All109 operator files match Git,24 helper pins PASS, zero runtime diff. Windows43599326552 success3/3 including native PowerShell5.1 job132460485874. Runtime sources and5 complete Foundation proofs unchanged. Overall Foundation43599326539 still in_progress as of18:31Almaty, not claimed green; relevant operator Windows checks passed. Final ZIP in ~/Claude/PickChick-exchange/point-window-1114/pickchick-point-window-1114-final-39f8ec85.zip SHA256 bd916bc8b6dda82749aa2cdb66fc8d9af6fe234d35b53cb57b57de55262e1d13. Pending archive excluded. No point-server actions.",
-      "nextAction": "Owner forwards final ZIP to Claude. Point installation and fresh restores are Claude responsibility. On owner phrase справка сейчас issue timestamped cloud receipt through documented read-only collect-cloud.py --issue-receipt, deliver JSON/sha256; no receipt issued yet. General Foundation39f8ec85 remains a separately tracked run; do not call it passed without fresh evidence."
+      "updatedAt": "2026-11-14T13:39:11.524Z",
+      "summary": "Owner replaced four separate runtime assets with one ZIP. Published public GitHub prerelease point-kit-1114, release445319786, exactly1 asset pickchick-point-window-1114-final-39f8ec85.zip,30494116 bytes,SHA256 bd916bc8b6dda82749aa2cdb66fc8d9af6fe234d35b53cb57b57de55262e1d13. GitHub digest and full anonymous HTTPS download verified at13:37:55UTC14Nov. No live owner.env/identity/credentials in package; internal checksums,32448 nested paths and high-confidence secret scan PASS. Tag points ff4078d3. No point-server action. Evidence committed and pushed.",
+      "nextAction": "Claude downloads https://github.com/xaaknazar/pickchick/releases/download/point-kit-1114/pickchick-point-window-1114-final-39f8ec85.zip and verifies exact bytes/hash; no need for owner to transfer ZIP. On owner command справка сейчас prepare fresh hourly cloud receipt as documented. Do not republish/replace assets or modify tag. Github release reservation released; scoped documentation task remains available."
     }
   ],
   "approvedScopeTransfers": [
