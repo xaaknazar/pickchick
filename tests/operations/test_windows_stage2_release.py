@@ -12,6 +12,42 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'infra/windows/update-runtime-stage2-1024.ps1'
+NEIGHBOR_CASES = r"""
+$script:svc=@{};$script:sleeps=0;$script:onSleep={}
+function Get-CimInstance {param($ClassName,$Filter);return $script:svc[([regex]::Match($Filter,"Name='([^']+)'")).Groups[1].Value]}
+function Start-Sleep {param($Seconds);$script:sleeps++;& $script:onSleep}
+function New-Neighbor([string]$State,[int]$Id,[string]$Image='C:\tunnel\PickChickFulfillmentTunnel.exe'){return [pscustomobject]@{State=$State;ProcessId=$Id;PathName=$Image}}
+$script:tunnelImage='C:\tunnel\PickChickFulfillmentTunnel.exe'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 20
+Check ((Assert-RuntimeNeighbor 'PickChickPostgres' 10) -eq 10) 'Unchanged database process accepted'
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 20) -eq 20 -and $script:sleeps -eq 0) 'Unchanged tunnel accepted without waiting'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 21
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 20) -eq 21 -and $script:sleeps -eq 0) 'Restarted tunnel accepted with its new process'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0;$script:onSleep={if($script:sleeps -ge 3){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 22}}
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 21) -eq 22 -and $script:sleeps -eq 3) 'Tunnel awaited through its restart delay'
+$script:onSleep={};$script:sleeps=0;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Tunnel that stays down refused'
+Check ($script:sleeps -eq 40) 'Wait for the tunnel is bounded to two minutes'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 23 'C:\other\ssh.exe'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Tunnel service with another image refused'
+$script:svc.Remove('PickChickFulfillmentTunnel')
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Removed tunnel service refused'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 11;$script:sleeps=0
+Rejects {Assert-RuntimeNeighbor 'PickChickPostgres' 10} 'Restarted database refused'
+$script:svc['PickChickPostgres']=New-Neighbor 'Stopped' 0
+Rejects {Assert-RuntimeNeighbor 'PickChickPostgres' 10} 'Stopped database refused'
+$script:svc['PickChickOther']=New-Neighbor 'Running' 31
+Rejects {Assert-RuntimeNeighbor 'PickChickOther' 30} 'Any other restarted neighbour refused'
+Check ($script:sleeps -eq 0) 'Only the tunnel is awaited'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24
+$script:preserved=@{};$script:neighbors=@{PickChickPostgres=10;PickChickFulfillmentTunnel=22}
+Assert-RuntimePreserved
+Check ($script:neighbors['PickChickFulfillmentTunnel'] -eq 24 -and $script:neighbors['PickChickPostgres'] -eq 10) 'New tunnel process becomes the expected one'
+Assert-RuntimePreserved;Check $true 'Second check after the restart passes'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 12
+Rejects {Assert-RuntimePreserved} 'Database restart still stops the step'
+Remove-Item function:Get-CimInstance,function:Start-Sleep,function:New-Neighbor
+"""
 CASES = r'''
 $script:cases=0
 function Check([bool]$Value,[string]$Why){if(!$Value){throw $Why};$script:cases++}
@@ -75,7 +111,7 @@ Check $script:backupPaused 'Backup paused before maintenance'
 Check ($script:taskLog[0] -ceq 'disable' -and $script:taskLog[1] -ceq 'inspect') 'Disable before checking active job'
 Resume-Stage2Backup
 Check (!$script:backupPaused -and $script:taskLog[-1] -ceq 'enable') 'Backup schedule resumed'
-Write-Output ('stage2-1024: '+$script:cases+' checks passed; mocked SCM, no installation')
+''' + NEIGHBOR_CASES + r'''Write-Output ('stage2-1024: '+$script:cases+' checks passed; mocked SCM, no installation')
 '''
 
 

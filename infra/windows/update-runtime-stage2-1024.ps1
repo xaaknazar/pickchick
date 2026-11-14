@@ -59,9 +59,25 @@ function Assert-Stage2Predecessor([string]$Commit) {
  # Refresh this pin only after a separately reviewed and tested schema023 bridge.
  if($Commit -cne '0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c'){throw 'Unreviewed schema023 predecessor; replan the cashier window.'}
 }
+function Assert-RuntimeNeighbor([string]$Name,[int]$Expected) {
+ # Cashier window 14.11.2026: the cloud SSH tunnel is restarted by its service wrapper after
+ # every network reset (6-19 times a day on that cashier), which stopped step 024 mid-way. Such a
+ # restart is not a concurrent change of the edge: the same service image must be running again
+ # within two minutes and its new process is then the expected one. Every other neighbour,
+ # PostgreSQL first of all, must keep its process.
+ $s=Get-CimInstance Win32_Service -Filter "Name='$Name'"
+ if($s -and $s.State -ceq 'Running' -and $s.ProcessId -eq $Expected){return $Expected}
+ if($Name -cne 'PickChickFulfillmentTunnel'){throw 'Unrelated service changed.'}
+ for($i=0;$i -lt 40;$i++){
+  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -gt 0 -and $s.PathName -ceq $script:tunnelImage){return [int]$s.ProcessId}
+  Start-Sleep -Seconds 3
+  $s=Get-CimInstance Win32_Service -Filter "Name='$Name'"
+ }
+ throw 'Unrelated service changed.'
+}
 function Assert-RuntimePreserved {
  foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
- foreach($name in $script:neighbors.Keys){$s=Get-CimInstance Win32_Service -Filter "Name='$name'";if($s.State -cne 'Running' -or $s.ProcessId -ne $script:neighbors[$name]){throw 'Unrelated service changed.'}}
+ foreach($name in @($script:neighbors.Keys)){$script:neighbors[$name]=Assert-RuntimeNeighbor $name $script:neighbors[$name]}
 }
 function Invoke-RuntimeQuiesced([scriptblock]$Action,[scriptblock]$BeforeResume={}) {
  $order=@('PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickDeviceAccessWorker','PickChickKitchenLink','PickChickEdge')
@@ -170,6 +186,7 @@ foreach($spec in $specs){$path=Join-Path $program $spec[1];Assert-UpdateAcl $pat
 $preserved[$ownerEnv]=(Get-FileHash $ownerEnv -Algorithm SHA256).Hash
 foreach($s in Get-CimInstance Win32_Service -Filter "Name LIKE 'PickChick%'"|Where-Object {$_.State -ceq 'Running' -and $_.Name -notin @('PickChickEdge','PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickDeviceAccessWorker','PickChickKitchenLink')}){$neighbors[$s.Name]=$s.ProcessId}
 foreach($name in @('PickChickPostgres','PickChickFulfillmentTunnel')){if(-not $neighbors.ContainsKey($name)){throw 'Required stable infrastructure missing.'}}
+$script:tunnelImage=(Get-CimInstance Win32_Service -Filter "Name='PickChickFulfillmentTunnel'").PathName
 $installed=@{};foreach($app in @($oldEdge)){$pair=@($app,$oldSha);$m=Get-Content (Join-Path $pair[0] 'runtime-manifest.json') -Raw|ConvertFrom-Json;if($m.sourceCommit -cne $pair[1]){throw 'Installed runtime source differs.'};foreach($f in $m.files){$null=Assert-ArchiveName $f.path;if((Get-FileHash (Join-Path $pair[0] $f.path) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $f.sha256){throw 'Installed runtime drift.'};if($pair[0] -ceq $oldEdge){$installed[$f.path]=$f.sha256}}}
 Add-Type -AssemblyName System.IO.Compression
 $script:backupPaused=$false;$lease=$null;$archive=Open-VerifiedFile $RuntimeArchive $RuntimeSha256;$zip=[IO.Compression.ZipArchive]::new($archive,[IO.Compression.ZipArchiveMode]::Read,$true)
