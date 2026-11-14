@@ -76,6 +76,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_head_runtime_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/operations/test_windows_edge_backup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   package:
     name: Package installed Windows x64 POS
     runs-on: windows-2022

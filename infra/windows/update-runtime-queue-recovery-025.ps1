@@ -22,6 +22,7 @@ param(
  [Parameter(Mandatory=$true)][string]$CloudReleaseReceipt,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$CloudReceiptSha256,
  [Parameter(Mandatory=$true)][string]$CloudCiProof,
+ [switch]$AllowSameDiskBackup,
  [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -100,11 +101,13 @@ function Assert-QueueMigrationProof($Before,$After) {
   if($record.dataPreserved -isnot [bool] -or $record.dataPreserved -ne $true -or $record.restoreFenceExecuted -isnot [bool] -or $record.restoreFenceExecuted -ne $false){throw 'Migration changed data or restore state.'}
  }
 }
-function Assert-QueueBackupDisk([string]$Destination) {
+function Assert-QueueBackupDisk([string]$Destination,[bool]$SameDiskAllowed=$false) {
  $null=Assert-LocalNtfsPath $Destination
  if($Destination -cnotmatch '^[A-Za-z]:\\'){throw 'A separate local backup disk is required.'}
  $system=@(Get-Partition -DriveLetter 'C');$backup=@(Get-Partition -DriveLetter $Destination.Substring(0,1))
- if($system.Count -ne 1 -or $backup.Count -ne 1 -or $system[0].DiskNumber -eq $backup[0].DiskNumber){throw 'Backup must be on a different physical disk.'}
+ if($system.Count -ne 1 -or $backup.Count -ne 1){throw 'Backup must be on a different physical disk.'}
+ # Owner decision 14.11.2026 (-AllowSameDiskBackup): another partition of the system disk, never C itself.
+ if($system[0].DiskNumber -eq $backup[0].DiskNumber -and (-not $SameDiskAllowed -or $Destination.Substring(0,1) -ieq 'C')){throw 'Backup must be on a different physical disk.'}
  $disk=Get-Disk -Number $backup[0].DiskNumber
  if($disk.IsOffline -or $disk.IsReadOnly){throw 'Backup disk is not writable and online.'}
 }
@@ -162,8 +165,9 @@ function Assert-Stage2ToolPins {
   if((Get-FileHash (Join-Path $PSScriptRoot $pin.Key) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pin.Value){throw 'Stage2 delivery tool drift.'}
  }
 }
-function Get-Stage2BackupArguments([string]$Data,[guid]$Branch,[string]$Destination) {
+function Get-Stage2BackupArguments([string]$Data,[guid]$Branch,[string]$Destination,[bool]$SameDiskAllowed=$false) {
  $args=@{Mode='Install';BranchId=$Branch;Destination=$Destination;HourlyCopies=48;DailyCopies=14;MaxAgeMinutes=120;ReportInHeartbeat=$false}
+ if($SameDiskAllowed){$args.AllowSameDisk=$true}
  $path=Join-Path $Data 'EdgeBackup\private\edge-backup.json'
  if(Test-Path $path){
   Assert-UpdateAcl $path
@@ -202,7 +206,7 @@ function Wait-Stage2Backup([DateTime]$Since) {
 
 $script:stage2Pins=@{
  'native-edge-backup-ledger.json'='66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f'
- 'install-edge-backup.ps1'='ef102045ea0320e2297f53de81c657c231ccb9dad78278b66f3c665e65eb7919'
+ 'install-edge-backup.ps1'='60a937cfb9e702ba9f1039633561d5ae9a9f09bf6e67fb101d482fec105a91d0'
  'queue-recovery-upgrade-db.mjs'='f5cce0b0a757b9c49dc173a120598ffd3cc28c42f30cf6b857c5b730a4032440'
 }
 
@@ -265,8 +269,8 @@ try{
  $dump=Join-Path (Split-Path $BackupManifest) 'pickchick_edge.dump';if((Get-Item $dump).Length -ne $backup.archiveBytes){throw 'Backup size differs.'};$stream=Open-VerifiedFile $dump $backup.sha256;$stream.Dispose()
  Assert-RuntimePreserved
  Assert-Stage2ToolPins
- $backupArgs=Get-Stage2BackupArguments $data $BranchId $BackupDestination
- Assert-QueueBackupDisk $BackupDestination
+ $backupArgs=Get-Stage2BackupArguments $data $BranchId $BackupDestination ([bool]$AllowSameDiskBackup)
+ Assert-QueueBackupDisk $BackupDestination ([bool]$AllowSameDiskBackup)
  $null=& (Join-Path $PSScriptRoot 'install-edge-backup.ps1') @backupArgs -DryRun
  if(!$Apply){Write-Output 'VERIFIED: runtime, CI, restored backup, backup installer and schema024; no persistent change.';return}
  # Upgrade the backup tool while schema024 still works. This run must finish before pausing it.
@@ -277,7 +281,7 @@ try{
  Suspend-Stage2Backup
 
  $lease=Enter-UnifiedMaintenanceLock (Join-Path $data 'EdgeTools\unified-menu-maintenance.lock');Assert-RuntimePreserved
- Assert-QueueBackupDisk $BackupDestination
+ Assert-QueueBackupDisk $BackupDestination ([bool]$AllowSameDiskBackup)
  if((Read-RuntimeLedger).systemIdentifier -cne $foundation.systemIdentifier){throw 'Database cluster identity changed during preparation.'}
  Assert-QueueCloudReceipt $cloud $CloudSourceCommit $BranchId.ToString()
  foreach($b in $bindings){if([IO.File]::ReadAllText($b[0]) -cne $b[1]){throw 'Concurrent service change.'}}

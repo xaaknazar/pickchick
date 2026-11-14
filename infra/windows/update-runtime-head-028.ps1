@@ -16,6 +16,7 @@ param(
  [Parameter(Mandatory=$true)][string]$CiProof,
  [Parameter(Mandatory=$true)][guid]$BranchId,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{40}$')][string]$PredecessorCommit,
+ [switch]$AllowSameDiskBackup,
  [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -82,11 +83,13 @@ function Assert-HeadPredecessor($Completed,[string]$Predecessor) {
  # Operator 025 writes this record only after its runtime, schema and backup checks passed.
  if($null -eq $Completed -or $Completed.sourceCommit -cne $Predecessor -or $Completed.schema -ne 25 -or $Completed.databasePreserved -isnot [bool] -or $Completed.databasePreserved -ne $true -or $Completed.environmentChanged -isnot [bool] -or $Completed.environmentChanged -ne $false){throw 'Completed step 025 of the exact predecessor required.'}
 }
-function Assert-HeadBackupDisk([string]$Destination) {
+function Assert-HeadBackupDisk([string]$Destination,[bool]$SameDiskAllowed=$false) {
  $null=Assert-LocalNtfsPath $Destination
  if($Destination -cnotmatch '^[A-Za-z]:\\'){throw 'A separate local backup disk is required.'}
  $system=@(Get-Partition -DriveLetter 'C');$backup=@(Get-Partition -DriveLetter $Destination.Substring(0,1))
- if($system.Count -ne 1 -or $backup.Count -ne 1 -or $system[0].DiskNumber -eq $backup[0].DiskNumber){throw 'Backup must be on a different physical disk.'}
+ if($system.Count -ne 1 -or $backup.Count -ne 1){throw 'Backup must be on a different physical disk.'}
+ # Owner decision 14.11.2026 (-AllowSameDiskBackup): another partition of the system disk, never C itself.
+ if($system[0].DiskNumber -eq $backup[0].DiskNumber -and (-not $SameDiskAllowed -or $Destination.Substring(0,1) -ieq 'C')){throw 'Backup must be on a different physical disk.'}
  $disk=Get-Disk -Number $backup[0].DiskNumber
  if($disk.IsOffline -or $disk.IsReadOnly){throw 'Backup disk is not writable and online.'}
 }
@@ -137,7 +140,7 @@ function Assert-HeadToolPins {
 
 $script:headPins=@{
  'native-edge-backup-ledger.json'='66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f'
- 'install-edge-backup.ps1'='ef102045ea0320e2297f53de81c657c231ccb9dad78278b66f3c665e65eb7919'
+ 'install-edge-backup.ps1'='60a937cfb9e702ba9f1039633561d5ae9a9f09bf6e67fb101d482fec105a91d0'
 }
 $script:writers=@('PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickDeviceAccessWorker','PickChickKitchenLink','PickChickEdge')
 $script:startOrder=@('PickChickEdge','PickChickKitchenLink','PickChickDeviceAccessWorker','PickChickMenuSyncWorker','PickChickFulfillmentWorker')
@@ -196,7 +199,7 @@ try{
  $db=Read-RuntimeLedger;if($db.systemIdentifier -cne $foundation.systemIdentifier){throw 'Database cluster identity changed.'};Assert-RuntimeLedger $db.ledger $ledger;if(@($db.branch).Count -ne 1 -or $db.branch[0].id -cne $BranchId.ToString()){throw 'Branch changed.'}
  Assert-HeadToolPins
  $backupConfig=Join-Path $data 'EdgeBackup\private\edge-backup.json';Assert-UpdateAcl $backupConfig
- Assert-HeadBackupDisk (Get-Content $backupConfig -Raw|ConvertFrom-Json).destination
+ Assert-HeadBackupDisk (Get-Content $backupConfig -Raw|ConvertFrom-Json).destination ([bool]$AllowSameDiskBackup)
  Assert-HeadBackupHealth ((& (Join-Path $PSScriptRoot 'install-edge-backup.ps1') -Mode Inspect)|ConvertFrom-Json) ([DateTime]::UtcNow.AddHours(-2))
  Assert-RuntimePreserved
  if(!$Apply){Write-Output 'VERIFIED: head runtime, CI, step 025, schema028, stopped writers and schema028 backup; no persistent change.';return}

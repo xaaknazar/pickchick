@@ -11,6 +11,9 @@
                       \PickChick\PickChickEdgeBackup (hourly and 10 minutes after start-up), one run.
    Uninstall [-DryRun] [-RemoveDatabaseRole -BranchId]  removes the task (and the role); the key,
                       configuration, logs and every copy are kept.
+   Install -AllowSameDisk  owner decision 14.11.2026: until a second disk is connected the copies
+                      may go to another partition of the disk that holds the database. Such copies
+                      do not survive a failure of that disk; destinationKind says 'same-disk'.
    No password or key is passed as an argument or printed. The task runs without a signed-in
    user. Re-running Install changes destination/retention; the key and password are never replaced. #>
 [CmdletBinding()]
@@ -24,6 +27,7 @@ param(
     [switch]$ReportInHeartbeat,
     [switch]$DryRun,
     [switch]$RemoveDatabaseRole,
+    [switch]$AllowSameDisk,
     [ValidatePattern('^edge-[a-f0-9]{7}$')][string]$FoundationReleaseName = 'edge-0186902',
     [ValidatePattern('^[0-9][0-9.]{0,10}-[0-9]{1,3}$')][string]$PostgresRelease = '18.6-3'
 )
@@ -137,7 +141,14 @@ function Copy-VerifiedTools([string]$Target) {
 }
 <# Destination: a folder on another physical disk (NTFS, fixed or removable) or a \\server\share
    folder. A share is only checked for reachability here; the SYSTEM task proves its own access. #>
-function Test-BackupDestination([string]$Path, [string]$DataPath) {
+function Resolve-BackupDiskKind([int]$DestinationDisk, [int]$DataDisk, [string]$DriveType, [bool]$SameDiskAllowed) {
+    if ($DestinationDisk -ne $DataDisk) { return 'disk' }
+    if (-not $SameDiskAllowed) { throw 'Destination is a partition of the same physical disk as the database; use a second disk or a NAS.' }
+    # Owner decision 14.11.2026 (-AllowSameDisk): another partition of the database disk.
+    if ($DriveType -cne 'Fixed') { throw 'Same-disk destination must be a fixed partition.' }
+    return 'same-disk'
+}
+function Test-BackupDestination([string]$Path, [string]$DataPath, [bool]$SameDiskAllowed = $false) {
     if ($Path -match '^\\\\[A-Za-z0-9][A-Za-z0-9.-]*\\[^\\]+') {
         if (-not (Test-Path -LiteralPath $Path -PathType Container)) { throw 'Destination share folder is not reachable; create it first.' }
         return 'network'
@@ -148,8 +159,7 @@ function Test-BackupDestination([string]$Path, [string]$DataPath) {
     $drive = [IO.DriveInfo]::new($letter + ':\')
     if (-not $drive.IsReady -or $drive.DriveFormat -ne 'NTFS' -or [string]$drive.DriveType -notin @('Fixed', 'Removable')) { throw 'Destination disk must be a ready NTFS fixed or removable disk.' }
     $disks = @(@($letter, $dataLetter) | ForEach-Object { (Get-Partition -DriveLetter $_ -ErrorAction Stop).DiskNumber })
-    if ($disks[0] -eq $disks[1]) { throw 'Destination is a partition of the same physical disk as the database; use a second disk or a NAS.' }
-    return 'disk'
+    return Resolve-BackupDiskKind $disks[0] $disks[1] ([string]$drive.DriveType) $SameDiskAllowed
 }
 function Get-BackupHealth([string]$Path, [DateTime]$NowUtc) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return [pscustomobject]@{ state = 'missing'; error = $null; lastAttemptAt = $null; lastSuccessAt = $null; ageMinutes = $null; stale = $true; schema = $null; copies = $null; keyId = $null } }
@@ -241,7 +251,7 @@ if ($Mode -eq 'Uninstall') {
 
 # Install
 if ($BranchId -eq [guid]::Empty -or -not $Destination) { throw 'Install requires -BranchId and -Destination.' }
-$kind = Test-BackupDestination $Destination $dataRoot
+$kind = Test-BackupDestination $Destination $dataRoot ([bool]$AllowSameDisk)
 $setupArguments = @($stateRoot, $toolsRoot, $pgBin, $BranchId.ToString(), $Destination, [string]$HourlyCopies, [string]$DailyCopies, [string]$MaxAgeMinutes, ([string][bool]$ReportInHeartbeat).ToLowerInvariant())
 $taskArguments = (Format-ProcessArgument (Join-Path $toolRoot 'edge-backup-task.mjs')) + ' ' + (Format-ProcessArgument $configPath)
 if ($DryRun) {
@@ -261,7 +271,7 @@ foreach ($name in @('private', 'staging', 'logs')) { Initialize-ProtectedDirecto
 # The fulfillment worker (LocalService) may read only the health record, for the optional heartbeat.
 Initialize-ProtectedDirectory (Join-Path $stateRoot 'health') -ServiceRead
 Initialize-ProtectedDirectory (Join-Path $programRoot 'EdgeBackup')
-if ($kind -eq 'disk') { Initialize-Destination $Destination }
+if ($kind -ne 'network') { Initialize-Destination $Destination }
 Copy-VerifiedTools $toolRoot
 $result = Invoke-BackupNode $toolRoot (@('install') + $setupArguments)
 foreach ($name in @('backup-key.json', 'backup-db.json', 'edge-backup.json')) { Protect-File (Join-Path $privateRoot $name) }

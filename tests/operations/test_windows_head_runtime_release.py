@@ -54,7 +54,10 @@ function Get-Partition([string]$DriveLetter){return [pscustomobject]@{DiskNumber
 function Get-Disk([int]$Number){return [pscustomobject]@{IsOffline=$script:diskOffline;IsReadOnly=$script:diskReadonly}}
 Assert-HeadBackupDisk 'D:\Backups';Check $true 'Separate physical disk accepted'
 Rejects {Assert-HeadBackupDisk 'C:\Backups'} 'System disk refused'
-$script:backupDisk=0;Rejects {Assert-HeadBackupDisk 'D:\Backups'} 'Second partition of the system disk refused';$script:backupDisk=1
+$script:backupDisk=0;Rejects {Assert-HeadBackupDisk 'D:\Backups'} 'Second partition of the system disk refused'
+Assert-HeadBackupDisk 'D:\Backups' $true;Check $true 'Second partition accepted by the owner switch'
+Rejects {Assert-HeadBackupDisk 'C:\Backups' $true} 'System partition refused even with the owner switch'
+$script:diskOffline=$true;Rejects {Assert-HeadBackupDisk 'D:\Backups' $true} 'Offline same disk refused';$script:diskOffline=$false;$script:backupDisk=1
 $script:diskOffline=$true;Rejects {Assert-HeadBackupDisk 'D:\Backups'} 'Offline disk refused';$script:diskOffline=$false
 $script:diskReadonly=$true;Rejects {Assert-HeadBackupDisk 'D:\Backups'} 'Readonly disk refused';$script:diskReadonly=$false
 Rejects {Assert-HeadBackupDisk '\\server\share'} 'UNC refused'
