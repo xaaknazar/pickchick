@@ -7850,11 +7850,12 @@
       "branch": "codex/point-packages-1114",
       "scopes": [
         "docs/operations/point-packages-1114.md",
-        "docs/operations/point-packages-1114"
+        "docs/operations/point-packages-1114",
+        "@vps/home/pickchick-ops/ssh-observation-1114"
       ],
-      "status": "available",
+      "status": "active",
       "head": "b764e30ba3a5825afa211df368816dafb97686b8",
-      "updatedAt": "2026-11-14T14:29:01.421Z",
+      "updatedAt": "2026-11-14T14:44:50.937Z",
       "summary": "b764e30b: инструкция справки025, ручной ротации по21.10 и первой установки POS sync опубликована. Connection/known_hosts внеGit, права700/600 и SHA проверены. Cloud read-only: expiry20.11 12:34:54Алматы, binding0, POSflagfalse. На точке ничего не запускалось, секреты не выдавались.",
       "nextAction": "Ждать справка сейчас: собрать свежую справку и добавитьJSON+sha256 в существующий point-kit-1114. Продление отдельно после готового SFTP; POS после нового runtime, не ночью14.11; реальные ключи/binding отClaude."
     }
