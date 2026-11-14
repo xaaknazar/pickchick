@@ -139,6 +139,11 @@ pg_dump/pg_restore той же установки PostgreSQL. Команды с�
 
 ## Справка облака для 025
 
+Продолжение по поручению владельца 14.11: [справка, продление ключа и первая установка POS sync](point-packages-1114/identity-and-pos-sync.md).
+Справка выпускается только по команде «справка сейчас» и добавляется парой JSON + .sha256
+в уже опубликованный point-kit-1114. Закрытые входные файлы POS подготовлены на Mac вне Git;
+продление, SSH-учётные записи, cloud-binding и установка POS сейчас не выполнялись.
+
 CloudSourceCommit: `7e3120438461cbe561b01a587578060ff2cd9d3b`.
 CloudCiProof: `ci/ci-7e312043.json`, Foundation 43166859449, 11/11 PASS.
 https://github.com/xaaknazar/pickchick/actions/runs/43166859449
