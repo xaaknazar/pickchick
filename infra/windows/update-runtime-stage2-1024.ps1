@@ -72,22 +72,30 @@ function Assert-RuntimeNeighbor([string]$Name,[int]$Expected) {
  # Cashier window 14.11.2026: the cloud SSH tunnel is restarted by its service wrapper after
  # every network reset (6-19 times a day on that cashier), which stopped step 024 mid-way. Such a
  # restart is not a concurrent change of the edge: the same wrapper under the same account must be
- # running again within three minutes and its new process is then the expected one. Every other
- # neighbour, PostgreSQL first of all, must keep its process.
- $s=Get-CimInstance Win32_Service -Filter "Name='$Name'"
- if($s -and $s.State -ceq 'Running' -and $s.ProcessId -eq $Expected){return $Expected}
- if($Name -cne 'PickChickFulfillmentTunnel'){throw 'Unrelated service changed.'}
- for($i=0;$i -lt 60;$i++){
-  if($s -and ($s.PathName -cne $script:tunnelImage -or $s.StartName -cne $script:tunnelAccount)){throw 'Unrelated service changed.'}
-  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -gt 0){return [int]$s.ProcessId}
-  Start-Sleep -Seconds 3
+ # running again within three minutes and its new process is then the expected one. The tunnel
+ # registration is compared before every accepted result, also with an unchanged process. Every
+ # other neighbour, PostgreSQL first of all, must keep its process.
+ $tunnel=$Name -ceq 'PickChickFulfillmentTunnel'
+ for($i=0;$i -le 60;$i++){
+  if($i){Start-Sleep -Seconds 3}
   $s=Get-CimInstance Win32_Service -Filter "Name='$Name'"
+  if($tunnel -and $s -and ($s.PathName -cne $script:tunnelImage -or $s.StartName -cne $script:tunnelAccount)){throw 'Unrelated service changed.'}
+  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -eq $Expected){return $Expected}
+  if(-not $tunnel){throw 'Unrelated service changed.'}
+  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -gt 0){return [int]$s.ProcessId}
  }
  throw 'Cloud tunnel did not return within three minutes.'
 }
 function Assert-RuntimePreserved {
- foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
- foreach($name in @($script:neighbors.Keys)){$script:neighbors[$name]=Assert-RuntimeNeighbor $name $script:neighbors[$name]}
+ # Accepting a restarted tunnel may have waited for minutes: files and every neighbour are checked
+ # again until one whole pass sees no change.
+ for($pass=0;$pass -lt 4;$pass++){
+  foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
+  $moved=$false
+  foreach($name in @($script:neighbors.Keys)){$current=Assert-RuntimeNeighbor $name $script:neighbors[$name];if($current -ne $script:neighbors[$name]){$script:neighbors[$name]=$current;$moved=$true}}
+  if(-not $moved){return}
+ }
+ throw 'Cloud tunnel keeps restarting.'
 }
 function Invoke-RuntimeQuiesced([scriptblock]$Action,[scriptblock]$BeforeResume={}) {
  $order=@('PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickDeviceAccessWorker','PickChickKitchenLink','PickChickEdge')

@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'infra/windows/update-runtime-stage2-1024.ps1'
 NEIGHBOR_CASES = r"""
 $script:svc=@{};$script:sleeps=0;$script:onSleep={}
-function Get-CimInstance {param($ClassName,$Filter);if($ClassName -cne 'Win32_Service'){throw 'Unexpected CIM class'};return $script:svc[([regex]::Match($Filter,"Name='([^']+)'")).Groups[1].Value]}
+$script:flap=0
+function Get-CimInstance {param($ClassName,$Filter);if($ClassName -cne 'Win32_Service'){throw 'Unexpected CIM class'};$n=([regex]::Match($Filter,"Name='([^']+)'")).Groups[1].Value;if($script:flap -and $n -ceq 'PickChickFulfillmentTunnel'){$script:flap++;return New-Neighbor 'Running' $script:flap};return $script:svc[$n]}
 function Start-Sleep {param($Seconds);$script:sleeps++;& $script:onSleep}
 $neighborDir=Join-Path ([IO.Path]::GetTempPath()) ('pickchick-neighbor-'+[guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory -Path $neighborDir
 try {
@@ -62,6 +63,24 @@ Assert-RuntimePreserved;Check $true 'Second check after the restart passes'
 Rejects {Assert-RuntimePreserved} 'Restart with a changed tunnel configuration refused'
 [IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id></service>')
 Assert-RuntimePreserved;Check $true 'Restored tunnel configuration accepted'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24 'C:\other\ssh.exe'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 24} 'Changed registration refused with an unchanged process'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24 $wrapper 'LocalSystem'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 24} 'Changed account refused with an unchanged process'
+$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:sleeps=0
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+$script:onSleep={if($script:sleeps -ge 2){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 25;$script:svc['PickChickPostgres']=New-Neighbor 'Running' 13}}
+Rejects {Assert-RuntimePreserved} 'Database restart during the tunnel wait refused'
+Check ($script:sleeps -ge 2) 'The database was checked again after the wait'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10;$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:sleeps=0
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+$script:onSleep={if($script:sleeps -ge 2){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 26;[IO.File]::WriteAllText($wrapperXml,'<service><id>changed while waiting</id></service>')}}
+Rejects {Assert-RuntimePreserved} 'Configuration changed during the tunnel wait refused'
+[IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id></service>');$script:onSleep={}
+$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 27
+Assert-RuntimePreserved;Check ($script:neighbors['PickChickFulfillmentTunnel'] -eq 27) 'Quiet second pass accepts the restarted tunnel'
+$script:flap=100;Rejects {Assert-RuntimePreserved} 'Tunnel that restarts on every pass refused';$script:flap=0
+$script:neighbors=@{PickChickPostgres=10;PickChickFulfillmentTunnel=27}
 $script:svc['PickChickPostgres']=New-Neighbor 'Running' 12
 Rejects {Assert-RuntimePreserved} 'Database restart still stops the step'
 } finally {[IO.Directory]::Delete($neighborDir,$true);Remove-Item function:Get-CimInstance,function:Start-Sleep,function:New-Neighbor -ErrorAction SilentlyContinue}
