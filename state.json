@@ -7850,11 +7850,12 @@
       "branch": "codex/point-packages-1114",
       "scopes": [
         "docs/operations/point-packages-1114.md",
-        "docs/operations/point-packages-1114"
+        "docs/operations/point-packages-1114",
+        "@github/releases/point-kit-1114"
       ],
-      "status": "available",
+      "status": "active",
       "head": "ff4078d3d77acc692ac5eb90b02684370c0a93f6",
-      "updatedAt": "2026-11-14T13:32:54.588Z",
+      "updatedAt": "2026-11-14T13:34:05.195Z",
       "summary": "Final file handoff prepared from owner-pinned merged operator source 39f8ec85385953917080257eef9d656392eb0519 (PR369), E:\\PickChickBackups. All109 operator files match Git,24 helper pins PASS, zero runtime diff. Windows43599326552 success3/3 including native PowerShell5.1 job132460485874. Runtime sources and5 complete Foundation proofs unchanged. Overall Foundation43599326539 still in_progress as of18:31Almaty, not claimed green; relevant operator Windows checks passed. Final ZIP in ~/Claude/PickChick-exchange/point-window-1114/pickchick-point-window-1114-final-39f8ec85.zip SHA256 bd916bc8b6dda82749aa2cdb66fc8d9af6fe234d35b53cb57b57de55262e1d13. Pending archive excluded. No point-server actions.",
       "nextAction": "Owner forwards final ZIP to Claude. Point installation and fresh restores are Claude responsibility. On owner phrase справка сейчас issue timestamped cloud receipt through documented read-only collect-cloud.py --issue-receipt, deliver JSON/sha256; no receipt issued yet. General Foundation39f8ec85 remains a separately tracked run; do not call it passed without fresh evidence."
     }
