@@ -12,6 +12,79 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'infra/windows/update-runtime-stage2-1024.ps1'
+NEIGHBOR_CASES = r"""
+$script:svc=@{};$script:sleeps=0;$script:onSleep={}
+$script:flap=0
+function Get-CimInstance {param($ClassName,$Filter);if($ClassName -cne 'Win32_Service'){throw 'Unexpected CIM class'};$n=([regex]::Match($Filter,"Name='([^']+)'")).Groups[1].Value;if($script:flap -and $n -ceq 'PickChickFulfillmentTunnel'){$script:flap++;return New-Neighbor 'Running' $script:flap};return $script:svc[$n]}
+function Start-Sleep {param($Seconds);$script:sleeps++;& $script:onSleep}
+$neighborDir=Join-Path ([IO.Path]::GetTempPath()) ('pickchick-neighbor-'+[guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory -Path $neighborDir
+try {
+$wrapper='"'+(Join-Path $neighborDir 'PickChickFulfillmentTunnel.exe')+'"';$wrapperXml=Join-Path $neighborDir 'PickChickFulfillmentTunnel.xml'
+function New-Neighbor([string]$State,[int]$Id,[string]$Image=$wrapper,[string]$Account='NT AUTHORITY\LocalService'){return [pscustomobject]@{State=$State;ProcessId=$Id;PathName=$Image;StartName=$Account}}
+$script:preserved=@{};$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 20
+Rejects {Register-RuntimeTunnel} 'Tunnel without its configuration file refused'
+Check ($script:preserved.Count -eq 0) 'Nothing registered for a tunnel without configuration'
+[IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id></service>')
+Register-RuntimeTunnel
+Check ($script:tunnelImage -ceq $wrapper -and $script:tunnelAccount -ceq 'NT AUTHORITY\LocalService') 'Tunnel wrapper and account recorded'
+Check ($script:preserved.Count -eq 1 -and $script:preserved[$wrapperXml] -ceq (Get-FileHash -LiteralPath $wrapperXml -Algorithm SHA256).Hash) 'Tunnel configuration joins the preserved files'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10
+Check ((Assert-RuntimeNeighbor 'PickChickPostgres' 10) -eq 10) 'Unchanged database process accepted'
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 20) -eq 20 -and $script:sleeps -eq 0) 'Unchanged tunnel accepted without waiting'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 21
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 20) -eq 21 -and $script:sleeps -eq 0) 'Restarted tunnel accepted with its new process'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0;$script:onSleep={if($script:sleeps -ge 3){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 22}}
+Check ((Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 21) -eq 22 -and $script:sleeps -eq 3) 'Tunnel awaited through its restart delay'
+$script:onSleep={};$script:sleeps=0;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Tunnel that stays down refused'
+Check ($script:sleeps -eq 60) 'Wait for the tunnel is bounded to three minutes'
+$script:sleeps=0;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 23 'C:\other\ssh.exe'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Tunnel service with another wrapper refused'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 23 $wrapper 'LocalSystem'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Tunnel service under another account refused'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0 'C:\other\ssh.exe'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Rebound tunnel refused even while stopped'
+Check ($script:sleeps -eq 0) 'A changed tunnel service is refused without waiting'
+$script:svc.Remove('PickChickFulfillmentTunnel')
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 22} 'Removed tunnel service refused'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 11;$script:sleeps=0
+Rejects {Assert-RuntimeNeighbor 'PickChickPostgres' 10} 'Restarted database refused'
+$script:svc['PickChickPostgres']=New-Neighbor 'Stopped' 0
+Rejects {Assert-RuntimeNeighbor 'PickChickPostgres' 10} 'Stopped database refused'
+$script:svc['PickChickOther']=New-Neighbor 'Running' 31
+Rejects {Assert-RuntimeNeighbor 'PickChickOther' 30} 'Any other restarted neighbour refused'
+Check ($script:sleeps -eq 0) 'Only the tunnel is awaited'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10;$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24
+$script:neighbors=@{PickChickPostgres=10;PickChickFulfillmentTunnel=22}
+Assert-RuntimePreserved
+Check ($script:neighbors['PickChickFulfillmentTunnel'] -eq 24 -and $script:neighbors['PickChickPostgres'] -eq 10) 'New tunnel process becomes the expected one'
+Assert-RuntimePreserved;Check $true 'Second check after the restart passes'
+[IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id><arguments>other</arguments></service>')
+Rejects {Assert-RuntimePreserved} 'Restart with a changed tunnel configuration refused'
+[IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id></service>')
+Assert-RuntimePreserved;Check $true 'Restored tunnel configuration accepted'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24 'C:\other\ssh.exe'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 24} 'Changed registration refused with an unchanged process'
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 24 $wrapper 'LocalSystem'
+Rejects {Assert-RuntimeNeighbor 'PickChickFulfillmentTunnel' 24} 'Changed account refused with an unchanged process'
+$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:sleeps=0
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+$script:onSleep={if($script:sleeps -ge 2){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 25;$script:svc['PickChickPostgres']=New-Neighbor 'Running' 13}}
+Rejects {Assert-RuntimePreserved} 'Database restart during the tunnel wait refused'
+Check ($script:sleeps -ge 2) 'The database was checked again after the wait'
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 10;$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:sleeps=0
+$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Stopped' 0
+$script:onSleep={if($script:sleeps -ge 2){$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 26;[IO.File]::WriteAllText($wrapperXml,'<service><id>changed while waiting</id></service>')}}
+Rejects {Assert-RuntimePreserved} 'Configuration changed during the tunnel wait refused'
+[IO.File]::WriteAllText($wrapperXml,'<service><id>PickChickFulfillmentTunnel</id></service>');$script:onSleep={}
+$script:neighbors=[ordered]@{PickChickPostgres=10;PickChickFulfillmentTunnel=24};$script:svc['PickChickFulfillmentTunnel']=New-Neighbor 'Running' 27
+Assert-RuntimePreserved;Check ($script:neighbors['PickChickFulfillmentTunnel'] -eq 27) 'Quiet second pass accepts the restarted tunnel'
+$script:flap=100;Rejects {Assert-RuntimePreserved} 'Tunnel that restarts on every pass refused';$script:flap=0
+$script:neighbors=@{PickChickPostgres=10;PickChickFulfillmentTunnel=27}
+$script:svc['PickChickPostgres']=New-Neighbor 'Running' 12
+Rejects {Assert-RuntimePreserved} 'Database restart still stops the step'
+} finally {[IO.Directory]::Delete($neighborDir,$true);Remove-Item function:Get-CimInstance,function:Start-Sleep,function:New-Neighbor -ErrorAction SilentlyContinue}
+"""
 CASES = r'''
 $script:cases=0
 function Check([bool]$Value,[string]$Why){if(!$Value){throw $Why};$script:cases++}
@@ -75,7 +148,7 @@ Check $script:backupPaused 'Backup paused before maintenance'
 Check ($script:taskLog[0] -ceq 'disable' -and $script:taskLog[1] -ceq 'inspect') 'Disable before checking active job'
 Resume-Stage2Backup
 Check (!$script:backupPaused -and $script:taskLog[-1] -ceq 'enable') 'Backup schedule resumed'
-Write-Output ('stage2-1024: '+$script:cases+' checks passed; mocked SCM, no installation')
+''' + NEIGHBOR_CASES + r'''Write-Output ('stage2-1024: '+$script:cases+' checks passed; mocked SCM, no installation')
 '''
 
 

@@ -106,9 +106,43 @@ function Assert-HeadWritersStopped {
  }
  if(Get-Service 'PickChickPosSync' -ErrorAction SilentlyContinue){throw 'POS-sync already installed; a separate reviewed transition is required.'}
 }
+function Register-RuntimeTunnel {
+ # The cloud tunnel may restart on its own during a step (Assert-RuntimeNeighbor), but its wrapper,
+ # account and configuration may not change: the configuration joins the preserved files.
+ $s=Get-CimInstance Win32_Service -Filter "Name='PickChickFulfillmentTunnel'"
+ $xml=[IO.Path]::ChangeExtension($s.PathName.Trim('"'),'.xml')
+ if(-not(Test-Path -LiteralPath $xml -PathType Leaf)){throw 'Tunnel configuration absent.'}
+ $script:tunnelImage=$s.PathName;$script:tunnelAccount=$s.StartName
+ $script:preserved[$xml]=(Get-FileHash -LiteralPath $xml -Algorithm SHA256).Hash
+}
+function Assert-RuntimeNeighbor([string]$Name,[int]$Expected) {
+ # Cashier window 14.11.2026: the cloud SSH tunnel is restarted by its service wrapper after
+ # every network reset (6-19 times a day on that cashier), which stopped step 024 mid-way. Such a
+ # restart is not a concurrent change of the edge: the same wrapper under the same account must be
+ # running again within three minutes and its new process is then the expected one. The tunnel
+ # registration is compared before every accepted result, also with an unchanged process. Every
+ # other neighbour, PostgreSQL first of all, must keep its process.
+ $tunnel=$Name -ceq 'PickChickFulfillmentTunnel'
+ for($i=0;$i -le 60;$i++){
+  if($i){Start-Sleep -Seconds 3}
+  $s=Get-CimInstance Win32_Service -Filter "Name='$Name'"
+  if($tunnel -and $s -and ($s.PathName -cne $script:tunnelImage -or $s.StartName -cne $script:tunnelAccount)){throw 'Unrelated service changed.'}
+  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -eq $Expected){return $Expected}
+  if(-not $tunnel){throw 'Unrelated service changed.'}
+  if($s -and $s.State -ceq 'Running' -and $s.ProcessId -gt 0){return [int]$s.ProcessId}
+ }
+ throw 'Cloud tunnel did not return within three minutes.'
+}
 function Assert-RuntimePreserved {
- foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
- foreach($name in $script:neighbors.Keys){$s=Get-CimInstance Win32_Service -Filter "Name='$name'";if($s.State -cne 'Running' -or $s.ProcessId -ne $script:neighbors[$name]){throw 'Unrelated service changed.'}}
+ # Accepting a restarted tunnel may have waited for minutes: files and every neighbour are checked
+ # again until one whole pass sees no change.
+ for($pass=0;$pass -lt 4;$pass++){
+  foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
+  $moved=$false
+  foreach($name in @($script:neighbors.Keys)){$current=Assert-RuntimeNeighbor $name $script:neighbors[$name];if($current -ne $script:neighbors[$name]){$script:neighbors[$name]=$current;$moved=$true}}
+  if(-not $moved){return}
+ }
+ throw 'Cloud tunnel keeps restarting.'
 }
 function Assert-HeadBindings($Bindings) {
  $old=$true;$new=$true
@@ -183,6 +217,7 @@ for($i=0;$i -lt $specs.Count;$i++){$spec=$specs[$i];$path=Join-Path $program $sp
 $preserved[$ownerEnv]=(Get-FileHash $ownerEnv -Algorithm SHA256).Hash
 foreach($s in Get-CimInstance Win32_Service -Filter "Name LIKE 'PickChick%'"|Where-Object {$_.State -ceq 'Running'}){$neighbors[$s.Name]=$s.ProcessId}
 foreach($name in @('PickChickPostgres','PickChickFulfillmentTunnel')){if(-not $neighbors.ContainsKey($name)){throw 'Required stable infrastructure missing.'}}
+Register-RuntimeTunnel
 $installed=@{};$m=Get-Content (Join-Path $script:oldEdge 'runtime-manifest.json') -Raw|ConvertFrom-Json;if($m.sourceCommit -cne $PredecessorCommit){throw 'Installed runtime source differs.'}
 foreach($f in $m.files){$null=Assert-ArchiveName $f.path;if((Get-FileHash (Join-Path $script:oldEdge $f.path) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $f.sha256){throw 'Installed runtime drift.'};$installed[$f.path]=$f.sha256}
 Add-Type -AssemblyName System.IO.Compression

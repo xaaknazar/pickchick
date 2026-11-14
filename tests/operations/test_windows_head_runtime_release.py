@@ -22,6 +22,8 @@ function Rejects([scriptblock]$Run,[string]$Why){$bad=$false;try{& $Run|Out-Null
 $script:node='C:\node.exe'
 # The same lists as the operator (test_service_lists_match_the_operator keeps them equal).
 __SERVICE_LISTS__
+# Before the mocked Assert-RuntimePreserved below: the real neighbour checks of the operator.
+__NEIGHBOR_CASES__
 function Xml([string]$App){return '<service><id>Example</id><executable>C:\node.exe</executable><workingdirectory>'+$App+'</workingdirectory><arguments>--env-file="C:\private\worker.env" "'+$App+'\worker.mjs" "C:\private\identity.json"</arguments><serviceaccount><user>LocalService</user><domain>NT AUTHORITY</domain></serviceaccount></service>'}
 $original=Xml 'C:\edge-024\app'
 $after025=New-RuntimeBinding $original (Get-TextSha256 $original) 'Example' 'C:\edge-024\app' 'C:\edge-025\app'
@@ -147,7 +149,7 @@ try {
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows)} 'A ledger file without 028 is refused'
 } finally {[IO.Directory]::Delete($dir,$true)}
 Write-Output ('head-runtime-028: '+$script:cases+' checks passed; mocked SCM/SQL, no installation')
-'''.replace('__SERVICE_LISTS__', '\n'.join(LISTS)).replace(
+'''.replace('__NEIGHBOR_CASES__', base.NEIGHBOR_CASES.strip()).replace('__SERVICE_LISTS__', '\n'.join(LISTS)).replace(
     '__REVIEWED_LEDGER__',
     base64.b64encode((ROOT / 'infra/windows/native-edge-backup-ledger.json').read_bytes()).decode(),
 )
