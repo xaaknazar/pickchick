@@ -7931,6 +7931,20 @@
       "updatedAt": "2026-11-15T19:44:47.763Z",
       "summary": "9b2e751f pushed fast-forward to codex/kaspi-pos-1115. Windows POS43733907474 completed/success3of3, POS0.5.4 built, runtime029guards7PASS including ledgerpins. Foundation43733904023 job132872295252 failed Build and static checks: prettier --check . on head-runtime-029.md, one missing blank line before item6; locally reproduced without source edits. Kit STOP under owner condition. Report c72a71b2 published, source9b unchanged; no feed/cloud/cashier changes.",
       "nextAction": "Author fixes formatting, then both workflows on new exactSHA. Owner explicitly accepts placeholder <sha рантайма 028> in PredecessorCommit; Claude supplies actual sourceCommit from completed.json on cashier, no additional question. Only after both green build runtime/CI proof/POS0.5.4/COMMANDS kit. Preserve backup settings, check actual schema028/029 backup health, isolated staging and runbook order."
+    },
+    {
+      "id": "mobile-native-tabs-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-native-tabs-1116",
+      "scopes": [
+        "apps/mobile/src/components/NativeTabScreen.tsx",
+        "apps/mobile/src/components/NativeTabLayout.tsx",
+        "tests/mobile/native-tabs.test.mjs",
+        "docs/operations/mobile-native-tabs-1116.md"
+      ],
+      "status": "active",
+      "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
+      "updatedAt": "2026-11-15T19:47:25.419Z"
     }
   ],
   "approvedScopeTransfers": [
