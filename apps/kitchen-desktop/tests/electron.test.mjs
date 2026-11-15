@@ -307,6 +307,18 @@ test(
         typeof (await page.evaluate(() => globalThis.pickchickKitchenWindow.isFullscreen())),
         'boolean',
       );
+      stage = 'window switch by touch on the sign-in screen';
+      const before = await page.evaluate(() => globalThis.pickchickKitchenWindow.isFullscreen());
+      await page.click('#window-fullscreen');
+      await eventually(
+        () => page.evaluate(() => globalThis.pickchickKitchenWindow.isFullscreen()),
+        (value) => value === !before,
+      );
+      await page.click('#window-fullscreen');
+      await eventually(
+        () => page.evaluate(() => globalThis.pickchickKitchenWindow.isFullscreen()),
+        (value) => value === before,
+      );
       stage = 'credential gate';
       await login(page, { ...credential, token: '0'.repeat(64) });
       await visible(page, '[role="alert"]');
