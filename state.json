@@ -7108,8 +7108,7 @@
       "scopes": [
         "apps/mobile/src/components/useTabScrollToTop.ts",
         "docs/operations/mobile-tab-motion-1102.md",
-        "tests/mobile/browser_tab_bar.py",
-        "apps/mobile/src/screens/CatalogScreens.tsx"
+        "tests/mobile/browser_tab_bar.py"
       ],
       "status": "available",
       "head": "39727bcd3a4afd206011dd4ad7c50d8a3242416c",
@@ -7955,7 +7954,8 @@
         "docs/operations/pick-box-hud-release-1114.md",
         "docs/operations/mobile-testflight38.md",
         "docs/operations/mobile-testflight38",
-        "@apple/testflight"
+        "@apple/testflight",
+        "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
       "status": "active",
       "head": "5f28861205dcf0023f8732d523ccac03065cbdb1",
@@ -8235,6 +8235,13 @@
       "from": "pick-box-1112",
       "to": "mobile-build38-1116",
       "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:53:39.909Z",
+      "path": "apps/mobile/src/screens/CatalogScreens.tsx",
+      "from": "mobile-tab-motion-1102",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 to remove glass from menu categories in build 38; same-owner previous task is handed off."
     }
   ]
 }
