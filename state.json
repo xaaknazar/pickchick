@@ -7892,6 +7892,18 @@
       "updatedAt": "2026-11-15T15:19:25.648Z",
       "summary": "API/public-web/canonical backoffice a728cd31 deployed. Foundation43721319087 11/11, encrypted backup+restore PASS, schema077/env/ACL/neighbors unchanged, 132 other web files preserved. Protocol fcd04d72 published. Own server locks/scopes released. Authenticated browser smoke pending owner re-login after portal restart.",
       "nextAction": "After owner logs in to open pickchick.kz/backoffice tab: read-only smoke Home/Orders/Guests/Games(3)/Expenses, append evidence and push ordinary follow-up. Do not redeploy or change flags/schema."
+    },
+    {
+      "id": "kaspi-pos-kit-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-pos-kit-1115",
+      "scopes": [
+        "docs/operations/kaspi-pos-kit-1115",
+        "@artifacts/kaspi-pos-1115"
+      ],
+      "status": "active",
+      "head": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+      "updatedAt": "2026-11-15T15:25:23.370Z"
     }
   ],
   "approvedScopeTransfers": [
