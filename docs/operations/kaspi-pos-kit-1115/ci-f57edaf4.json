@@ -1,0 +1,72 @@
+{
+  "capturedAt": "2026-11-15T16:04:42Z",
+  "sourceCommit": "f57edaf4ae4c771db06ad63a6bfc6b736c2526e0",
+  "ciBranch": "codex/kaspi-pos-1115",
+  "gate": "STOP",
+  "packageBuilt": false,
+  "cloudChanged": false,
+  "deviceChanged": false,
+  "feedChanged": false,
+  "runs": [
+    {
+      "id": 43733154037,
+      "name": "Foundation CI",
+      "head_sha": "f57edaf4ae4c771db06ad63a6bfc6b736c2526e0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43733154037"
+    },
+    {
+      "id": 43733153883,
+      "name": "Windows POS package",
+      "head_sha": "f57edaf4ae4c771db06ad63a6bfc6b736c2526e0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43733153883"
+    }
+  ],
+  "failedJob": {
+    "id": 132869857621,
+    "name": "Native release guards on Windows PowerShell 5.1",
+    "status": "completed",
+    "conclusion": "failure",
+    "test": "KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool",
+    "file": "tests/operations/test_windows_head_029_runtime_release.py",
+    "line": 181,
+    "previousTestSuites": {
+      "stage2": {
+        "passed": 3,
+        "failed": 0
+      },
+      "queue025": {
+        "passed": 4,
+        "failed": 0
+      },
+      "head028": {
+        "passed": 6,
+        "failed": 0
+      }
+    },
+    "head029": {
+      "passed": 6,
+      "failed": 1
+    },
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733153883/job/132869857621"
+  },
+  "lineEndings": {
+    "file": "db/edge/migrations/029_edge_kaspi_pos.sql",
+    "gitBlobSha256": "edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784",
+    "expectedSha256": "edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784",
+    "lfToCrlfSha256": "e74825a1084c34b081783fbe3c7cdbebb4752f3a5b9936edc3c1e92c444d7ccc",
+    "windowsActualSha256": "e74825a1084c34b081783fbe3c7cdbebb4752f3a5b9936edc3c1e92c444d7ccc",
+    "matches": true,
+    "gitAttributesText": "unspecified",
+    "gitAttributesEol": "unspecified"
+  },
+  "predecessor": {
+    "confirmed": false,
+    "plannedRuntime028Commit": "dec8b48cd899fe015baee17a3853affbe7eee774",
+    "requiredProof": "sourceCommit of actual EdgeTools/runtime-head-028-*/completed.json",
+    "deviceAccessPerformed": false
+  }
+}
