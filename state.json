@@ -7942,10 +7942,11 @@
         "tests/mobile/ios/TabBarMotionTests.swift",
         "docs/operations/mobile-native-tabs-1116"
       ],
-      "status": "active",
-      "head": "95ad8add98bd5612464beaa173f191f6dd7e257d",
-      "updatedAt": "2026-11-15T20:20:15.799Z",
-      "summary": "Native tab preview only. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, apps/mobile/src/app/(tabs)/menu.ios.tsx, apps/mobile/src/app/(tabs)/events.ios.tsx, apps/mobile/src/app/(tabs)/orders.ios.tsx. Registry scope grammar cannot represent parentheses; exact route paths checked against every active reservation. Other routes untouched. Approved simulator transfer waits for store-kk-1115 to finish its current capture. Owner must see before/after before release."
+      "status": "available",
+      "head": "818c6689b906646c6761709c23960333d8cd2c41",
+      "updatedAt": "2026-11-15T20:20:55.648Z",
+      "summary": "818c6689: iOS native Liquid Glass tabs; before/after videos and report in docs/operations/mobile-native-tabs-1116.md. Typecheck/lint, 21 Node tests, final 3/3 XCUITests PASS. Own simulator shut down. Original rare freeze not reproduced. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, menu.ios.tsx, events.ios.tsx, orders.ios.tsx in the same directory.",
+      "nextAction": "Owner reviews before/after. No merge or app release until approval. Then full CI and release archive; physical iPhone, account/badge/payment-resume/accessibility acceptance outstanding."
     }
   ],
   "approvedScopeTransfers": [
