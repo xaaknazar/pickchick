@@ -31,6 +31,8 @@ import { useIsFocused } from 'expo-router';
 import { motion, useReducedMotion } from './Motion';
 import { useTapsSettled } from './useTapGuard';
 import { colors } from '../theme';
+import { glass } from '../glass';
+import { SheetGlass } from './GlassButton';
 import { createBackLayers, type BackLayer } from '../back-layers';
 
 // Keyboard events use window coordinates; children are laid out inside this sheet.
@@ -262,14 +264,9 @@ export function OrderSheet({
         accessibilityLabel={localize(name)}
         role="dialog"
         aria-modal
-        style={[
-          s.sheet,
-          { height: travel },
-          checkout && { borderTopLeftRadius: 36, borderTopRightRadius: 36 },
-          auth && { maxWidth: 520, borderTopLeftRadius: 36, borderTopRightRadius: 36 },
-          position,
-        ]}
+        style={[s.sheet, { height: travel }, auth && { maxWidth: 520 }, position]}
       >
+        <SheetGlass />
         {!auth && !blocked ? (
           <GestureDetector gesture={pan}>
             <View testID="sheet-handle" style={s.handleArea} accessible={false}>
@@ -289,15 +286,24 @@ export function OrderSheet({
   );
 }
 const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  // Owner 16.11.2026 (iOS 26 sheets): the sheet floats a little off the screen edges, every
+  // corner round, its body is glass (SheetGlass).
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: glass.sheet.inset,
+    paddingBottom: glass.sheet.inset,
+  },
   scrim: { backgroundColor: '#00000066' },
   sheet: {
     width: '100%',
     maxWidth: 720,
     overflow: 'hidden',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: colors.background,
+    borderRadius: glass.sheet.radius,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.sheet.rim,
+    backgroundColor: 'transparent',
   },
   handleArea: { height: 28, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.muted },

@@ -31,7 +31,7 @@ import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
-import { GlassFill } from '../components/GlassButton';
+import { GlassFill, ScrollEdgeGlass } from '../components/GlassButton';
 import { colors, font } from '../theme';
 
 type Props = ScreenProps & {
@@ -624,6 +624,8 @@ export function PhotoProduct(props: Props) {
           onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
           style={[s.footer, { paddingBottom: Math.max(16, insets.bottom) }]}
         >
+          {/* iOS 26 scroll edge: the dishes scrolling under the price button soften and darken. */}
+          <ScrollEdgeGlass />
           {reason ? (
             <Text accessibilityLiveRegion="polite" style={s.reason}>
               {localize(reason)}
@@ -998,7 +1000,7 @@ function makeStyles(blue: boolean) {
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
     footer: {
-      paddingTop: 12,
+      paddingTop: 28,
       paddingHorizontal: 24,
       backgroundColor: 'transparent',
       position: 'absolute',
