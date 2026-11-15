@@ -37,6 +37,7 @@
    ```
 
    Он сам запускает `PickChickEdge`, `PickChickKitchenLink` и три воркера.
+
 6. Запустить `PickChickKitchenLAN` (если есть) и включить задачу копий.
 7. Только после этого привязка терминала: `scripts/kaspi-terminal-setup.mjs probe`, затем
    `register` (ADR-0017, «Порядок включения на точке»), первая оплата 100 ₸.
