@@ -7007,7 +7007,6 @@
       "scopes": [
         "apps/mobile/src/i18n",
         "apps/mobile/src/backoffice/GameAvailability.tsx",
-        "tests/mobile/tab-bar.test.mjs",
         "tests/mobile/store-copy.test.mjs",
         "docs/operations/mobile-kazakh-review-2026-10-30.md",
         "docs/operations/mobile-kazakh-review-2026-10-30.tsv",
@@ -7106,10 +7105,8 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-tab-motion-1102",
       "scopes": [
-        "apps/mobile/src/components/TabActiveCapsule.tsx",
         "apps/mobile/src/components/useTabScrollToTop.ts",
         "docs/operations/mobile-tab-motion-1102.md",
-        "apps/mobile/src/components/FloatingTabBar.tsx",
         "tests/mobile/browser_tab_bar.py",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
@@ -7940,11 +7937,17 @@
         "apps/mobile/src/components/NativeTabScreen.tsx",
         "apps/mobile/src/components/NativeTabLayout.tsx",
         "tests/mobile/native-tabs.test.mjs",
-        "docs/operations/mobile-native-tabs-1116.md"
+        "docs/operations/mobile-native-tabs-1116.md",
+        "apps/mobile/src/components/FloatingTabBar.tsx",
+        "apps/mobile/src/components/TabActiveCapsule.tsx",
+        "tests/mobile/tab-bar.test.mjs",
+        "@mobile/tab-routes",
+        "tests/mobile/ios/TabBarMotionTests.swift"
       ],
       "status": "active",
       "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
-      "updatedAt": "2026-11-15T19:47:25.419Z"
+      "updatedAt": "2026-11-15T19:53:23.491Z",
+      "summary": "Native tab preview only. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, apps/mobile/src/app/(tabs)/menu.ios.tsx, apps/mobile/src/app/(tabs)/events.ios.tsx, apps/mobile/src/app/(tabs)/orders.ios.tsx. Registry scope grammar cannot represent parentheses; exact route paths checked against every active reservation. Other routes untouched. Approved simulator transfer waits for store-kk-1115 to finish its current capture. Owner must see before/after before release."
     }
   ],
   "approvedScopeTransfers": [
@@ -8003,6 +8006,27 @@
       "to": "cloud-expenses-live-1112",
       "path": "@vps/roadmap",
       "authorization": "Current owner-authorized Expenses deployment requires status/roadmap/handoff updates under AGENTS.md. Source tasks are available and owned by the same workstation; no active or other-owner reservation changed."
+    },
+    {
+      "at": "2026-11-15T19:53:23.491Z",
+      "from": "mobile-tab-motion-1102",
+      "to": "mobile-native-tabs-1116",
+      "path": "apps/mobile/src/components/FloatingTabBar.tsx",
+      "authorization": "Owner approved only these intersections in this chat on 2026-11-16 for native tab before/after preview. No release authorized."
+    },
+    {
+      "at": "2026-11-15T19:53:23.491Z",
+      "from": "mobile-tab-motion-1102",
+      "to": "mobile-native-tabs-1116",
+      "path": "apps/mobile/src/components/TabActiveCapsule.tsx",
+      "authorization": "Owner approved only these intersections in this chat on 2026-11-16 for native tab before/after preview. No release authorized."
+    },
+    {
+      "at": "2026-11-15T19:53:23.491Z",
+      "from": "mobile-kazakh-review-1030",
+      "to": "mobile-native-tabs-1116",
+      "path": "tests/mobile/tab-bar.test.mjs",
+      "authorization": "Owner approved only these intersections in this chat on 2026-11-16 for native tab before/after preview. No release authorized."
     }
   ]
 }
