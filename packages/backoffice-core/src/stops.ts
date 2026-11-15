@@ -11,7 +11,28 @@ import { BackofficeError, type StopRequestInput } from './model.js';
  * transport delivers and the edge applies with an expected_version check. Names and ids come
  * from the published catalog, hashed exactly like the POS menu (localCatalogId).
  */
+/** Decrypted contact of an app guest (customer-identity piiKey), injected by the API. */
+export interface GuestContact {
+  phone: string | null;
+  nickname: string | null;
+  birth_date: string | null;
+}
 export interface BackofficeOptions {
+  /**
+   * BACKOFFICE_APP_SPLASH_ENABLED: video of the app storefront from the back office (cloud078,
+   * owner request 15.11.2026). Default off; needs the app-splash grants on the API role.
+   */
+  appSplashEnabled?: boolean;
+  /**
+   * Owner 15.11.2026: «Гости» shows who the guest is. Decrypts identity_customers.phone_cipher and
+   * profile_cipher with the customer-identity PII key; absent (customer auth off) the list stays
+   * without contacts, as before. Managers see the full number, other roles a masked one.
+   */
+  guestContact?: (row: {
+    id: string;
+    phone_cipher: string | null;
+    profile_cipher: string | null;
+  }) => GuestContact;
   /** BACKOFFICE_REMOTE_STOPS_ENABLED: managers may queue stop/unstop commands. Default off. */
   remoteStopsEnabled?: boolean;
   /**
@@ -84,6 +105,7 @@ export function backofficeOptions(
     rolesEnabled: flag(env, 'BACKOFFICE_ROLES_ENABLED'),
     stockV2Enabled: flag(env, 'BACKOFFICE_STOCK_V2_ENABLED'),
     salesReportEnabled: flag(env, 'BACKOFFICE_SALES_REPORT_ENABLED'),
+    appSplashEnabled: flag(env, 'BACKOFFICE_APP_SPLASH_ENABLED'),
   };
 }
 export interface StopActor {

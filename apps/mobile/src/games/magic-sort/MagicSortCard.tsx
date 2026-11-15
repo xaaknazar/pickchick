@@ -9,11 +9,15 @@ export const magicSortPoster = {
   description: 'Раздели цвета. Собери всё золото в центре.',
   cover: require('../../../assets/games/magic-sort/cover-alex.png') as ImageSourcePropType,
 };
-export function MagicSortCard() {
+/** `override`: name and cover from the back office (owner 15.11.2026). */
+export function MagicSortCard({
+  override,
+}: { override?: { name?: string; cover?: ImageSourcePropType } } = {}) {
   const router = useRouter();
   return (
     <GamePosterCard
       {...magicSortPoster}
+      {...override}
       onPress={() => router.push('/games/magic-sort')}
       testID="magic-sort-open"
     />

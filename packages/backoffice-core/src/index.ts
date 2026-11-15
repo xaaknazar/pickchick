@@ -16,6 +16,7 @@ import {
   type Kind,
   periodWindow,
   stockEffect,
+  LEGACY_GAME_TEMPLATES,
 } from './model.js';
 import {
   catalogStopNames,
@@ -104,8 +105,20 @@ import {
 } from './positions.js';
 import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
 import { readOrdersRegistry } from './orders-registry.js';
+import { guestView } from './guests.js';
+import {
+  finishUpload,
+  publishedSplash,
+  readSplash,
+  setSplash,
+  splashFile,
+  splashInstalled,
+  uploadPart,
+} from './splash.js';
 export * from './model.js';
 export * from './stops.js';
+export * from './guests.js';
+export * from './splash.js';
 export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
@@ -242,10 +255,60 @@ export class Backoffice {
       designations: resolved.designations,
     };
   }
+  /**
+   * Video of the app storefront (splash.ts, owner request 15.11.2026): every role reads, a role
+   * with records.write uploads and chooses. The settings table itself is the change log.
+   */
+  private async splashScope(db: DatabaseClient, token: string, branch: string, write: boolean) {
+    if (this.options.appSplashEnabled !== true) fail('NOT_FOUND');
+    const actor = await this.scope(db, token, branch, write ? 'records.write' : 'reports.read');
+    if (!(await splashInstalled(db))) fail('SERVICE_UNAVAILABLE');
+    return actor;
+  }
+  async splash(token: string, branch: string) {
+    return transaction(this.pool, async (db) =>
+      readSplash(db, (await this.splashScope(db, token, branch, false)).organization_id),
+    );
+  }
+  async splashPart(
+    token: string,
+    branch: string,
+    uploadId: string,
+    part: string,
+    query: unknown,
+    bytes: unknown,
+  ) {
+    return transaction(this.pool, async (db) =>
+      uploadPart(
+        db,
+        await this.splashScope(db, token, branch, true),
+        uploadId,
+        /^\d{1,3}$/.test(part) ? Number(part) : -1,
+        query,
+        bytes,
+      ),
+    );
+  }
+  async splashFinish(token: string, branch: string, uploadId: string) {
+    return transaction(this.pool, async (db) =>
+      finishUpload(db, await this.splashScope(db, token, branch, true), uploadId),
+    );
+  }
+  async splashSet(token: string, branch: string, body: unknown) {
+    return transaction(this.pool, async (db) =>
+      setSplash(db, await this.splashScope(db, token, branch, true), body),
+    );
+  }
+  /** Public video bytes for the app (GET /v1/media/app/<sha256>.mp4), flag on only. */
+  async splashMedia(file: string, range?: string) {
+    if (!this.enabled || this.options.appSplashEnabled !== true) fail('NOT_FOUND');
+    return splashFile(this.pool, file, range);
+  }
   async content(branch: string, channel: string) {
     parse(z.uuid(), branch);
     parse(z.enum(['mobile', 'kiosk', 'display']), channel);
-    if (!this.enabled) return { schema_version: 1, branch_id: branch, promos: [], games: [] };
+    if (!this.enabled)
+      return { schema_version: 1, branch_id: branch, promos: [], games: [], game_cards: [] };
     const rows = (
       await this.pool.query(
         `SELECT DISTINCT ON(kind,record_id) record_id,kind,revision,payload,published_at FROM bo_publications WHERE branch_id=$1 AND kind IN ('promo','game') ORDER BY kind,record_id,revision DESC`,
@@ -264,13 +327,57 @@ export class Backoffice {
           p.channels.includes(channel as 'mobile' | 'kiosk' | 'display') &&
           inWindow(p),
       );
-    const games = rows
+    // One record per game (bo_game_template_idx), so one publication per template.
+    const published = rows
       .filter((r) => r.kind === 'game')
-      .map((r) => {
-        const p = parse(Schemas.game, r.payload);
-        return { template: p.template, enabled: p.enabled && inWindow(p), revision: r.revision };
-      });
-    return { schema_version: 1, branch_id: branch, promos: promos.slice(0, 20), games };
+      .map((row) => ({ row, p: parse(Schemas.game, row.payload) }))
+      .sort((a, b) => a.p.template.localeCompare(b.p.template));
+    // App Store build 37 reads only these three templates in `games` and rejects anything else.
+    const games = published
+      .filter(({ p }) => (LEGACY_GAME_TEMPLATES as readonly string[]).includes(p.template))
+      .map(({ row, p }) => ({
+        template: p.template,
+        enabled: p.enabled && inWindow(p),
+        revision: row.revision,
+      }));
+    // Owner 15.11.2026: names and covers from the back office, read by the next app build.
+    const covers = new Map<string, Record<string, string>>();
+    const assetIds = published.flatMap(({ p }) => (p.cover ? [p.cover.asset_id] : []));
+    if (assetIds.length)
+      for (const v of (
+        await this.pool.query<{ asset_id: string; variant: string; sha256: string }>(
+          `SELECT v.asset_id,v.variant,v.sha256 FROM catalog_asset_variants v JOIN catalog_assets a ON a.id=v.asset_id
+           JOIN branches b ON b.organization_id=a.organization_id WHERE b.id=$1 AND v.asset_id=ANY($2::uuid[])`,
+          [branch, assetIds],
+        )
+      ).rows)
+        covers.set(v.asset_id, {
+          ...covers.get(v.asset_id),
+          [v.variant]: `/v1/media/catalog/${v.sha256}.${v.variant}.webp`,
+        });
+    const game_cards = published.map(({ row, p }) => {
+      const urls = p.cover ? covers.get(p.cover.asset_id) : undefined;
+      return {
+        template: p.template,
+        enabled: p.enabled && inWindow(p),
+        revision: row.revision,
+        title: p.title ?? null,
+        cover: urls?.['card'] && urls['hero'] ? { card: urls['card'], hero: urls['hero'] } : null,
+      };
+    });
+    // Owner 15.11.2026: video of the storefront; only while the flag is on and cloud078 exists.
+    const splash =
+      this.options.appSplashEnabled === true && (await splashInstalled(this.pool))
+        ? await publishedSplash(this.pool, branch)
+        : undefined;
+    return {
+      schema_version: 1,
+      branch_id: branch,
+      promos: promos.slice(0, 20),
+      games,
+      game_cards,
+      ...(splash !== undefined ? { splash } : {}),
+    };
   }
   async read(token: string, branch: string, input: unknown = {}) {
     const q = parse(Query, input);
@@ -473,10 +580,22 @@ export class Backoffice {
       const kitchen = await rows(
         `SELECT * FROM (SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at,'cloud' commercial_owner FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 UNION ALL SELECT k.order_id,k.state,k.version,k.display_number::text,k.routing_version,k.assembly_station_id,k.observed_at,'edge_pos' commercial_owner FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1) observations ORDER BY observed_at DESC,order_id LIMIT 200`,
       );
-      const guests =
-        await rows(`SELECT c.id,c.created_at,count(o.id)::int orders,max(o.created_at) last_order_at,
+      const guestRows =
+        await rows(`SELECT c.id,c.created_at,c.phone_cipher,c.profile_cipher,count(o.id)::int orders,max(o.created_at) last_order_at,
     coalesce((SELECT i.accepted FROM identity_consents i WHERE i.customer_id=c.id AND i.kind='marketing' ORDER BY i.recorded_at DESC,i.id DESC LIMIT 1),false) marketing_consent
     FROM identity_customers c JOIN commerce_orders o ON o.customer_id=c.id WHERE o.branch_id=$1 AND c.deleted_at IS NULL GROUP BY c.id ORDER BY max(o.created_at) DESC,c.id LIMIT 200`);
+      // Owner 15.11.2026: name and phone instead of an id. The ciphers never leave the server.
+      const guests = guestRows.map(({ phone_cipher, profile_cipher, ...g }) =>
+        this.options.guestContact
+          ? {
+              ...g,
+              ...guestView(
+                () => this.options.guestContact!({ id: g.id, phone_cipher, profile_cipher }),
+                actor.role === 'manager',
+              ),
+            }
+          : g,
+      );
       // Lane bo-ui (audit F08): with BACKOFFICE_POS_DAY_ENABLED the log rows carry the author's
       // name (actor_name, null for a removed login); without it the statements are unchanged.
       const named = this.options.posDayEnabled === true;
@@ -679,6 +798,10 @@ export class Backoffice {
           ...stockV2,
           // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
           ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
+          // Owner 15.11.2026: «Заставка приложения» (BACKOFFICE_APP_SPLASH_ENABLED with cloud078).
+          ...(this.options.appSplashEnabled === true && (await splashInstalled(db))
+            ? { app_splash: true }
+            : {}),
           ...p1,
           // Second wave (bo-ui2): after every bo-ui key, stock_p1 included.
           ...p2,
@@ -1510,6 +1633,23 @@ export class Backoffice {
       );
     if (kind === 'employee' && (payload['deleted'] || old?.payload['deleted'])) fail('CONFLICT');
     if (kind === 'game' && old && payload['template'] !== old.payload['template']) fail('CONFLICT');
+    if (kind === 'game') {
+      // One record per game is the unique index bo_game_template_idx (cloud017).
+      const cover = payload['cover'] as { asset_id: string; sha256: string } | undefined;
+      // The cover is an uploaded photo of this organisation (catalog_assets, the menu store).
+      if (
+        cover &&
+        !(
+          await db.query(
+            `SELECT 1 FROM catalog_assets a JOIN catalog_asset_variants v ON v.asset_id=a.id AND v.variant='card'
+             JOIN branches b ON b.organization_id=a.organization_id
+             WHERE b.id=$1 AND a.id=$2 AND v.sha256=$3`,
+            [branch, cover.asset_id, cover.sha256],
+          )
+        ).rowCount
+      )
+        fail('INVALID_REQUEST');
+    }
     if (kind === 'ingredient' && old && payload['unit'] !== old.payload['unit']) fail('CONFLICT');
     if (kind === 'recipe') {
       // RecipeP1 = Recipe plus the optional stock_policy (accepted only under stock P1).

@@ -38471,8 +38471,48 @@
             "enum": [
               "pick-run",
               "pick-man",
-              "pick-blocks"
+              "pick-blocks",
+              "magic-sort",
+              "pick-farm"
             ]
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "ru": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "kk": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "ru",
+              "kk"
+            ],
+            "additionalProperties": false
+          },
+          "cover": {
+            "type": "object",
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "asset_id",
+              "sha256"
+            ],
+            "additionalProperties": false
           },
           "enabled": {
             "type": "boolean"

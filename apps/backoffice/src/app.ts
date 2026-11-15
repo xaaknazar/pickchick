@@ -150,6 +150,14 @@ const operationView = new OperationsView(
   stops,
   () => model.state?.published?.payload ?? null,
 );
+// Game covers (owner 15.11.2026) use the photo upload of the menu editor.
+operationView.media = {
+  url: (sha) => model.mediaUrl(sha),
+  upload: (file, onProgress) => model.uploadPhoto(file, onProgress),
+};
+// Storefront video parts (owner 15.11.2026); the JSON calls go through the operations transport.
+operationView.splashPart = (upload, part, total, sha256, bytes) =>
+  model.uploadSplashPart(upload, part, total, sha256, bytes);
 const finance = new FinanceModel(
   (path, request) => model.operations(path, request),
   window.sessionStorage,

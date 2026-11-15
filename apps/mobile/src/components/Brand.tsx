@@ -9,6 +9,9 @@ import { WebHeroVideo } from './WebHeroVideo';
 import { useHeroHostVisible } from './useHeroHostVisible';
 import { heroShouldPlay } from '../hero-playback';
 import { colors, font } from '../theme';
+import { API_URL } from '../api';
+import { useMobile } from '../store';
+import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { Body, Caption, Heading, Icon, Row, styles as ui } from './UI';
 
 export function HeroVideo({
@@ -26,6 +29,12 @@ export function HeroVideo({
     <NativeHeroVideo gradient={overlay} />
   );
 }
+/** Absolute URL of the storefront video chosen in the back office, or null for the built-in one. */
+function useSplashVideo(): string | null {
+  const model = useMobile();
+  const path = usePublishedContent(model.branch?.id).content?.splash?.video;
+  return path ? `${API_URL}${path}` : null;
+}
 function NativeHeroVideo({ gradient }: { gradient?: string }) {
   useLocale();
   const reduced = useReducedMotion();
@@ -34,10 +43,18 @@ function NativeHeroVideo({ gradient }: { gradient?: string }) {
   // A sheet over the menu (cart, checkout) keeps the video playing; tabs/full screens pause it.
   const visible = useHeroHostVisible();
   const [active, setActive] = useState(AppState.currentState === 'active');
-  const player = useVideoPlayer(assets.hero, (video) => {
-    video.loop = true;
-    video.muted = true;
-  });
+  // Owner 15.11.2026: the video chosen in the back office, cached on the device; the built-in
+  // video while there is none, before the first download and whenever the download fails.
+  const remote = useSplashVideo();
+  const [remoteFailed, setRemoteFailed] = useState<string | null>(null);
+  const useRemote = remote !== null && remoteFailed !== remote;
+  const player = useVideoPlayer(
+    useRemote ? { uri: remote, useCaching: true } : assets.hero,
+    (video) => {
+      video.loop = true;
+      video.muted = true;
+    },
+  );
   useEffect(() => {
     const appState = AppState.addEventListener('change', (state) => setActive(state === 'active'));
     return () => appState.remove();
@@ -47,10 +64,12 @@ function NativeHeroVideo({ gradient }: { gradient?: string }) {
   }, [reduced]);
   useEffect(() => {
     const status = player.addListener('statusChange', ({ status }) => {
-      if (status === 'error') setFailed(true);
+      if (status !== 'error') return;
+      if (useRemote) setRemoteFailed(remote);
+      else setFailed(true);
     });
     return () => status.remove();
-  }, [player]);
+  }, [player, useRemote, remote]);
   // useVideoPlayer releases the native object during unmount. Visibility changes only
   // update state; calling pause from a cleanup would access an already freed player.
   useEffect(() => {

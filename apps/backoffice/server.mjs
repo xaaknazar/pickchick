@@ -12,6 +12,26 @@ export const JSON_MAX_BYTES = 300 * 1024;
 export const MEDIA_ROUTE = /^\/v1\/media\/catalog\/[a-f0-9]{64}(?:\.(?:card|hero|thumb))?\.webp$/;
 export const MEDIA_MAX_BYTES = 1500000;
 /**
+ * Video of the app storefront (owner request 15.11.2026): the portal front takes at most 300 KB per
+ * request, so a video goes up in raw parts of at most 256 KiB with its total size and SHA-256.
+ */
+export const SPLASH_PART_ROUTE = new RegExp(
+  `^/v1/admin/backoffice/branches/${UUID}/splash/uploads/${UUID}/parts/[0-9]{1,3}$`,
+  'i',
+);
+export const SPLASH_PART_MAX_BYTES = 256 * 1024;
+function splashPartQuery(search) {
+  const q = new URLSearchParams(search ?? '');
+  return (
+    (search?.length ?? 0) <= 120 &&
+    [...q.keys()].length === 2 &&
+    q.getAll('total_bytes').length === 1 &&
+    q.getAll('sha256').length === 1 &&
+    /^[1-9][0-9]{3,7}$/.test(q.get('total_bytes') ?? '') &&
+    /^[a-f0-9]{64}$/.test(q.get('sha256') ?? '')
+  );
+}
+/**
  * Lane bo-ui (audit F10): GET .../ops/orders - an Almaty date window, optionally a search
  * (number or a piece of the id), channel, cash desk, order and page; each key at most once.
  */
@@ -71,6 +91,22 @@ function reportQuery(search) {
 export const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  // Video of the app storefront (owner request 15.11.2026): read, choose, parts and assembly.
+  if (
+    (method === 'GET' || method === 'POST') &&
+    search === undefined &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/splash$`, 'i').test(pathname)
+  )
+    return true;
+  if (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/splash/uploads/${UUID}/finish$`, 'i').test(
+      pathname,
+    )
+  )
+    return true;
+  if (method === 'POST' && SPLASH_PART_ROUTE.test(pathname)) return splashPartQuery(search);
   // «Расходы» (cloud077): organization-wide, GET reads with a short plain query, POST writes.
   if (
     method === 'GET' &&
@@ -593,7 +629,39 @@ export function createBackofficeServer({
         let body;
         const headers = { Authorization: auth };
         const upload = req.method === 'POST' && UPLOAD_ROUTE.test(path);
-        if (upload) {
+        const part = req.method === 'POST' && SPLASH_PART_ROUTE.test(path.split('?')[0]);
+        if (part) {
+          if (req.headers['content-type'] !== 'application/octet-stream') {
+            send(415, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          if (Number(req.headers['content-length'] ?? 0) > SPLASH_PART_MAX_BYTES) {
+            send(413, { code: 'PAYLOAD_TOO_LARGE' });
+            req.resume();
+            return;
+          }
+          const chunks = [];
+          let size = 0;
+          try {
+            for await (const chunk of req) {
+              size += chunk.length;
+              if (size > SPLASH_PART_MAX_BYTES) {
+                send(413, { code: 'PAYLOAD_TOO_LARGE' });
+                return;
+              }
+              chunks.push(chunk);
+            }
+          } catch {
+            if (!res.destroyed) send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          if (!size) {
+            send(400, { code: 'INVALID_REQUEST' });
+            return;
+          }
+          body = Buffer.concat(chunks);
+          headers['Content-Type'] = 'application/octet-stream';
+        } else if (upload) {
           const type = req.headers['content-type'];
           const key = req.headers['idempotency-key'];
           if (!UPLOAD_TYPES.includes(type)) {

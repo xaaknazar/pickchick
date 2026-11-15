@@ -1094,3 +1094,21 @@ export async function readCustomerPaymentPhone(
   // The App Review account never receives a Kaspi invoice, even if an attempt slipped through.
   return options.reviewAccount?.phone === phone ? null : phone;
 }
+
+/**
+ * Back-office «Гости» (owner 15.11.2026): phone and profile of one identity_customers row,
+ * decrypted with the same PII key and contexts as CustomerIdentity. Null fields for an erased row.
+ */
+export function readGuestContact(
+  piiKey: Buffer,
+  row: { id: string; phone_cipher: string | null; profile_cipher: string | null },
+): { phone: string | null; nickname: string | null; birth_date: string | null } {
+  const profile = row.profile_cipher
+    ? decrypt<CustomerProfile>(piiKey, `profile:${row.id}`, row.profile_cipher)
+    : null;
+  return {
+    phone: row.phone_cipher ? decrypt<string>(piiKey, `phone:${row.id}`, row.phone_cipher) : null,
+    nickname: profile?.nickname ?? null,
+    birth_date: profile?.birth_date ?? null,
+  };
+}

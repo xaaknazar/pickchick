@@ -1,3 +1,4 @@
+import type { ImageSourcePropType } from 'react-native';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -107,11 +108,15 @@ export const pickBlocksPoster = {
   description: 'Заполняй ряды.\nВсё сложится.',
   cover: assets.pickBlocksCover,
 };
-export function PickBlocksCard() {
+/** `override`: name and cover from the back office (owner 15.11.2026). */
+export function PickBlocksCard({
+  override,
+}: { override?: { name?: string; cover?: ImageSourcePropType } } = {}) {
   const router = useRouter();
   return (
     <GamePosterCard
       {...pickBlocksPoster}
+      {...override}
       testID="pick-blocks-open"
       onPress={() => router.push('/games/pick-blocks')}
     />
