@@ -7878,9 +7878,11 @@
         "docs/operations/desktop-updates-published.json",
         "docs/operations/desktop-updates-publish-1115b.md"
       ],
-      "status": "active",
-      "head": "fce6237046a2a284cd3aa2fb54ca8f84cdc06201",
-      "updatedAt": "2026-11-15T11:31:41.961Z"
+      "status": "available",
+      "head": "96ce5ee101df56aef88c90457a1d298cef41a532",
+      "updatedAt": "2026-11-15T11:31:47.263Z",
+      "summary": "Kitchen 0.4.5 published idle; POS 0.5.3 unchanged; exact-source Foundation 43704276810 11/11, Windows 43704275100 3/3, public feed check 43709114259 success; protocol and record published at 96ce5ee1; own VPS reservation released.",
+      "nextAction": "Owner: after download restart Kitchen, confirm 0.4.5 and full-screen button on login page. Integrate documentation through normal review; no further deployment required."
     }
   ],
   "approvedScopeTransfers": [
