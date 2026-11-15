@@ -7782,43 +7782,15 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/pick-box",
       "scopes": [
-        "apps/mobile/src/games/pick-box",
-        "apps/mobile/assets/games/pick-box",
-        "apps/mobile/src/app/games/pick-box.tsx",
-        "apps/mobile/src/app/_layout.tsx",
-        "apps/mobile/src/screens/GameScreens.tsx",
-        "apps/mobile/package.json",
-        "pnpm-lock.yaml",
-        "tests/mobile/pick-box.test.mjs",
-        "tests/mobile/browser_pick_box.py",
-        "docs/design/pick-box.md",
-        "docs/operations/pick-box-1112.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md",
         "@vps/roadmap",
-        "scripts/mobile/pick-box-assets.py",
-        "tests/mobile/android-ux.test.mjs",
-        "docs/operations/pick-box-1112",
-        "apps/mobile/app.json",
-        "@release/ios",
         "@release/android",
         "@apple/appstore",
         "@google-play/pickchick",
-        "docs/operations/pick-box-test-release-1112.md",
-        "tests/mobile/android-config.test.mjs",
-        "@android/emulator",
-        "docs/design/pick-box-review-1113.md",
-        "scripts/mobile/pick-box-sounds.py",
-        "tests/mobile/pick-box-polish.test.mjs",
-        "docs/operations/pick-box-polish-1113.md",
-        "docs/operations/pick-box-direct-entry-1113.md",
-        "docs/operations/pick-box-game-hud-1114.md",
-        "docs/operations/pick-box-hud-release-1114.md"
+        "@android/emulator"
       ],
       "status": "available",
       "head": "a4e98d257550da6f2280a7ecad7b6cbb2184d217",
-      "updatedAt": "2026-11-13T20:48:48.510Z",
+      "updatedAt": "2026-11-15T21:22:05.369Z",
       "summary": "Утверждённый HUD Pick Box выпущен в тестовые 37/11. iOS 37 Testing в PickChick Internal и Testing; Android 11 - единственное изменение закрытого Alpha на рассмотрении Google. Оба пакета из чистого 95ad8add, полный Foundation CI 11/11, 610 Node + 96 Python, exports PASS. Нативный iPhone Simulator: прямой вход, счёт 2, пауза/продолжение, выход и рекорд PASS. Резерв симулятора возвращён mobile-feedback-1029. Итог и доказательства a4e98d25 опубликованы, PR #368 обновлён; финальные 7 roadmap + 22 infra tests PASS. Публичного выпуска нет, обложка прежняя.",
       "nextAction": "Проверить решение Google по Alpha 11 и физически принять игру на iPhone/Android. Большой шрифт, экранный диктор, длинная сессия, вычитка KK и общая интеграция PR #368 остаются открытыми. Онлайн-пульт не перезаписывать старым операционным срезом этой ветки."
     },
@@ -8026,6 +7998,202 @@
       "to": "mobile-native-tabs-1116",
       "path": "tests/mobile/tab-bar.test.mjs",
       "authorization": "Owner approved only these intersections in this chat on 2026-11-16 for native tab before/after preview. No release authorized."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/src/games/pick-box",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/assets/games/pick-box",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/src/app/games/pick-box.tsx",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/src/app/_layout.tsx",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/src/screens/GameScreens.tsx",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/package.json",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "pnpm-lock.yaml",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "tests/mobile/pick-box.test.mjs",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "tests/mobile/browser_pick_box.py",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/design/pick-box.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-1112.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/project-status.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/roadmap/project.json",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/collaboration/handoff.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "scripts/mobile/pick-box-assets.py",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "tests/mobile/android-ux.test.mjs",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-1112",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "apps/mobile/app.json",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "@release/ios",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-test-release-1112.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "tests/mobile/android-config.test.mjs",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/design/pick-box-review-1113.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "scripts/mobile/pick-box-sounds.py",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "tests/mobile/pick-box-polish.test.mjs",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-polish-1113.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-direct-entry-1113.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-game-hud-1114.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
+    },
+    {
+      "at": "2026-11-15T21:22:05.370Z",
+      "path": "docs/operations/pick-box-hud-release-1114.md",
+      "from": "pick-box-1112",
+      "to": "mobile-build38-1116",
+      "authorization": "Owner explicitly requested 16.11 merge of codex/pick-box into a new build38 branch, reconciliation of both histories, build-number change and internal TestFlight upload. Previous task is handed off and owned by the same workstation."
     }
   ]
 }
