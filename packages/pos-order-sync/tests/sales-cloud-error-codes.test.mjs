@@ -112,6 +112,10 @@ test('ErrorSchema lists every POS code of PosErrorCodeSchema and the KDS handove
     'REFUND_NOT_SUPPORTED',
     'DRAWER_INSUFFICIENT',
     'FISCAL_PENDING',
+    // ADR-0017: the Kaspi Smart POS of a cash desk (edge 029).
+    'TERMINAL_NOT_LINKED',
+    'TERMINAL_BUSY',
+    'TERMINAL_ATTEMPT_INVALID',
   ]);
   const listed = ErrorSchema.shape.code.options;
   for (const code of [...POS_CODES, ...KDS_CODES]) {
