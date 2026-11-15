@@ -7869,6 +7869,19 @@
       "updatedAt": "2026-11-15T10:55:49.035Z",
       "summary": "15.11 DEPLOYED kitchen-0.4.4-pos-0.5.3, idle; exact8d932830 Foundation11/11 and Windows3/3 PASS. Guarded dry-run and tmux apply exit0; hash/size verified on Mac/VPS; POS files identical, API/gateway unchanged, lock absent. Desktop update feed check43703366931 success at record0a59a688. Server reservation released.\n15.11: own release record continued by desktop-kitchen-045-1115 for explicitly requested Kitchen0.4.5; 0.4.4 receipt preserved.",
       "nextAction": "Owner accepts Kitchen0.4.4 after normal restart: full screen, touch switch, F11. Do not repeat publish; previous release retained for guarded withdrawal. Receipt branch published, not merged."
+    },
+    {
+      "id": "desktop-kitchen-045-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/desktop-kitchen-045-1115",
+      "scopes": [
+        "docs/operations/desktop-updates-published.json",
+        "docs/operations/desktop-updates-publish-1115b.md",
+        "@vps/desktop-updates"
+      ],
+      "status": "active",
+      "head": "fce6237046a2a284cd3aa2fb54ca8f84cdc06201",
+      "updatedAt": "2026-11-15T10:55:55.304Z"
     }
   ],
   "approvedScopeTransfers": [
