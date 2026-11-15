@@ -7901,9 +7901,9 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "available",
+      "status": "active",
       "head": "2ef7eee38484d6d83826def5811dee9ac2e3892a",
-      "updatedAt": "2026-11-15T15:52:15.691Z",
+      "updatedAt": "2026-11-15T16:02:02.232Z",
       "summary": "CI copy fast-forwarded to2f15560e. Foundation43731805565 and Windows43731805635 started on exactSHA; both have failed required guards.15pins match, stage2Windows3PASS. Foundation779:2failures from old28row expectations in Queue/Head PowerShelltests. Runtime029 packager files/install path remain incomplete. No kit or install.",
       "nextAction": "Claude fixes Queue/Head tests using reviewed29ledger and exact25/28candidate slices, completes Kaspi admin-file closure and guardedruntime029 installation route. RequirebothCI completed/success onnewSHA, thenpackagewithCOMMANDS. OtherCIjobs mayfinish; no bypass or cloud/devicechange."
     }
