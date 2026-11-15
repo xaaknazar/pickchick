@@ -1,0 +1,138 @@
+{
+  "sourceCommit": "2f15560e70c14d7cd7f842584bb500b9be3edf7b",
+  "migrationCount": 29,
+  "pins": [
+    {
+      "operator": "install-edge-backup.ps1",
+      "file": "edge-backup-lib.mjs",
+      "expectedSha256": "687bbb1c4e069733258a05d22efff57c8da66b647103c83ac7bc929dcec79119",
+      "actualSha256": "687bbb1c4e069733258a05d22efff57c8da66b647103c83ac7bc929dcec79119",
+      "matches": true
+    },
+    {
+      "operator": "install-edge-backup.ps1",
+      "file": "edge-backup-restore.mjs",
+      "expectedSha256": "dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d",
+      "actualSha256": "dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d",
+      "matches": true
+    },
+    {
+      "operator": "install-edge-backup.ps1",
+      "file": "edge-backup-setup.mjs",
+      "expectedSha256": "bd61834cf87cd5462d4b7f3ae9c7eff8d333fe324bccef7812301e48472bdabe",
+      "actualSha256": "bd61834cf87cd5462d4b7f3ae9c7eff8d333fe324bccef7812301e48472bdabe",
+      "matches": true
+    },
+    {
+      "operator": "install-edge-backup.ps1",
+      "file": "edge-backup-task.mjs",
+      "expectedSha256": "c1ec995611196dc0aec8aed8f608e7e3c92caa680487c36c42ad70fb7e9c5ead",
+      "actualSha256": "c1ec995611196dc0aec8aed8f608e7e3c92caa680487c36c42ad70fb7e9c5ead",
+      "matches": true
+    },
+    {
+      "operator": "install-edge-backup.ps1",
+      "file": "native-edge-backup-ledger.json",
+      "expectedSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "actualSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "file": "menu-sync-worker-grants.mjs",
+      "expectedSha256": "d3073cabfb5fad023bc2af179214f91791d568f38daf38d40518634ca8040fc7",
+      "actualSha256": "d3073cabfb5fad023bc2af179214f91791d568f38daf38d40518634ca8040fc7",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "file": "native-edge-backup-ledger.json",
+      "expectedSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "actualSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "file": "install-edge-backup.ps1",
+      "expectedSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "actualSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "file": "station-plan-upgrade-db.mjs",
+      "expectedSha256": "817cf7d71c7fdca7d311a5d31fb139826ee67ce2d9eff12686754235bf5e607c",
+      "actualSha256": "817cf7d71c7fdca7d311a5d31fb139826ee67ce2d9eff12686754235bf5e607c",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "file": "cloud-link-grant.mjs",
+      "expectedSha256": "5b3038025cbf15d5e052aa72c56b77d6f6c08f15f6026609df1a066df0dcc108",
+      "actualSha256": "5b3038025cbf15d5e052aa72c56b77d6f6c08f15f6026609df1a066df0dcc108",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-queue-recovery-025.ps1",
+      "file": "native-edge-backup-ledger.json",
+      "expectedSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "actualSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-queue-recovery-025.ps1",
+      "file": "install-edge-backup.ps1",
+      "expectedSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "actualSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-queue-recovery-025.ps1",
+      "file": "queue-recovery-upgrade-db.mjs",
+      "expectedSha256": "f5cce0b0a757b9c49dc173a120598ffd3cc28c42f30cf6b857c5b730a4032440",
+      "actualSha256": "f5cce0b0a757b9c49dc173a120598ffd3cc28c42f30cf6b857c5b730a4032440",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-head-028.ps1",
+      "file": "native-edge-backup-ledger.json",
+      "expectedSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "actualSha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+      "matches": true
+    },
+    {
+      "operator": "update-runtime-head-028.ps1",
+      "file": "install-edge-backup.ps1",
+      "expectedSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "actualSha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+      "matches": true
+    }
+  ],
+  "runtimeAdminFiles": [
+    {
+      "path": "infra/windows/kaspi-pos-upgrade-db.mjs",
+      "sourceExists": true,
+      "includedByPackager": false
+    },
+    {
+      "path": "infra/windows/kaspi-pos-grants.mjs",
+      "sourceExists": true,
+      "includedByPackager": false
+    },
+    {
+      "path": "scripts/kaspi-terminal-setup.mjs",
+      "sourceExists": true,
+      "includedByPackager": false
+    },
+    {
+      "path": "infra/windows/native-edge-backup-ledger.json",
+      "sourceExists": true,
+      "includedByPackager": false
+    }
+  ],
+  "localPackagerUnitTests": {
+    "passed": 7,
+    "failed": 0,
+    "doesNotCoverKaspiDependencyClosure": true
+  }
+}
