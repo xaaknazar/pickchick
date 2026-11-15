@@ -18,6 +18,7 @@ on:
       - 'tests/operations/test_windows_stage2_release.py'
       - 'tests/operations/test_windows_queue_recovery_release.py'
       - 'tests/operations/test_windows_head_runtime_release.py'
+      - 'tests/operations/test_windows_head_029_runtime_release.py'
   pull_request:
     branches: [main]
     paths:
@@ -35,6 +36,7 @@ on:
       - 'tests/operations/test_windows_stage2_release.py'
       - 'tests/operations/test_windows_queue_recovery_release.py'
       - 'tests/operations/test_windows_head_runtime_release.py'
+      - 'tests/operations/test_windows_head_029_runtime_release.py'
   workflow_dispatch:
     inputs:
       apply:
@@ -75,6 +77,8 @@ jobs:
           python tests/operations/test_windows_queue_recovery_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_head_runtime_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/operations/test_windows_head_029_runtime_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_edge_backup.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

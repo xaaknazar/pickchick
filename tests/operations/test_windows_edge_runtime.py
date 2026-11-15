@@ -132,7 +132,11 @@ class WindowsEdgePackageTests(unittest.TestCase):
                  'infra/windows/pos-sync-backlog.mjs',
                  # Lane bo-ui: the roster scripts of backoffice-p1-cutover.md run on the server.
                  'scripts/staff-roster-apply.mjs', 'scripts/staff-pin-batch.mjs',
-                 'scripts/edge-staff-id.mjs']
+                 'scripts/edge-staff-id.mjs',
+                 # ADR-0017: edge 029 upgrade, its grants and the terminal link owner tool;
+                 # edge-runtime-grants.mjs imports kaspi-pos-grants.mjs.
+                 'infra/windows/kaspi-pos-upgrade-db.mjs', 'infra/windows/kaspi-pos-grants.mjs',
+                 'infra/windows/edge-runtime-grants.mjs', 'scripts/kaspi-terminal-setup.mjs']
         # Workspace packages of the runtime closure: the build roots and their dependencies.
         workspace = {}
         for manifest in [*repo.glob('packages/*/package.json'), *repo.glob('services/*/package.json')]:
@@ -183,11 +187,12 @@ class WindowsEdgePackageTests(unittest.TestCase):
         for row in ledger:
             self.assertEqual(pinned[row['version']], row['checksum'], row['version'])
         tools = {name: (repo / 'infra/windows' / name).read_text()
-                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs')}
+                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs', 'kaspi-pos-upgrade-db.mjs')}
         for tool, constant, migration in (
                 ('pos-sales-upgrade-db.mjs', 'POS_SALES_SHA256', '026_edge_pos_sales.sql'),
                 ('kds-upgrade-db.mjs', 'KDS_SHA256', '027_edge_kds_foundation.sql'),
-                ('pos-sales-upgrade-db.mjs', 'DESK_NUMBER_SHA256', '028_edge_pos_desk_number.sql')):
+                ('pos-sales-upgrade-db.mjs', 'DESK_NUMBER_SHA256', '028_edge_pos_desk_number.sql'),
+                ('kaspi-pos-upgrade-db.mjs', 'KASPI_POS_SHA256', '029_edge_kaspi_pos.sql')):
             found = re.search(r'export const ' + constant + r" =\s*'([a-f0-9]{64})'", tools[tool])
             self.assertIsNotNone(found, constant)
             self.assertEqual(pinned[migration], found.group(1), migration)
