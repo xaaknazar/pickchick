@@ -7863,12 +7863,11 @@
       "branch": "codex/desktop-kitchen-044-1115",
       "scopes": [
         "docs/operations/desktop-updates-published.json",
-        "docs/operations/desktop-updates-publish-1115.md",
-        "@vps/desktop-updates"
+        "docs/operations/desktop-updates-publish-1115.md"
       ],
       "status": "active",
       "head": "8d932830278be7eba84330dac329c2cad83b3226",
-      "updatedAt": "2026-11-15T09:55:33.714Z"
+      "updatedAt": "2026-11-15T10:21:20.210Z"
     }
   ],
   "approvedScopeTransfers": [
