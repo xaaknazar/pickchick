@@ -2,16 +2,33 @@
 // Pure geometry and palette so the screens, the bar and unit tests share one source.
 
 export const tabBarPalette = {
-  // Navy glass from the brand theme (--glass in mobile-v2): 0.92 keeps inactive labels
-  // AA-readable even over a white photo, opaque surface when transparency is reduced.
+  // Navy glass from the brand theme (--glass in mobile-v2). 0.92 is the body where nothing blurs
+  // behind the capsule (Android): inactive labels stay AA-readable even over a white photo.
   glass: 'rgba(10, 32, 80, 0.92)',
+  /**
+   * Web: the backdrop is blurred, saturated and dimmed (`webDim`), then a thinner navy veil, so
+   * the photos below read through it like Apple's glass; inactive labels keep AA even over a white
+   * photo (tab-bar.test.mjs models the dim).
+   */
+  webVeil: 'rgba(10, 32, 80, 0.72)',
+  webDim: 0.62,
+  webBackdrop: 'blur(28px) saturate(180%) brightness(0.62)',
+  /** iOS before 26: Apple's own tab bar material (systemChromeMaterialDark) under a brand veil. */
+  chromeVeil: 'rgba(10, 32, 80, 0.45)',
   solid: '#0A2050',
   border: 'rgba(255, 255, 255, 0.10)',
   shadow: '#000000',
-  // Active tab: raised navy pill with brand orange icon and label (accentText).
-  pill: '#123068',
+  /**
+   * The selection (owner 15.11.2026: «как у Apple в точности»): iOS 26 marks the selected tab
+   * with a light platter on the glass, not a darker pill. While pressed or dragged it swells into
+   * a brighter lens with a light rim, like Liquid Glass.
+   */
+  pill: 'rgba(255, 255, 255, 0.1)',
+  lens: 'rgba(255, 255, 255, 0.2)',
+  lensRim: 'rgba(255, 255, 255, 0.42)',
+  /** The selected icon and label: brand orange (accentText). */
   active: '#FF8A3D',
-  inactive: '#93A6C9',
+  inactive: '#B4C2DC',
 } as const;
 
 /** Labels follow Dynamic Type up to this factor; the bar must stay compact. */
@@ -108,4 +125,44 @@ export function tabItemWidth(
 ): number {
   const bar = Math.min(metrics.maxWidth, screenWidth - metrics.side * 2);
   return (bar - metrics.padding * 2) / count;
+}
+
+// Last in the file: worklets capture what they use when they are defined (Reanimated).
+
+/**
+ * Selection motion, close to iOS 26's tab bar: a spring with a response of about 0.38 s and a
+ * little bounce (damping ratio ~0.78) that carries the platter, and a faster one for the lens.
+ */
+export const tabSelectionSpring = { mass: 1, stiffness: 280, damping: 26 } as const;
+export const tabLensSpring = { mass: 1, stiffness: 420, damping: 30 } as const;
+
+/** How far the platter stretches along its path mid-flight, and how much the lens swells. */
+export const tabLensShape = { stretchX: 0.18, squashY: 0.06, swellX: 0.08, swellY: 0.2 } as const;
+
+/**
+ * The platter's shape at `position` (a tab index, fractional while it moves) with the lens
+ * raised by `lens` (0..1): gel-like, widest halfway between two tabs, round again at rest.
+ * Pure so the worklet and the unit tests share it.
+ */
+export function tabPlatterScale(position: number, lens: number): { x: number; y: number } {
+  'worklet';
+  const fraction = position - Math.floor(position);
+  const moving = 1 - Math.abs(fraction - 0.5) * 2;
+  return {
+    x: 1 + tabLensShape.stretchX * moving + tabLensShape.swellX * lens,
+    y: 1 - tabLensShape.squashY * moving + tabLensShape.swellY * lens,
+  };
+}
+
+/** How selected tab `index` looks with the platter at `position`: 1 under it, 0 a tab away. */
+export function tabSelection(position: number, index: number): number {
+  'worklet';
+  return Math.max(0, 1 - Math.abs(position - index));
+}
+
+/** The tab under a finger at `x` along the items row, clamped to the row. */
+export function tabAt(x: number, itemWidth: number, count = tabBarTabCount): number {
+  'worklet';
+  if (!(itemWidth > 0)) return 0;
+  return Math.min(count - 1, Math.max(0, Math.floor(x / itemWidth)));
 }

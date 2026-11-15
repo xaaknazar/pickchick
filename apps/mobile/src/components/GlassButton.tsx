@@ -24,6 +24,7 @@ import {
   liquidGlyphOpacity,
   type GlassPlace,
 } from '../glass';
+import { tabBarPalette } from '../tab-bar-metrics';
 import { useGlassSurface } from './useGlassSurface';
 
 export { useGlassSurface } from './useGlassSurface';
@@ -277,3 +278,64 @@ const s = StyleSheet.create({
   pressed: { transform: [{ scale: 0.95 }] },
   glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
 });
+
+const tabBarBackdrop =
+  Platform.OS === 'web'
+    ? ({
+        backdropFilter: tabBarPalette.webBackdrop,
+        WebkitBackdropFilter: tabBarPalette.webBackdrop,
+      } as unknown as ViewStyle)
+    : null;
+
+/**
+ * The tab bar capsule's glass (FloatingTabBar), best first (glass.ts):
+ * - iOS 26+: Apple's own Liquid Glass (`GlassView`, regular, dark): the exact material, edge light
+ *   and lensing of the system tab bar.
+ * - iOS before 26: Apple's tab bar material (systemChromeMaterialDark blur) under a brand veil.
+ * - Web: CSS backdrop blur under a navy veil; Android: the dense navy (nothing blurs there).
+ * - Reduce Transparency: opaque navy, also on iOS 26.
+ * Off the Liquid Glass path the sheen and the specular edge imitate its light.
+ */
+export function TabBarGlass({ radius }: { radius: number }) {
+  const surface = useGlassSurface();
+  const round = { borderRadius: radius };
+  if (surface === 'liquid')
+    return (
+      <GlassView
+        pointerEvents="none"
+        glassEffectStyle="regular"
+        colorScheme="dark"
+        isInteractive={false}
+        style={[StyleSheet.absoluteFill, round]}
+      />
+    );
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, round]}>
+      {surface === 'blur' && Platform.OS === 'ios' ? (
+        <BlurView
+          tint="systemChromeMaterialDark"
+          intensity={100}
+          style={[StyleSheet.absoluteFill, s.clip, round]}
+        />
+      ) : null}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          round,
+          {
+            backgroundColor:
+              surface === 'solid'
+                ? tabBarPalette.solid
+                : surface === 'blur'
+                  ? Platform.OS === 'web'
+                    ? tabBarPalette.webVeil
+                    : tabBarPalette.chromeVeil
+                  : tabBarPalette.glass,
+          },
+          surface === 'blur' ? tabBarBackdrop : null,
+        ]}
+      />
+      <View style={[StyleSheet.absoluteFill, round, highlight]} />
+    </View>
+  );
+}
