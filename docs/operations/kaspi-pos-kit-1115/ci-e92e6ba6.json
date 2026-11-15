@@ -1,0 +1,194 @@
+{
+  "sourceCommit": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+  "predecessorCommit": "dec8b48cd899fe015baee17a3853affbe7eee774",
+  "status": "STOP",
+  "reason": "Foundation integration test failed; kit not built",
+  "foundation": {
+    "id": 43754144310,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310",
+    "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "id": 132934432800,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934432800",
+        "failed_steps": []
+      },
+      {
+        "id": 132934432961,
+        "name": "Foundation static checks and transaction invariants",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934432961",
+        "failed_steps": ["Test PostgreSQL constraints and HTTP failure scenarios"]
+      },
+      {
+        "id": 132934432980,
+        "name": "Foundation server account and Kaspi fixtures",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934432980",
+        "failed_steps": []
+      },
+      {
+        "id": 132934432997,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934432997",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433002,
+        "name": "Foundation simulator browser regressions",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433002",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433045,
+        "name": "Local kitchen UI and recovery",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433045",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433046,
+        "name": "Private staging image and restricted database role",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433046",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433049,
+        "name": "Foundation POS and backoffice integration",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433049",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433065,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433065",
+        "failed_steps": []
+      },
+      {
+        "id": 132934433081,
+        "name": "Design screens and interaction smoke",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934433081",
+        "failed_steps": []
+      },
+      {
+        "id": 132941008657,
+        "name": "Build, contracts and PostgreSQL integration",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132941008657",
+        "failed_steps": ["Require every foundation suite"]
+      }
+    ]
+  },
+  "windows": {
+    "id": 43754165344,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754165344",
+    "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 132934497055,
+        "name": "Package installed Windows x64 POS",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754165344/job/132934497055",
+        "failed_steps": []
+      },
+      {
+        "id": 132934497238,
+        "name": "Installed POS updates itself from a feed",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754165344/job/132934497238",
+        "failed_steps": []
+      },
+      {
+        "id": 132934497325,
+        "name": "Native release guards on Windows PowerShell 5.1",
+        "head_sha": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43754165344/job/132934497325",
+        "failed_steps": []
+      }
+    ]
+  },
+  "failure": {
+    "job": 132934432961,
+    "step": "Test PostgreSQL constraints and HTTP failure scenarios",
+    "test": "roster -> staff-roster-apply -> staff-pin-batch: plan, hash, roles never changed in place, PINs never printed",
+    "path": "tests/integration/backoffice-p1-staff-roster.test.mjs",
+    "declarationLine": 74,
+    "assertionLine": 263,
+    "message": "a PIN is never shown or logged",
+    "event": "staff_session_saved",
+    "matchedFields": [
+      {
+        "keys": ["event", "staff_id", "role", "expires_at", "file"],
+        "matchedFields": [
+          {
+            "field": "staff_id",
+            "length": 36,
+            "isHex": false,
+            "isUUID": true
+          },
+          {
+            "field": "file",
+            "length": 54,
+            "isHex": false,
+            "isUUID": false
+          }
+        ],
+        "event": "staff_session_saved"
+      }
+    ],
+    "interpretation": "The substring assertion matched the synthetic staff UUID and filename containing it. No PIN field in this event. No code or test changed; no retry to hide the failure."
+  },
+  "windowsGuard": {
+    "tests": 7,
+    "result": "OK",
+    "includes": "KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool"
+  },
+  "installer": {
+    "name": "PickChick-POS-Setup-0.5.4-x64.exe",
+    "bytes": 172282435,
+    "sha256": "f8db17227245fa2457d08fb970130570fc7f6b39873030c0ad67478b1ecf5f58",
+    "artifact": 14177089255,
+    "downloadVerified": true,
+    "inFinishedKit": false
+  }
+}

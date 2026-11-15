@@ -1,87 +1,70 @@
-# Пакет Kaspi Smart POS, 15.11.2026
+# Пакет Kaspi Smart POS, 16.11.2026
 
 ## Статус
 
-STOP по условию владельца: при ошибке CI сообщить запуск и имя проверки.
-Готовый kaspi-pos-kit-1115 не собран, размер и SHA-256 установочного ZIP отсутствуют.
+STOP по условию владельца при любом отказе CI. Готовый kaspi-pos-kit-1115 не собран.
+Runtime ZIP и окончательный архив комплекта отсутствуют; их SHA-256 не заявляется.
 
-`codex/kaspi-pos-1115` обновлена без force до
-`9b2e751fca7d8efcd0ed4b15180aea410056d71a`; удалённый SHA совпадает.
-Исходный коммит не менялся. Лента обновлений, облако и касса не менялись.
+Ветка `codex/kaspi-pos-1115` перемотана без force на
+`e92e6ba6500a40e144ebbd9c8558266ee15678f1`. Исходник и тесты не менялись.
+Лента обновлений, облако и касса не менялись.
 
-- [Foundation CI 43733904023](https://github.com/xaaknazar/pickchick/actions/runs/43733904023):
-  обязательное задание `Foundation static checks and transaction invariants` упало.
-  Остальные задания на момент снимка частично ещё выполнялись; полного PASS нет.
-- [Windows POS CI 43733907474](https://github.com/xaaknazar/pickchick/actions/runs/43733907474):
-  completed/success, все 3 задания PASS на точном SHA.
-  Workflow запущен явно с `apply=idle`: изменение только `.gitattributes`
-  не входит в фильтр путей автоматического запуска Windows POS.
+- [Foundation43754144310](https://github.com/xaaknazar/pickchick/actions/runs/43754144310):
+  completed/failure, 9 из 11 заданий прошли. Основное задание static/invariants
+  упало на интеграционном тесте, итоговое задание CI повторило отказ.
+- [Windows43754165344](https://github.com/xaaknazar/pickchick/actions/runs/43754165344):
+  completed/success, все 3 задания PASS. Проверка 029 содержит 7 успешных тестов,
+  включая `KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool`.
+  Самообновление POS на стенде тоже прошло. Workflow запущен явно с `apply=idle`:
+  изменение руководства не входит в автоматический фильтр путей Windows.
 
-[Снимок CI](ci-9b2e751f.json). Это журнал остановки, не разрешение установки.
-История: [982f6e2f](attempt-982f6e2f.md), [2f15560e](attempt-2f15560e.md),
-[f57edaf4](attempt-f57edaf4.md).
+[Снимок CI](ci-e92e6ba6.json), [аудит исходника](source-audit-e92e6ba6.json).
 
-## Причина остановки
+## Упавшая проверка
 
-[Задание 132872295252](https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295252),
-шаг `Build and static checks`, команда `prettier --check .`.
+[Задание132934432961](https://github.com/xaaknazar/pickchick/actions/runs/43754144310/job/132934432961),
+шаг `Test PostgreSQL constraints and HTTP failure scenarios`.
 
-Ошибка не относится к тесту Kaspi. Prettier требует пустую строку в
-`docs/operations/stage2-windows-1030/head-runtime-029.md`: после абзаца
-`Он сам запускает ... и три воркера.` и перед пунктом 6.
-Проверка этого одного файла локально воспроизвела отказ с exit 1.
-Сравнение результата форматирования с исходником показало только эту пустую строку.
-Файл исходной ветки не редактировался.
+Тест:
+`roster -> staff-roster-apply -> staff-pin-batch: plan, hash, roles never changed in place, PINs never printed`.
 
-Следующий шаг для автора PR: исправить форматирование, опубликовать новый SHA
-и повторить Foundation и Windows POS на нём. Проверку не отключать;
-успех Windows на старом SHA не заменяет проверку нового кандидата.
+Файл `tests/integration/backoffice-p1-staff-roster.test.mjs`: объявление строка74,
+отказ строки263, `AssertionError: a PIN is never shown or logged`.
 
-## Что прошло на Windows
+В журнале отказа показано событие `staff_session_saved` с полями event, staff_id,
+role, expires_at, file. Регулярное выражение проверяет всю строку и совпало с
+подстрокой случайного UUID в staff_id и именем файла, содержащим этот UUID.
+Отдельного поля PIN в этом событии нет. Это ложное срабатывание проверки подстроки
+на синтетических идентификаторах; значения идентификаторов и PIN сюда не копируются.
 
-- `Package installed Windows x64 POS`: PASS, установщик POS 0.5.4 собран CI.
-- `Installed POS updates itself from a feed`: PASS на стенде CI.
-- `Native release guards on Windows PowerShell 5.1`: PASS.
-- `test_windows_head_029_runtime_release.py`: 7 тестов, OK, включая
-  `KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool`.
+Исправление должен подготовить автор: исключить случайные совпадения в структурных
+идентификаторах, сохранив проверку отсутствия PIN в выводе. Повтор ради зелёного
+результата не запускался. Нужны новый SHA и обе полные зелёные CI на нём.
 
-Правило LF для миграций устранило прежний отказ сверки хеша 029.
-Это подтверждение стенда CI, не установки или оплаты на рабочей кассе.
-Установочный набор при красной Foundation CI не создавался.
+## Подготовленные материалы
 
-## PredecessorCommit и будущий COMMANDS.md
+- Исправления LF и форматирования руководства проверены. Первые 28 миграций
+  побайтно равны исходнику `dec8b48cd899fe015baee17a3853affbe7eee774`, все 29
+  контрольных сумм совпадают с ledger, закрепления помощников и backup-tool верны.
+- Владелец прямо указал `-PredecessorCommit dec8b48cd899fe015baee17a3853affbe7eee774`.
+  Подтверждение на кассе остаётся проверкой оператора по completed.json и файлам.
+- Получен артефакт Windows14177089255; SHA-256 всего ZIP сверён с GitHub.
+  Внутри POS0.5.4: `PickChick-POS-Setup-0.5.4-x64.exe`, 172282435байт,
+  SHA-256 `f8db17227245fa2457d08fb970130570fc7f6b39873030c0ad67478b1ecf5f58`.
+  verification.json подтверждает exact e92e6ba6 и чистый исходник. Этот установщик
+  не означает готовый комплект и не был установлен или опубликован в ленте.
+- [Черновик COMMANDS](COMMANDS.draft.md) сохранён для продолжения. Все8 блоков
+  прошли локальный parse-only PowerShell7.7.0. Проверены варианты DateTime/ISO и
+  отказы на старой/будущей копии, неверной схеме и неуспешной задаче. Это не
+  Windows5.1/SCM-приёмка самих блоков и не проверка физического устройства.
+- Инструкция сохраняет настройки копий, выполняет сверку XML/байтов установленного
+  028 до DB-фазы, использует штатный maintenance lease, требует свежие schema028
+  и schema029 и оставляет регистрацию терминала отдельным действием. Runtime hash
+  остаётся незаполненным, поэтому черновик останавливается до изменений.
 
-Владелец явно разрешил оставить `<sha рантайма 028>` в `-PredecessorCommit`.
-Claude подставит полный `sourceCommit` из фактического
-`C:\ProgramData\PickChick\EdgeTools\runtime-head-028-*\completed.json` на кассе.
-Не подставлять плановый SHA без чтения этого документа; его поле
-`predecessorCommit` относится к более старому рантайму.
-Неверный предшественник отклоняется оператором. Дополнительный ответ владельца
-об установленном SHA для подготовки инструкции не требуется.
+После исправления CI: новый exact-source runtime, proof обеих CI, установщик
+того же SHA, проверенные инструменты, COMMANDS и SHA256SUMS. До этого не применять.
+Секреты, owner env и identity в Git и будущий комплект не включаются.
 
-После зелёных CI точного кандидата комплект будет содержать runtime ZIP,
-его SHA-256, полное CI-подтверждение, POS 0.5.4, закреплённые инструменты
-и COMMANDS.md по `head-runtime-029.md`.
-
-Инструкция сохраняет этот порядок и условия:
-
-1. Проверка SHA и CI до обслуживания; кандидат только в защищённом staging,
-   конечный каталог `Edge\edge-<7 знаков>` заранее не создавать.
-2. Новый backup-tool с сохранением destination, retention, maxAgeMinutes и
-   reportInHeartbeat; свежая проверенная schema028-копия в `E:\PickChickBackups`.
-3. Приостановленная задача копий, завершённая текущая копия, остановленные
-   edge-службы; PostgreSQL и туннель продолжают работать.
-4. Миграция 029: inspect, затем apply из кандидата; после Node проверяется
-   LASTEXITCODE. Проверки CI и копии выполняются до DB-фазы.
-5. Повторный backup Install, свежая schema029-копия; проверяются не только
-   завершение команды, но и lastTaskResult, health.state, stale, schema,
-   lastSuccessAt. Расписание снова приостановлено до конца окна.
-6. Оператор029 без `-Apply`, затем с ним; сохранены проверки соседей, архива,
-   предшественника, XML и свежей копии. Никакого обхода защит.
-7. Возврат KitchenLAN и задачи копий, отдельно установка POS и привязка
-   терминала. Не добавлять автоматический запуск служб или восстановление БД
-   в обработчик неизвестного исхода.
-
-Все будущие действия на устройстве выполняет Claude. Секреты, owner env и
-identity в комплект не включаются. Готовность оплаты на физическом терминале
-проверяется отдельно владельцем и Claude.
+История: [9b2e751f](attempt-9b2e751f.md), [f57edaf4](attempt-f57edaf4.md),
+[2f15560e](attempt-2f15560e.md), [982f6e2f](attempt-982f6e2f.md).

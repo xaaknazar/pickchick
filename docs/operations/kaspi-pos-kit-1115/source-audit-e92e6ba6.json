@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "e92e6ba6500a40e144ebbd9c8558266ee15678f1",
+  "predecessorCommit": "dec8b48cd899fe015baee17a3853affbe7eee774",
+  "predecessorSource": "Explicit owner instruction 16.11.2026; installer also checks on-device completed.json",
+  "migrationCount": 29,
+  "checksumsMatch": true,
+  "previous28ByteIdentical": true,
+  "sourceChangesFrom9b2e751f": ["Blank line before item 6 in head-runtime-029.md"],
+  "localGuideFormatCheck": "PASS",
+  "cloudTouched": false,
+  "cashierTouched": false,
+  "updateFeedTouched": false
+}
