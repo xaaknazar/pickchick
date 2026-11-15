@@ -1,0 +1,71 @@
+{
+  "sourceCommit": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+  "migrationCount": 29,
+  "findings": [
+    {
+      "path": "infra/windows/kaspi-pos-upgrade-db.mjs",
+      "sourceExists": true,
+      "inRuntimeAdminFiles": false
+    },
+    {
+      "path": "infra/windows/kaspi-pos-grants.mjs",
+      "sourceExists": true,
+      "inRuntimeAdminFiles": false
+    },
+    {
+      "path": "scripts/kaspi-terminal-setup.mjs",
+      "sourceExists": true,
+      "inRuntimeAdminFiles": false
+    },
+    {
+      "path": "infra/windows/native-edge-backup-ledger.json",
+      "sourceExists": true,
+      "inRuntimeAdminFiles": false
+    },
+    {
+      "operator": "install-edge-backup.ps1",
+      "pinMismatches": [
+        {
+          "path": "edge-backup-lib.mjs",
+          "expected": "3203a43bbefb1f911d1983eceadbffd81b9664655b904b007ade5cc30b04ef6d",
+          "actual": "687bbb1c4e069733258a05d22efff57c8da66b647103c83ac7bc929dcec79119"
+        },
+        {
+          "path": "native-edge-backup-ledger.json",
+          "expected": "66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f",
+          "actual": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59"
+        }
+      ]
+    },
+    {
+      "operator": "update-runtime-stage2-1024.ps1",
+      "pinMismatches": [
+        {
+          "path": "native-edge-backup-ledger.json",
+          "expected": "66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f",
+          "actual": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59"
+        }
+      ]
+    },
+    {
+      "operator": "update-runtime-queue-recovery-025.ps1",
+      "pinMismatches": [
+        {
+          "path": "native-edge-backup-ledger.json",
+          "expected": "66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f",
+          "actual": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59"
+        }
+      ]
+    },
+    {
+      "operator": "update-runtime-head-028.ps1",
+      "pinMismatches": [
+        {
+          "path": "native-edge-backup-ledger.json",
+          "expected": "66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f",
+          "actual": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59"
+        }
+      ]
+    }
+  ]
+}

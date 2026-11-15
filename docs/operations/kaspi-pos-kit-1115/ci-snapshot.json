@@ -1,0 +1,165 @@
+{
+  "capturedAt": "2026-11-15 15:28:55 UTC",
+  "sourceCommit": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+  "sourceBranch": "claude/project-thread-ej7z1n",
+  "ciBranch": "codex/kaspi-pos-1115",
+  "releaseGate": "STOP",
+  "packageBuilt": false,
+  "runtimeInstalled": false,
+  "cloudChanged": false,
+  "runs": [
+    {
+      "id": 43729759892,
+      "name": "Foundation CI",
+      "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+      "head_branch": "codex/kaspi-pos-1115",
+      "event": "push",
+      "path": ".github/workflows/ci.yml",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892",
+      "jobs": [
+        {
+          "id": 132859397073,
+          "name": "Foundation POS and backoffice integration",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397073",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397266,
+          "name": "Foundation static checks and transaction invariants",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397266",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397312,
+          "name": "Local kitchen UI and recovery",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397312",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397320,
+          "name": "Foundation server account and Kaspi fixtures",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397320",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397346,
+          "name": "Private staging image and restricted database role",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "completed",
+          "conclusion": "failure",
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397346",
+          "failed_steps": [
+            {
+              "number": 3,
+              "name": "Check deployment guards and operator maintenance installer"
+            }
+          ]
+        },
+        {
+          "id": 132859397357,
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397357",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397371,
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397371",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397394,
+          "name": "Design screens and interaction smoke",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "completed",
+          "conclusion": "success",
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397394",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397396,
+          "name": "Foundation simulator browser regressions",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397396",
+          "failed_steps": []
+        },
+        {
+          "id": 132859397450,
+          "name": "Foundation mobile bundles and checkout recovery",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729759892/job/132859397450",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "id": 43729895381,
+      "name": "Windows POS package",
+      "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+      "head_branch": "codex/kaspi-pos-1115",
+      "event": "workflow_dispatch",
+      "path": ".github/workflows/windows-pos.yml",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729895381",
+      "jobs": [
+        {
+          "id": 132859818236,
+          "name": "Native release guards on Windows PowerShell 5.1",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "completed",
+          "conclusion": "failure",
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729895381/job/132859818236",
+          "failed_steps": [
+            {
+              "number": 4,
+              "name": "Verify pinned helpers and mocked service recovery"
+            }
+          ]
+        },
+        {
+          "id": 132859818421,
+          "name": "Package installed Windows x64 POS",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729895381/job/132859818421",
+          "failed_steps": []
+        },
+        {
+          "id": 132859818464,
+          "name": "Installed POS updates itself from a feed",
+          "head_sha": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
+          "status": "in_progress",
+          "conclusion": null,
+          "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43729895381/job/132859818464",
+          "failed_steps": []
+        }
+      ]
+    }
+  ]
+}
