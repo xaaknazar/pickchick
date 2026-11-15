@@ -298,6 +298,15 @@ test(
         webSecurity: true,
         webviewTag: false,
       });
+      stage = 'window switch';
+      assert.equal(
+        await page.evaluate(() => typeof globalThis.pickchickKitchenWindow?.toggleFullscreen),
+        'function',
+      );
+      assert.equal(
+        typeof (await page.evaluate(() => globalThis.pickchickKitchenWindow.isFullscreen())),
+        'boolean',
+      );
       stage = 'credential gate';
       await login(page, { ...credential, token: '0'.repeat(64) });
       await visible(page, '[role="alert"]');

@@ -124,6 +124,20 @@ header p {
   background: #ffffff12;
   border-radius: 16px;
 }
+/* Full screen / window switch of the installed app: large enough for a finger. */
+.fullscreen-button {
+  flex: none;
+  min-height: 56px;
+  padding: 10px 20px;
+  border: 1px solid #ffffff59;
+  background: #ffffff1f;
+  color: #fff;
+  font-size: 18px;
+  white-space: nowrap;
+}
+.fullscreen-button:hover:not(:disabled) {
+  background: #ffffff33;
+}
 .stat span {
   display: block;
   max-width: 124px;

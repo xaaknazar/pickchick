@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, session, dialog, safeStorage, net } from 'electron';
+import { app, BrowserWindow, Menu, session, dialog, ipcMain, safeStorage, net } from 'electron';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
@@ -18,6 +18,28 @@ app.setPath('userData', testProfile || join(app.getPath('appData'), 'PickChickKi
 app.setAppUserModelId('kz.pickchick.kitchen');
 const ownsInstance = app.requestSingleInstanceLock();
 let window, gateway;
+let fullscreenChange;
+// One change at a time; resolves with the state Windows reports after the change.
+function toggleFullscreen() {
+  if (fullscreenChange) return fullscreenChange;
+  const target = !window.isFullScreen();
+  const event = target ? 'enter-full-screen' : 'leave-full-screen';
+  fullscreenChange = new Promise((resolve, reject) => {
+    const done = () => {
+      clearTimeout(timeout);
+      resolve(window.isFullScreen());
+    };
+    const timeout = setTimeout(() => {
+      window.removeListener(event, done);
+      reject(new Error('WINDOW_CONTROL_UNAVAILABLE'));
+    }, 10000);
+    window.once(event, done);
+    window.setFullScreen(target);
+  }).finally(() => {
+    fullscreenChange = null;
+  });
+  return fullscreenChange;
+}
 // What stands in the window title: the build and the address the point server knows this
 // device by (docs/operations/lan-clients.md), so that nobody has to look it up in Windows.
 function windowTitle() {
@@ -125,6 +147,19 @@ else {
       isolatedSession.webRequest.onBeforeRequest((details, callback) =>
         callback({ cancel: !isAllowedRendererRequest(details.url, details.method) }),
       );
+      ipcMain.handle('pickchick-kitchen:window-v1', (event, operation) => {
+        if (
+          !window ||
+          window.isDestroyed() ||
+          event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          event.senderFrame.url !== APP_URL ||
+          !['state', 'toggle'].includes(operation)
+        )
+          throw new Error('WINDOW_CONTROL_UNAVAILABLE');
+        if (operation === 'toggle') return toggleFullscreen();
+        return window.isFullScreen();
+      });
       Menu.setApplicationMenu(null);
       window = new BrowserWindow({
         width: 1366,
@@ -135,8 +170,11 @@ else {
         backgroundColor: '#08224f',
         show: false,
         autoHideMenuBar: true,
+        fullscreenable: true,
+        fullscreen: process.platform === 'win32',
         webPreferences: {
           session: isolatedSession,
+          preload: fileURLToPath(new URL('./preload.cjs', import.meta.url)),
           sandbox: true,
           contextIsolation: true,
           nodeIntegration: false,
@@ -150,12 +188,27 @@ else {
           devTools: !app.isPackaged,
         },
       });
-      // The guest board (paired as display) fills its screen; staff screens stay maximized windows.
+      // Every kitchen screen opens full screen over the taskbar (the board on any system, staff
+      // screens on Windows); the header button and F11 switch to a window and back.
       const board = config.terminalMode === 'display';
+      const startFullscreen = board || process.platform === 'win32';
       window.once('ready-to-show', () => {
-        if (board) window.setFullScreen(true);
+        if (startFullscreen) window.setFullScreen(true);
         else window.maximize();
         window.show();
+        // Apply after showing as well: older Windows may defer the initial window state.
+        if (startFullscreen) window.setFullScreen(true);
+      });
+      for (const event of ['enter-full-screen', 'leave-full-screen']) {
+        window.on(event, () => {
+          window.webContents.send('pickchick-kitchen:fullscreen-v1', window.isFullScreen());
+        });
+      }
+      window.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.key === 'F11' && !input.isAutoRepeat) {
+          event.preventDefault();
+          void toggleFullscreen().catch(() => {});
+        }
       });
       window.on('close', () => isolatedSession.flushStorageData());
       // The page does not rename the window; the address follows the network.

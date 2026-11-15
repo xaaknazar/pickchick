@@ -188,6 +188,7 @@ test('electron-builder packages every renderer asset and nothing else of the ren
     entries.filter((entry) => !entry.startsWith('renderer/')),
     [
       'main.mjs',
+      'preload.cjs',
       'security.mjs',
       'gateway.mjs',
       'terminal-cookie.mjs',
@@ -198,11 +199,21 @@ test('electron-builder packages every renderer asset and nothing else of the ren
   );
 });
 
-test('only the board paired as display opens full screen', async () => {
+test('every screen opens full screen on Windows and can leave it by touch or F11', async () => {
   const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8');
-  assert.match(main, /const board = config\.terminalMode === 'display';/);
-  assert.match(main, /if \(board\) window\.setFullScreen\(true\);\s*else window\.maximize\(\);/);
+  assert.match(main, /fullscreenable: true,\s*fullscreen: process\.platform === 'win32',/);
+  assert.match(main, /const startFullscreen = board \|\| process\.platform === 'win32';/);
+  assert.match(main, /input\.key === 'F11' && !input\.isAutoRepeat/);
+  // The switch answers only the kitchen page in the main frame, with two known operations.
+  assert.match(
+    main,
+    /event\.sender !== window\.webContents \|\|\s*event\.senderFrame !== window\.webContents\.mainFrame \|\|\s*event\.senderFrame\.url !== APP_URL \|\|\s*!\['state', 'toggle'\]\.includes\(operation\)/,
+  );
   assert.doesNotMatch(main, /kiosk/);
+  const preload = await readFile(new URL('../preload.cjs', import.meta.url), 'utf8');
+  assert.match(preload, /exposeInMainWorld\('pickchickKitchenWindow'/);
+  assert.equal((preload.match(/exposeInMainWorld/g) ?? []).length, 1);
+  assert.doesNotMatch(preload, /ipcRenderer\.(send|sendSync)\(/);
 });
 
 // Cutover KDS-5: the renderer reaches the KDS routes of CR kds-5 through the same gateway rules.
