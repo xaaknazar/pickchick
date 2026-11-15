@@ -124,16 +124,19 @@ header p {
   background: #ffffff12;
   border-radius: 16px;
 }
-/* Full screen / window switch of the installed app: large enough for a finger. */
+/* Full screen / window switch of the installed app (same icon as the cash desk), finger-sized. */
 .fullscreen-button {
   flex: none;
+  width: 56px;
+  height: 56px;
   min-height: 56px;
-  padding: 10px 20px;
-  border: 1px solid #ffffff59;
-  background: #ffffff1f;
+  padding: 0;
+  border: 1px solid #ffffff66;
+  border-radius: 12px;
+  background: #ffffff1a;
   color: #fff;
-  font-size: 18px;
-  white-space: nowrap;
+  font-size: 30px;
+  line-height: 1;
 }
 .fullscreen-button:hover:not(:disabled) {
   background: #ffffff33;
