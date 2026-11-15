@@ -7901,11 +7901,11 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "active",
-      "head": "468460c76fcfa3806ae5fbc5500e71e250d9ad27",
-      "updatedAt": "2026-11-15T16:09:55.631Z",
-      "summary": "CI copy fast-forwarded to f57edaf4. Foundation43733154037 running. Windows43733153883 job132869857621 failed KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool line181: SQL029 LFhash edf0 vs actualCRLFhash e748; exactLFtoCRLF reproduction confirms. Old025/028guards pass. Runtime029operator/packagerhelpers/POS0.5.4 nowexist. No kit or remotechange.",
-      "nextAction": "Fix canonicalLF checkout/packaging of SQL withoutchangingmigrationpins; rerunbothCI onnewSHA. Need owner/Claude actual sourceCommit from runtime-head-028-*/completed.json beforeCOMMANDS; planneddec8 notyetconfirmed. Buildkitonlyafterbothgreen, nofeed/cloud/cashierchanges."
+      "status": "available",
+      "head": "c72a71b2a6b720f6531a7755c222aef527d9b42d",
+      "updatedAt": "2026-11-15T16:18:05.047Z",
+      "summary": "9b2e751f pushed fast-forward to codex/kaspi-pos-1115. Windows POS43733907474 completed/success3of3, POS0.5.4 built, runtime029guards7PASS including ledgerpins. Foundation43733904023 job132872295252 failed Build and static checks: prettier --check . on head-runtime-029.md, one missing blank line before item6; locally reproduced without source edits. Kit STOP under owner condition. Report c72a71b2 published, source9b unchanged; no feed/cloud/cashier changes.",
+      "nextAction": "Author fixes formatting, then both workflows on new exactSHA. Owner explicitly accepts placeholder <sha рантайма 028> in PredecessorCommit; Claude supplies actual sourceCommit from completed.json on cashier, no additional question. Only after both green build runtime/CI proof/POS0.5.4/COMMANDS kit. Preserve backup settings, check actual schema028/029 backup health, isolated staging and runbook order."
     },
     {
       "id": "kex-aquarium-domain-1115",
