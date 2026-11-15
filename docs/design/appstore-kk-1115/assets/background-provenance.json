@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-11-16",
+  "tool": "image_gen.imagegen",
+  "source_output": "exec-e85645f0-faf8-413e-a232-4a52233269af.png",
+  "purpose": "Reusable decorative background only. No generated app UI.",
+  "prompt": "Use case: precise-object-edit / background asset extraction. Edit this supplied PickChick poster into a reusable BACKGROUND PLATE ONLY for the same six App Store posters. KEEP exactly its saturated royal-blue #0047BB/deep navy #04143A lighting, broad flowing orange #FF6900 curved ribbon entering upper-left and lower-right edges, blue curved bottom platform and polished material texture. Remove the entire phone, app screen, all text, headline, symbols and any cast phone shadow. Seamlessly reconstruct blue space where the phone was. Keep the upper20% quiet navy-blue so we can typeset white Kazakh headlines later. Keep the center~80% clean royal-blue so a real app screenshot in a device frame will be placed there. Orange band stays near left/right edge and behind future device. No Alex, no food, no mascots, no objects, no lettering, no watermark. Portrait ratio1320:2868. This is a component background, deliberately no phone or interface: the real application screen will be added separately without redrawing its pixels. Preserve the original PickChick brand atmosphere and refined 3D blue/orange depth.",
+  "owner_approved": false
+}

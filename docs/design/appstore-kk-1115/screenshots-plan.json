@@ -1,0 +1,56 @@
+{
+  "status": "composition-preparation-not-for-upload",
+  "canvas": { "width": 1320, "height": 2868 },
+  "secondary_canvas": { "width": 1206, "height": 2622 },
+  "phone_presentation": "Silver iPhone 18 Pro Max front-view mockup; actual capture device must be recorded separately",
+  "background": "assets/background-blue-orange.png",
+  "locale": "kk",
+  "screens": [
+    {
+      "id": "01-choose-combo",
+      "headline": "Өзіңе ұнайтын\nкомбоны таңда",
+      "screen": "Master Combo product screen",
+      "capture": null,
+      "evidence": "PhotoProduct in build 37: visible add control is plus icon and price, not Sebetke qosu text"
+    },
+    {
+      "id": "02-friends",
+      "headline": "Достарға\nарналған комбо",
+      "screen": "Menu with sharing category selected",
+      "capture": null
+    },
+    {
+      "id": "03-customise",
+      "headline": "Өз комбоңды\nқұрастыр",
+      "screen": "Real drink selection sheet for combo",
+      "capture": null
+    },
+    {
+      "id": "04-order",
+      "headline": "Тапсырысыңның\nкүйін бақыла",
+      "screen": "Preparation stage of an order; use approved review demonstration or a consented real order, never create a real paid order for a screenshot",
+      "capture": null
+    },
+    {
+      "id": "05-games",
+      "headline": "Ойна да,\nкөңіл көтер",
+      "screen": "Games screen with current Pick Box and Magic Sort covers",
+      "capture": null
+    },
+    {
+      "id": "06-pick-box",
+      "headline": "Pick Box-та\nшыңға жет",
+      "screen": "Actual Pick Box gameplay with current HUD",
+      "capture": null
+    }
+  ],
+  "rules": [
+    "Use unretouched native captures from the selected next-release binary in Kazakh",
+    "Never generate or paint app buttons, text, prices or order status",
+    "No Alex or food outside the phone; real in-app content stays unchanged",
+    "Preserve the previously selected Pick Box cover in the app",
+    "Do not promise gifts, discounts, delivery, push or card payments",
+    "Real published prices only; do not edit catalogue or prices for the screenshot",
+    "Final assets require owner approval and Kazakh proofreading"
+  ]
+}

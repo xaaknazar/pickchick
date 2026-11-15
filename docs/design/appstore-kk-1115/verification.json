@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-16",
+  "metadata_limits": "PASS",
+  "keywords_utf8_bytes": 91,
+  "storyboard_frames": 6,
+  "native_captures": 0,
+  "browser_widths": [1280, 390],
+  "browser_overflow": false,
+  "copy_feedback": "PASS",
+  "background": {
+    "width": 850,
+    "height": 1850,
+    "color_type": 2
+  },
+  "upload_ready": false,
+  "files": {
+    "README.md": {
+      "sha256": "5120243f850b7552f835c8255064ced6de2aaa373e54a0f685972ea83ada4390",
+      "bytes": 9662
+    },
+    "assets/Jost_700Bold.ttf": {
+      "sha256": "91be837d35c480fed6cf2eeab95f78f5d868dbce9bdfcbfcc065bd053be47f1b",
+      "bytes": 61612
+    },
+    "assets/Jost_800ExtraBold.ttf": {
+      "sha256": "c8018bdfb950fe2f2d741ee4832005159a4da6014395573a9b698e855c0ccdee",
+      "bytes": 61712
+    },
+    "assets/LICENSE-Jost.txt": {
+      "sha256": "82b806b20fb9d8f2c64669c12a44efb87d27971e743f38a78365e83641626dd2",
+      "bytes": 4383
+    },
+    "assets/background-blue-orange.png": {
+      "sha256": "7940717fac0faae6e3a601f80927dee521123d47d4168c45d51edc1114f52f5a",
+      "bytes": 1456660
+    },
+    "assets/background-provenance.json": {
+      "sha256": "1cc288795fb57e1373ecac6c1f9574e5c0581d5079f3eeb2220568069ea74d9a",
+      "bytes": 1364
+    },
+    "metadata.kk.json": {
+      "sha256": "b4fa6c041c88f7091d00c63e21de22498ab39f0d40d0a9309f5b2b2c3fe9fe20",
+      "bytes": 3081
+    },
+    "review-desktop.jpg": {
+      "sha256": "1aa86c36bdc7878d9f6ed575907188bdb20e870a1e117a0eed79db5878508819",
+      "bytes": 465103
+    },
+    "review-mobile.jpg": {
+      "sha256": "2a4d9371fa2bf1a67bec929c03c2485635dfae99ae2838fee2028666e7eeb9ff",
+      "bytes": 43251
+    },
+    "review.html": {
+      "sha256": "624a6e30f1c17d48ece8a7f1e060e241a339658393fbb75d2055c5268e9b5165",
+      "bytes": 13560
+    },
+    "screenshots-plan.json": {
+      "sha256": "13e9e4ad3e2224dc494fbd61c6934d86686c060d3ea7f863c526963c83ecd288",
+      "bytes": 2243
+    },
+    "screenshots-storyboard.jpg": {
+      "sha256": "dc0c91b4745f20c4a673af3f09fb7f911bea434cba6e18c02075af91c3e2acc3",
+      "bytes": 239358
+    }
+  }
+}

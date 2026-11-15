@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ru">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pick Chick - следующее обновление</title>
+  <style>
+    @font-face {
+      font-family: Jost;
+      src: url(assets/Jost_700Bold.ttf);
+      font-weight: 700;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: Jost;
+      src: url(assets/Jost_800ExtraBold.ttf);
+      font-weight: 800;
+      font-display: swap;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #f6f4ee;
+      color: #04143a;
+      font:
+        17px/1.55 system-ui,
+        sans-serif;
+    }
+    ::selection {
+      background: #ff6900;
+      color: #04143a;
+    }
+    main {
+      max-width: 1300px;
+      margin: auto;
+      padding: 58px 36px 80px;
+    }
+    h1,
+    h2,
+    h3 {
+      font-family: Jost, sans-serif;
+      line-height: 1.08;
+      margin: 0;
+    }
+    h1 {
+      font-size: clamp(42px, 7vw, 86px);
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      font-size: 36px;
+      margin-bottom: 18px;
+    }
+    h3 {
+      font-size: 26px;
+    }
+    p {
+      max-width: 72ch;
+      margin: 16px 0;
+    }
+    .lead {
+      font-size: 21px;
+      max-width: 60ch;
+    }
+    .intro {
+      padding-bottom: 36px;
+      border-bottom: 1px solid #ccd0d9;
+    }
+    .status {
+      color: #6b3b00;
+      background: #fff0d6;
+      padding: 13px 18px;
+      max-width: none;
+      border-radius: 12px;
+    }
+    .copy {
+      margin-top: 44px;
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 28px;
+    }
+    .copy h2 {
+      font-size: 27px;
+    }
+    .field {
+      border-bottom: 1px solid #ccd0d9;
+      padding: 0 0 23px;
+      margin-bottom: 25px;
+    }
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      font-size: 15px;
+      font-weight: 650;
+      color: #445576;
+    }
+    .count {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .field-content {
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+      font-size: 19px;
+      margin: 8px 0 12px;
+    }
+    .description {
+      font-size: 17px;
+      max-width: 69ch;
+    }
+    .copy-button {
+      background: #0047bb;
+      color: white;
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 17px;
+      cursor: pointer;
+      font: 600 14px system-ui;
+    }
+    .copy-button:hover {
+      background: #00388f;
+    }
+    .copy-button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid #ff6900;
+      outline-offset: 4px;
+    }
+    .screens {
+      margin-top: 46px;
+      padding-top: 40px;
+      border-top: 1px solid #ccd0d9;
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 34px 24px;
+      margin: 30px 0;
+    }
+    .shot {
+      margin: 0;
+    }
+    .preview {
+      position: relative;
+      aspect-ratio: 1320/2868;
+      overflow: hidden;
+      background: #0047bb url(assets/background-blue-orange.png) center/cover;
+      border-radius: 16px;
+    }
+    .poster-title {
+      position: absolute;
+      top: 5%;
+      left: 6%;
+      right: 6%;
+      font-family: Jost, sans-serif;
+      font-weight: 800;
+      font-size: clamp(18px, 2.18vw, 32px);
+      line-height: 1.08;
+      text-align: center;
+      white-space: pre-line;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+    .phone {
+      position: absolute;
+      left: 11.5%;
+      right: 11.5%;
+      top: 22%;
+      bottom: 5%;
+      border-radius: 12%/5.6%;
+      background: linear-gradient(110deg, #e5e6e7, #fff 25%, #9da0a5 63%, #e7e8e9);
+      padding: 2%;
+      box-shadow: 8px 20px 30px #00102a80;
+    }
+    .display {
+      height: 100%;
+      border-radius: 10.5%/4.8%;
+      background: #071a40;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12%;
+    }
+    .display:before {
+      content: '';
+      position: absolute;
+      width: 29%;
+      height: 3.4%;
+      top: 2.2%;
+      left: 35.5%;
+      border-radius: 100px;
+      background: #010714;
+    }
+    .capture-note {
+      text-align: center;
+      color: #c5d9f7;
+      font-size: clamp(12px, 1.1vw, 15px);
+      line-height: 1.5;
+    }
+    .capture-note strong {
+      display: block;
+      font-family: Jost, sans-serif;
+      color: #fff;
+      font-size: 1.6em;
+      margin-bottom: 14px;
+    }
+    .capture-note span {
+      display: block;
+      margin-top: 14px;
+      color: #ffb56f;
+    }
+    .shot figcaption {
+      font-size: 14px;
+      margin-top: 14px;
+      color: #344663;
+    }
+    .shot figcaption strong {
+      display: block;
+      font-size: 16px;
+      color: #04143a;
+      margin-bottom: 5px;
+    }
+    .note {
+      color: #445576;
+      font-size: 15px;
+    }
+    a {
+      color: #0047bb;
+      text-underline-offset: 4px;
+    }
+    footer {
+      margin-top: 45px;
+      padding-top: 24px;
+      border-top: 1px solid #ccd0d9;
+      font-size: 14px;
+      color: #445576;
+    }
+    #feedback {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 11px 24px;
+      border-radius: 10px;
+      background: #04143a;
+      color: white;
+      box-shadow: 0 8px 25px #04143a33;
+    }
+    #feedback:empty {
+      display: none;
+    }
+    @media (max-width: 850px) {
+      main {
+        padding: 32px 22px;
+      }
+      .copy {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+      }
+      .gallery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .poster-title {
+        font-size: clamp(17px, 3.1vw, 29px);
+      }
+      .capture-note {
+        font-size: 12px;
+      }
+    }
+    @media (max-width: 480px) {
+      .gallery {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+      .poster-title {
+        font-size: 8vw;
+      }
+      .capture-note {
+        font-size: 16px;
+      }
+      .lead {
+        font-size: 19px;
+      }
+      .field-content {
+        font-size: 18px;
+      }
+      h2 {
+        font-size: 30px;
+      }
+    }
+  </style>
+  <main>
+    <header class="intro">
+      <h1>Pick Chick</h1>
+      <p class="lead">
+        Новая карточка приложения. Казахские тексты, фирменный сине-оранжевый фон и настоящий экран
+        в центре.
+      </p>
+      <p class="status">
+        Черновик для проверки. В App Store ничего не изменено. Внутри рамок пока указаны нужные
+        экраны - это шаблоны, не готовые скриншоты.
+      </p>
+    </header>
+    <section class="copy">
+      <div>
+        <h2>Тексты карточки</h2>
+        <p class="note">
+          Казахский вариант для вычитки. Название будет одинаковым во всех используемых языках.
+        </p>
+      </div>
+      <div id="copy"></div>
+    </section>
+    <section class="screens">
+      <h2>Шесть кадров</h2>
+      <p>
+        Прежняя фирменная стилистика, крупные заголовки и серебристая рамка. Еда и Алекс остаются
+        только там, где они действительно есть внутри приложения.
+      </p>
+      <div class="gallery" id="gallery"></div>
+      <p class="note">
+        Экран вставляется целиком из настоящего снимка. Кнопки, надписи и цены не генерируются и не
+        перерисовываются. Финальный экспорт - после съёмки следующей сборки на казахском.
+      </p>
+    </section>
+    <footer>
+      Подготовлено 16 ноября 2026. <a href="README.md">Состав пакета и оставшиеся проверки</a> ·
+      <a href="metadata.kk.json">Тексты файлом</a> ·
+      <a href="screenshots-plan.json">План скриншотов</a>
+      <p>
+        Apple пока не предлагает отдельную локализацию kk. Перед загрузкой нужно выбрать размещение
+        казахского текста в доступных локализациях и проверить результат в казахстанском App Store.
+      </p>
+    </footer>
+  </main>
+  <div id="feedback" role="status" aria-live="polite"></div>
+  <script>
+    Promise.all([
+      fetch('metadata.kk.json').then((r) => r.json()),
+      fetch('screenshots-plan.json').then((r) => r.json()),
+    ])
+      .then(([metadata, plan]) => {
+        const fields = [
+          ['name', 'Название', 30],
+          ['subtitle', 'Подзаголовок', 30],
+          ['promotional_text', 'Рекламный текст', 170],
+          ['keywords', 'Ключевые слова', 100],
+          ['description', 'Описание', 4000],
+        ];
+        for (const [key, label, limit] of fields) {
+          const block = document.createElement('div');
+          block.className = 'field';
+          const heading = document.createElement('div');
+          heading.className = 'field-label';
+          const name = document.createElement('span');
+          name.textContent = label;
+          const count = document.createElement('span');
+          count.className = 'count';
+          count.textContent =
+            key === 'keywords'
+              ? `${new TextEncoder().encode(metadata[key]).length} / ${limit} байт`
+              : `${[...metadata[key]].length} / ${limit}`;
+          heading.append(name, count);
+          const text = document.createElement('p');
+          text.className = 'field-content' + (key === 'description' ? ' description' : '');
+          text.lang = 'kk';
+          text.textContent = metadata[key];
+          const button = document.createElement('button');
+          button.className = 'copy-button';
+          button.textContent = 'Скопировать';
+          button.setAttribute('aria-label', 'Скопировать: ' + label);
+          button.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(metadata[key]);
+              document.querySelector('#feedback').textContent = 'Скопировано: ' + label;
+            } catch {
+              document.querySelector('#feedback').textContent =
+                'Выделите текст и скопируйте вручную.';
+            }
+            setTimeout(() => (document.querySelector('#feedback').textContent = ''), 2400);
+          });
+          block.append(heading, text, button);
+          document.querySelector('#copy').append(block);
+        }
+        const labels = [
+          ['Выбор комбо', 'Карточка Master Combo. Настоящая кнопка: плюс и цена.'],
+          ['Комбо для друзей', 'Раздел меню с наборами на компанию.'],
+          ['Свой вкус', 'Открытый выбор напитка для комбо.'],
+          ['Ход заказа', 'Настоящий экран этапа приготовления без личных данных.'],
+          ['Игры', 'Текущие карточки Magic Sort и Pick Box.'],
+          ['Pick Box', 'Сама игра с актуальной верёвкой, счётом и фоном.'],
+        ];
+        plan.screens.forEach((shot, i) => {
+          const figure = document.createElement('figure');
+          figure.className = 'shot';
+          const preview = document.createElement('div');
+          preview.className = 'preview';
+          const title = document.createElement('div');
+          title.className = 'poster-title';
+          title.lang = 'kk';
+          title.textContent = shot.headline;
+          const phone = document.createElement('div');
+          phone.className = 'phone';
+          const display = document.createElement('div');
+          display.className = 'display';
+          const note = document.createElement('div');
+          note.className = 'capture-note';
+          const bold = document.createElement('strong');
+          bold.textContent = labels[i][0];
+          note.append(bold, document.createTextNode('Здесь будет настоящий экран приложения'));
+          const pending = document.createElement('span');
+          pending.textContent = 'Съёмка следующей сборки';
+          note.append(pending);
+          display.append(note);
+          phone.append(display);
+          preview.append(title, phone);
+          const caption = document.createElement('figcaption');
+          const label = document.createElement('strong');
+          label.textContent = `${i + 1}. ${labels[i][0]}`;
+          caption.append(label, document.createTextNode(labels[i][1]));
+          figure.append(preview, caption);
+          document.querySelector('#gallery').append(figure);
+        });
+      })
+      .catch(() => {
+        document.querySelector('#copy').textContent =
+          'Для просмотра откройте папку через локальный HTTP-сервер. Тексты также доступны в metadata.kk.json.';
+      });
+  </script>
+</html>
