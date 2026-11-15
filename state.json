@@ -7942,11 +7942,12 @@
         "apps/mobile/src/components/TabActiveCapsule.tsx",
         "tests/mobile/tab-bar.test.mjs",
         "@mobile/tab-routes",
-        "tests/mobile/ios/TabBarMotionTests.swift"
+        "tests/mobile/ios/TabBarMotionTests.swift",
+        "@ios/native-tabs-preview-1116"
       ],
       "status": "active",
       "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
-      "updatedAt": "2026-11-15T19:53:23.491Z",
+      "updatedAt": "2026-11-15T19:54:44.165Z",
       "summary": "Native tab preview only. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, apps/mobile/src/app/(tabs)/menu.ios.tsx, apps/mobile/src/app/(tabs)/events.ios.tsx, apps/mobile/src/app/(tabs)/orders.ios.tsx. Registry scope grammar cannot represent parentheses; exact route paths checked against every active reservation. Other routes untouched. Approved simulator transfer waits for store-kk-1115 to finish its current capture. Owner must see before/after before release."
     }
   ],
