@@ -7915,10 +7915,10 @@
       "scopes": [
         "@vps/ingress/aquarium"
       ],
-      "status": "active",
-      "updatedAt": "2026-11-15T16:17:36.023Z",
-      "summary": "Narrow overlap explicitly agreed by stage2-candidate-1105 on 15.11.2026 for /aquarium only. Implementation and tests in xaaknazar/DNA 98f59f538d41be9da6c52a33f0e26d07fa7561df. Shared runtime, DB, other ingress and parent reservations untouched.",
-      "nextAction": "Validate live source deployment; lock/CAS/backup; apply path-only Caddy block and verify unchanged services."
+      "status": "done",
+      "updatedAt": "2026-11-15T16:21:31.311Z",
+      "summary": "15.11.2026 /aquarium на pickchick.kz подключён. Код и протокол в xaaknazar/DNA: backend 98f59f538d41be9da6c52a33f0e26d07fa7561df (Action43734220085 success), ссылки 61ee75e700ceb8e1adf919729db091c485996435. Caddy validate/lock/CAS/закрытая копия/PASS; хеш 5993997a230ae099d9cb9b93c3a6cdf22f691ff1e1df35ac97a16d00ac6e0e52 -> 279a6fe046f3031fcbbeb0e2d2492b02d352851447466a243601764b84fa5cfc. Контейнеры и защищённые маршруты неизменны; собственный lock снят. Chrome 1440x810,576x1024,гость390x844 KK/RU PASS, SSE hello200. Файлы/код приложения PickChick не менялись. Документ: https://github.com/xaaknazar/DNA/blob/61ee75e700ceb8e1adf919729db091c485996435/docs/aquarium.md",
+      "nextAction": "Сохранить блок KEX PICK CHICK AQUARIUM при дальнейших изменениях ingress. Физический LED Art A4L проверить на устройстве. Родительский @vps/ingress и остальные резервы не менялись."
     }
   ],
   "approvedScopeTransfers": [
