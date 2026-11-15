@@ -71,10 +71,11 @@ function Assert-RuntimeLedger($Actual,$Expected) {
 }
 function Assert-HeadMigrationSet($Ledger) {
  # The reviewed ledger file is pinned by SHA-256 (Assert-HeadToolPins). This step takes all of
- # it: exactly 28 rows ending with 028. The read is not wrapped in @(): Windows PowerShell 5.1
+ # its first 28 rows, ending with 028 (later reviewed rows, 029 on, are for the backup tool and
+ # their own operators). The read is not wrapped in @(): Windows PowerShell 5.1
  # emits a JSON array as one object, and @() around the pipeline would hold it as one element.
  $reviewed=Get-Content (Join-Path $PSScriptRoot 'native-edge-backup-ledger.json') -Raw|ConvertFrom-Json
- if(@($reviewed).Count -ne 28){throw 'Reviewed schema028 ledger required.'}
+ if(@($reviewed).Count -lt 28){throw 'Reviewed schema028 ledger required.'}
  $expected=@($reviewed[0..27])
  if($expected[24].version -cne '025_edge_kitchen_restore_review.sql' -or $expected[24].checksum -cne 'ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a' -or $expected[27].version -cne '028_edge_pos_desk_number.sql' -or $expected[27].checksum -cne '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf'){throw 'Reviewed schema028 ledger required.'}
  Assert-RuntimeLedger $Ledger $expected
@@ -173,8 +174,8 @@ function Assert-HeadToolPins {
 }
 
 $script:headPins=@{
- 'native-edge-backup-ledger.json'='66b798a6fe264dcaf266959fc42a0876998a8b0412a147fd9264273ddbdfc27f'
- 'install-edge-backup.ps1'='60a937cfb9e702ba9f1039633561d5ae9a9f09bf6e67fb101d482fec105a91d0'
+ 'native-edge-backup-ledger.json'='c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59'
+ 'install-edge-backup.ps1'='7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6'
 }
 $script:writers=@('PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickDeviceAccessWorker','PickChickKitchenLink','PickChickEdge')
 $script:startOrder=@('PickChickEdge','PickChickKitchenLink','PickChickDeviceAccessWorker','PickChickMenuSyncWorker','PickChickFulfillmentWorker')
