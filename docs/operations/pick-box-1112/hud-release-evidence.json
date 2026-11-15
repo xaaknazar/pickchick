@@ -37,11 +37,7 @@
     },
     "typescript": "pass",
     "scopedEslint": "pass",
-    "productionExports": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "productionExports": ["ios", "android", "web"],
     "iosSimulator": {
       "version": "1.0.1 (37)",
       "build": "pass",
@@ -68,10 +64,7 @@
       "version": "1.0.1 (37)",
       "buildId": "9f35d52a-989e-4b72-929b-c592663e01af",
       "status": "testing",
-      "groups": [
-        "PickChick Internal",
-        "Testing"
-      ],
+      "groups": ["PickChick Internal", "Testing"],
       "autoNotify": true,
       "publicRelease": false
     },
