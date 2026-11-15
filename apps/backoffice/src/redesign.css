@@ -1,0 +1,531 @@
+/*
+ * Back-office redesign 12.11.2026 (owner: «ровно, читабельно и удобно» on every page).
+ * One layer loaded after every other stylesheet: the same spacing, type sizes, control heights,
+ * cards, filters and tables in every section. View only: no text, order or logic changes.
+ * Brand colours stay (sidebar #04143a, selected #0047bb, main action #ff6900).
+ */
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --border: #e2e7ef;
+  --border-strong: #cdd6e3;
+  --text: #15233d;
+  --muted: #5d6b82;
+  --head-bg: #f7f9fc;
+  --r-card: 12px;
+  --r-control: 8px;
+  --control-h: 40px;
+  --pad-card: 20px;
+  --gap: 16px;
+}
+body {
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Sidebar: a compact brand row, every section visible, quiet hover ---------- */
+@media (min-width: 801px) {
+  .shell {
+    grid-template-columns: 236px minmax(0, 1fr);
+    background: linear-gradient(to right, #04143a 236px, var(--bg) 236px);
+  }
+}
+.shell .sidebar {
+  padding: 18px 12px 14px;
+  gap: 14px;
+}
+.shell .sidebar .brand {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 0 6px 2px;
+}
+.shell .sidebar .brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: 0 0 40px;
+}
+.shell .sidebar .brand small {
+  font-size: 0.82rem;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #dce6fa;
+}
+.shell .sidebar .nav-primary {
+  gap: 2px;
+}
+.shell .sidebar .nav-item {
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  border-radius: 8px;
+  gap: 11px;
+}
+.shell .sidebar .nav-item.active {
+  font-weight: 650;
+}
+.shell .sidebar .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+.shell .sidebar .user {
+  padding: 14px 8px 0;
+}
+
+/* ---------- Page header: title on the left, role and branch on the right, filters below ---------- */
+.shell .topbar {
+  padding: 24px 32px 4px;
+  gap: 12px 16px;
+  align-items: flex-start;
+  background: transparent;
+}
+.shell .topbar .page-title {
+  display: grid;
+  gap: 4px;
+}
+.shell .topbar h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.shell .topbar .page-title p {
+  font-size: 0.93rem;
+  color: var(--muted);
+}
+.shell .topbar .page-title small {
+  font-size: 0.78rem;
+  color: #7a879b;
+}
+.shell .topbar .header-role {
+  align-self: center;
+  padding: 0 12px;
+  min-height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  border-color: var(--border-strong);
+  font-size: 0.85rem;
+}
+.shell .topbar > .field {
+  align-self: center;
+}
+.shell .topbar > .field select {
+  min-height: var(--control-h);
+}
+.shell .header-tools {
+  gap: 12px;
+  padding: 8px 0 0;
+  align-items: end;
+}
+.shell .header-tools .op-periods {
+  min-height: var(--control-h);
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  background: #e7ecf4;
+}
+.shell .header-tools .op-periods button {
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 0.86rem;
+}
+.shell .header-tools > .button,
+.shell .header-tools .header-shift select {
+  min-height: var(--control-h);
+}
+.shell .header-tools .header-filter-hint {
+  flex-basis: auto;
+  align-self: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ---------- Content column ---------- */
+.shell .content {
+  padding: 16px 32px 48px;
+  gap: 20px;
+}
+
+/* ---------- Controls: one height, one radius, one weight ---------- */
+.button {
+  min-height: var(--control-h);
+  padding: 8px 16px;
+  border-radius: var(--r-control);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+  border-color: var(--border-strong);
+}
+.button.small {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+}
+.op-table .button,
+.inventory-table .button,
+.wf-table .button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+}
+input:not([type='checkbox']):not([type='radio']),
+select {
+  min-height: var(--control-h);
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  border-color: var(--border-strong);
+  border-radius: var(--r-control);
+}
+html.bo-fixes select {
+  padding-right: 34px;
+}
+input:not([type='checkbox']):not([type='radio']):hover,
+select:hover,
+textarea:hover {
+  border-color: #a9b8cd;
+}
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  border-color: #0047bb;
+}
+.field {
+  gap: 6px;
+}
+.field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #3b4a63;
+  line-height: 18px;
+}
+
+/* ---------- Cards ---------- */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(16 32 64 / 4%);
+}
+.panel-head {
+  padding: 16px var(--pad-card);
+  gap: 12px 16px;
+}
+.panel-head h2,
+.op-panel h2,
+.device-heading h2 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.panel-head .muted,
+.op-panel .panel-head .muted {
+  font-size: 0.84rem;
+  margin-top: 4px;
+  line-height: 1.45;
+  max-width: 90ch;
+}
+/* Operations cards: one inner padding, one vertical rhythm (no double padding on the title). */
+.op-panel {
+  padding: var(--pad-card);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.op-panel > * {
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.op-panel > p:empty {
+  display: none;
+}
+.op-panel > .button,
+.op-panel > button {
+  align-self: flex-start;
+}
+.op-panel > .panel-head {
+  padding: 0;
+  margin: 0;
+}
+.op-panel .notice.station-plan {
+  margin: 0;
+}
+.device-center {
+  padding: var(--pad-card);
+}
+.device-center > * + * {
+  margin-top: 12px;
+}
+.device-heading {
+  gap: 12px 16px;
+}
+
+/* ---------- Key figures: as many in a row as fit, never one orphan on a wide screen ---------- */
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.stat {
+  padding: 16px 18px;
+  gap: 6px;
+  border-radius: var(--r-card);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(16 32 64 / 4%);
+}
+.stat > * {
+  min-width: 0;
+  white-space: normal;
+}
+.stat > span.muted {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.stat strong {
+  font-size: 1.6rem;
+  line-height: 1.15;
+  font-weight: 700;
+}
+.stat small {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.op-panel .stat {
+  box-shadow: none;
+  background: #fafbfd;
+}
+
+/* ---------- Filters: in one row while they fit, labels above, same height ---------- */
+.op-panel > .toolbar:not(.op-orders-pager),
+.filters,
+.inventory-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+  padding: 0;
+}
+.op-panel > .toolbar > .button,
+.filters > .button,
+.inventory-filters > .button {
+  justify-self: start;
+}
+/* A lone date picker is as wide as a date, not as the whole card. */
+.op-panel > .field,
+label.field:has(> input[type='date']):not(
+    :is(.filters, .toolbar, .inventory-filters, .wf-toolbar, .date-range, .finance-toolbar) > *
+  ) {
+  max-width: 300px;
+}
+.op-panel > .toolbar:not(.op-orders-pager) > .field,
+.filters > .field,
+.inventory-filters > .field {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+}
+.panel > .filters {
+  padding: 0 var(--pad-card) var(--pad-card);
+}
+.op-panel > .filters {
+  padding: 0;
+}
+
+/* ---------- Tables: a framed block, calm header, readable rows, numbers aligned ---------- */
+.op-panel .table-wrap,
+.op-panel .table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.op-table {
+  font-size: 0.875rem;
+}
+.op-table th {
+  background: var(--head-bg);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  color: #66748a;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.op-table td {
+  padding: 12px;
+  border-bottom: 1px solid #edf1f6;
+}
+.op-table tbody tr:hover {
+  background: #f8faff;
+}
+.op-table td:first-child {
+  font-weight: 600;
+}
+table {
+  font-variant-numeric: tabular-nums;
+}
+/* Channel totals on «Главная» and the attention list: figures to the right. */
+.pos-table .op-table th:not(:first-child),
+.pos-table .op-table td:not(:first-child) {
+  text-align: right;
+}
+.op-note {
+  font-size: 0.84rem;
+  color: var(--muted);
+  margin: 0;
+}
+.op-empty,
+td.empty {
+  color: var(--muted);
+}
+
+/* ---------- Notices ---------- */
+.notice {
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* ---------- Section tabs: one row of compact buttons, the selected one filled ---------- */
+.inventory-tabs,
+.wf-tabs {
+  gap: 6px;
+}
+.inventory-tabs .button,
+.wf-tabs .button {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.86rem;
+}
+
+/* ---------- Charts block on «Главная» ---------- */
+.op-grid {
+  gap: 20px;
+}
+.op-bars {
+  min-height: 0;
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 800px) {
+  .shell .topbar {
+    padding: 16px 16px 4px;
+  }
+  .shell .topbar h1 {
+    font-size: 1.4rem;
+  }
+  .shell .content {
+    padding: 12px 16px 40px;
+    gap: 16px;
+  }
+  .button,
+  input:not([type='checkbox']):not([type='radio']),
+  select {
+    min-height: 44px;
+  }
+  .shell .header-tools > .button,
+  .shell .header-tools .header-shift select,
+  .shell .topbar > .field select {
+    min-height: 44px;
+  }
+  .op-table .button,
+  .inventory-table .button,
+  .wf-table .button {
+    min-height: 40px;
+  }
+  .shell .sidebar .nav-item {
+    min-height: 44px;
+  }
+}
+@media (max-width: 650px) {
+  .op-panel {
+    padding: 16px;
+  }
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .stat {
+    padding: 14px;
+  }
+  .stat strong {
+    font-size: 1.35rem;
+  }
+  .op-panel .table-wrap.bo-cards,
+  .op-panel .bo-cards .table-wrap {
+    border: 0;
+    border-radius: 0;
+  }
+  .op-panel .bo-cards tbody tr {
+    padding: 12px 0;
+  }
+  .pos-table .op-table td:not(:first-child) {
+    text-align: left;
+  }
+  .op-panel .bo-cards td,
+  .op-panel .pos-table td {
+    border: 0;
+  }
+  /* «Главная»: three short columns fit a phone as a plain table. */
+  .pos-home .pos-table .op-table {
+    display: table;
+  }
+  .pos-home .pos-table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: table-header-group;
+  }
+  .pos-home .pos-table tbody {
+    display: table-row-group;
+  }
+  .pos-home .pos-table tr {
+    display: table-row;
+    padding: 0;
+  }
+  .pos-home .pos-table td {
+    display: table-cell;
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf1f6;
+  }
+  .pos-home .pos-table td::before {
+    content: none;
+  }
+  .pos-home .pos-table .op-table td:not(:first-child) {
+    text-align: right;
+  }
+}
+
+/* ---------- Section details ---------- */
+/* «Главная»/«Отчёты»: the attention list gets room for its figures. */
+.op-grid {
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+}
+/* Long payment statuses wrap inside their badge instead of pushing «Открыть» off the card. */
+.op-table td .op-badge {
+  white-space: normal;
+  min-width: 17ch;
+}
+/* «Оплаты и чеки»: the day picker sits next to its buttons, as wide as a date. */
+.reconciliation .op-panel > .panel-head > div:first-child {
+  flex-basis: 100%;
+}
+.reconciliation .op-panel > .panel-head > input[type='date'] {
+  flex: 0 0 auto;
+  width: 200px;
+}
+@media (max-width: 1100px) {
+  .op-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
