@@ -7913,11 +7913,11 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "active",
-      "head": "2529f63aa744279042d653491ceb90a1bc12a9ee",
-      "updatedAt": "2026-11-15T21:07:52.526Z",
-      "summary": "Candidate codex/kaspi-pos-1115 fast-forwarded to e92e6ba6500a40e144ebbd9c8558266ee15678f1. Windows43754165344 success3/3, guards0297PASS, installer0.5.4 exact-source172282435bytes/f8db17227245fa2457d08fb970130570fc7f6b39873030c0ad67478b1ecf5f58. Foundation43754144310 failure9/11: job132934432961 test backoffice-p1-staff-roster.test.mjs:263 a PIN is never shown or logged. Sanitized evidence proves substring matched synthetic staff_id UUID and filename, event staff_session_saved; no PIN field in that event. No retry or source edits. Runtime/kit not built; no feed/cloud/cashier changes. Protocol2529f63a published, source audit and blocked COMMANDS draft preserved.",
-      "nextAction": "Author fixes roster-log assertion without weakening PIN secrecy check, then new exactSHA needs both green CI. Owner now explicitly pins predecessor dec8b48cd899fe015baee17a3853affbe7eee774, no placeholder. Ready draft checks installed028beforeDB, preservation of backup settings, schema028/029 freshness, maintenance lease and ordinary-hyphen text; 8blocks syntaxchecked PS7.7 locally, notWindowsacceptance. Afterbothgreen build runtime/CI proof/exactPOS/commands; no release feed or remote installation. Temporary artifact/parser/assembler remain under private tmp, not shared evidence."
+      "status": "available",
+      "head": "b31e79f1a3006a5418b73f9d95fc1c8c7f547784",
+      "updatedAt": "2026-11-15T21:57:25.988Z",
+      "summary": "Exact35efd72c published without force. Foundation43761973367 PASS11/11 and Windows43761995773 PASS3/3 incl029 ledger pins. Kit delivered to ~/Claude/PickChick-exchange/kaspi-pos-kit-1115: 180142411 bytes SHA2564043e009d17a755ab00644c616145e6dddd7f12b78426313b75ee79b60fd3c40. Runtime, POS0.5.4, fullCIproofs, exact operators and COMMANDS verified. Predecessor remains placeholder. No cloud/feed/cashier changes. Docs b31e79f1 published.",
+      "nextAction": "Claude obtains installed028 sourceCommit from completed.json and fills only executable command copy outside immutable kit; follows COMMANDS backup028/DB029/backup029/runtime/POS/terminal stages. Physical acceptance and payment remain on the cashier with owner."
     },
     {
       "id": "mobile-build38-1116",
