@@ -5657,7 +5657,7 @@
       "id": "mobile-testflight38",
       "workstream": "mobile",
       "title": "TestFlight 38 - стекло Apple и сохранение Pick Box",
-      "summary": "Объединены cutover 5f288612 и pick-box a4e98d25. iOS 1.0.1 (38), Android 11 не выпускается. Локально 613 Node, 96 Python, TypeScript, ESLint, Prettier, production web-export и браузерная проверка таб-бара PASS. Полная CI, подписанная сборка и доставка в TestFlight ещё выполняются. Владелец разрешил PickChick Internal и отдельно прежнюю внешнюю Testing.",
+      "summary": "Объединены cutover 5f288612 и pick-box a4e98d25. iOS 1.0.1 (38), Android 11 не выпускается. По уточнению владельца 16.11 категории меню оставлены без стекла; таб-бар и две кнопки сохраняют стеклянный эффект. Локально 613 Node, 96 Python, TypeScript, ESLint, Prettier, production web-export и браузерная проверка таб-бара PASS. Полная CI, подписанная сборка и доставка в TestFlight ещё выполняются. Владелец разрешил PickChick Internal и отдельно прежнюю внешнюю Testing.",
       "status": "active",
       "owner": "development",
       "phase": "product",
