@@ -145,32 +145,6 @@ export const glass = {
     solid: '#0A2050',
     rim: 'rgba(255, 255, 255, 0.24)',
   },
-  /**
-   * Sheets (cart, sign-in, checkout, order status), owner 16.11.2026: «шторки стеклом, как
-   * модальные окна у Apple». iOS 26 floats a sheet a little off the screen edges with all corners
-   * round and draws it in Liquid Glass; elsewhere the menu shows through a strong blur under a
-   * dense navy veil, so the cart's text stays as readable as on the opaque sheet.
-   */
-  sheet: {
-    inset: 8,
-    radius: 34,
-    webVeil: 'rgba(4, 20, 58, 0.68)',
-    webBackdrop: 'blur(30px) saturate(160%) brightness(0.55)',
-    /** iOS before 26: the system thick material under a lighter navy veil. */
-    chromeVeil: 'rgba(4, 20, 58, 0.55)',
-    /** Android (no blur) and Reduce Transparency: the opaque app navy. */
-    solid: '#04143A',
-    rim: 'rgba(255, 255, 255, 0.16)',
-  },
-  /**
-   * The strip under a floating action at the bottom of a screen (iOS 26 scroll edge effect): what
-   * scrolls under it blurs and darkens towards the bottom instead of showing sharp behind the button.
-   */
-  scrollEdge: {
-    fade: 'linear-gradient(180deg, rgba(4,20,58,0) 0%, rgba(4,20,58,0.55) 45%, rgba(4,20,58,0.9) 100%)',
-    webBackdrop: 'blur(14px)',
-    webMask: 'linear-gradient(180deg, transparent 0%, #000 40%)',
-  },
 } as const;
 
 /** What the fallback glass is made of, per surface (`liquid` draws none of it: Apple does). */

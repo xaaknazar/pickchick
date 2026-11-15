@@ -287,8 +287,6 @@ const s = StyleSheet.create({
   liquid: { position: 'absolute', top: -RIM, right: -RIM, bottom: -RIM, left: -RIM },
   center: { alignItems: 'center', justifyContent: 'center' },
   clip: { overflow: 'hidden' },
-  // A light top edge on the sheet, like the rim Liquid Glass draws.
-  sheetSheen: { boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.16)' },
   disabled: { opacity: 0.45 },
   pressed: { transform: [{ scale: 0.95 }] },
   glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
@@ -351,86 +349,6 @@ export function TabBarGlass({ radius }: { radius: number }) {
         ]}
       />
       <View style={[StyleSheet.absoluteFill, round, highlight]} />
-    </View>
-  );
-}
-
-const sheetBackdrop =
-  Platform.OS === 'web'
-    ? ({
-        backdropFilter: glass.sheet.webBackdrop,
-        WebkitBackdropFilter: glass.sheet.webBackdrop,
-      } as unknown as ViewStyle)
-    : null;
-
-/**
- * A sheet's body (OrderSheet): Apple's Liquid Glass on iOS 26 (regular, dark, not interactive:
- * the sheet itself is not a button), the system thick material before it, a strong CSS blur on the
- * web, the opaque navy on Android and with Reduce Transparency. The sheet clips it to its corners.
- */
-export function SheetGlass() {
-  const surface = useGlassSurface();
-  if (surface === 'liquid')
-    return (
-      <GlassView
-        pointerEvents="none"
-        glassEffectStyle="regular"
-        colorScheme="dark"
-        isInteractive={false}
-        style={StyleSheet.absoluteFill}
-      />
-    );
-  const fill =
-    surface === 'blur'
-      ? Platform.OS === 'web'
-        ? glass.sheet.webVeil
-        : glass.sheet.chromeVeil
-      : glass.sheet.solid;
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {surface === 'blur' && Platform.OS === 'ios' ? (
-        <BlurView tint="systemThickMaterialDark" intensity={100} style={StyleSheet.absoluteFill} />
-      ) : null}
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: fill },
-          surface === 'blur' ? sheetBackdrop : null,
-        ]}
-      />
-      {surface === 'solid' ? null : <View style={[StyleSheet.absoluteFill, s.sheetSheen]} />}
-    </View>
-  );
-}
-
-const scrollEdgeWeb =
-  Platform.OS === 'web'
-    ? ({
-        backdropFilter: glass.scrollEdge.webBackdrop,
-        WebkitBackdropFilter: glass.scrollEdge.webBackdrop,
-        maskImage: glass.scrollEdge.webMask,
-        WebkitMaskImage: glass.scrollEdge.webMask,
-      } as unknown as ViewStyle)
-    : null;
-const scrollEdgeFade = (
-  Platform.OS === 'web'
-    ? { backgroundImage: glass.scrollEdge.fade }
-    : { experimental_backgroundImage: glass.scrollEdge.fade }
-) as ViewStyle;
-
-/**
- * iOS 26 scroll edge effect under a floating bottom action: content scrolling under the button
- * softens and darkens towards the screen edge. A blur where the platform has one (masked to fade
- * in on the web), then a navy fade; nothing with Reduce Transparency but the fade.
- */
-export function ScrollEdgeGlass() {
-  const surface = useGlassSurface();
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {Platform.OS === 'web' && surface !== 'solid' ? (
-        <View style={[StyleSheet.absoluteFill, scrollEdgeWeb]} />
-      ) : null}
-      <View style={[StyleSheet.absoluteFill, scrollEdgeFade]} />
     </View>
   );
 }
