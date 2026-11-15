@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-12",
+  "tool": "built-in image_gen",
+  "assets": {
+    "alex-rocket.webp": "exec-ede89550-2cb7-4e3d-9b66-b1506fffca35.png",
+    "summit.webp": "exec-c05778b8-9466-4c31-accd-1c2f04534ebd.png",
+    "orbit.webp": "exec-f8ca2fbc-636f-4640-960d-7ab0bbfce3eb.png",
+    "almaty.webp": "exec-1c945e87-3e6d-47d2-876b-559e73085280.png"
+  },
+  "reference": "cover-alex-side.png for Alex identity; owner requested city to space and Alex on a rocket",
+  "prompts": {
+    "almaty.webp": "Portrait hand-painted Almaty game background, clear blue sky top 55%, city lower third, Kok Tobe tower and snowcapped mountains, no text or people.",
+    "summit.webp": "Portrait painted snowy summit above Almaty, sea of clouds, warm light, open blue sky upper 60%, no interface.",
+    "orbit.webp": "Portrait painted Earth from orbit, cyan atmospheric rim, Earth bottom 28%, calm navy space, no text or spacecraft.",
+    "alex-rocket.webp": "Transparent sprite of the same Alex rooster, sunglasses, orange shirt, blue overalls, waving from a white cobalt orange retro rocket angled up-right, attached exhaust, no scenery or text."
+  },
+  "processing": "cwebp q88; original generated PNG files retained; alpha preserved",
+  "geography": "Artistic progression, not georeferenced terrain."
+}
