@@ -1,0 +1,695 @@
+/*
+ * Back-office redesign 12.11.2026 (owner: «ровно, читабельно и удобно» on every page).
+ * One layer loaded after every other stylesheet: the same spacing, type sizes, control heights,
+ * cards, filters and tables in every section. View only: no text, order or logic changes.
+ * Brand colours stay (sidebar #04143a, selected #0047bb, main action #ff6900).
+ */
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --border: #e2e7ef;
+  --border-strong: #cdd6e3;
+  --text: #15233d;
+  --muted: #5d6b82;
+  --head-bg: #f7f9fc;
+  --r-card: 12px;
+  --r-control: 8px;
+  --control-h: 40px;
+  --pad-card: 20px;
+  --gap: 16px;
+}
+body {
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Sidebar: a compact brand row, every section visible, quiet hover ---------- */
+@media (min-width: 801px) {
+  .shell {
+    grid-template-columns: 236px minmax(0, 1fr);
+    background: linear-gradient(to right, #04143a 236px, var(--bg) 236px);
+  }
+}
+.shell .sidebar {
+  padding: 18px 12px 14px;
+  gap: 14px;
+}
+.shell .sidebar .brand {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 0 6px 2px;
+}
+.shell .sidebar .brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: 0 0 40px;
+}
+.shell .sidebar .brand small {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #dce6fa;
+}
+.shell .sidebar .nav-primary {
+  gap: 2px;
+}
+.shell .sidebar .nav-item {
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  gap: 11px;
+}
+.shell .sidebar .nav-item.active {
+  font-weight: 600;
+}
+.shell .sidebar .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+.shell .sidebar .user {
+  padding: 14px 8px 0;
+}
+
+/* ---------- Page header: title on the left, role and branch on the right, filters below ---------- */
+.shell .topbar {
+  padding: 24px 32px 4px;
+  gap: 12px 16px;
+  align-items: flex-start;
+  background: transparent;
+}
+.shell .topbar .page-title {
+  display: grid;
+  gap: 4px;
+}
+.shell .topbar h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.shell .topbar .page-title p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.shell .topbar .page-title small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.shell .topbar .header-role {
+  align-self: center;
+  padding: 0 12px;
+  min-height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  border-color: var(--border-strong);
+  font-size: 12px;
+}
+.shell .topbar > .field {
+  align-self: center;
+}
+.shell .topbar > .field select {
+  min-height: var(--control-h);
+}
+.shell .header-tools {
+  gap: 12px;
+  padding: 8px 0 0;
+  align-items: end;
+}
+.shell .header-tools .op-periods {
+  min-height: var(--control-h);
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  background: #e7ecf4;
+}
+.shell .header-tools .op-periods button {
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.shell .header-tools > .button,
+.shell .header-tools .header-shift select {
+  min-height: var(--control-h);
+}
+.shell .header-tools .header-filter-hint {
+  flex-basis: auto;
+  align-self: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Content column ---------- */
+.shell .content {
+  padding: 16px 32px 48px;
+  gap: 20px;
+}
+
+/* ---------- Controls: one height, one radius, one weight ---------- */
+.button {
+  min-height: var(--control-h);
+  padding: 8px 16px;
+  border-radius: var(--r-control);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  border-color: var(--border-strong);
+}
+.button.small {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.op-table .button,
+.inventory-table .button,
+.wf-table .button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+input:not([type='checkbox']):not([type='radio']),
+select {
+  min-height: var(--control-h);
+  padding: 8px 12px;
+  font-size: 13px;
+  border-color: var(--border-strong);
+  border-radius: var(--r-control);
+}
+html.bo-fixes select {
+  padding-right: 34px;
+}
+input:not([type='checkbox']):not([type='radio']):hover,
+select:hover,
+textarea:hover {
+  border-color: #a9b8cd;
+}
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  border-color: #0047bb;
+}
+.field {
+  gap: 6px;
+}
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b4a63;
+  line-height: 18px;
+}
+
+/* ---------- Cards ---------- */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(16 32 64 / 4%);
+}
+.panel-head {
+  padding: 16px var(--pad-card);
+  gap: 12px 16px;
+}
+.panel-head h2,
+.op-panel h2,
+.device-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.panel-head .muted,
+.op-panel .panel-head .muted {
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.45;
+  max-width: 90ch;
+}
+/* Operations cards: one inner padding, one vertical rhythm (no double padding on the title). */
+.op-panel {
+  padding: var(--pad-card);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.op-panel > * {
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.op-panel > p:empty {
+  display: none;
+}
+.op-panel > .button,
+.op-panel > button {
+  align-self: flex-start;
+}
+.op-panel > .panel-head {
+  padding: 0;
+  margin: 0;
+}
+.op-panel .notice.station-plan {
+  margin: 0;
+}
+.device-center {
+  padding: var(--pad-card);
+}
+.device-center > * + * {
+  margin-top: 12px;
+}
+.device-heading {
+  gap: 12px 16px;
+}
+
+/* ---------- Key figures: as many in a row as fit, never one orphan on a wide screen ---------- */
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.stat {
+  padding: 16px 18px;
+  gap: 6px;
+  border-radius: var(--r-card);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(16 32 64 / 4%);
+}
+.stat > * {
+  min-width: 0;
+  white-space: normal;
+}
+.stat > span.muted {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.stat strong {
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+.stat small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.op-panel .stat {
+  box-shadow: none;
+  background: #fafbfd;
+}
+
+/* ---------- Filters: in one row while they fit, labels above, same height ---------- */
+.op-panel > .toolbar:not(.op-orders-pager),
+.filters,
+.inventory-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+  padding: 0;
+}
+.op-panel > .toolbar > .button,
+.filters > .button,
+.inventory-filters > .button {
+  justify-self: start;
+}
+/* A lone date picker is as wide as a date, not as the whole card. */
+.op-panel > .field,
+label.field:has(> input[type='date']):not(
+    :is(.filters, .toolbar, .inventory-filters, .wf-toolbar, .date-range, .finance-toolbar) > *
+  ) {
+  max-width: 300px;
+}
+.op-panel > .toolbar:not(.op-orders-pager) > .field,
+.filters > .field,
+.inventory-filters > .field {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+}
+.panel > .filters {
+  padding: 0 var(--pad-card) var(--pad-card);
+}
+.op-panel > .filters {
+  padding: 0;
+}
+
+/* ---------- Tables: a framed block, calm header, readable rows, numbers aligned ---------- */
+.op-panel .table-wrap,
+.op-panel .table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.op-table {
+  font-size: 13px;
+}
+.op-table th {
+  background: var(--head-bg);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.op-table td {
+  padding: 12px;
+  border-bottom: 1px solid #edf1f6;
+}
+.op-table tbody tr:hover {
+  background: #f8faff;
+}
+.op-table td:first-child {
+  font-weight: 600;
+}
+table {
+  font-variant-numeric: tabular-nums;
+}
+/* Channel totals on «Главная» and the attention list: figures to the right. */
+.pos-table .op-table th:not(:first-child),
+.pos-table .op-table td:not(:first-child) {
+  text-align: right;
+}
+.op-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.op-empty,
+td.empty {
+  color: var(--muted);
+}
+
+/* ---------- Notices ---------- */
+.notice {
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---------- Section tabs: one row of compact buttons, the selected one filled ---------- */
+.inventory-tabs,
+.wf-tabs {
+  gap: 6px;
+}
+.inventory-tabs .button,
+.wf-tabs .button {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+/* ---------- Charts block on «Главная» ---------- */
+.op-grid {
+  gap: 20px;
+}
+.op-bars {
+  min-height: 0;
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 800px) {
+  .shell .topbar {
+    padding: 16px 16px 4px;
+  }
+  .shell .topbar h1 {
+    font-size: 18px;
+  }
+  .shell .content {
+    padding: 12px 16px 40px;
+    gap: 16px;
+  }
+  .button,
+  input:not([type='checkbox']):not([type='radio']),
+  select {
+    min-height: 44px;
+  }
+  .shell .header-tools > .button,
+  .shell .header-tools .header-shift select,
+  .shell .topbar > .field select {
+    min-height: 44px;
+  }
+  .op-table .button,
+  .inventory-table .button,
+  .wf-table .button {
+    min-height: 40px;
+  }
+  .shell .sidebar .nav-item {
+    min-height: 44px;
+  }
+}
+@media (max-width: 650px) {
+  .op-panel {
+    padding: 16px;
+  }
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .stat {
+    padding: 14px;
+  }
+  .stat strong {
+    font-size: 18px;
+  }
+  .op-panel .table-wrap.bo-cards,
+  .op-panel .bo-cards .table-wrap {
+    border: 0;
+    border-radius: 0;
+  }
+  .op-panel .bo-cards tbody tr {
+    padding: 12px 0;
+  }
+  .pos-table .op-table td:not(:first-child) {
+    text-align: left;
+  }
+  .op-panel .bo-cards td,
+  .op-panel .pos-table td {
+    border: 0;
+  }
+  /* «Главная»: three short columns fit a phone as a plain table. */
+  .pos-home .pos-table .op-table {
+    display: table;
+  }
+  .pos-home .pos-table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: table-header-group;
+  }
+  .pos-home .pos-table tbody {
+    display: table-row-group;
+  }
+  .pos-home .pos-table tr {
+    display: table-row;
+    padding: 0;
+  }
+  .pos-home .pos-table td {
+    display: table-cell;
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf1f6;
+  }
+  .pos-home .pos-table td::before {
+    content: none;
+  }
+  .pos-home .pos-table .op-table td:not(:first-child) {
+    text-align: right;
+  }
+}
+
+/* ---------- Section details ---------- */
+/* «Главная»/«Отчёты»: the attention list gets room for its figures. */
+.op-grid {
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+}
+/* Long payment statuses wrap inside their badge instead of pushing «Открыть» off the card. */
+.op-table td .op-badge {
+  white-space: normal;
+  min-width: 17ch;
+}
+/* «Оплаты и чеки»: the day picker sits next to its buttons, as wide as a date. */
+.reconciliation .op-panel > .panel-head > div:first-child {
+  flex-basis: 100%;
+}
+.reconciliation .op-panel > .panel-head > input[type='date'] {
+  flex: 0 0 auto;
+  width: 200px;
+}
+@media (max-width: 1100px) {
+  .op-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Review 15.11: one type scale ----------
+ * Sizes across every back-office stylesheet are snapped to 12 / 13 / 14 / 16 / 18 / 22 / 28 px
+ * (12 is the floor: captions, table heads, meta). Weights: 400 / 500 / 600 / 700.
+ * Table heads read in sentence case: Cyrillic capitals are wide and slow to scan. */
+th,
+.op-table th,
+.wf-table th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ---------- Review 15.11: shared fixes ---------- */
+/* Who is signed in is a fact, not a button: plain text next to the branch picker. */
+.header-role,
+.shell .topbar .header-role {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+/* A disabled main action reads as unavailable, not as a faded orange. */
+.button.primary:disabled,
+.button.primary:disabled:hover {
+  background: #e8edf5;
+  border-color: #e8edf5;
+  color: var(--muted);
+  opacity: 1;
+}
+/* Side cards keep their own height instead of stretching into empty space. */
+.op-grid {
+  align-items: start;
+}
+/* Info banners: no thick coloured stripe on one side. */
+.sp-banner,
+.dc-banner {
+  border-left: 1px solid var(--border);
+}
+/* Empty-table text in stock, purchases and discounts gets the same inset as rows. */
+.inventory-table > .op-note {
+  padding: 14px 16px;
+  margin: 0;
+}
+.discounts > .inventory-table,
+.supply > .inventory-table {
+  margin: 12px 16px 16px;
+}
+
+/* «Расходы»: readable group rows, a pinned article column, a visible scroll edge. */
+tr.expenses-group th {
+  font-size: 13px;
+}
+.expenses-group-toggle {
+  min-height: 32px;
+  padding: 6px 4px;
+}
+.expenses-grid .expenses-article,
+.expenses-grid thead th:first-child,
+.expenses-grid tr.expenses-group th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--card);
+}
+.expenses-grid tr.expenses-group th:first-child {
+  background: var(--hi);
+}
+.expenses-workspace .table-scroll {
+  background:
+    linear-gradient(to left, var(--card) 30%, transparent) right center / 24px 100% no-repeat local,
+    linear-gradient(to left, rgba(21, 35, 61, 0.12), transparent) right center / 12px 100% no-repeat
+      scroll;
+}
+@media (max-width: 650px) {
+  .expenses-grid .expenses-article {
+    min-width: 120px;
+    max-width: 140px;
+    white-space: normal;
+  }
+}
+/* Day and month arrows are real targets. */
+.expenses-workspace .button.small[aria-label^='Предыдущ'],
+.expenses-workspace .button.small[aria-label^='Следующ'] {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* «Остатки»: on a phone the ten section tabs scroll in one row instead of five rows. */
+@media (max-width: 650px) {
+  .inventory-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .inventory-tabs .button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+/* Shell: the 21 sections and the sign-out fit a 900 px laptop screen; sign-out stays reachable. */
+@media (min-width: 801px) {
+  .shell .sidebar .nav-item {
+    min-height: 36px;
+    padding: 7px 12px;
+  }
+  .shell .sidebar .user {
+    position: sticky;
+    bottom: -14px;
+    background: #04143a;
+    padding-bottom: 14px;
+  }
+}
+/* Figures in summary tiles wrap between words, never inside one. */
+.stat {
+  overflow-wrap: break-word;
+}
+/* Phone cards: a cell with several parts keeps them all in the value column. */
+@media (max-width: 650px) {
+  .bo-cards td > * {
+    grid-column: 2;
+  }
+  .pos-home .op-table {
+    min-width: 0;
+  }
+  .pos-home .pos-table .op-table th,
+  .pos-home .pos-table .op-table td {
+    padding: 10px 8px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* Sign-in: our own «Выбрать файл доступа» button over the hidden system file input. */
+.visually-hidden,
+.field input.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.file-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.file-pick .button {
+  cursor: pointer;
+}
+.field:focus-within .file-pick .button {
+  outline: 3px solid #0047bb;
+  outline-offset: 2px;
+}

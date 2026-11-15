@@ -10,7 +10,7 @@
 }
 .wf-header h2 {
   margin: 0 0 0.4rem;
-  font-size: 1.65rem;
+  font-size: 22px;
 }
 .wf-header p {
   margin: 0;
@@ -89,7 +89,7 @@
 }
 .wf-table th {
   color: #52647c;
-  font-size: 0.78rem;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   background: #f5f7fb;
@@ -159,7 +159,7 @@
   display: block;
 }
 .wf-summary strong {
-  font-size: 1.35rem;
+  font-size: 18px;
   margin-top: 0.5rem;
   font-variant-numeric: tabular-nums;
 }
@@ -230,10 +230,10 @@
     grid-template-columns: 1fr;
   }
   .wf-header h2 {
-    font-size: 1.4rem;
+    font-size: 18px;
   }
   .wf-summary strong {
-    font-size: 1.1rem;
+    font-size: 16px;
   }
 }
 
@@ -318,7 +318,7 @@
 }
 .wf-cell-note {
   display: block;
-  font-size: 0.65rem;
+  font-size: 12px;
 }
 .wf-pay-items {
   grid-column: 1 / -1;
@@ -862,7 +862,7 @@
 }
 .as-station-head h4 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 14px;
 }
 .as-count {
   font-weight: 600;
@@ -891,7 +891,7 @@
 }
 .as-override {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .as-person-actions {

@@ -74,7 +74,7 @@ with sync_playwright() as pw:
         expect(section).to_be_visible()
         expect(page.locator('h1')).to_have_text('Скидки')
         expect(page.get_by_test_id('dc-banner')).to_have_text(BANNER)
-        expect(section).to_contain_text('Скидок пока нет. На запуске скидок нет')
+        expect(section).to_contain_text('Скидок пока нет. Нажмите «Новая скидка»')
         # «Скидки» after «Промо и баннеры»; no period switch on this page.
         labels = [t.strip() for t in page.locator('nav.navigation .nav-item').all_inner_texts()]
         assert labels.index('Скидки') == labels.index('Промо и баннеры') + 1, labels

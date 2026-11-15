@@ -175,12 +175,7 @@ export class ReconciliationView {
     day.setAttribute('aria-label', 'День сверки');
     day.dataset.testid = 'rec-day';
     day.addEventListener('change', () => void m.setDay(day.value));
-    const exportButton = button(
-      'Выгрузить CSV',
-      () => d && this.download(d),
-      'button',
-      'rec-export',
-    );
+    const exportButton = button('Скачать CSV', () => d && this.download(d), 'button', 'rec-export');
     exportButton.disabled = !d;
     const head = panel(
       'Ежедневная сверка оплат',
@@ -893,9 +888,9 @@ export class ReconciliationView {
           multiline: true,
           max: 2000,
           hint:
-            'По одному на строку: значение=способ. Способы: ' +
+            'По одному на строку: как написано в выписке = способ. Например: Kaspi QR=kaspi_qr. Способы: ' +
             methodOptions(d.source)
-              .map((x) => x.value)
+              .map((x) => `${x.label} (${x.value})`)
               .join(', '),
         }),
         check(

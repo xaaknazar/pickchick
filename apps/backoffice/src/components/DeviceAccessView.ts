@@ -445,9 +445,13 @@ export class DeviceAccessView {
           el(
             'p',
             'muted',
-            `Редакция ${String(after['revision'])}. Автор: ${String(e['actor_id'])}`,
+            `Редакция ${String(after['revision'])}. Автор: ${
+              typeof e['actor_name'] === 'string' && e['actor_name'] ? e['actor_name'] : 'не указан'
+            }`,
           ),
         );
+        // The raw author id stays reachable for support, out of the staff's reading line.
+        (entry.lastElementChild as HTMLElement).title = String(e['actor_id'] ?? '');
         for (const [key, label] of [
           ['name', 'Название'],
           ['location', 'Место установки'],

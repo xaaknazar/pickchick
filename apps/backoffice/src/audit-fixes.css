@@ -24,7 +24,7 @@ html.bo-fixes .inventory-tabs .button.selected:focus-visible {
   border-radius: 999px;
   background: #fff;
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
