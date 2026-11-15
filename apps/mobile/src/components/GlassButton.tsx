@@ -24,6 +24,7 @@ import {
   liquidGlyphOpacity,
   type GlassPlace,
 } from '../glass';
+import { tabBarPalette } from '../tab-bar-metrics';
 import { useGlassSurface } from './useGlassSurface';
 
 export { useGlassSurface } from './useGlassSurface';
@@ -68,19 +69,31 @@ export function GlassFill({
   place = 'pill',
   body = true,
   rim = RIM,
+  tint,
+  interactive,
 }: {
   radius: number;
   pressed?: boolean;
   place?: GlassPlace;
   body?: boolean;
   rim?: number;
+  /**
+   * Tinted glass (owner 15.11.2026, Apple's «prominent» glass): the main action keeps its brand
+   * colour, Liquid Glass tints itself with it; off iOS 26 it is the fill under the light.
+   */
+  tint?: string;
+  /** Overrides the place's native press response (Apple's flex and shine on iOS 26). */
+  interactive?: boolean;
 }) {
   const surface = useGlassSurface();
   if (surface === 'liquid') {
+    const config = liquidGlassConfig(place);
     return (
       <GlassView
         pointerEvents="none"
-        {...liquidGlassConfig(place)}
+        {...config}
+        isInteractive={interactive ?? config.isInteractive}
+        tintColor={tint}
         style={{
           position: 'absolute',
           top: -rim,
@@ -93,6 +106,7 @@ export function GlassFill({
     );
   }
   const layers = glassLayers(surface);
+  const fill = tint ?? layers.fill;
   // Every layer carries the radius itself (QA 27.10, item 13): the parent's clip alone does not
   // shape a backdrop blur (CSS backdrop-filter ignores an ancestor's rounded overflow, and
   // UIVisualEffectView needs its own corner clip), which showed a square patch around round
@@ -107,8 +121,8 @@ export function GlassFill({
           style={[StyleSheet.absoluteFill, s.clip, round]}
         />
       ) : null}
-      {body && layers.fill ? (
-        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: layers.fill }]} />
+      {body && fill ? (
+        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: fill }]} />
       ) : null}
       {body && layers.lift ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.lift }]} />
@@ -277,3 +291,64 @@ const s = StyleSheet.create({
   pressed: { transform: [{ scale: 0.95 }] },
   glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
 });
+
+const tabBarBackdrop =
+  Platform.OS === 'web'
+    ? ({
+        backdropFilter: tabBarPalette.webBackdrop,
+        WebkitBackdropFilter: tabBarPalette.webBackdrop,
+      } as unknown as ViewStyle)
+    : null;
+
+/**
+ * The tab bar capsule's glass (FloatingTabBar), best first (glass.ts):
+ * - iOS 26+: Apple's own Liquid Glass (`GlassView`, regular, dark): the exact material, edge light
+ *   and lensing of the system tab bar.
+ * - iOS before 26: Apple's tab bar material (systemChromeMaterialDark blur) under a brand veil.
+ * - Web: CSS backdrop blur under a navy veil; Android: the dense navy (nothing blurs there).
+ * - Reduce Transparency: opaque navy, also on iOS 26.
+ * Off the Liquid Glass path the sheen and the specular edge imitate its light.
+ */
+export function TabBarGlass({ radius }: { radius: number }) {
+  const surface = useGlassSurface();
+  const round = { borderRadius: radius };
+  if (surface === 'liquid')
+    return (
+      <GlassView
+        pointerEvents="none"
+        glassEffectStyle="regular"
+        colorScheme="dark"
+        isInteractive={false}
+        style={[StyleSheet.absoluteFill, round]}
+      />
+    );
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, round]}>
+      {surface === 'blur' && Platform.OS === 'ios' ? (
+        <BlurView
+          tint="systemChromeMaterialDark"
+          intensity={100}
+          style={[StyleSheet.absoluteFill, s.clip, round]}
+        />
+      ) : null}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          round,
+          {
+            backgroundColor:
+              surface === 'solid'
+                ? tabBarPalette.solid
+                : surface === 'blur'
+                  ? Platform.OS === 'web'
+                    ? tabBarPalette.webVeil
+                    : tabBarPalette.chromeVeil
+                  : tabBarPalette.glass,
+          },
+          surface === 'blur' ? tabBarBackdrop : null,
+        ]}
+      />
+      <View style={[StyleSheet.absoluteFill, round, highlight]} />
+    </View>
+  );
+}

@@ -31,6 +31,7 @@ import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
+import { GlassFill } from '../components/GlassButton';
 import { colors, font } from '../theme';
 
 type Props = ScreenProps & {
@@ -42,6 +43,8 @@ type Picker = { group: ModifierGroup; index: number; chosen: string | null };
 const ink = '#271C15';
 const paper = '#FFF8EE';
 const priceButton = { surface: colors.accent, ink: colors.orangeInk };
+/** Navy over the glass of «Настроить комбо», so white text reads on the light photo. */
+const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
 const blueGradient =
   'linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)';
@@ -337,7 +340,10 @@ export function PhotoProduct(props: Props) {
                   scroll.current?.scrollTo({ y: choicesY.current, animated: !reduced })
                 }
               >
-                <Icon name="options-outline" color="#8A3309" size={20} />
+                {/* Owner 15.11.2026: a control over the photo is Apple's glass, like the close
+                    button; a navy tint keeps the white label readable on the light photo. */}
+                <GlassFill radius={28} place="header" tint={photoActionTint} interactive />
+                <Icon name="options-outline" color={colors.white} size={20} />
                 <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
               </Pressable>
             ) : null}
@@ -631,9 +637,16 @@ export function PhotoProduct(props: Props) {
             )}
             accessibilityState={{ disabled: !!reason }}
             disabled={!!reason}
-            style={[s.add, s.priceAction, !!reason && { opacity: 0.5 }]}
+            style={[s.add, !!reason && { opacity: 0.5 }]}
             onPress={() => save(selections)}
           >
+            {/* The main action is Apple's tinted («prominent») glass in the brand orange. */}
+            <GlassFill
+              radius={30}
+              place="button"
+              tint={priceButton.surface}
+              interactive={!reason}
+            />
             <Icon name={props.editing ? 'checkmark' : 'add'} color={priceButton.ink} size={27} />
             <Text style={[s.addText, { color: priceButton.ink }]}>
               {localize(money(totalPrice))}
@@ -909,7 +922,6 @@ function makeStyles(blue: boolean) {
       position: 'absolute',
       bottom: 22,
       right: 20,
-      backgroundColor: '#FFE2C3',
       borderRadius: 28,
       paddingHorizontal: 18,
       paddingVertical: 14,
@@ -918,7 +930,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 48,
     },
-    photoActionText: { fontFamily: font.bold, fontSize: 14, color: '#8A3309' },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.white },
     intro: {
       paddingHorizontal: 24,
       paddingTop: 6,
@@ -985,7 +997,6 @@ function makeStyles(blue: boolean) {
     variantSelected: { borderWidth: 1, borderColor: blue ? colors.accent : '#9A3F00' },
     extraControls: { alignItems: 'center', marginTop: 'auto', paddingTop: 4 },
     extraName: { fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: ink },
-    priceAction: { backgroundColor: priceButton.surface },
     footer: {
       paddingTop: 12,
       paddingHorizontal: 24,
@@ -999,7 +1010,6 @@ function makeStyles(blue: boolean) {
     add: {
       minHeight: 56,
       borderRadius: 30,
-      backgroundColor: colors.accent,
       flexDirection: 'row',
       gap: 8,
       alignItems: 'center',

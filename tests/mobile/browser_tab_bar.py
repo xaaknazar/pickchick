@@ -82,8 +82,11 @@ def assert_floating_bar(page, width, height, active):
     assert box['height'] <= 84, box
     radius = bar.evaluate('(e) => parseFloat(getComputedStyle(e).borderTopLeftRadius)')
     assert radius >= box['height'] / 2 - 1, radius
-    glass = bar.evaluate('(e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).backdropFilter || getComputedStyle(e).webkitBackdropFilter]')
-    assert glass[0] == 'rgba(10, 32, 80, 0.92)' and 'blur' in glass[1], glass
+    # Glass (owner 15.11.2026, iOS 26 look): a navy veil over the backdrop blur, under the tabs.
+    glass = bar.evaluate('''(e) => [...e.querySelectorAll('div')].map((d) => getComputedStyle(d))
+      .filter((c) => (c.backdropFilter || c.webkitBackdropFilter || '').includes('blur'))
+      .map((c) => c.backgroundColor)''')
+    assert glass == ['rgba(10, 32, 80, 0.72)'], glass
     for route, _, label in TABS:
         tab = page.get_by_test_id('tab-' + route)
         expect(tab).to_have_attribute('role', 'tab')

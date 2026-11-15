@@ -13,6 +13,10 @@ import {
   tabLabelMaxScale,
   tabLabelMinFit,
   tabLabelSize,
+  tabAt,
+  tabPlatterScale,
+  tabSelection,
+  tabSelectionSpring,
 } from '../../apps/mobile/src/tab-bar-metrics.ts';
 
 const read = (path) =>
@@ -108,15 +112,85 @@ test('tab targets meet 48pt and large text grows the bar only up to the cap', ()
   assert.ok(tabBarMetrics({ bottom: 34 }, 2).height <= 72);
 });
 
-test('brand colours keep WCAG AA for labels on glass, opaque and active pill', () => {
+test('brand colours keep WCAG AA for labels on glass, opaque and the selection platter', () => {
   const p = tabBarPalette;
-  // Worst cases: glass over a white photo and over the navy app background.
+  assert.ok(p.webBackdrop.includes(`brightness(${p.webDim})`), 'the dim the model below uses');
+  // The web glass: the CSS backdrop filter dims what is behind, then the veil lies over it.
+  const dim = (color) =>
+    `#${rgb(color)
+      .slice(0, 3)
+      .map((v) =>
+        Math.round(v * p.webDim)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')}`;
+  const bodies = [
+    (backdrop) => over(p.glass, backdrop),
+    (backdrop) => over(p.webVeil, dim(backdrop)),
+  ];
+  // Worst cases: glass over a white photo, the navy app background and the brand orange.
   for (const backdrop of ['#FFFFFF', '#04143A', '#FF6900']) {
-    assert.ok(contrast(p.inactive, over(p.glass, backdrop)) >= 4.5, backdrop);
+    for (const body of bodies) {
+      assert.ok(contrast(p.inactive, body(backdrop)) >= 4.5, `${body} over ${backdrop}`);
+    }
   }
   assert.ok(contrast(p.inactive, p.solid) >= 4.5);
-  assert.ok(contrast(p.active, p.pill) >= 4.5);
+  // Owner 15.11.2026 (iOS 26 look): the selection is a light platter on the glass. Over the
+  // app's navy it keeps AA for the orange label; over a white photo under the web veil, at least
+  // the 3:1 of the icon it sits with.
+  for (const body of bodies) {
+    assert.ok(contrast(p.active, over(p.pill, body('#04143A'))) >= 4.5, String(body));
+    assert.ok(contrast(p.active, over(p.pill, body('#FFFFFF'))) >= 3, String(body));
+  }
+  assert.ok(contrast(p.active, over(p.pill, p.solid)) >= 4.5);
   assert.equal(p.active.toUpperCase(), '#FF8A3D', 'mobile accentText token');
+});
+
+test('the platter flows like iOS 26: a gel stretch mid-way, round at rest, the lens swells', () => {
+  assert.deepEqual(tabPlatterScale(1, 0), { x: 1, y: 1 }, 'at rest on a tab');
+  const mid = tabPlatterScale(0.5, 0);
+  assert.ok(mid.x > 1.15 && mid.y < 1, 'widest and a little flatter halfway');
+  assert.ok(tabPlatterScale(0.25, 0).x < mid.x && tabPlatterScale(0.25, 0).x > 1);
+  const held = tabPlatterScale(2, 1);
+  assert.ok(held.x > 1 && held.y > 1.15, 'the lens swells while the finger holds it');
+  assert.equal(tabSelection(1, 1), 1);
+  assert.equal(tabSelection(1.5, 1), 0.5);
+  assert.equal(tabSelection(0, 2), 0);
+  assert.equal(tabAt(-5, 100), 0);
+  assert.equal(tabAt(150, 100), 1);
+  assert.equal(tabAt(999, 100), 2);
+  assert.equal(tabAt(50, 0), 0, 'before the row is measured');
+  // Response ~0.38 s with a little bounce (damping ratio 0.7-0.85), like Apple's tab selection.
+  const { mass, stiffness, damping } = tabSelectionSpring;
+  const ratio = damping / (2 * Math.sqrt(stiffness * mass));
+  const response = (2 * Math.PI) / Math.sqrt(stiffness / mass);
+  assert.ok(ratio > 0.7 && ratio < 0.85, `damping ratio ${ratio}`);
+  assert.ok(response > 0.3 && response < 0.45, `response ${response}`);
+  // Everything moving runs on the UI thread, so a heavy tab screen cannot stall it.
+  const bar = read('components/FloatingTabBar.tsx');
+  assert.match(bar, /from 'react-native-reanimated'/);
+  assert.doesNotMatch(bar, /import \{[^}]*\bAnimated\b[^}]*\} from 'react-native'/);
+  assertHas(bar, 'position.value = reduced ? index : withSpring(index, tabSelectionSpring);');
+  // The glyph never reloads on a switch: both colours are drawn, the orange fades in.
+  assertHas(bar, '<TabIcon name={route} color={palette.inactive} />');
+  assertHas(bar, '<TabIcon name={route} color={palette.active} />');
+  // Apple's own Liquid Glass on iOS 26, the system chrome material before it (glass layer).
+  assertHas(bar, '<TabBarGlass radius={metrics.height / 2} />');
+  const glassLayer = read('components/GlassButton.tsx');
+  assert.match(
+    glassLayer,
+    /export function TabBarGlass[\s\S]*<GlassView[\s\S]*glassEffectStyle="regular"/,
+  );
+  assert.match(glassLayer, /tint="systemChromeMaterialDark"/);
+  assert.ok(
+    !existsSync(new URL('../../apps/mobile/src/components/TabActiveCapsule.tsx', import.meta.url)),
+  );
+  // Owner 16.11.2026: the switch has Apple's effect: the lens stays raised while it rides to the
+  // new tab, its edge shines like glass, and the chosen glyph pops once.
+  assertHas(bar, 'withDelay(tabLensHoldMs, withSpring(0, tabLensSpring))');
+  assertHas(bar, '<Animated.View style={[StyleSheet.absoluteFill, s.lensShine, shine]} />');
+  assertHas(bar, 'pop(index);');
 });
 
 test('tabs keep order, labels, gates and accessibility semantics', () => {
@@ -150,8 +224,10 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
   assert.match(bar, /accessibilityRole="tab"/);
   assert.match(bar, /accessibilityState=\{\{ selected: focused \}\}/);
   assert.match(bar, /canPreventDefault: true/, 'account gates can still stop a tab press');
-  assert.match(bar, /isReduceTransparencyEnabled/);
-  assert.match(bar, /prefers-reduced-transparency/);
+  // Reduce Transparency (iOS setting, web media query) turns the glass opaque (useGlassSurface).
+  const glassLayer = read('components/GlassButton.tsx');
+  assert.match(glassLayer, /function TabBarGlass[\s\S]*?const surface = useGlassSurface\(\);/);
+  assert.match(glassLayer, /surface === 'solid'\s*\?\s*tabBarPalette\.solid/);
   assert.match(bar, /if \(keyboardVisible\) return null/);
   assert.doesNotMatch(bar, /—/, 'plain hyphen in UI texts');
 });
