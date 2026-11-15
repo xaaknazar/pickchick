@@ -7901,11 +7901,11 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "active",
-      "head": "596d922a2df461c24d3b8c6ee6cfa944a2f1acbe",
-      "updatedAt": "2026-11-15T15:47:16.785Z",
-      "summary": "Rechecked15Nov15:32UTC: source remains982f6e2. Windows43729895381 completed/failure: package+self-update success, release guards fail. Foundation43729759892 still running with failed pins/staging and POS error-code assertion. Report updated, no package or install.",
-      "nextAction": "Obtain corrected source SHA from Claude: pins, complete Kaspi runtime files, guarded029 runtime switch, POS error-code expectation. Then fast-forward CI copy and require both completed/success before building delivery kit."
+      "status": "available",
+      "head": "2ef7eee38484d6d83826def5811dee9ac2e3892a",
+      "updatedAt": "2026-11-15T15:52:15.691Z",
+      "summary": "CI copy fast-forwarded to2f15560e. Foundation43731805565 and Windows43731805635 started on exactSHA; both have failed required guards.15pins match, stage2Windows3PASS. Foundation779:2failures from old28row expectations in Queue/Head PowerShelltests. Runtime029 packager files/install path remain incomplete. No kit or install.",
+      "nextAction": "Claude fixes Queue/Head tests using reviewed29ledger and exact25/28candidate slices, completes Kaspi admin-file closure and guardedruntime029 installation route. RequirebothCI completed/success onnewSHA, thenpackagewithCOMMANDS. OtherCIjobs mayfinish; no bypass or cloud/devicechange."
     }
   ],
   "approvedScopeTransfers": [
