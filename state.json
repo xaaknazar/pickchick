@@ -7917,20 +7917,6 @@
       "nextAction": "Вычитать KK и согласовать тексты/шесть кадров. При следующей сборке применить отображаемое имя Pick Chick, снять настоящие KK экраны, выбрать размещение локализации и показать владельцу перед отправкой Apple."
     },
     {
-      "id": "kaspi-pos-kit-1115",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-pos-kit-1115",
-      "scopes": [
-        "docs/operations/kaspi-pos-kit-1115",
-        "@artifacts/kaspi-pos-1115"
-      ],
-      "status": "available",
-      "head": "2529f63aa744279042d653491ceb90a1bc12a9ee",
-      "updatedAt": "2026-11-15T20:12:59.817Z",
-      "summary": "Candidate codex/kaspi-pos-1115 fast-forwarded to e92e6ba6500a40e144ebbd9c8558266ee15678f1. Windows43754165344 success3/3, guards0297PASS, installer0.5.4 exact-source172282435bytes/f8db17227245fa2457d08fb970130570fc7f6b39873030c0ad67478b1ecf5f58. Foundation43754144310 failure9/11: job132934432961 test backoffice-p1-staff-roster.test.mjs:263 a PIN is never shown or logged. Sanitized evidence proves substring matched synthetic staff_id UUID and filename, event staff_session_saved; no PIN field in that event. No retry or source edits. Runtime/kit not built; no feed/cloud/cashier changes. Protocol2529f63a published, source audit and blocked COMMANDS draft preserved.",
-      "nextAction": "Author fixes roster-log assertion without weakening PIN secrecy check, then new exactSHA needs both green CI. Owner now explicitly pins predecessor dec8b48cd899fe015baee17a3853affbe7eee774, no placeholder. Ready draft checks installed028beforeDB, preservation of backup settings, schema028/029 freshness, maintenance lease and ordinary-hyphen text; 8blocks syntaxchecked PS7.7 locally, notWindowsacceptance. Afterbothgreen build runtime/CI proof/exactPOS/commands; no release feed or remote installation. Temporary artifact/parser/assembler remain under private tmp, not shared evidence."
-    },
-    {
       "id": "mobile-native-tabs-1116",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native-tabs-1116",
@@ -7947,6 +7933,20 @@
       "updatedAt": "2026-11-15T20:20:55.648Z",
       "summary": "818c6689: iOS native Liquid Glass tabs; before/after videos and report in docs/operations/mobile-native-tabs-1116.md. Typecheck/lint, 21 Node tests, final 3/3 XCUITests PASS. Own simulator shut down. Original rare freeze not reproduced. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, menu.ios.tsx, events.ios.tsx, orders.ios.tsx in the same directory.",
       "nextAction": "Owner reviews before/after. No merge or app release until approval. Then full CI and release archive; physical iPhone, account/badge/payment-resume/accessibility acceptance outstanding."
+    },
+    {
+      "id": "kaspi-pos-kit-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-pos-kit-1115",
+      "scopes": [
+        "docs/operations/kaspi-pos-kit-1115",
+        "@artifacts/kaspi-pos-1115"
+      ],
+      "status": "active",
+      "head": "2529f63aa744279042d653491ceb90a1bc12a9ee",
+      "updatedAt": "2026-11-15T21:07:52.526Z",
+      "summary": "Candidate codex/kaspi-pos-1115 fast-forwarded to e92e6ba6500a40e144ebbd9c8558266ee15678f1. Windows43754165344 success3/3, guards0297PASS, installer0.5.4 exact-source172282435bytes/f8db17227245fa2457d08fb970130570fc7f6b39873030c0ad67478b1ecf5f58. Foundation43754144310 failure9/11: job132934432961 test backoffice-p1-staff-roster.test.mjs:263 a PIN is never shown or logged. Sanitized evidence proves substring matched synthetic staff_id UUID and filename, event staff_session_saved; no PIN field in that event. No retry or source edits. Runtime/kit not built; no feed/cloud/cashier changes. Protocol2529f63a published, source audit and blocked COMMANDS draft preserved.",
+      "nextAction": "Author fixes roster-log assertion without weakening PIN secrecy check, then new exactSHA needs both green CI. Owner now explicitly pins predecessor dec8b48cd899fe015baee17a3853affbe7eee774, no placeholder. Ready draft checks installed028beforeDB, preservation of backup settings, schema028/029 freshness, maintenance lease and ordinary-hyphen text; 8blocks syntaxchecked PS7.7 locally, notWindowsacceptance. Afterbothgreen build runtime/CI proof/exactPOS/commands; no release feed or remote installation. Temporary artifact/parser/assembler remain under private tmp, not shared evidence."
     }
   ],
   "approvedScopeTransfers": [
