@@ -16,6 +16,7 @@ import {
   type Kind,
   periodWindow,
   stockEffect,
+  LEGACY_GAME_TEMPLATES,
 } from './model.js';
 import {
   catalogStopNames,
@@ -247,7 +248,8 @@ export class Backoffice {
   async content(branch: string, channel: string) {
     parse(z.uuid(), branch);
     parse(z.enum(['mobile', 'kiosk', 'display']), channel);
-    if (!this.enabled) return { schema_version: 1, branch_id: branch, promos: [], games: [] };
+    if (!this.enabled)
+      return { schema_version: 1, branch_id: branch, promos: [], games: [], game_cards: [] };
     const rows = (
       await this.pool.query(
         `SELECT DISTINCT ON(kind,record_id) record_id,kind,revision,payload,published_at FROM bo_publications WHERE branch_id=$1 AND kind IN ('promo','game') ORDER BY kind,record_id,revision DESC`,
@@ -266,13 +268,51 @@ export class Backoffice {
           p.channels.includes(channel as 'mobile' | 'kiosk' | 'display') &&
           inWindow(p),
       );
-    const games = rows
+    // One record per game (bo_game_template_idx), so one publication per template.
+    const published = rows
       .filter((r) => r.kind === 'game')
-      .map((r) => {
-        const p = parse(Schemas.game, r.payload);
-        return { template: p.template, enabled: p.enabled && inWindow(p), revision: r.revision };
-      });
-    return { schema_version: 1, branch_id: branch, promos: promos.slice(0, 20), games };
+      .map((row) => ({ row, p: parse(Schemas.game, row.payload) }))
+      .sort((a, b) => a.p.template.localeCompare(b.p.template));
+    // App Store build 37 reads only these three templates in `games` and rejects anything else.
+    const games = published
+      .filter(({ p }) => (LEGACY_GAME_TEMPLATES as readonly string[]).includes(p.template))
+      .map(({ row, p }) => ({
+        template: p.template,
+        enabled: p.enabled && inWindow(p),
+        revision: row.revision,
+      }));
+    // Owner 15.11.2026: names and covers from the back office, read by the next app build.
+    const covers = new Map<string, Record<string, string>>();
+    const assetIds = published.flatMap(({ p }) => (p.cover ? [p.cover.asset_id] : []));
+    if (assetIds.length)
+      for (const v of (
+        await this.pool.query<{ asset_id: string; variant: string; sha256: string }>(
+          `SELECT v.asset_id,v.variant,v.sha256 FROM catalog_asset_variants v JOIN catalog_assets a ON a.id=v.asset_id
+           JOIN branches b ON b.organization_id=a.organization_id WHERE b.id=$1 AND v.asset_id=ANY($2::uuid[])`,
+          [branch, assetIds],
+        )
+      ).rows)
+        covers.set(v.asset_id, {
+          ...covers.get(v.asset_id),
+          [v.variant]: `/v1/media/catalog/${v.sha256}.${v.variant}.webp`,
+        });
+    const game_cards = published.map(({ row, p }) => {
+      const urls = p.cover ? covers.get(p.cover.asset_id) : undefined;
+      return {
+        template: p.template,
+        enabled: p.enabled && inWindow(p),
+        revision: row.revision,
+        title: p.title ?? null,
+        cover: urls?.['card'] && urls['hero'] ? { card: urls['card'], hero: urls['hero'] } : null,
+      };
+    });
+    return {
+      schema_version: 1,
+      branch_id: branch,
+      promos: promos.slice(0, 20),
+      games,
+      game_cards,
+    };
   }
   async read(token: string, branch: string, input: unknown = {}) {
     const q = parse(Query, input);
@@ -1524,6 +1564,23 @@ export class Backoffice {
       );
     if (kind === 'employee' && (payload['deleted'] || old?.payload['deleted'])) fail('CONFLICT');
     if (kind === 'game' && old && payload['template'] !== old.payload['template']) fail('CONFLICT');
+    if (kind === 'game') {
+      // One record per game is the unique index bo_game_template_idx (cloud017).
+      const cover = payload['cover'] as { asset_id: string; sha256: string } | undefined;
+      // The cover is an uploaded photo of this organisation (catalog_assets, the menu store).
+      if (
+        cover &&
+        !(
+          await db.query(
+            `SELECT 1 FROM catalog_assets a JOIN catalog_asset_variants v ON v.asset_id=a.id AND v.variant='card'
+             JOIN branches b ON b.organization_id=a.organization_id
+             WHERE b.id=$1 AND a.id=$2 AND v.sha256=$3`,
+            [branch, cover.asset_id, cover.sha256],
+          )
+        ).rowCount
+      )
+        fail('INVALID_REQUEST');
+    }
     if (kind === 'ingredient' && old && payload['unit'] !== old.payload['unit']) fail('CONFLICT');
     if (kind === 'recipe') {
       // RecipeP1 = Recipe plus the optional stock_policy (accepted only under stock P1).

@@ -14,6 +14,7 @@ import {
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
+import { preparePhoto } from './editor.js';
 import { ApiError, message } from './api.js';
 import {
   dropDraft,
@@ -557,7 +558,22 @@ export function stopName(item: StopItem) {
     : item.name_ru;
 }
 
+/** Games of the App Store build (Pick Farm is off there), owner 15.11.2026. */
+const APP_GAMES = [
+  { template: 'magic-sort', name: 'Magic Sort' },
+  { template: 'pick-blocks', name: 'Pick Blocks' },
+  { template: 'pick-man', name: 'Pick Man' },
+] as const;
+const GAME_OPEN_END = '2100-01-01T00:00:00.000Z';
 export class OperationsView {
+  /** Photo upload of the menu editor, reused for game covers; null where uploads are off. */
+  media: {
+    url: (sha256: string) => string;
+    upload: (
+      file: Blob,
+      onProgress: (fraction: number) => void,
+    ) => Promise<{ image: { asset_id: string; sha256: string } }>;
+  } | null = null;
   private inventory = new InventoryView();
   private sales = new SalesReportView();
   private posDay = new PosDayView();
@@ -1765,6 +1781,213 @@ export class OperationsView {
       }
     };
     void load();
+  }
+  /**
+   * Owner 15.11.2026: every game of the app is listed even before anything is saved for it; its
+   * name and cover can be changed and the game hidden. One save publishes at once: the app reads
+   * published content every minute and when it opens. App Store build 37 only honours «Скрыть»
+   * for Pick Blocks and Pick Man; names, covers and Magic Sort reach the app with the next build.
+   */
+  private gamesPanel() {
+    const writable = permitted(this.model.data, 'records.write');
+    const p = panel(
+      'Игры в приложении',
+      'Название, обложка и показ каждой игры. Изменение попадает в приложение в течение минуты.',
+    );
+    const rows = APP_GAMES.map((game) => {
+      const record = this.model
+        .entries('game')
+        .find((r) => r.payload['template'] === game.template);
+      const pub = this.model.data?.publications.find((v) => v['record_id'] === record?.id);
+      const payload = record?.payload;
+      const title = (payload?.['title'] as { ru?: string } | undefined)?.ru || game.name;
+      const cover = payload?.['cover'] as { sha256: string } | undefined;
+      const shown = payload ? payload['enabled'] === true : true;
+      const published = !record || pub?.['revision'] === record.revision;
+      const picture = cover
+        ? Object.assign(el('img', 'game-cover'), {
+            src: this.media?.url(cover.sha256) ?? '',
+            alt: `${title}: обложка`,
+          })
+        : el('span', 'muted', 'Обложка из приложения');
+      const actions = el('div', 'op-actions');
+      if (writable)
+        actions.append(
+          button(
+            'Изменить',
+            () => this.editGame(game, record),
+            'button subtle',
+            `game-edit-${game.template}`,
+          ),
+          button(
+            shown ? 'Скрыть' : 'Показать',
+            () => this.editGame(game, record, { enabled: !shown }),
+            'button subtle',
+            `game-toggle-${game.template}`,
+          ),
+        );
+      return [
+        picture,
+        title,
+        !published ? badge('Не опубликовано') : shown ? 'Показывается' : 'Скрыта',
+        actions,
+      ];
+    });
+    p.append(
+      table(['Обложка', 'Название', 'В приложении', 'Действия'], rows),
+      note(
+        'Скрыть Pick Blocks и Pick Man можно уже сейчас. Новые названия, обложки и управление Magic Sort заработают после следующего обновления приложения в App Store и Google Play. Награды за игры пока не начисляются.',
+      ),
+    );
+    return p;
+  }
+  /** Save and publish one game (owner 15.11.2026); `quick` only flips «Показывать» after a reason. */
+  private editGame(game: (typeof APP_GAMES)[number], record?: Entry, quick?: { enabled: boolean }) {
+    const base: Data = structuredClone(
+      record?.payload ?? {
+        name: game.name,
+        template: game.template,
+        enabled: true,
+        daily_attempts: 5,
+        reward_chiki: '0',
+        // A game stays until it is hidden: the window is open-ended, not the 30 days of a promo.
+        schedule: { starts_at: new Date(Date.now() - 60000).toISOString(), ends_at: GAME_OPEN_END },
+      },
+    );
+    const next = base as Data & {
+      title?: { ru: string; kk: string };
+      cover?: { asset_id: string; sha256: string };
+    };
+    if (quick) next['enabled'] = quick.enabled;
+    const d = dialog(
+      quick ? (quick.enabled ? `Показать ${game.name}` : `Скрыть ${game.name}`) : game.name,
+      quick
+        ? quick.enabled
+          ? 'Игра снова появится в приложении.'
+          : 'Игра пропадёт из приложения, рекорды игроков сохранятся.'
+        : 'Пустое название - приложение покажет своё. Без обложки приложение покажет встроенную.',
+    );
+    d.dataset.testid = 'game-editor';
+    const title = { ru: next.title?.ru ?? '', kk: next.title?.kk ?? '' };
+    if (!quick) {
+      d.append(
+        field('Название RU', title.ru, (v) => (title.ru = v), { id: 'game-title-ru', max: 200 }),
+        field('Название KZ', title.kk, (v) => (title.kk = v), { id: 'game-title-kk', max: 200 }),
+        check(
+          'Показывать в приложении',
+          next['enabled'] === true,
+          (v) => (next['enabled'] = v),
+          'game-enabled',
+        ),
+      );
+      const preview = el('div', 'game-cover-preview');
+      const status = el('p', 'muted');
+      status.setAttribute('aria-live', 'polite');
+      const show = () => {
+        preview.replaceChildren(
+          next.cover
+            ? Object.assign(el('img', 'game-cover'), {
+                src: this.media?.url(next.cover.sha256) ?? '',
+                alt: 'Обложка',
+              })
+            : el('span', 'muted', 'Обложка из приложения'),
+        );
+      };
+      show();
+      const input = Object.assign(el('input'), {
+        type: 'file',
+        accept: 'image/jpeg,image/png,image/webp,image/heic,.heic,.heif',
+      });
+      input.dataset.testid = 'game-cover-file';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file || !this.media) return;
+        status.textContent = 'Загружается...';
+        void preparePhoto(file)
+          .then((blob) =>
+            this.media!.upload(
+              blob,
+              (f) => (status.textContent = `Загружается ${Math.round(f * 100)}%`),
+            ),
+          )
+          .then((asset) => {
+            next.cover = asset.image;
+            status.textContent = 'Обложка загружена. Сохраните, чтобы она попала в приложение.';
+            show();
+          })
+          .catch((e) => (status.textContent = message(e)));
+      });
+      const cover = el('div', 'field');
+      cover.append(el('span', '', 'Обложка, лучше горизонтальная 16:9'), preview);
+      if (this.media) cover.append(input);
+      else cover.append(note('Загрузка фото на этой точке выключена.'));
+      cover.append(
+        button(
+          'Вернуть обложку из приложения',
+          () => {
+            delete next.cover;
+            show();
+          },
+          'button subtle',
+          'game-cover-reset',
+        ),
+        status,
+      );
+      d.append(cover);
+    }
+    let reason = '';
+    d.append(
+      field('Причина изменения', reason, (v) => (reason = v), {
+        required: true,
+        id: 'op-reason',
+        max: 500,
+      }),
+    );
+    const error = el('p', 'notice error op-form-error');
+    error.setAttribute('role', 'alert');
+    const id = record?.id ?? crypto.randomUUID();
+    const save = button(
+      quick ? 'Подтвердить' : 'Сохранить и опубликовать',
+      () =>
+        void (async () => {
+          error.textContent = '';
+          if (!quick) {
+            if (title.ru.trim() || title.kk.trim())
+              next.title = { ru: title.ru.trim() || game.name, kk: title.kk.trim() };
+            else delete next.title;
+          }
+          try {
+            if (!reason.trim()) throw new Error('Укажите причину изменения.');
+            const saved = await this.model.execute(
+              {
+                type: 'save',
+                kind: 'game',
+                id,
+                payload: next,
+                expected_revision: record?.revision ?? 0,
+              },
+              reason.trim(),
+            );
+            if (!saved) return void (error.textContent = message(this.model.error));
+            const fresh = this.model.entries('game').find((r) => r.id === id);
+            if (!fresh) return void (error.textContent = message(this.model.error));
+            const ok = await this.model.execute(
+              { type: 'publish', kind: 'game', id, expected_revision: fresh.revision },
+              reason.trim(),
+            );
+            if (!ok)
+              return void (error.textContent =
+                'Сохранено, но не опубликовано: ' + message(this.model.error));
+            d.close();
+            d.remove();
+          } catch (e) {
+            error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
+          }
+        })(),
+      'button primary',
+      'op-save',
+    );
+    d.append(error, save);
   }
   private records(
     kind: string,
@@ -3669,19 +3892,7 @@ export class OperationsView {
           ['Начало', (p) => date(object(p['schedule'])['starts_at'])],
         ]),
       );
-    if (page === 'games')
-      content.append(
-        this.records(
-          'game',
-          'Игры и челленджи',
-          [
-            ['Игра', (p) => val(p['template']).toUpperCase().replaceAll('-', ' ')],
-            ['Доступ', (p) => (p['enabled'] ? 'Включена' : 'Выключена')],
-            ['Плановый лимит', (p) => val(p['daily_attempts'])],
-          ],
-          'Публикация меняет доступность игры в приложении. Лимит попыток подготовлен для будущей серверной проверки; награды отключены.',
-        ),
-      );
+    if (page === 'games') content.append(this.gamesPanel());
     if (page === 'guests') {
       // Owner 15.11.2026: name and phone from the app profile instead of an id. The server sends
       // the full number only to a manager grant, a masked one to the other roles.

@@ -1,3 +1,4 @@
+import type { ImageSourcePropType } from 'react-native';
 import { localize, useLocale } from '../../i18n';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
@@ -241,12 +242,16 @@ export const pickManPoster = {
   description: 'Бургеры, фингерсы, кола.\nСобери всё в лабиринте.',
   cover: assets.pickManCover,
 };
-export function PickManCard() {
+/** `override`: name and cover from the back office (owner 15.11.2026). */
+export function PickManCard({
+  override,
+}: { override?: { name?: string; cover?: ImageSourcePropType } } = {}) {
   useLocale();
   const router = useRouter();
   return (
     <GamePosterCard
       {...pickManPoster}
+      {...override}
       testID="pick-man-open"
       onPress={() => router.push('/games/pick-man')}
     />

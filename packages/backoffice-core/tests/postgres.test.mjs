@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
 import {
   provisionCatalogManager,
@@ -202,6 +202,64 @@ test('published content uses explicit versions, schedule and channel; edits stay
     await assert.rejects(save('game', randomUUID(), gp), /CONFLICT/);
     await assert.rejects(save('game', game, { ...gp, template: 'pick-run' }, 1), /CONFLICT/);
     await assert.rejects(save('game', game, { ...gp, reward_chiki: '100' }, 1), /INVALID_REQUEST/);
+    // Owner 15.11.2026: Magic Sort, names and covers. Build 37 keeps reading `games` (three old
+    // templates only); the next build reads `game_cards`.
+    const webp = (tag) =>
+      Buffer.concat([
+        Buffer.from('RIFF'),
+        Buffer.alloc(4),
+        Buffer.from('WEBP'),
+        Buffer.from(tag.padEnd(16, '.')),
+      ]);
+    const sha = (b) => createHash('sha256').update(b).digest('hex');
+    const asset = randomUUID();
+    const card = webp('card'),
+      hero = webp('hero');
+    await c.cloud.pool.query(
+      'INSERT INTO catalog_assets(id,organization_id,sha256,source_sha256,width,height,uploaded_by) VALUES($1,$2,$3,$3,1280,720,$4)',
+      [asset, c.org, sha(hero), c.manager.actor_id],
+    );
+    for (const [variant, bytes, w] of [
+      ['card', card, 640],
+      ['hero', hero, 1280],
+    ])
+      await c.cloud.pool.query(
+        'INSERT INTO catalog_asset_variants(asset_id,variant,sha256,width,height,bytes) VALUES($1,$2,$3,$4,$5,$6)',
+        [asset, variant, sha(bytes), w, Math.round((w * 9) / 16), bytes],
+      );
+    const sort = randomUUID();
+    const sp = {
+      ...gp,
+      name: 'Magic Sort',
+      template: 'magic-sort',
+      enabled: true,
+      title: { ru: 'Сортировка', kk: 'Сұрыптау' },
+    };
+    await assert.rejects(
+      save('game', sort, { ...sp, cover: { asset_id: randomUUID(), sha256: sha(card) } }),
+      /INVALID_REQUEST/,
+    );
+    await assert.rejects(
+      save('game', sort, { ...sp, cover: { asset_id: asset, sha256: sha(hero) } }),
+      /INVALID_REQUEST/,
+    );
+    await save('game', sort, { ...sp, cover: { asset_id: asset, sha256: sha(card) } });
+    await publish('game', sort, 1);
+    const content = await c.bo.content(c.branch, 'mobile');
+    assert.deepEqual(content.games, [{ template: 'pick-man', enabled: false, revision: 1 }]);
+    assert.deepEqual(content.game_cards, [
+      {
+        template: 'magic-sort',
+        enabled: true,
+        revision: 1,
+        title: { ru: 'Сортировка', kk: 'Сұрыптау' },
+        cover: {
+          card: `/v1/media/catalog/${sha(card)}.card.webp`,
+          hero: `/v1/media/catalog/${sha(hero)}.hero.webp`,
+        },
+      },
+      { template: 'pick-man', enabled: false, revision: 1, title: null, cover: null },
+    ]);
     assert.equal(
       (await new Backoffice(c.cloud.pool, false).content(c.branch, 'mobile')).games.length,
       0,

@@ -82,6 +82,8 @@ export async function withCatalog(run, options = {}) {
     expenses = false,
     expensesNow,
     cloudMigrationDirectory,
+    /** «Гости» (owner 15.11.2026): decrypts the guest contacts, as the API does with the PII key. */
+    guestContact,
     ...serverOptions
   } = options;
   await withSyncDatabases(
@@ -114,6 +116,7 @@ export async function withCatalog(run, options = {}) {
         ...(stockReports ? { stockReportsEnabled: true } : {}),
         // Lane bo-ui2 step 5 (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED, with the staff positions).
         ...(staffAssignment ? { staffAssignmentEnabled: true } : {}),
+        ...(guestContact ? { guestContact } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}

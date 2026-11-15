@@ -130,10 +130,28 @@ export const Promo = z.strictObject({
   schedule: window,
   status: state,
 });
+/**
+ * Games of the mobile app (owner 15.11.2026: «полный контроль» над играми из бэк-офиса). The
+ * first three are what App Store build 37 reads in `games`; magic-sort and pick-farm, the
+ * title and the cover reach the app only through `game_cards` (next app build).
+ */
+export const GAME_TEMPLATES = [
+  'pick-run',
+  'pick-man',
+  'pick-blocks',
+  'magic-sort',
+  'pick-farm',
+] as const;
+/** Templates build 37 accepts in `games` (apps/mobile content-model.ts, at most three). */
+export const LEGACY_GAME_TEMPLATES = ['pick-run', 'pick-man', 'pick-blocks'] as const;
 export const Game = z
   .strictObject({
     name: text,
-    template: z.enum(['pick-run', 'pick-man', 'pick-blocks']),
+    template: z.enum(GAME_TEMPLATES),
+    /** Name shown in the app; absent: the app keeps its own name. */
+    title: localized.optional(),
+    /** Cover from the catalog asset store (same upload as menu photos); absent: built-in cover. */
+    cover: z.strictObject({ asset_id: id, sha256: z.string().regex(/^[a-f0-9]{64}$/) }).optional(),
     enabled: z.boolean(),
     daily_attempts: z.number().int().min(1).max(100),
     reward_chiki: Amount,

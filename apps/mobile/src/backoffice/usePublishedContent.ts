@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { API_URL } from '../api';
-import { parseContent, type PublishedContent } from './content-model';
+import type { ImageSourcePropType } from 'react-native';
+import { getLocale } from '../i18n';
+import { parseContent, type GameTemplate, type PublishedContent } from './content-model';
 const cache = new Map<string, PublishedContent>();
 /** Public, validated configuration only. Existing training remains available when unconfigured. */
 export function usePublishedContent(branch: string | null | undefined) {
@@ -56,9 +58,23 @@ export function usePublishedContent(branch: string | null | undefined) {
     };
   }, [branch]);
   const current = value?.branch_id === branch ? value : null;
+  const card = (template: GameTemplate) =>
+    current?.game_cards?.find((g) => g.template === template);
   return {
     content: current,
-    gameEnabled: (template: PublishedContent['games'][number]['template']) =>
-      current?.games.find((g) => g.template === template)?.enabled ?? true,
+    /** A game stays on until the back office hides it (no configuration: every game is on). */
+    gameEnabled: (template: GameTemplate) =>
+      card(template)?.enabled ??
+      current?.games.find((g) => g.template === template)?.enabled ??
+      true,
+    /** Name and cover set in the back office (owner 15.11.2026); the app keeps its own otherwise. */
+    poster: (template: GameTemplate): { name?: string; cover?: ImageSourcePropType } => {
+      const c = card(template);
+      if (!c) return {};
+      return {
+        ...(c.title ? { name: getLocale() === 'kk' ? c.title.kk : c.title.ru } : {}),
+        ...(c.cover ? { cover: { uri: `${API_URL}${c.cover.hero}` } } : {}),
+      };
+    },
   };
 }

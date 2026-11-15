@@ -6,11 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMobile } from '../store';
 import { Body, Button, Heading } from '../components/UI';
 import { usePublishedContent } from './usePublishedContent';
+import type { GameTemplate } from './content-model';
 export function GameAvailability({
   template,
   children,
 }: {
-  template: 'pick-run' | 'pick-man' | 'pick-blocks';
+  template: GameTemplate;
   children: ReactNode;
 }) {
   useLocale();
