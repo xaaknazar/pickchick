@@ -14,10 +14,14 @@ test('tracker games follow published availability and the Pick Farm flag', () =>
     orderGameIds((template) => template !== 'pick-man', false),
     ['pick-blocks', 'magic-sort'],
   );
-  // Magic Sort has no published switch, exactly like its «События» card.
+  // Owner 15.11.2026: Magic Sort is switched from the back office like the others.
   assert.deepEqual(
     orderGameIds(() => false, false),
-    ['magic-sort'],
+    [],
+  );
+  assert.deepEqual(
+    orderGameIds((template) => template !== 'magic-sort', false),
+    ['pick-blocks', 'pick-man'],
   );
 });
 

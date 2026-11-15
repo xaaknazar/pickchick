@@ -830,3 +830,17 @@ tbody tr:hover {
     bottom: 21px;
   }
 }
+
+/* Games of the app (owner 15.11.2026): cover thumbnails in the list and the editor. */
+.game-cover {
+  display: block;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface-2, #f2f2f2);
+}
+.game-cover-preview .game-cover {
+  width: 100%;
+  max-width: 320px;
+}

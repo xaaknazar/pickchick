@@ -53,5 +53,9 @@ const cards: Record<OrderGameId, Omit<OrderGame, 'id'>> = {
 /** Games currently open to the customer, in carousel order. */
 export function useOrderGames(branch: string | null | undefined): OrderGame[] {
   const published = usePublishedContent(branch);
-  return orderGameIds(published.gameEnabled, FARM_ENABLED).map((id) => ({ id, ...cards[id] }));
+  return orderGameIds(published.gameEnabled, FARM_ENABLED).map((id) => {
+    // Name and cover from the back office (owner 15.11.2026) replace the built-in ones.
+    const { name, cover } = published.poster(id);
+    return { id, ...cards[id], ...(name ? { title: name } : {}), ...(cover ? { cover } : {}) };
+  });
 }

@@ -70,6 +70,7 @@ import {
   CUSTOMER_IDENTITY,
   CustomerIdentity,
   createCustomerIdentityOptions,
+  readGuestContact,
 } from '@pickchick/customer-identity';
 import { createPhoneCodeDelivery } from '@pickchick/phone-verification';
 import {
@@ -96,6 +97,11 @@ import {
   DeviceAccessTransportController,
 } from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
+import {
+  AppSplashController,
+  AppSplashMediaController,
+  useSplashPartBodyParser,
+} from './app-splash-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { StationPlanTransportController } from './station-plan-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -299,6 +305,9 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
+      // Video of the app storefront (owner 15.11.2026): answers 404 while the flag is off.
+      AppSplashController,
+      AppSplashMediaController,
       DeviceRegistryController,
       KioskPresenceController,
       DeviceAccessTransportController,
@@ -371,14 +380,27 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       {
         provide: BACKOFFICE,
         inject: [RESOURCE],
-        useFactory: (resources: Resources) =>
-          new Backoffice(resources.pool, config.backofficeEnabled === true, {
+        useFactory: (resources: Resources) => {
+          // «Гости» (owner 15.11.2026): the customer-identity PII key, only while customer auth runs.
+          const identity = createCustomerIdentityOptions({
+            ...process.env,
+            CUSTOMER_AUTH_ENABLED: String(config.customerAuthEnabled === true),
+          });
+          const piiKey = identity.enabled ? identity.piiKey : null;
+          return new Backoffice(resources.pool, config.backofficeEnabled === true, {
             ...backofficeOptions(process.env),
+            ...(piiKey
+              ? {
+                  guestContact: (row: Parameters<typeof readGuestContact>[1]) =>
+                    readGuestContact(piiKey, row),
+                }
+              : {}),
             // Back-office P1 (bo-ui): validated by loadConfig, no key while a flag is off.
             ...backofficeP1Options(config),
             // Back-office second wave (bo-ui2): the same rule.
             ...backofficeP2Options(config),
-          }),
+          });
+        },
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       {
@@ -429,6 +451,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   });
   // Photo uploads (CATALOG_MEDIA_UPLOAD_ENABLED): raw image bytes on one route only.
   if (catalogMediaOptions(process.env).mediaEnabled) useCatalogAssetBodyParser(app);
+  // Raw video parts of the back office, only while BACKOFFICE_APP_SPLASH_ENABLED is on.
+  if (backofficeOptions(process.env).appSplashEnabled) useSplashPartBodyParser(app);
   app.useBodyParser('raw', {
     limit: 16 * 1024,
     type: (request: IncomingMessage) =>

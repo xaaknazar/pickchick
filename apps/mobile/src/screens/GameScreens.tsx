@@ -60,10 +60,16 @@ export function Events(props: ScreenProps) {
         <Heading testID="events-games" style={s.eventSection}>
           {t('Игры')}
         </Heading>
-        <MagicSortCard />
+        {published.gameEnabled('magic-sort') ? (
+          <MagicSortCard override={published.poster('magic-sort')} />
+        ) : null}
         {FARM_ENABLED ? <PickFarmCard /> : null}
-        {published.gameEnabled('pick-blocks') ? <PickBlocksCard /> : null}
-        {published.gameEnabled('pick-man') ? <PickManCard /> : null}
+        {published.gameEnabled('pick-blocks') ? (
+          <PickBlocksCard override={published.poster('pick-blocks')} />
+        ) : null}
+        {published.gameEnabled('pick-man') ? (
+          <PickManCard override={published.poster('pick-man')} />
+        ) : null}
         {/* Missions and the «Скоро» list announce what is not live yet: not in the App Store
             build (owner 29.10.2026, App Review 2.1); test builds and the preview keep them. */}
         {upcomingFeaturesShown(undefined, props.preview) ? <UpcomingEvents /> : null}

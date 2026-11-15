@@ -14,6 +14,7 @@ import {
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
+import { preparePhoto } from './editor.js';
 import { ApiError, message } from './api.js';
 import {
   dropDraft,
@@ -646,7 +647,31 @@ export function stopName(item: StopItem) {
     : item.name_ru;
 }
 
+/** Games of the App Store build (Pick Farm is off there), owner 15.11.2026. */
+const APP_GAMES = [
+  { template: 'magic-sort', name: 'Magic Sort' },
+  { template: 'pick-blocks', name: 'Pick Blocks' },
+  { template: 'pick-man', name: 'Pick Man' },
+] as const;
+const GAME_OPEN_END = '2100-01-01T00:00:00.000Z';
+const mb = (v: unknown) => `${(Number(v) / 1048576).toFixed(1).replace('.', ',')} МБ`;
 export class OperationsView {
+  /** Photo upload of the menu editor, reused for game covers; null where uploads are off. */
+  media: {
+    url: (sha256: string) => string;
+    upload: (
+      file: Blob,
+      onProgress: (fraction: number) => void,
+    ) => Promise<{ image: { asset_id: string; sha256: string } }>;
+  } | null = null;
+  /** Raw part of a storefront video (owner request 15.11.2026), set by app.ts. */
+  splashPart:
+    | ((upload: string, part: number, total: number, sha256: string, bytes: Blob) => Promise<void>)
+    | null = null;
+  private splashData: { branch: string; value: Data } | null = null;
+  private splashBusy = '';
+  /** Progress line of the storefront video upload; survives the background re-renders. */
+  private splashStatus = '';
   private inventory = new InventoryView();
   private sales = new SalesReportView();
   private posDay = new PosDayView();
@@ -1856,6 +1881,391 @@ export class OperationsView {
       }
     };
     void load();
+  }
+  /**
+   * Video of the app storefront (owner request 15.11.2026): the current video, upload of a new
+   * MP4 in parts (the portal takes at most 300 KB per request), choose one or return the
+   * built-in video. The app checks the content every minute and when it opens.
+   */
+  private splashPanel() {
+    const branch = this.model.branch ?? '';
+    const writable = permitted(this.model.data, 'records.write');
+    const p = panel(
+      'Видео на главном экране приложения',
+      'Видео над меню в приложении. Выбранное видео гости увидят в течение минуты, в версиях приложения новее сборки 37.',
+    );
+    p.dataset.testid = 'splash-panel';
+    const data = this.splashData?.branch === branch ? this.splashData.value : null;
+    if (!data) {
+      if (this.splashBusy !== 'load') {
+        this.splashBusy = 'load';
+        void this.model
+          .api(`branches/${branch}/splash`)
+          .then((value) => {
+            this.splashData = { branch, value: object(value) };
+          })
+          .catch(() => {
+            this.splashData = { branch, value: { error: true } };
+          })
+          .finally(() => {
+            this.splashBusy = '';
+            this.model.changed();
+          });
+      }
+      p.append(note('Загружается...'));
+      return p;
+    }
+    if (data['error']) {
+      p.append(notice('Не удалось загрузить настройки видео. Нажмите «Обновить».', 'bad'));
+      this.splashData = null;
+      return p;
+    }
+    const videos = (data['videos'] as Data[] | undefined) ?? [];
+    const current = videos.find((v) => v['id'] === data['current']);
+    const status = el('p', 'muted', this.splashStatus);
+    status.setAttribute('aria-live', 'polite');
+    status.dataset.testid = 'splash-status';
+    p.append(
+      el(
+        'p',
+        '',
+        current
+          ? `Сейчас: своё видео от ${date(current['created_at'])}, ${mb(current['size'])}.`
+          : 'Сейчас: видео, встроенное в приложение.',
+      ),
+    );
+    const choose = (video: string | null, label: string) => {
+      const d = dialog(
+        label,
+        video
+          ? 'Это видео увидят все гости приложения.'
+          : 'Приложение покажет своё встроенное видео.',
+      );
+      let reason = '';
+      d.append(
+        field('Причина изменения', reason, (v) => (reason = v), {
+          required: true,
+          id: 'op-reason',
+          max: 500,
+        }),
+      );
+      const error = el('p', 'notice error op-form-error');
+      error.setAttribute('role', 'alert');
+      d.append(
+        error,
+        button(
+          'Подтвердить',
+          () =>
+            void this.model
+              .api(`branches/${branch}/splash`, {
+                method: 'POST',
+                body: { video_id: video, reason: reason.trim() },
+              })
+              .then((value) => {
+                this.splashData = { branch, value: object(value) };
+                this.splashStatus = '';
+                d.close();
+                d.remove();
+                this.model.changed();
+              })
+              .catch(
+                (e) =>
+                  (error.textContent = reason.trim() ? message(e) : 'Укажите причину изменения.'),
+              ),
+          'button primary',
+          'op-save',
+        ),
+      );
+    };
+    if (writable) {
+      const input = Object.assign(el('input'), { type: 'file', accept: 'video/mp4,.mp4' });
+      input.dataset.testid = 'splash-file';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) void this.uploadSplash(branch, file, status);
+      });
+      const pick = el('label', 'field');
+      pick.append(
+        el('span', '', 'Новое видео: MP4 до 25 МБ, лучше вертикальное, без звука'),
+        input,
+      );
+      p.append(pick, status);
+      if (current)
+        p.append(
+          button(
+            'Вернуть встроенное видео',
+            () => choose(null, 'Вернуть встроенное видео'),
+            'button subtle',
+            'splash-reset',
+          ),
+        );
+    }
+    const rows = videos.map((v) => {
+      const actions = el('div', 'op-actions');
+      if (writable && v['id'] !== data['current'])
+        actions.append(
+          button(
+            'Показывать',
+            () => choose(String(v['id']), 'Показывать это видео'),
+            'button subtle',
+            `splash-use-${String(v['id'])}`,
+          ),
+        );
+      return [
+        date(v['created_at']),
+        mb(v['size']),
+        v['id'] === data['current'] ? badge('active') : 'Не показывается',
+        actions,
+      ];
+    });
+    if (rows.length) p.append(table(['Загружено', 'Размер', 'В приложении', 'Действия'], rows));
+    return p;
+  }
+  private async uploadSplash(branch: string, file: File, status: HTMLElement) {
+    const say = (text: string) => {
+      this.splashStatus = text;
+      const live = document.querySelector('[data-testid=splash-status]');
+      if (live) live.textContent = text;
+      else status.textContent = text;
+    };
+    const limits = object(this.splashData?.value['limits'] ?? {});
+    const max = Number(limits['max_bytes'] ?? 25 * 1024 * 1024);
+    const part = Number(limits['part_bytes'] ?? 256 * 1024);
+    if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') return void say('Нужен файл MP4.');
+    if (file.size < 1024 || file.size > max) return void say('Файл должен быть не больше 25 МБ.');
+    if (!this.splashPart) return void say('Загрузка недоступна.');
+    try {
+      say('Подготовка...');
+      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const sha = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      const upload = crypto.randomUUID();
+      const parts = Math.ceil(file.size / part);
+      for (let i = 0; i < parts; i++) {
+        say(`Загружается ${Math.round((i / parts) * 100)}%`);
+        const bytes = file.slice(i * part, Math.min(file.size, (i + 1) * part));
+        // One retry per part: a short Wi-Fi drop should not cost the whole upload.
+        await this.splashPart(upload, i, file.size, sha, bytes).catch(() =>
+          this.splashPart!(upload, i, file.size, sha, bytes),
+        );
+      }
+      say('Проверка видео...');
+      await this.model.api(`branches/${branch}/splash/uploads/${upload}/finish`, {
+        method: 'POST',
+        body: {},
+      });
+      this.splashData = null;
+      say('Видео загружено. Нажмите «Показывать», чтобы гости его увидели.');
+      this.model.changed();
+    } catch (e) {
+      say(message(e));
+    }
+  }
+  /**
+   * Owner 15.11.2026: every game of the app is listed even before anything is saved for it; its
+   * name and cover can be changed and the game hidden. One save publishes at once: the app reads
+   * published content every minute and when it opens. App Store build 37 only honours «Скрыть»
+   * for Pick Blocks and Pick Man; names, covers and Magic Sort reach the app with the next build.
+   */
+  private gamesPanel() {
+    const writable = permitted(this.model.data, 'records.write');
+    const p = panel(
+      'Игры в приложении',
+      'Название, обложка и показ каждой игры. Изменение попадает в приложение в течение минуты.',
+    );
+    const rows = APP_GAMES.map((game) => {
+      const record = this.model
+        .entries('game')
+        .find((r) => r.payload['template'] === game.template);
+      const pub = this.model.data?.publications.find((v) => v['record_id'] === record?.id);
+      const payload = record?.payload;
+      const title = (payload?.['title'] as { ru?: string } | undefined)?.ru || game.name;
+      const cover = payload?.['cover'] as { sha256: string } | undefined;
+      const shown = payload ? payload['enabled'] === true : true;
+      const published = !record || pub?.['revision'] === record.revision;
+      const picture = cover
+        ? Object.assign(el('img', 'game-cover'), {
+            src: this.media?.url(cover.sha256) ?? '',
+            alt: `${title}: обложка`,
+          })
+        : el('span', 'muted', 'Обложка из приложения');
+      const actions = el('div', 'op-actions');
+      if (writable)
+        actions.append(
+          button(
+            'Изменить',
+            () => this.editGame(game, record),
+            'button subtle',
+            `game-edit-${game.template}`,
+          ),
+          button(
+            shown ? 'Скрыть' : 'Показать',
+            () => this.editGame(game, record, { enabled: !shown }),
+            'button subtle',
+            `game-toggle-${game.template}`,
+          ),
+        );
+      return [
+        picture,
+        title,
+        !published ? badge('Не опубликовано') : shown ? 'Показывается' : 'Скрыта',
+        actions,
+      ];
+    });
+    p.append(
+      table(['Обложка', 'Название', 'В приложении', 'Действия'], rows),
+      note(
+        'Скрыть Pick Blocks и Pick Man можно уже сейчас. Новые названия, обложки и управление Magic Sort заработают после следующего обновления приложения в App Store и Google Play. Награды за игры пока не начисляются.',
+      ),
+    );
+    return p;
+  }
+  /** Save and publish one game (owner 15.11.2026); `quick` only flips «Показывать» after a reason. */
+  private editGame(game: (typeof APP_GAMES)[number], record?: Entry, quick?: { enabled: boolean }) {
+    const base: Data = structuredClone(
+      record?.payload ?? {
+        name: game.name,
+        template: game.template,
+        enabled: true,
+        daily_attempts: 5,
+        reward_chiki: '0',
+        // A game stays until it is hidden: the window is open-ended, not the 30 days of a promo.
+        schedule: { starts_at: new Date(Date.now() - 60000).toISOString(), ends_at: GAME_OPEN_END },
+      },
+    );
+    const next = base as Data & {
+      title?: { ru: string; kk: string };
+      cover?: { asset_id: string; sha256: string };
+    };
+    if (quick) next['enabled'] = quick.enabled;
+    const d = dialog(
+      quick ? (quick.enabled ? `Показать ${game.name}` : `Скрыть ${game.name}`) : game.name,
+      quick
+        ? quick.enabled
+          ? 'Игра снова появится в приложении.'
+          : 'Игра пропадёт из приложения, рекорды игроков сохранятся.'
+        : 'Пустое название - приложение покажет своё. Без обложки приложение покажет встроенную.',
+    );
+    d.dataset.testid = 'game-editor';
+    const title = { ru: next.title?.ru ?? '', kk: next.title?.kk ?? '' };
+    if (!quick) {
+      d.append(
+        field('Название RU', title.ru, (v) => (title.ru = v), { id: 'game-title-ru', max: 200 }),
+        field('Название KZ', title.kk, (v) => (title.kk = v), { id: 'game-title-kk', max: 200 }),
+        check(
+          'Показывать в приложении',
+          next['enabled'] === true,
+          (v) => (next['enabled'] = v),
+          'game-enabled',
+        ),
+      );
+      const preview = el('div', 'game-cover-preview');
+      const status = el('p', 'muted');
+      status.setAttribute('aria-live', 'polite');
+      const show = () => {
+        preview.replaceChildren(
+          next.cover
+            ? Object.assign(el('img', 'game-cover'), {
+                src: this.media?.url(next.cover.sha256) ?? '',
+                alt: 'Обложка',
+              })
+            : el('span', 'muted', 'Обложка из приложения'),
+        );
+      };
+      show();
+      const input = Object.assign(el('input'), {
+        type: 'file',
+        accept: 'image/jpeg,image/png,image/webp,image/heic,.heic,.heif',
+      });
+      input.dataset.testid = 'game-cover-file';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file || !this.media) return;
+        status.textContent = 'Загружается...';
+        void preparePhoto(file)
+          .then((blob) =>
+            this.media!.upload(
+              blob,
+              (f) => (status.textContent = `Загружается ${Math.round(f * 100)}%`),
+            ),
+          )
+          .then((asset) => {
+            next.cover = asset.image;
+            status.textContent = 'Обложка загружена. Сохраните, чтобы она попала в приложение.';
+            show();
+          })
+          .catch((e) => (status.textContent = message(e)));
+      });
+      const cover = el('div', 'field');
+      cover.append(el('span', '', 'Обложка, лучше горизонтальная 16:9'), preview);
+      if (this.media) cover.append(input);
+      else cover.append(note('Загрузка фото на этой точке выключена.'));
+      cover.append(
+        button(
+          'Вернуть обложку из приложения',
+          () => {
+            delete next.cover;
+            show();
+          },
+          'button subtle',
+          'game-cover-reset',
+        ),
+        status,
+      );
+      d.append(cover);
+    }
+    let reason = '';
+    d.append(
+      field('Причина изменения', reason, (v) => (reason = v), {
+        required: true,
+        id: 'op-reason',
+        max: 500,
+      }),
+    );
+    const error = el('p', 'notice error op-form-error');
+    error.setAttribute('role', 'alert');
+    const id = record?.id ?? crypto.randomUUID();
+    const save = button(
+      quick ? 'Подтвердить' : 'Сохранить и опубликовать',
+      () =>
+        void (async () => {
+          error.textContent = '';
+          if (!quick) {
+            if (title.ru.trim() || title.kk.trim())
+              next.title = { ru: title.ru.trim() || game.name, kk: title.kk.trim() };
+            else delete next.title;
+          }
+          try {
+            if (!reason.trim()) throw new Error('Укажите причину изменения.');
+            const saved = await this.model.execute(
+              {
+                type: 'save',
+                kind: 'game',
+                id,
+                payload: next,
+                expected_revision: record?.revision ?? 0,
+              },
+              reason.trim(),
+            );
+            if (!saved) return void (error.textContent = message(this.model.error));
+            const fresh = this.model.entries('game').find((r) => r.id === id);
+            if (!fresh) return void (error.textContent = message(this.model.error));
+            const ok = await this.model.execute(
+              { type: 'publish', kind: 'game', id, expected_revision: fresh.revision },
+              reason.trim(),
+            );
+            if (!ok)
+              return void (error.textContent =
+                'Сохранено, но не опубликовано: ' + message(this.model.error));
+            d.close();
+            d.remove();
+          } catch (e) {
+            error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
+          }
+        })(),
+      'button primary',
+      'op-save',
+    );
+    d.append(error, save);
   }
   private records(
     kind: string,
@@ -3765,6 +4175,9 @@ export class OperationsView {
       this.settlementBlocks(content, d);
       return;
     }
+    // Owner 15.11.2026: the storefront video, only on servers with capabilities.app_splash.
+    if (page === 'promo' && d.capabilities?.['app_splash'] === true)
+      content.append(this.splashPanel());
     if (page === 'promo')
       content.append(
         this.records('promo', 'Промо и баннеры', [
@@ -3773,34 +4186,44 @@ export class OperationsView {
           ['Начало', (p) => date(object(p['schedule'])['starts_at'])],
         ]),
       );
-    if (page === 'games')
-      content.append(
-        this.records(
-          'game',
-          'Игры и челленджи',
-          [
-            ['Игра', (p) => val(p['template']).toUpperCase().replaceAll('-', ' ')],
-            ['Доступ', (p) => (p['enabled'] ? 'Включена' : 'Выключена')],
-            ['Попыток в день', (p) => val(p['daily_attempts'])],
-          ],
-          'Опубликованная игра появляется в приложении. Лимит попыток пока не ограничивает игроков, награды не начисляются.',
-        ),
-      );
+    if (page === 'games') content.append(this.gamesPanel());
     if (page === 'guests') {
+      // Owner 15.11.2026: name and phone from the app profile instead of an id. The server sends
+      // the full number only to a manager grant, a masked one to the other roles.
+      const contacts = d.guests.some((v) => 'phone' in v);
+      const masked = d.guests.some((v) => v['phone_masked'] === true);
       const p = panel(
         'Гости точки',
-        'Только гости с заказами в этой точке. Контактные данные скрыты.',
+        !contacts
+          ? 'Только гости с заказами в этой точке. Контактные данные скрыты.'
+          : masked
+            ? 'Гости с заказами в этой точке. Полный номер телефона видит только управляющий.'
+            : 'Гости с заказами в этой точке: имя и телефон, которые гость указал в приложении.',
       );
       p.append(
-        table(
-          ['Гость', 'Заказов', 'Последний заказ', 'Рассылки'],
-          d.guests.map((v) => [
-            'Гость …' + String(v['id']).slice(-4).toUpperCase(),
-            val(v['orders']),
-            date(v['last_order_at']),
-            v['marketing_consent'] ? 'Согласен' : 'Не согласен',
-          ]),
-        ),
+        contacts
+          ? table(
+              ['Гость', 'Телефон', 'Дата рождения', 'Заказов', 'Последний заказ', 'Рассылки'],
+              d.guests.map((v) => [
+                v['name'] ? String(v['name']) : 'Без имени',
+                v['phone'] ? String(v['phone']) : '-',
+                /^\d{4}-\d{2}-\d{2}$/.test(String(v['birth_date'] ?? ''))
+                  ? String(v['birth_date']).split('-').reverse().join('.')
+                  : '-',
+                val(v['orders']),
+                date(v['last_order_at']),
+                v['marketing_consent'] ? 'Согласен' : 'Не согласен',
+              ]),
+            )
+          : table(
+              ['Гость', 'Заказов', 'Последний заказ', 'Рассылки'],
+              d.guests.map((v) => [
+                'Гость …' + String(v['id']).slice(-4).toUpperCase(),
+                val(v['orders']),
+                date(v['last_order_at']),
+                v['marketing_consent'] ? 'Согласен' : 'Не согласен',
+              ]),
+            ),
       );
       content.append(
         p,

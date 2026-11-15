@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { AccountGate } from '../../components/AccountGate';
+import { GameAvailability } from '../../backoffice/GameAvailability';
 import { MagicSortScreen } from '../../games/magic-sort/MagicSortScreen';
 
 export default function MagicSortRoute() {
@@ -7,7 +8,9 @@ export default function MagicSortRoute() {
     <>
       <Stack.Screen options={{ headerShown: false, orientation: 'portrait' }} />
       <AccountGate destination="magic-sort">
-        <MagicSortScreen />
+        <GameAvailability template="magic-sort">
+          <MagicSortScreen />
+        </GameAvailability>
       </AccountGate>
     </>
   );

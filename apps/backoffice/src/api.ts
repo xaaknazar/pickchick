@@ -88,6 +88,12 @@ export function allowedPath(path: string): boolean {
     return true;
   const [pathname = '', search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  // Video of the app storefront (owner request 15.11.2026): read/choose and assembly.
+  if (
+    search === undefined &&
+    new RegExp(`^operations/branches/${UUID}/splash(?:/uploads/${UUID}/finish)?$`).test(pathname)
+  )
+    return true;
   if (new RegExp(`^operations/branches/${UUID}/restore-reviews$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
     return (
@@ -415,6 +421,58 @@ export const transport: Transport = async (path, token, options = {}) => {
   if (!response.ok) throw failure(response.status, value);
   return value;
 };
+/** Parts of a storefront video (owner request 15.11.2026): the portal takes at most 300 KB. */
+export const SPLASH_PART_BYTES = 256 * 1024;
+export const SPLASH_MAX_BYTES = 25 * 1024 * 1024;
+export async function uploadSplashPart(
+  token: string,
+  branchId: string,
+  uploadId: string,
+  part: number,
+  total: number,
+  sha256: string,
+  bytes: Blob,
+): Promise<void> {
+  if (
+    (token !== 'session' && !/^[a-f0-9]{64}$/.test(token)) ||
+    !uuid.test(branchId) ||
+    !uuid.test(uploadId) ||
+    !Number.isSafeInteger(part) ||
+    part < 0 ||
+    !/^[a-f0-9]{64}$/.test(sha256) ||
+    bytes.size < 1 ||
+    bytes.size > SPLASH_PART_BYTES
+  )
+    throw new ApiError('INVALID_REQUEST');
+  let response: Response;
+  try {
+    response = await fetch(
+      `${token === 'session' ? '/backoffice/api' : ''}/v1/admin/backoffice/branches/${branchId}/splash/uploads/${uploadId}/parts/${part}?total_bytes=${total}&sha256=${sha256}`,
+      {
+        method: 'POST',
+        redirect: 'error',
+        credentials: token === 'session' ? 'same-origin' : 'omit',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(60000),
+        headers: {
+          ...(token === 'session' ? {} : { Authorization: `Bearer ${token}` }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: bytes,
+      },
+    );
+  } catch {
+    throw new ApiError('NETWORK');
+  }
+  if (response.ok) return;
+  let value: unknown = null;
+  try {
+    value = await response.json();
+  } catch {
+    /* a proxy error page */
+  }
+  throw failure(response.status, value);
+}
 /** Raw image types the upload route accepts (the server sniffs the bytes as well). */
 export const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
@@ -617,6 +675,11 @@ const reasons: Record<string, string> = {
     'В это время сотрудник уже стоял на станции: интервалы не пересекаются. Укажите время позже начала текущего интервала.',
   ASSIGNMENT_PREVIOUS_DAY:
     'У сотрудника не закрыт интервал прошлого дня смены. Сначала нажмите «Закончить» у этого интервала.',
+  // Video of the app storefront (owner request 15.11.2026).
+  SPLASH_PART_SIZE: 'Часть видео не принята. Загрузите файл заново.',
+  SPLASH_UPLOAD_INCOMPLETE: 'Видео загрузилось не полностью. Загрузите файл заново.',
+  SPLASH_HASH_MISMATCH: 'Видео повредилось при загрузке. Загрузите файл заново.',
+  SPLASH_NOT_MP4: 'Это не видео MP4. Сохраните ролик в формате MP4 и загрузите снова.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

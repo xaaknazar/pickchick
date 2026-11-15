@@ -3,7 +3,7 @@
  * availability mirrors the «События» tab and each game route keeps its own gate.
  */
 export type OrderGameId = 'pick-blocks' | 'pick-man' | 'magic-sort' | 'pick-farm';
-export type PublishedGameTemplate = 'pick-blocks' | 'pick-man';
+export type PublishedGameTemplate = 'pick-blocks' | 'pick-man' | 'magic-sort';
 
 /** Owner-approved carousel order. Pick Farm joins only while its build flag is on. */
 export function orderGameIds(
@@ -13,7 +13,8 @@ export function orderGameIds(
   const ids: OrderGameId[] = [];
   if (gameEnabled('pick-blocks')) ids.push('pick-blocks');
   if (gameEnabled('pick-man')) ids.push('pick-man');
-  ids.push('magic-sort');
+  // Owner 15.11.2026: Magic Sort can be hidden from the back office too.
+  if (gameEnabled('magic-sort')) ids.push('magic-sort');
   if (farmEnabled) ids.push('pick-farm');
   return ids;
 }
