@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
-import { Backoffice, BackofficeError, SPLASH_PART_BYTES, grantBackoffice } from '../dist/index.js';
+import {
+  Backoffice,
+  BackofficeError,
+  SPLASH_PART_BYTES,
+  backofficeOptions,
+  grantBackoffice,
+} from '../dist/index.js';
 
 /**
  * Video of the app storefront (owner request 15.11.2026; splash.ts, cloud078): upload in parts,
@@ -142,3 +148,10 @@ test('splash: parts, finish, choose, content and ranges; analysts read only; fla
     assert.equal((await bo.content(c.branch, 'mobile')).splash, null);
     await assert.rejects(c.cloud.pool.query('DELETE FROM app_splash_settings'), /append-only/);
   }));
+
+test('BACKOFFICE_APP_SPLASH_ENABLED defaults off and accepts only true or false', () => {
+  assert.equal(backofficeOptions({}).appSplashEnabled, false);
+  assert.equal(backofficeOptions({ BACKOFFICE_APP_SPLASH_ENABLED: 'true' }).appSplashEnabled, true);
+  for (const value of ['1', 'TRUE', 'yes', ''])
+    assert.throws(() => backofficeOptions({ BACKOFFICE_APP_SPLASH_ENABLED: value }));
+});
