@@ -7957,10 +7957,11 @@
         "apps/mobile/src/screens/CatalogScreens.tsx",
         "@ios/simulator"
       ],
-      "status": "active",
-      "head": "5f28861205dcf0023f8732d523ccac03065cbdb1",
-      "updatedAt": "2026-11-15T22:01:31.778Z",
-      "summary": "\n16.11.2026: только @ios/simulator временно передан от mobile-feedback-1029 задаче mobile-build38-1116 для короткой визуальной проверки Release-кандидата38 884dbf5f (таб-бар, обычные категории и доступ к Pick Box). Основание: подтверждённое исходное разрешение владельца 13.11 на согласование использования симулятора между этими чатами и новое поручение владельца 16.11 на TestFlight38. Перед передачей запущенных симуляторов нет. После проверки выключить только собственный симулятор и согласовать возврат. Остальные scopes, owner/branch/head/status сохранены; запись не запускает устройства и не меняет магазины, сервер или кассу."
+      "status": "available",
+      "head": "33dbaaced5c72eb03b71a96c284fa0dfab027996",
+      "updatedAt": "2026-11-15T23:28:55.823Z",
+      "summary": "Кандидат 884dbf5f: iOS 1.0.1 (38), production, dirty=false. Категории без стекла по уточнению владельца, Pick Box сохранён. Foundation 43766448161 11/11 PASS; 613 Node, 96 Python, TS/ESLint/Prettier, web и browser tab bar PASS. Архив и IPA mobile-glass-20261116-38-r3 готовы. Upload остановился: Xcode Failed to Use Accounts, нужен повторный вход владельца. PR #381 открыт, App Store/Google Play не менялись. Симулятор build/install PASS, GUI Mac недоступен; свой симулятор выключен.",
+      "nextAction": "После готово в Xcode повторить только upload существующего r3, без новой сборки и без смены source SHA 884dbf5f. Проверить dirty=false в release.json, зелёную CI исходника и отсутствие кода после него (только отчёт). Назначить PickChick Internal и Testing, записать исправленные notes без стеклянных категорий, статус и скриншот. Обновить протокол, дождаться проверки PR и обычный merge в cutover. Нативная визуальная/физическая приёмка отдельно."
     }
   ],
   "approvedScopeTransfers": [
