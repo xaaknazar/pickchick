@@ -1,0 +1,155 @@
+{
+  "sourceCommit": "35efd72ce470789466dd265814d0bcdf49182431",
+  "checkedAt": "2026-11-15 21:55:11 UTC",
+  "runs": [
+    {
+      "id": 43761973367,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367",
+      "workflow": ".github/workflows/ci.yml",
+      "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "jobCount": 11,
+      "jobs": [
+        {
+          "id": 132958561183,
+          "name": "Foundation POS and backoffice integration",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561183"
+        },
+        {
+          "id": 132958561347,
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561347"
+        },
+        {
+          "id": 132958561405,
+          "name": "Private staging image and restricted database role",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561405"
+        },
+        {
+          "id": 132958561434,
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561434"
+        },
+        {
+          "id": 132958561435,
+          "name": "Foundation simulator browser regressions",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561435"
+        },
+        {
+          "id": 132958561456,
+          "name": "Foundation mobile bundles and checkout recovery",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561456"
+        },
+        {
+          "id": 132958561462,
+          "name": "Local kitchen UI and recovery",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561462"
+        },
+        {
+          "id": 132958561480,
+          "name": "Design screens and interaction smoke",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561480"
+        },
+        {
+          "id": 132958561519,
+          "name": "Foundation server account and Kaspi fixtures",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561519"
+        },
+        {
+          "id": 132958561523,
+          "name": "Foundation static checks and transaction invariants",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132958561523"
+        },
+        {
+          "id": 132967288942,
+          "name": "Build, contracts and PostgreSQL integration",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761973367/job/132967288942"
+        }
+      ]
+    },
+    {
+      "id": 43761995773,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761995773",
+      "workflow": ".github/workflows/windows-pos.yml",
+      "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+      "event": "workflow_dispatch",
+      "status": "completed",
+      "conclusion": "success",
+      "jobCount": 3,
+      "jobs": [
+        {
+          "id": 132958635388,
+          "name": "Package installed Windows x64 POS",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761995773/job/132958635388"
+        },
+        {
+          "id": 132958635582,
+          "name": "Native release guards on Windows PowerShell 5.1",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761995773/job/132958635582"
+        },
+        {
+          "id": 132958635609,
+          "name": "Installed POS updates itself from a feed",
+          "headSha": "35efd72ce470789466dd265814d0bcdf49182431",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43761995773/job/132958635609"
+        }
+      ]
+    }
+  ],
+  "windows029Guards": {
+    "testFile": "tests/operations/test_windows_head_029_runtime_release.py",
+    "tests": 7,
+    "result": "PASS",
+    "requiredTest": "KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool"
+  },
+  "localCommandChecks": {
+    "powershellBlocks": 8,
+    "parse": "PASS",
+    "freshBackupPositiveAndNegativeFixtures": "PASS",
+    "installationCommandsExecuted": false
+  },
+  "noDeployment": true
+}

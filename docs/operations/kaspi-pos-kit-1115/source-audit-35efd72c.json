@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "35efd72ce470789466dd265814d0bcdf49182431",
+  "predecessorCommit": "<sha \u0440\u0430\u043d\u0442\u0430\u0439\u043c\u0430 028>",
+  "predecessorSource": "Owner instruction16.11: Claude must fill sourceCommit from actual completed.json on cashier; no assumed installed SHA",
+  "migrationCount": 29,
+  "checksumsMatch": true,
+  "LF": true,
+  "changesFromE92e6ba6": ["tests/integration/backoffice-p1-staff-roster.test.mjs"],
+  "cloudTouched": false,
+  "cashierTouched": false,
+  "updateFeedTouched": false
+}
