@@ -136,6 +136,13 @@ export function tabItemWidth(
 export const tabSelectionSpring = { mass: 1, stiffness: 280, damping: 26 } as const;
 export const tabLensSpring = { mass: 1, stiffness: 420, damping: 30 } as const;
 
+/** After a tap the lens stays raised this long, so it rides to the new tab as glass. */
+export const tabLensHoldMs = 220;
+
+/** The chosen tab's glyph pops by this share, then springs back with a small bounce. */
+export const tabIconBounce = 0.2;
+export const tabIconBounceSpring = { mass: 1, stiffness: 320, damping: 12 } as const;
+
 /** How far the platter stretches along its path mid-flight, and how much the lens swells. */
 export const tabLensShape = { stretchX: 0.18, squashY: 0.06, swellX: 0.08, swellY: 0.2 } as const;
 

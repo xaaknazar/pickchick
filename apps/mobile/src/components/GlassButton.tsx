@@ -69,19 +69,31 @@ export function GlassFill({
   place = 'pill',
   body = true,
   rim = RIM,
+  tint,
+  interactive,
 }: {
   radius: number;
   pressed?: boolean;
   place?: GlassPlace;
   body?: boolean;
   rim?: number;
+  /**
+   * Tinted glass (owner 15.11.2026, Apple's «prominent» glass): the main action keeps its brand
+   * colour, Liquid Glass tints itself with it; off iOS 26 it is the fill under the light.
+   */
+  tint?: string;
+  /** Overrides the place's native press response (Apple's flex and shine on iOS 26). */
+  interactive?: boolean;
 }) {
   const surface = useGlassSurface();
   if (surface === 'liquid') {
+    const config = liquidGlassConfig(place);
     return (
       <GlassView
         pointerEvents="none"
-        {...liquidGlassConfig(place)}
+        {...config}
+        isInteractive={interactive ?? config.isInteractive}
+        tintColor={tint}
         style={{
           position: 'absolute',
           top: -rim,
@@ -94,6 +106,7 @@ export function GlassFill({
     );
   }
   const layers = glassLayers(surface);
+  const fill = tint ?? layers.fill;
   // Every layer carries the radius itself (QA 27.10, item 13): the parent's clip alone does not
   // shape a backdrop blur (CSS backdrop-filter ignores an ancestor's rounded overflow, and
   // UIVisualEffectView needs its own corner clip), which showed a square patch around round
@@ -108,8 +121,8 @@ export function GlassFill({
           style={[StyleSheet.absoluteFill, s.clip, round]}
         />
       ) : null}
-      {body && layers.fill ? (
-        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: layers.fill }]} />
+      {body && fill ? (
+        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: fill }]} />
       ) : null}
       {body && layers.lift ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.lift }]} />

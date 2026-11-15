@@ -20,6 +20,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,7 +39,7 @@ import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
 import { AppHeaderBar } from '../components/AppHeader';
 import { RestaurantClosedNotice } from '../components/RestaurantClosedNotice';
-import { GlassButton } from '../components/GlassButton';
+import { GlassButton, GlassFill, useGlassRim } from '../components/GlassButton';
 import {
   CityButton,
   RestaurantCard,
@@ -49,6 +50,7 @@ import {
 import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
 import { restaurantHoursNow } from '../payment-availability';
 import { useRestaurantHoursNow } from '../usePaymentAvailability';
+import { tabSelectionSpring as categoryCapsuleSpring } from '../tab-bar-metrics';
 import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import { upcomingFeaturesShown } from '../store-build';
@@ -449,14 +451,38 @@ export function Menu(props: ScreenProps) {
     backgroundColor:
       scrollY.value >= categoryTop - headerHeight ? colors.background : 'transparent',
   }));
+  // Owner 15.11.2026: the selected category sits on a glass capsule that flows to the next one,
+  // like the selection in Apple's iOS 26 segmented controls and tab bar.
+  const capsuleRim = useGlassRim('pill');
+  const capsuleX = useSharedValue(0);
+  const capsuleWidth = useSharedValue(0);
+  const placeCapsule = useCallback(
+    (layout: { x: number; width: number }, animated: boolean) => {
+      if (!animated || capsuleWidth.value === 0) {
+        capsuleX.value = layout.x;
+        capsuleWidth.value = layout.width;
+        return;
+      }
+      capsuleX.value = withSpring(layout.x, categoryCapsuleSpring);
+      capsuleWidth.value = withSpring(layout.width, categoryCapsuleSpring);
+    },
+    [capsuleX, capsuleWidth],
+  );
+  const capsuleStyle = useAnimatedStyle(() => ({
+    width: capsuleWidth.value,
+    opacity: capsuleWidth.value > 0 ? 1 : 0,
+    transform: [{ translateX: capsuleX.value }],
+  }));
   useEffect(() => {
     const layout = chipLayouts.current[category];
-    if (layout)
+    if (layout) {
+      placeCapsule(layout, !reduced);
       chips.current?.scrollTo({
         x: Math.max(0, layout.x - (width - layout.width) / 2),
         animated: !reduced,
       });
-  }, [category, width, reduced]);
+    }
+  }, [category, width, reduced, placeCapsule]);
   const openProduct = useCallback(
     (product: Product) => {
       props.model.selectProduct(product.id);
@@ -477,12 +503,20 @@ export function Menu(props: ScreenProps) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.categoryList}
     >
+      <Animated.View
+        testID="category-capsule"
+        pointerEvents="none"
+        style={[s.categoryCapsule, capsuleRim, capsuleStyle]}
+      >
+        <GlassFill radius={24} place="pill" />
+      </Animated.View>
       {categories.map((item) => (
         <Pressable
           key={item}
           testID={`category-${item}`}
           onLayout={(e) => {
             chipLayouts.current[item] = e.nativeEvent.layout;
+            if (item === category) placeCapsule(e.nativeEvent.layout, false);
           }}
           hitSlop={{ top: 4, bottom: 4 }}
           accessibilityRole="tab"
@@ -1201,14 +1235,24 @@ const s = StyleSheet.create({
   loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
   menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
   stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
+  // The texts keep their place (first at 24, 28 apart): each chip
+  // carries 14 of padding for the glass capsule behind the selected one.
   categoryList: {
-    gap: 24,
+    gap: 0,
     paddingVertical: 8,
-    paddingHorizontal: 24,
+    paddingHorizontal: 10,
   },
   category: {
     minHeight: 48,
     justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  categoryCapsule: {
+    position: 'absolute',
+    left: 0,
+    top: 8,
+    height: 48,
+    borderRadius: 24,
   },
   categoryText: {
     fontSize: 20,

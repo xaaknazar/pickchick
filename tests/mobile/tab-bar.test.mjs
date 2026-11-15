@@ -186,6 +186,11 @@ test('the platter flows like iOS 26: a gel stretch mid-way, round at rest, the l
   assert.ok(
     !existsSync(new URL('../../apps/mobile/src/components/TabActiveCapsule.tsx', import.meta.url)),
   );
+  // Owner 16.11.2026: the switch has Apple's effect: the lens stays raised while it rides to the
+  // new tab, its edge shines like glass, and the chosen glyph pops once.
+  assertHas(bar, 'withDelay(tabLensHoldMs, withSpring(0, tabLensSpring))');
+  assertHas(bar, '<Animated.View style={[StyleSheet.absoluteFill, s.lensShine, shine]} />');
+  assertHas(bar, 'pop(index);');
 });
 
 test('tabs keep order, labels, gates and accessibility semantics', () => {

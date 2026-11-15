@@ -10,7 +10,10 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withSequence,
   withSpring,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { TabIcon } from './UI';
@@ -26,6 +29,9 @@ import {
   tabLabelMaxScale,
   tabLabelMinFit,
   tabLabelSize,
+  tabIconBounce,
+  tabIconBounceSpring,
+  tabLensHoldMs,
   tabLensSpring,
   tabPlatterScale,
   tabSelection,
@@ -88,13 +94,18 @@ function SelectionPlatter({
       borderColor: interpolateColor(lens.value, [0, 1], ['rgba(255,255,255,0)', palette.lensRim]),
     };
   });
+  // The lens is glass while it is raised: a specular edge and the faint colour fringe of Liquid
+  // Glass (cyan on one side, warm on the other), fading in with the lens.
+  const shine = useAnimatedStyle(() => ({ opacity: lens.value }));
   return (
     <Animated.View
       testID={testID}
       pointerEvents="none"
       accessible={false}
       style={[s.platter, { width, height }, style]}
-    />
+    >
+      <Animated.View style={[StyleSheet.absoluteFill, s.lensShine, shine]} />
+    </Animated.View>
   );
 }
 
@@ -103,6 +114,8 @@ function TabItem({
   index,
   position,
   lens,
+  bounce,
+  bounceIndex,
   focused,
   label,
   badge,
@@ -118,6 +131,8 @@ function TabItem({
   index: number;
   position: SharedValue<number>;
   lens: SharedValue<number>;
+  bounce: SharedValue<number>;
+  bounceIndex: SharedValue<number>;
   focused: boolean;
   label: string;
   badge: string | null;
@@ -134,7 +149,9 @@ function TabItem({
   const activeIcon = useAnimatedStyle(() => ({ opacity: tabSelection(position.value, index) }));
   const icon = useAnimatedStyle(() => {
     const swell = 1 + 0.1 * lens.value * tabSelection(position.value, index);
-    return { transform: [{ scale: swell }] };
+    // The chosen glyph pops once (iOS 26 tab bar), whatever the lens does.
+    const pop = bounceIndex.value === index ? tabIconBounce * bounce.value : 0;
+    return { transform: [{ scale: swell + pop }] };
   });
   const text = useAnimatedStyle(() => ({
     color: interpolateColor(
@@ -212,6 +229,8 @@ export function FloatingTabBar({
   // The platter's place as a tab index (fractional while it moves) and the lens (0..1).
   const position = useSharedValue(state.index);
   const lens = useSharedValue(0);
+  const bounce = useSharedValue(0);
+  const bounceIndex = useSharedValue(-1);
   // Where the platter is heading; the navigation state catches up after the screen renders.
   const target = useRef(state.index);
   const dragging = useSharedValue(false);
@@ -229,9 +248,25 @@ export function FloatingTabBar({
   );
   const raiseLens = useCallback(
     (on: boolean) => {
-      lens.value = reduced ? 0 : withSpring(on ? 1 : 0, tabLensSpring);
+      // Released, the lens rides to the new tab before it settles back into the platter.
+      lens.value = reduced
+        ? 0
+        : on
+          ? withSpring(1, tabLensSpring)
+          : withDelay(tabLensHoldMs, withSpring(0, tabLensSpring));
     },
     [lens, reduced],
+  );
+  const pop = useCallback(
+    (index: number) => {
+      if (reduced) return;
+      bounceIndex.value = index;
+      bounce.value = withSequence(
+        withTiming(1, { duration: 110 }),
+        withSpring(0, tabIconBounceSpring),
+      );
+    },
+    [bounce, bounceIndex, reduced],
   );
 
   // The selected tab changed elsewhere (a link, a gate sent the press away, the first render):
@@ -256,9 +291,10 @@ export function FloatingTabBar({
         moveTo(state.index);
         return;
       }
+      pop(index);
       if (!focused) navigation.navigate(route.name, route.params);
     },
-    [moveTo, navigation, state.index, state.routes],
+    [moveTo, navigation, pop, state.index, state.routes],
   );
 
   // Press and drag along the capsule, as on iOS 26: the lens follows the finger, ticks on each
@@ -347,6 +383,8 @@ export function FloatingTabBar({
                       index={index}
                       position={position}
                       lens={lens}
+                      bounce={bounce}
+                      bounceIndex={bounceIndex}
                       focused={state.index === index}
                       label={label}
                       badge={badge}
@@ -405,6 +443,11 @@ const s = StyleSheet.create({
   },
   clip: { overflow: 'hidden' },
   items: { flex: 1, flexDirection: 'row' },
+  lensShine: {
+    borderRadius: 999,
+    boxShadow:
+      'inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 2px 0 2px rgba(120, 220, 255, 0.35), inset -2px 0 2px rgba(255, 150, 120, 0.35), inset 0 -1px 1px rgba(255, 255, 255, 0.2)',
+  },
   platter: {
     position: 'absolute',
     left: 0,
