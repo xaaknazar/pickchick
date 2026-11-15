@@ -7906,6 +7906,19 @@
       "updatedAt": "2026-11-15T16:09:55.631Z",
       "summary": "CI copy fast-forwarded to f57edaf4. Foundation43733154037 running. Windows43733153883 job132869857621 failed KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool line181: SQL029 LFhash edf0 vs actualCRLFhash e748; exactLFtoCRLF reproduction confirms. Old025/028guards pass. Runtime029operator/packagerhelpers/POS0.5.4 nowexist. No kit or remotechange.",
       "nextAction": "Fix canonicalLF checkout/packaging of SQL withoutchangingmigrationpins; rerunbothCI onnewSHA. Need owner/Claude actual sourceCommit from runtime-head-028-*/completed.json beforeCOMMANDS; planneddec8 notyetconfirmed. Buildkitonlyafterbothgreen, nofeed/cloud/cashierchanges."
+    },
+    {
+      "id": "kex-aquarium-domain-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kex-aquarium-domain-1115",
+      "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
+      "scopes": [
+        "@vps/ingress/aquarium"
+      ],
+      "status": "active",
+      "updatedAt": "2026-11-15T16:17:36.023Z",
+      "summary": "Narrow overlap explicitly agreed by stage2-candidate-1105 on 15.11.2026 for /aquarium only. Implementation and tests in xaaknazar/DNA 98f59f538d41be9da6c52a33f0e26d07fa7561df. Shared runtime, DB, other ingress and parent reservations untouched.",
+      "nextAction": "Validate live source deployment; lock/CAS/backup; apply path-only Caddy block and verify unchanged services."
     }
   ],
   "approvedScopeTransfers": [
