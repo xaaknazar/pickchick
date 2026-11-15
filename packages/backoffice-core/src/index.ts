@@ -104,8 +104,10 @@ import {
 } from './positions.js';
 import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
 import { readOrdersRegistry } from './orders-registry.js';
+import { guestView } from './guests.js';
 export * from './model.js';
 export * from './stops.js';
+export * from './guests.js';
 export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
@@ -473,10 +475,22 @@ export class Backoffice {
       const kitchen = await rows(
         `SELECT * FROM (SELECT f.order_id,f.state,f.version,f.display_number::text,f.routing_version,f.assembly_station_id,f.observed_at,'cloud' commercial_owner FROM cloud_fulfillment_projection f WHERE f.branch_id=$1 UNION ALL SELECT k.order_id,k.state,k.version,k.display_number::text,k.routing_version,k.assembly_station_id,k.observed_at,'edge_pos' commercial_owner FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1) observations ORDER BY observed_at DESC,order_id LIMIT 200`,
       );
-      const guests =
-        await rows(`SELECT c.id,c.created_at,count(o.id)::int orders,max(o.created_at) last_order_at,
+      const guestRows =
+        await rows(`SELECT c.id,c.created_at,c.phone_cipher,c.profile_cipher,count(o.id)::int orders,max(o.created_at) last_order_at,
     coalesce((SELECT i.accepted FROM identity_consents i WHERE i.customer_id=c.id AND i.kind='marketing' ORDER BY i.recorded_at DESC,i.id DESC LIMIT 1),false) marketing_consent
     FROM identity_customers c JOIN commerce_orders o ON o.customer_id=c.id WHERE o.branch_id=$1 AND c.deleted_at IS NULL GROUP BY c.id ORDER BY max(o.created_at) DESC,c.id LIMIT 200`);
+      // Owner 15.11.2026: name and phone instead of an id. The ciphers never leave the server.
+      const guests = guestRows.map(({ phone_cipher, profile_cipher, ...g }) =>
+        this.options.guestContact
+          ? {
+              ...g,
+              ...guestView(
+                () => this.options.guestContact!({ id: g.id, phone_cipher, profile_cipher }),
+                actor.role === 'manager',
+              ),
+            }
+          : g,
+      );
       // Lane bo-ui (audit F08): with BACKOFFICE_POS_DAY_ENABLED the log rows carry the author's
       // name (actor_name, null for a removed login); without it the statements are unchanged.
       const named = this.options.posDayEnabled === true;

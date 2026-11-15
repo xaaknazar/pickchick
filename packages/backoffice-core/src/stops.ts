@@ -11,7 +11,23 @@ import { BackofficeError, type StopRequestInput } from './model.js';
  * transport delivers and the edge applies with an expected_version check. Names and ids come
  * from the published catalog, hashed exactly like the POS menu (localCatalogId).
  */
+/** Decrypted contact of an app guest (customer-identity piiKey), injected by the API. */
+export interface GuestContact {
+  phone: string | null;
+  nickname: string | null;
+  birth_date: string | null;
+}
 export interface BackofficeOptions {
+  /**
+   * Owner 15.11.2026: «Гости» shows who the guest is. Decrypts identity_customers.phone_cipher and
+   * profile_cipher with the customer-identity PII key; absent (customer auth off) the list stays
+   * without contacts, as before. Managers see the full number, other roles a masked one.
+   */
+  guestContact?: (row: {
+    id: string;
+    phone_cipher: string | null;
+    profile_cipher: string | null;
+  }) => GuestContact;
   /** BACKOFFICE_REMOTE_STOPS_ENABLED: managers may queue stop/unstop commands. Default off. */
   remoteStopsEnabled?: boolean;
   /**

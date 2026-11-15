@@ -3683,20 +3683,42 @@ export class OperationsView {
         ),
       );
     if (page === 'guests') {
+      // Owner 15.11.2026: name and phone from the app profile instead of an id. The server sends
+      // the full number only to a manager grant, a masked one to the other roles.
+      const contacts = d.guests.some((v) => 'phone' in v);
+      const masked = d.guests.some((v) => v['phone_masked'] === true);
       const p = panel(
         'Гости точки',
-        'Только гости с заказами в этой точке. Контактные данные скрыты.',
+        !contacts
+          ? 'Только гости с заказами в этой точке. Контактные данные скрыты.'
+          : masked
+            ? 'Гости с заказами в этой точке. Полный номер телефона видит только управляющий.'
+            : 'Гости с заказами в этой точке: имя и телефон, которые гость указал в приложении.',
       );
       p.append(
-        table(
-          ['Гость', 'Заказов', 'Последний заказ', 'Маркетинг'],
-          d.guests.map((v) => [
-            String(v['id']).slice(0, 8),
-            val(v['orders']),
-            date(v['last_order_at']),
-            v['marketing_consent'] ? 'Согласие получено' : 'Нет согласия',
-          ]),
-        ),
+        contacts
+          ? table(
+              ['Гость', 'Телефон', 'Дата рождения', 'Заказов', 'Последний заказ', 'Рассылки'],
+              d.guests.map((v) => [
+                v['name'] ? String(v['name']) : 'Без имени',
+                v['phone'] ? String(v['phone']) : '-',
+                /^\d{4}-\d{2}-\d{2}$/.test(String(v['birth_date'] ?? ''))
+                  ? String(v['birth_date']).split('-').reverse().join('.')
+                  : '-',
+                val(v['orders']),
+                date(v['last_order_at']),
+                v['marketing_consent'] ? 'Согласен' : 'Не согласен',
+              ]),
+            )
+          : table(
+              ['Гость', 'Заказов', 'Последний заказ', 'Маркетинг'],
+              d.guests.map((v) => [
+                String(v['id']).slice(0, 8),
+                val(v['orders']),
+                date(v['last_order_at']),
+                v['marketing_consent'] ? 'Согласие получено' : 'Нет согласия',
+              ]),
+            ),
       );
       content.append(
         p,
