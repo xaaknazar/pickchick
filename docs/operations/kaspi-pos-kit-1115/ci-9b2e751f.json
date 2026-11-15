@@ -1,0 +1,157 @@
+{
+  "sourceCommit": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+  "status": "STOP",
+  "reason": "Foundation static checks: Prettier check of head-runtime-029.md failed; no kit built",
+  "predecessorCommit": "<sha рантайма 028>",
+  "foundation": {
+    "id": 43733904023,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023",
+    "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+    "status": "in_progress",
+    "conclusion": null,
+    "updated_at": "2026-11-15T16:10:27Z",
+    "jobs": [
+      {
+        "id": 132872294907,
+        "name": "Foundation POS and backoffice integration",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872294907",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295136,
+        "name": "Foundation server account and Kaspi fixtures",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295136",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295137,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295137",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295161,
+        "name": "Foundation simulator browser regressions",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295161",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295175,
+        "name": "Local kitchen UI and recovery",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295175",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295246,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295246",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295252,
+        "name": "Foundation static checks and transaction invariants",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295252",
+        "failed_steps": ["Build and static checks"]
+      },
+      {
+        "id": 132872295273,
+        "name": "Private staging image and restricted database role",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295273",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295275,
+        "name": "Design screens and interaction smoke",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295275",
+        "failed_steps": []
+      },
+      {
+        "id": 132872295278,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733904023/job/132872295278",
+        "failed_steps": []
+      }
+    ]
+  },
+  "windows": {
+    "id": 43733907474,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733907474",
+    "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+    "status": "completed",
+    "conclusion": "success",
+    "updated_at": "2026-11-15T16:14:29Z",
+    "jobs": [
+      {
+        "id": 132872179456,
+        "name": "Package installed Windows x64 POS",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733907474/job/132872179456",
+        "failed_steps": []
+      },
+      {
+        "id": 132872179703,
+        "name": "Installed POS updates itself from a feed",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733907474/job/132872179703",
+        "failed_steps": []
+      },
+      {
+        "id": 132872179709,
+        "name": "Native release guards on Windows PowerShell 5.1",
+        "head_sha": "9b2e751fca7d8efcd0ed4b15180aea410056d71a",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/xaaknazar/pickchick/actions/runs/43733907474/job/132872179709",
+        "failed_steps": []
+      }
+    ]
+  },
+  "failure": {
+    "command": "prettier --check .",
+    "file": "docs/operations/stage2-windows-1030/head-runtime-029.md",
+    "required_change": "Add one blank line after the paragraph ending 'и три воркера.' and before list item 6.",
+    "local_reproduced": true,
+    "source_modified": false
+  },
+  "windowsGuard": {
+    "file": "tests/operations/test_windows_head_029_runtime_release.py",
+    "tests": 7,
+    "result": "OK",
+    "includes": "KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool",
+    "job_id": 132872179709
+  }
+}
