@@ -370,10 +370,7 @@ test('names of desks and staff, Webkassa column, waiting time, freshness', () =>
   assert.equal(terminalLabel(d, desk.two), 'Касса 2');
   assert.equal(terminalLabel(d, '9f3a0000-0000-4000-8000-000000000000'), 'Касса 9f3a');
   assert.equal(staffLabel(d, staff.cashier), 'Синтетический кассир');
-  assert.equal(
-    staffLabel(d, staff.stranger),
-    `Сотрудник ${staff.stranger.slice(0, 8)} (нет карточки)`,
-  );
+  assert.equal(staffLabel(d, staff.stranger), 'Сотрудник без карточки');
   // Two receipts №12 on two desks are told apart.
   assert.deepEqual(
     d.sales.filter((s) => s.display_number === 12).map((s) => receiptName(d, s)),
@@ -396,11 +393,11 @@ test('names of desks and staff, Webkassa column, waiting time, freshness', () =>
   );
   assert.match(
     freshnessText({ ...d, coverage: { ...d.coverage, pos_tables: false } }),
-    /^Облако ещё не получает продажи кассы/,
+    /^Продажи кассы сюда пока не приходят/,
   );
   assert.equal(
     freshnessText({ ...d, coverage: { ...d.coverage, last_received_at: null } }),
-    'Данные кассы в облако ещё не поступали.',
+    'Чеки кассы ещё не пришли. Смены и заказы кассы уже видны, суммы появятся после первых чеков.',
   );
 });
 
@@ -546,7 +543,7 @@ test('phone shift card (review BOUI-R6): one line per paid method, the discrepan
   // Not sent by the cash desk: said so, never a made-up zero; no cash block, no cash part.
   assert.equal(
     shiftKeyLine(null, { discrepancy_minor: null }),
-    'Kaspi терминал: разница не известна',
+    'Kaspi терминал: разница - нет данных',
   );
   for (const t of [...short.lines.map(methodLineText), short.idle]) assert.doesNotMatch(t, /[—–]/);
 });

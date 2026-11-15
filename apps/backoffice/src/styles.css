@@ -184,7 +184,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 3px solid #0047bb;
 }
 button {
   cursor: pointer;
@@ -201,7 +201,7 @@ p {
   margin: 0;
 }
 h1 {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.25;
   letter-spacing: -0.6px;
 }
@@ -218,7 +218,7 @@ small {
   font-size: 12px;
 }
 strong {
-  font-weight: 650;
+  font-weight: 600;
 }
 .muted {
   color: var(--muted);
@@ -283,7 +283,7 @@ strong {
   grid-template-columns: 40px 1fr;
   column-gap: 10px;
   align-items: center;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   margin-bottom: 32px;
 }
@@ -298,7 +298,7 @@ strong {
   color: var(--muted);
 }
 .nav-caption {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.2px;
   color: var(--muted);
   margin: 0 14px 9px;
@@ -391,7 +391,7 @@ strong {
   gap: 9px;
 }
 .stat strong {
-  font-size: 29px;
+  font-size: 28px;
   line-height: 1.1;
 }
 .stat span {
@@ -424,7 +424,7 @@ strong {
 }
 .field-label {
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   color: var(--text);
 }
 input,
@@ -437,7 +437,7 @@ select {
   background: #ffffff;
   border: 1px solid #bbc6d5;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 16px;
 }
 input::placeholder {
   color: #637086;
@@ -503,7 +503,7 @@ table {
 th {
   text-align: left;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.7px;
   text-transform: uppercase;
   font-weight: 600;
@@ -536,7 +536,7 @@ td small {
 }
 td.price {
   white-space: nowrap;
-  font-weight: 650;
+  font-weight: 600;
 }
 td.price .aggregator-prices {
   font-weight: 400;
@@ -560,7 +560,7 @@ td.price .aggregator-prices {
   overflow-wrap: anywhere;
 }
 .product-identity .image-placeholder {
-  font-size: 10px;
+  font-size: 12px;
   padding: 5px;
 }
 .image-placeholder {
@@ -574,7 +574,7 @@ td.price .aggregator-prices {
   padding: 20px;
 }
 .badge {
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 5px;
   background: #e8edf4;
   padding: 5px 8px;
@@ -680,7 +680,7 @@ td.empty {
   height: 68px;
 }
 .login-card h1 {
-  font-size: 30px;
+  font-size: 28px;
 }
 .login-card > p:last-child {
   font-size: 12px;
@@ -717,7 +717,7 @@ td.empty {
   justify-content: space-between;
   gap: 20px;
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .editor-tabs {
   display: flex;
@@ -825,7 +825,7 @@ td.empty {
   object-fit: contain;
 }
 .preview-price {
-  font-size: 26px;
+  font-size: 28px;
   color: #af410a;
 }
 .confirm-dialog {
@@ -1017,14 +1017,14 @@ td:nth-child(5) {
   min-width: 240px;
 }
 .topbar h1 {
-  font-size: 23px;
+  font-size: 22px;
 }
 .topbar > .field {
   min-width: 170px;
   max-width: 230px;
 }
 .topbar > .field .field-label {
-  font-size: 10px;
+  font-size: 12px;
 }
 .op-periods {
   display: flex;
@@ -1087,7 +1087,7 @@ td:nth-child(5) {
   font-size: 13px;
 }
 .op-table th {
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -1127,7 +1127,7 @@ td:nth-child(5) {
   border-radius: 7px;
   background: #e8eef6;
   color: #354e70;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1222,11 +1222,10 @@ td:nth-child(5) {
   min-width: 0;
 }
 .op-checks {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  max-height: 240px;
-  overflow: auto;
+  /* Review 15.11: every dish of a station is visible; the dialog itself scrolls. */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
   padding: 14px 0;
 }
 @media (max-width: 1100px) {
@@ -1301,7 +1300,7 @@ td:nth-child(5) {
   margin-bottom: 3px;
 }
 .topbar > div:first-child > small {
-  font-size: 11px;
+  font-size: 12px;
 }
 .sidebar .brand {
   margin-bottom: 28px;
@@ -1372,10 +1371,10 @@ td.price,
   font-variant-numeric: tabular-nums;
 }
 .stat strong {
-  font-size: 26px;
+  font-size: 28px;
 }
 th {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.3px;
 }
 .op-periods button {
@@ -1818,7 +1817,7 @@ textarea {
   min-width: 0;
   min-height: 48px;
   height: 48px;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 24px;
 }
 .finance-period-filter > .button,
@@ -1970,7 +1969,7 @@ textarea {
 }
 .finance-history-heading h4 {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
 }
 .finance-history-heading time {
   font-size: 14px;
@@ -2049,7 +2048,7 @@ textarea {
     border-radius: 16px;
   }
   .login-card h1 {
-    font-size: 26px;
+    font-size: 28px;
   }
 }
 /* Unified menu: connected channels, cashier delivery, uploaded photos and remote stops. */
@@ -2312,7 +2311,7 @@ textarea {
 }
 .sales-report h3 {
   margin: 22px 0 8px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .sales-table {
   max-width: 100%;
@@ -2368,7 +2367,7 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 .pos-dialog .stat strong {
-  font-size: 20px;
+  font-size: 22px;
 }
 /* The receipt card: columns share the dialog width and their text wraps inside them. */
 .pos-dialog .op-table {
@@ -2419,7 +2418,7 @@ textarea {
 .pos-dialog h3,
 .pos-home h3 {
   margin: 18px 0 8px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .pos-shift h4 {
   margin: 14px 0 6px;
@@ -2493,7 +2492,7 @@ textarea {
   gap: 14px;
 }
 .pos-home-period {
-  font-size: 15px;
+  font-size: 16px;
   margin: 18px 0 0;
 }
 .pos-order-totals {

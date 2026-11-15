@@ -444,18 +444,18 @@ function login() {
   const intro = el('section', 'login-intro');
   intro.append(
     image('logo.png', 'PickChick'),
-    el('h2', '', 'Ресторан под контролем.'),
+    el('p', 'login-tagline', 'Ресторан под контролем.'),
     el('p', '', 'Финансы, меню и работа команды в одном кабинете.'),
   );
   page.append(intro);
   card.append(
-    el('h1', '', 'Кабинет директора'),
+    el('h1', '', 'Вход в кабинет'),
     el(
       'p',
       'muted',
       staffMode
         ? 'Войдите в свой аккаунт, чтобы работать с финансами и управлять рестораном.'
-        : 'Вход по личному файлу доступа управляющего. Список доступных точек проверяет сервер.',
+        : 'Выберите свой файл доступа. Сервер проверит, к каким точкам у вас есть доступ.',
     ),
   );
   if (staffMode === null) {
@@ -537,7 +537,7 @@ function login() {
     return;
   }
   const label = el('label', 'field');
-  label.append(el('span', 'field-label', 'Файл доступа (.json)'));
+  label.append(el('span', 'field-label', 'Файл доступа'));
   const input = el('input');
   input.type = 'file';
   input.accept = '.json,application/json';
@@ -554,13 +554,20 @@ function login() {
     localError = '';
     await model.login(await file.text());
   });
-  label.append(input);
+  // The system file button speaks the browser's language («Choose File»); ours is Russian.
+  input.className = 'visually-hidden';
+  const pick = el('span', 'file-pick');
+  pick.append(
+    el('span', 'button', 'Выбрать файл доступа'),
+    el('span', 'muted', input.files?.[0]?.name ?? 'Файл не выбран'),
+  );
+  label.append(input, pick);
   card.append(
     label,
     el(
       'p',
       'muted',
-      'Доступ хранится только в этой вкладке браузера. После работы нажмите «Выйти». Токен не добавляется в адрес страницы.',
+      'Доступ действует только в этой вкладке браузера. Закончив работу, нажмите «Выйти».',
     ),
   );
   if (model.error || localError)
@@ -712,6 +719,14 @@ function render() {
     'navigation-toggle',
   );
   menuToggle.prepend(navigationIcon('items'));
+  // Esc closes the phone menu and returns focus to its button.
+  navigation.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !navigationOpen) return;
+    navigationOpen = false;
+    navigation.classList.remove('is-open');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.focus();
+  });
   navigation.classList.toggle('is-open', navigationOpen);
   menuToggle.setAttribute('aria-expanded', String(navigationOpen));
   menuToggle.setAttribute('aria-controls', navigation.id);
@@ -881,7 +896,7 @@ function render() {
         'muted header-filter-hint',
         page === 'settlements'
           ? 'Дата страницы - день ниже, без выбора периода.'
-          : 'Данные на сейчас, без выбора периода.',
+          : 'Текущее состояние, период не нужен.',
       );
       hint.dataset.testid = 'no-period-hint';
       tools.append(hint);
@@ -1009,7 +1024,11 @@ function render() {
   const content = el('div', 'content');
   main.append(content);
   shell.append(sidebar, main);
+  // Keep the menu where the user left it: the whole shell is rebuilt on every render.
+  const menuScroll = root.querySelector('.sidebar')?.scrollTop ?? 0;
   root.replaceChildren(shell);
+  sidebar.scrollTop = menuScroll;
+  sidebar.querySelector('.nav-item.active')?.scrollIntoView({ block: 'nearest' });
   const hidden = (permission: string) =>
     operations.data !== null && !permitted(operations.data, permission);
   if (page === 'shifts') {
@@ -1127,17 +1146,13 @@ function render() {
   }
   if (model.conflict) {
     const n = notice(
-      'На сервере уже другая ревизия. Ваш вариант сохранён в этой вкладке. Можно скопировать правки из карточек или явно загрузить серверный черновик.',
+      'Пока вы редактировали, черновик меню изменили в другом месте. Ваши правки сохранены в этой вкладке: перенесите их вручную или загрузите свежий черновик.',
     );
     n.append(
       button(
         'Загрузить серверную версию',
         () => {
-          if (
-            window.confirm(
-              'Отказаться от локальных правок и загрузить актуальный серверный черновик?',
-            )
-          )
+          if (window.confirm('Отказаться от своих правок и загрузить свежий черновик?'))
             void model.reload(true);
         },
         'button',
@@ -1156,8 +1171,8 @@ function render() {
   for (const [value, label] of [
     [String(model.payload?.products.length ?? 0), 'Позиций в черновике'],
     [String(model.payload?.categories.length ?? 0), 'Категорий'],
-    [model.state.draft ? `r${model.state.draft.revision}` : 'Нет', 'Серверный черновик'],
-    [model.state.published ? `v${model.state.published.version}` : 'Нет', 'Опубликованная версия'],
+    [model.state.draft ? 'Сохранён' : 'Нет', 'Черновик'],
+    [model.state.published ? `Версия ${model.state.published.version}` : 'Нет', 'Меню в продаже'],
   ]) {
     const s = el('div', 'stat');
     s.append(el('span', 'muted', label), el('strong', '', value));
@@ -1421,14 +1436,14 @@ function render() {
       model.pending
         ? 'Ожидается подтверждение запроса'
         : model.dirty
-          ? 'Есть локальные правки'
-          : 'Серверный черновик сохранён',
+          ? 'Есть несохранённые правки'
+          : 'Черновик сохранён',
     ),
     el(
       'small',
       'muted',
       model.state.published
-        ? `Активная версия v${model.state.published.version}; основа черновика v${model.state.draft?.base_version ?? 0}`
+        ? `Активная версия v${model.state.published.version}. Черновик сделан на основе v${model.state.draft?.base_version ?? 0}`
         : 'Опубликованной версии пока нет',
     ),
   );

@@ -124,7 +124,7 @@ test('totals in words: the whole selection, by cash desk, in tenge; the pager', 
   );
   assert.equal(pagerText(view), 'Страница 2 из 3: заказы 101-200 из 217');
   assert.equal(deskLabel(view, desk.two), 'Касса 2');
-  assert.equal(deskLabel(view, null), 'Касса не известна');
+  assert.equal(deskLabel(view, null), 'Касса неизвестна');
   assert.match(deskLabel(view, randomUUID()), /^Касса [0-9a-f]{4}$/);
   for (const t of [text, pagerText(view)]) assert.doesNotMatch(t, LONG_DASHES);
   assert.throws(() => ordersView({ schema_version: 1, branch_id: randomUUID(), rows: [] }, branch));

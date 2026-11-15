@@ -156,13 +156,13 @@ const short = (v: unknown) => (typeof v === 'string' ? v.slice(0, 8) : '-');
 
 /** «Касса 2» by the server's order; an unknown desk shows its short code. */
 export function terminalLabel(day: { terminals: PosDayTerminal[] }, id: unknown): string {
-  if (typeof id !== 'string') return 'Касса не известна';
+  if (typeof id !== 'string') return 'Касса неизвестна';
   return day.terminals.find((t) => t.terminal_id === id)?.label ?? `Касса ${id.slice(0, 4)}`;
 }
 /** The employee card name of an edge staff id, or the short code when nobody is linked. */
 export function staffLabel(day: { staff: Record<string, PosStaff> }, id: unknown): string {
   if (typeof id !== 'string' || !id) return '-';
-  return day.staff[id]?.name ?? `Сотрудник ${short(id)} (нет карточки)`;
+  return day.staff[id]?.name ?? 'Сотрудник без карточки';
 }
 /** «№12 · Касса 2»: numbers repeat across cash desks. */
 export function receiptName(day: { terminals: PosDayTerminal[] }, sale: Data) {
@@ -397,7 +397,7 @@ export function methodLines(methods: Data[]): { lines: MethodLine[]; idle: strin
 export function shiftKeyLine(cash: Data | null, terminal: Data): string {
   const part = (title: string, word: string, v: unknown) =>
     v === null || v === undefined
-      ? `${title}: ${word} не известна`
+      ? `${title}: ${word} - нет данных`
       : `${title}: ${word} ${money(v)}`;
   return [
     ...(cash ? [part('Наличные', 'расхождение', cash['discrepancy_minor'])] : []),
