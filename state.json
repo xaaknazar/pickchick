@@ -7901,9 +7901,9 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "available",
+      "status": "active",
       "head": "596d922a2df461c24d3b8c6ee6cfa944a2f1acbe",
-      "updatedAt": "2026-11-15T15:33:40.168Z",
+      "updatedAt": "2026-11-15T15:47:16.785Z",
       "summary": "Rechecked15Nov15:32UTC: source remains982f6e2. Windows43729895381 completed/failure: package+self-update success, release guards fail. Foundation43729759892 still running with failed pins/staging and POS error-code assertion. Report updated, no package or install.",
       "nextAction": "Obtain corrected source SHA from Claude: pins, complete Kaspi runtime files, guarded029 runtime switch, POS error-code expectation. Then fast-forward CI copy and require both completed/success before building delivery kit."
     }
