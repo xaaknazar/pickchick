@@ -7885,17 +7885,11 @@
       "branch": "codex/backoffice-cloud-1115",
       "scopes": [
         "docs/operations/deployments/2026-11-15-backoffice-guests-games.md",
-        "docs/operations/deployments/2026-11-15-backoffice-guests-games-inspect.json",
-        "@vps/api",
-        "@vps/postgres",
-        "@vps/public-https/gateway",
-        "@vps/backups",
-        "@vps/backoffice-login",
-        "@vps/rehearsal/backoffice-1115"
+        "docs/operations/deployments/2026-11-15-backoffice-guests-games-inspect.json"
       ],
       "status": "active",
       "head": "f6ed6c0dccbfb327bc7d0651868bf869f1ed36c8",
-      "updatedAt": "2026-11-15T14:32:53.362Z",
+      "updatedAt": "2026-11-15T15:19:19.499Z",
       "summary": "NOT DEPLOYED. Read-only cloud inspect 15Nov13:26-13:29 UTC: API/backoffice source7e312043, public pointer21e95fe2, schema077 exact70 hashes, 217 web hashes PASS, expenses-only cutover flags, guest identity prerequisites ready, splash absent, health/ready PASS. PR377 still open, head a961b1ea CI43715894808 pending. Protocol be3f15e6 published; no server reservations or locks acquired.",
       "nextAction": "Need install-kit-1115/codex-выпуск-бэкофис-1115.md local path from owner; reconcile canonical pickchick-staff-login update with gateway-only web step. Then merged PR377 exact-SHA Foundation11/11, fresh claims/inspect, backup+restore, guarded API/web/portal release and authenticated smoke. Never deploy bd55a47c alone or enable splash."
     }
