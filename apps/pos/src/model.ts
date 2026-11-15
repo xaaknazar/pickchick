@@ -21,6 +21,7 @@ import type {
   Item,
   Selection,
   EdgeCloudLink,
+  TerminalPayment,
 } from './types.js';
 import {
   ApiError,
@@ -64,7 +65,7 @@ export type MixableMethod = (typeof parse.MIXABLE_METHODS)[number];
 /** What the cashier chose on the payment screen; saleRequest turns it into POST pos/sales. */
 export type SalePayment =
   | { method: 'cash'; tendered_minor: string }
-  | { method: 'kaspi_terminal'; reference?: string }
+  | { method: 'kaspi_terminal'; reference?: string; attempt_id?: string }
   | { method: 'kaspi_manual'; reference?: string }
   | {
       method: 'mixed';
@@ -175,6 +176,7 @@ const SALE_REJECTIONS = new Set([
   'APPROVAL_REQUIRED',
   'APPROVAL_INVALID',
   'KITCHEN_UNAVAILABLE',
+  'TERMINAL_ATTEMPT_INVALID',
 ]);
 /**
  * Definite answers to a void or refund (contracts section 5.1): the edge refused inside its
@@ -339,10 +341,14 @@ export function saleRequest(input: {
     case 'kaspi_manual': {
       need(payment.method);
       if (payment.method === 'kaspi_terminal') whole(total);
+      // Paid on the linked Kaspi Smart POS (ADR-0017): the edge writes the operation number.
+      const attempt = payment.method === 'kaspi_terminal' ? payment.attempt_id : undefined;
       tenders.push({
         method: payment.method,
         amount_minor: quote.total_minor,
-        ...reference(payment.reference),
+        ...(attempt === undefined
+          ? reference(payment.reference)
+          : { attempt_id: parse.uuid(attempt) }),
       });
       break;
     }
@@ -489,7 +495,14 @@ export type State = {
    * "ЗАКАЗЫ" rows say оформлен / не оформлен / не нужен as the X report counts receipts.
    */
   saleReceipts: Record<string, SaleFiscal['state']>;
+  /** The amount this desk sent to its Kaspi Smart POS for the quote on screen (ADR-0017). */
+  terminal: TerminalPayment | null;
+  /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
+  terminalOpen: TerminalPayment[];
 };
+/** The terminal still decides: the cart stays as it is and nothing else is sent to it. */
+export const terminalActive = (t: TerminalPayment | null) =>
+  Boolean(t && ['created', 'sending', 'wait', 'unknown'].includes(t.state));
 export type FiscalPending = {
   scope: 'shift' | 'all';
   shift_id: string | null;
@@ -502,6 +515,8 @@ const blankOperations = () => ({
   shiftReport: null,
   zReport: null,
   saleReceipts: {},
+  terminal: null as TerminalPayment | null,
+  terminalOpen: [] as TerminalPayment[],
 });
 /** GET pos/sales/{id} reads for the receipt state of the "ЗАКАЗЫ" rows, at most per call. */
 export const RECEIPT_READS = 10;
@@ -853,12 +868,18 @@ export class PosController {
     for (const value of body.tenders) {
       const t = parse.record(value);
       if (
-        Object.keys(t).some((k) => !['method', 'amount_minor', 'reference'].includes(k)) ||
+        Object.keys(t).some(
+          (k) => !['method', 'amount_minor', 'reference', 'attempt_id'].includes(k),
+        ) ||
         !(parse.PAYMENT_METHODS as readonly unknown[]).includes(t.method) ||
         parse.minor(t.amount_minor) === '0'
       )
         throw new Error();
       if (t.reference !== undefined) parse.text(t.reference, 40);
+      if (t.attempt_id !== undefined) {
+        if (t.method !== 'kaspi_terminal' || t.reference !== undefined) throw new Error();
+        parse.uuid(t.attempt_id);
+      }
     }
     if (
       body.external_order_ref !== undefined &&
@@ -1109,6 +1130,8 @@ export class PosController {
     const epoch = this.generation,
       current = this.state.menu;
     if (!this.state.actor || !current || this.state.busy || this.journal?.pending) return null;
+    // The amount on the terminal is for this quote: a new menu waits until the sale is made.
+    if (this.terminalHold) return null;
     let latest: parse.MenuVersion;
     try {
       latest = parse.menuVersion(await this.request('menu/version'));
@@ -1123,7 +1146,8 @@ export class PosController {
       latest.release_id === current.release_id ||
       this.state.menu !== current ||
       this.state.busy ||
-      this.journal?.pending
+      this.journal?.pending ||
+      this.terminalHold
     )
       return null;
     const requote = Boolean(this.state.quote && !this.state.order);
@@ -1244,6 +1268,8 @@ export class PosController {
       }
       this.emit();
     }
+    // Unfinished terminal operations are read with the config (only with a linked terminal).
+    if (this.saleMode) await this.readOpenTerminalPayments().catch(() => {});
   }
   /** Asked at most every CLOUD_LINK_POLL_MS; never blocks the operations view or selling. */
   async refreshCloudLink() {
@@ -1311,6 +1337,10 @@ export class PosController {
       return false;
     if (this.journal.pending) {
       this.fail(new Error('PENDING'));
+      return false;
+    }
+    if (terminalActive(this.state.terminal)) {
+      this.fail(new Error('TERMINAL_IN_PROGRESS'));
       return false;
     }
     return true;
@@ -1664,6 +1694,7 @@ export class PosController {
       this.state.quote = null;
       this.state.approval = null;
       this.state.saleDraft = blankSaleDraft();
+      this.state.terminal = null;
       // The POST replays its historical result; GET is the authoritative current sale.
       await this.refreshSale(id);
       await this.readOperations();
@@ -2072,7 +2103,21 @@ export class PosController {
       const config = this.state.posConfig;
       if (!config) throw new Error('POS_CONFIG_UNAVAILABLE');
       if (!this.state.quote) throw new Error('ORDER_REVIEW_REQUIRED');
-      const quote = await this.freshQuote();
+      // Paid on the terminal: exactly the quote the amount was sent for, never re-quoted (the
+      // edge accepts it after expiry because the money is already taken).
+      const attempt = payment.method === 'kaspi_terminal' ? payment.attempt_id : undefined;
+      if (attempt !== undefined) {
+        const t = this.state.terminal;
+        if (
+          !t ||
+          t.attempt_id !== attempt ||
+          t.state !== 'success' ||
+          t.quote_id !== this.state.quote.quote_id ||
+          t.amount_minor !== this.state.quote.total_minor
+        )
+          throw new Error('TERMINAL_ATTEMPT_INVALID');
+      }
+      const quote = attempt === undefined ? await this.freshQuote() : this.state.quote;
       const body = saleRequest({
         quote,
         config,
@@ -2083,6 +2128,116 @@ export class PosController {
       });
       await this.begin('sale', 'pos/sales', body);
     });
+  }
+  /**
+   * "Отправить на терминал" (ADR-0017): the whole order total goes to this desk's Kaspi Smart POS.
+   * Not journaled: the edge keeps the attempt, and a lost answer is found again in
+   * GET pos/terminal-payments/open. The sale itself is the journaled POST pos/sales made by
+   * checkTerminalPayment once the terminal says success.
+   */
+  async sendToTerminal() {
+    if (!this.editable()) return;
+    await this.run(async () => {
+      if (!this.state.operationsAvailable || this.state.operationsError)
+        throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
+      if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
+      const config = this.state.posConfig;
+      if (!config) throw new Error('POS_CONFIG_UNAVAILABLE');
+      if (!config.kaspi_terminal_link) throw new Error('TERMINAL_NOT_LINKED');
+      if (!this.state.quote) throw new Error('ORDER_REVIEW_REQUIRED');
+      const quote = await this.freshQuote();
+      // Every rule of the sale itself first, so nothing is charged for a sale that cannot be made.
+      saleRequest({
+        quote,
+        config,
+        draft: this.state.saleDraft,
+        payment: { method: 'kaspi_terminal' },
+        approval: this.state.approval,
+        now: this.now(),
+      });
+      this.state.terminal = null;
+      let value: unknown;
+      try {
+        value = await this.request('pos/terminal-payments', {
+          method: 'POST',
+          key: this.newKey(),
+          body: { quote_id: quote.quote_id, amount_minor: quote.total_minor },
+        });
+      } catch (error) {
+        // The amount may have reached the terminal: what the edge recorded is shown instead.
+        await this.readOpenTerminalPayments().catch(() => {});
+        const open = this.state.terminalOpen.find((t) => t.quote_id === quote.quote_id);
+        if (open) this.state.terminal = open;
+        throw error;
+      }
+      const t = parse.terminalPayment(value);
+      if (t.quote_id !== quote.quote_id || t.amount_minor !== quote.total_minor)
+        throw new Error('INVALID_RESPONSE');
+      this.state.terminal = t;
+    });
+  }
+  /** Sent to the terminal and still deciding, or paid there without its sale yet. */
+  get terminalHold() {
+    const t = this.state.terminal;
+    return terminalActive(t) || Boolean(t?.state === 'success' && !t.order_id);
+  }
+  /**
+   * One poll of the amount on the terminal (the screen asks about once a second). Success makes
+   * the sale at once: POST pos/sales with the attempt, which sends the order to the kitchen.
+   */
+  async checkTerminalPayment() {
+    const current = this.state.terminal,
+      epoch = this.generation;
+    if (!current || this.state.busy || current.order_id) return;
+    if (current.state !== 'success') {
+      if (!terminalActive(current)) return;
+      let next: TerminalPayment;
+      try {
+        next = parse.terminalPayment(
+          await this.request(`pos/terminal-payments/${current.attempt_id}`),
+        );
+      } catch (error) {
+        if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+          this.fail(error);
+        // Another poll follows; a short link drop changes nothing on the terminal.
+        return;
+      }
+      if (epoch !== this.generation || this.state.terminal?.attempt_id !== current.attempt_id)
+        return;
+      if (next.attempt_id !== current.attempt_id || next.quote_id !== current.quote_id) {
+        this.fail(new Error('INVALID_RESPONSE'));
+        return;
+      }
+      this.state.terminal = next;
+      this.emit();
+      if (next.state !== 'success' || next.order_id) return;
+    }
+    const paid = this.state.terminal!;
+    if (this.state.quote?.quote_id !== paid.quote_id) return;
+    await this.sell({ method: 'kaspi_terminal', attempt_id: paid.attempt_id });
+  }
+  /** The terminal said no (or never got the amount): the cashier may send again or pay another way. */
+  dismissTerminal() {
+    if (terminalActive(this.state.terminal) || this.state.terminal?.state === 'success') return;
+    this.state.terminal = null;
+    this.emit();
+  }
+  /** GET pos/terminal-payments/open: operations of this desk a person must finish. */
+  async readOpenTerminalPayments() {
+    const epoch = this.generation;
+    if (!this.state.posConfig?.kaspi_terminal_link) {
+      if (this.state.terminalOpen.length) {
+        this.state.terminalOpen = [];
+        this.emit();
+      }
+      return;
+    }
+    const open = parse.terminalPayments(await this.request('pos/terminal-payments/open'));
+    if (epoch !== this.generation) return;
+    if (!unchanged(open, this.state.terminalOpen)) {
+      this.state.terminalOpen = open;
+      this.emit();
+    }
   }
   /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
   async recordReceipt(receiptNumber: string) {

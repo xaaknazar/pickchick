@@ -22,6 +22,9 @@ export const SALE_ROUTES = Object.freeze({
     'pos/fiscal-receipts/pending',
     `cash-shifts/${UUID}/x-report`,
     `cash-shifts/${UUID}/z-report`,
+    // ADR-0017: Kaspi Smart POS attempts of this desk.
+    'pos/terminal-payments/open',
+    `pos/terminal-payments/${UUID}`,
   ]),
   write: Object.freeze([
     'staff/approvals',
@@ -29,6 +32,7 @@ export const SALE_ROUTES = Object.freeze({
     `pos/sales/${UUID}/void`,
     `pos/sales/${UUID}/refunds`,
     `pos/fiscal-receipts/${UUID}/record`,
+    'pos/terminal-payments',
   ]),
 });
 /** GET paths that may carry exactly one `?shift_id=<uuid>` filter (today's orders, receipts). */

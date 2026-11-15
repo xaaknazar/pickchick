@@ -951,6 +951,8 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       'pos/fiscal-receipts/pending',
       `cash-shifts/${uuid}/x-report`,
       `cash-shifts/${uuid}/z-report`,
+      'pos/terminal-payments/open',
+      `pos/terminal-payments/${uuid}`,
     ],
     write: [
       'staff/approvals',
@@ -958,6 +960,7 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       `pos/sales/${uuid}/void`,
       `pos/sales/${uuid}/refunds`,
       `pos/fiscal-receipts/${uuid}/record`,
+      'pos/terminal-payments',
     ],
   });
   // The gateway profile (CL-4) imports these two expressions instead of copying them.

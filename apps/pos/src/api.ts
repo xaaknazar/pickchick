@@ -204,6 +204,13 @@ export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {})
     DRAWER_BY_KEY: 'Ящик открывается ключом',
     DRAWER_FAILED: 'Ящик не открылся - откройте его ключом',
     DRAWER_UNKNOWN: 'Неизвестно, открылся ли ящик - проверьте его',
+    // Kaspi Smart POS linked to this desk (ADR-0017).
+    TERMINAL_NOT_LINKED: 'Терминал Kaspi не привязан к этой кассе',
+    TERMINAL_BUSY: 'Терминал занят предыдущей оплатой - завершите её на терминале',
+    TERMINAL_ATTEMPT_INVALID:
+      'Оплата на терминале не подходит к этому заказу. Проверьте операцию на терминале.',
+    TERMINAL_IN_PROGRESS:
+      'Идёт оплата на терминале. Дождитесь результата или отмените на терминале.',
   };
   return text[code] ?? errorMessage(error);
 };

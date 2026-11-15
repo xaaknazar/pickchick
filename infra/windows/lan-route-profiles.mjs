@@ -98,6 +98,9 @@ const POS_SALE_READS = [
   'pos/fiscal-receipts/pending',
   `cash-shifts/${UUID}/x-report`,
   `cash-shifts/${UUID}/z-report`,
+  // ADR-0017: Kaspi Smart POS attempts of this desk.
+  'pos/terminal-payments/open',
+  `pos/terminal-payments/${UUID}`,
 ];
 const POS_SALE_WRITES = [
   'staff/approvals',
@@ -105,6 +108,7 @@ const POS_SALE_WRITES = [
   `pos/sales/${UUID}/void`,
   `pos/sales/${UUID}/refunds`,
   `pos/fiscal-receipts/${UUID}/record`,
+  'pos/terminal-payments',
 ];
 export const POS_READ_PATH = new RegExp(
   `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${POS_SALE_READS.join('|')})$`,

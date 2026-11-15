@@ -14,7 +14,10 @@ import {
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   createPosSale,
+  createTerminalPayment,
+  listOpenTerminalPayments,
   listPendingFiscalReceipts,
+  readTerminalPayment,
   readPosConfig,
   readPosSale,
   readShiftReport,
@@ -88,6 +91,33 @@ export class PosSalesController {
         body,
         this.execution,
       ),
+    );
+  }
+
+  /** ADR-0017: send a whole-tenge amount of the quote to this desk's Kaspi Smart POS. */
+  @Post('pos/terminal-payments')
+  @HttpCode(201)
+  terminalPayment(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
+    return this.run(headers, (auth) =>
+      createTerminalPayment(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+    );
+  }
+
+  @Get('pos/terminal-payments/open')
+  @Header('Cache-Control', 'no-store')
+  openTerminalPayments(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, (auth) => listOpenTerminalPayments(this.pool, this.branchId, auth));
+  }
+
+  /** ADR-0017: the attempt after asking the terminal once (the POS polls about once a second). */
+  @Get('pos/terminal-payments/:attemptId')
+  @Header('Cache-Control', 'no-store')
+  terminalPaymentState(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('attemptId') attemptId: string,
+  ) {
+    return this.run(headers, (auth) =>
+      readTerminalPayment(this.pool, this.branchId, auth, attemptId),
     );
   }
 

@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-028 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-029 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -45,6 +45,7 @@ test('only the reviewed edge schemas 020-028 are backed up; anything else is ref
     schema026: 26,
     schema027: 27,
     schema028: 28,
+    schema029: 29,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -636,4 +637,19 @@ test('the run lock skips a live run and takes over after the task limit or a res
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('schema029 (Kaspi Smart POS, ADR-0017) is reviewed by the exact bytes of the edge 029 migration', async () => {
+  const name = '029_edge_kaspi_pos.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  assert.equal(checksum, 'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784');
+  assert.deepEqual(pinned[28], { version: name, checksum, scope: 'edge' });
+  assert.equal(verifiedSchema(rows(29), pinned), 'schema029');
+  // A cashier still on 028 before the 029 step is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(28), pinned), 'schema028');
+  assert.throws(
+    () => verifiedSchema(rows(28).concat([{ ...pinned[28], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
 });

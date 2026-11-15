@@ -6,6 +6,7 @@ import {
   SalesChannelSchema,
 } from '@pickchick/contracts';
 import type { PosConfig, PosFiscalPolicy, PosPaymentMethod } from '@pickchick/contracts';
+import { activeKaspiDevice } from './terminal-payments.js';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateStaff, requirePermission } from './staff.js';
@@ -108,6 +109,7 @@ export async function readPosConfig(
       approval_ttl_seconds: POS_APPROVAL_TTL_SECONDS,
       server_time: time.toISOString(),
       desk_number: desk?.desk_number ?? null,
+      kaspi_terminal_link: (await activeKaspiDevice(client, branchId, actor.terminal_id)) !== null,
     });
   });
 }

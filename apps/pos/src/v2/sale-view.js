@@ -10,7 +10,13 @@ import {
   lineKey,
 } from '../types.js';
 import { saleErrorMessage } from '../api.js';
-import { methodEnabled, mixableMethods, saleChannelEnabled, saleContext } from '../model.js';
+import {
+  methodEnabled,
+  mixableMethods,
+  saleChannelEnabled,
+  saleContext,
+  terminalActive,
+} from '../model.js';
 
 const TILES = [
   ['cash', 'НАЛИЧНЫЕ', '₸', 'var(--green)'],
@@ -296,6 +302,44 @@ export class SaleView {
       return saleErrorMessage(new Error('REASON_REQUIRED'));
     return saleErrorMessage(new Error('APPROVAL_REQUIRED'));
   }
+  /** A Kaspi Smart POS is linked to this desk: the amount is sent to it (ADR-0017). */
+  get linked() {
+    return Boolean(this.config?.kaspi_terminal_link);
+  }
+  /** The amount sent to the terminal for the quote on screen, or null. */
+  terminal() {
+    const t = this.model.state.terminal;
+    return t && t.quote_id === this.quote?.quote_id ? t : null;
+  }
+  async sendToTerminal() {
+    if (!this.payment()) {
+      this.say(this.missing());
+      return;
+    }
+    await this.model.sendToTerminal();
+    if (this.model.state.error?.message === 'ORDER_REVIEW_REQUIRED')
+      this.setState({ screen: 'review' });
+  }
+  /**
+   * Called about once a second by the app: one poll while the terminal decides. Its success
+   * makes the sale and sends the order to the kitchen without a tap.
+   */
+  async tick() {
+    const m = this.model,
+      t = m.state.terminal;
+    if (this.ticking || !t || t.order_id || !(terminalActive(t) || t.state === 'success')) return;
+    this.ticking = true;
+    try {
+      const before = m.state.sale;
+      await m.checkTerminalPayment();
+      if (m.state.sale && m.state.sale !== before && !m.state.pending) {
+        this.done();
+        await this.onSold?.(m.state.sale);
+      }
+    } finally {
+      this.ticking = false;
+    }
+  }
   async pay() {
     const payment = this.payment();
     if (!payment) {
@@ -557,7 +601,11 @@ export class SaleView {
       })),
       saleReviewBack: g(() => this.setState({ screen: null })),
       saleReviewConfirm: g(() => this.confirmReview()),
-      salePayBack: g(() => this.setState({ screen: null, method: null })),
+      salePayBack: g(() => {
+        // The amount on the terminal belongs to this order: it stays on screen until decided.
+        if (this.model.terminalHold) this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+        else this.setState({ screen: null, method: null });
+      }),
     };
     if (values.isSalePay) Object.assign(values, this.payValues());
     if (doneShown) Object.assign(values, this.doneValues());
@@ -639,7 +687,9 @@ export class SaleView {
             : 'Внесено меньше суммы наличными',
       });
     }
-    if (s.method === 'kaspi_terminal') {
+    if (s.method === 'kaspi_terminal' && this.linked && total % 100n === 0n)
+      Object.assign(values, this.terminalValues());
+    else if (s.method === 'kaspi_terminal') {
       const whole = total % 100n === 0n;
       Object.assign(values, {
         saleTerminalSteps: whole
@@ -709,6 +759,92 @@ export class SaleView {
       });
     }
     return values;
+  }
+  /** The linked terminal (ADR-0017): send, wait, and the result; manual only as a fallback. */
+  terminalValues() {
+    const g = this.guard,
+      q = this.quote,
+      t = this.terminal(),
+      amount = money(q.total_minor);
+    const active = terminalActive(t);
+    const send = {
+      salePayDisabled: false,
+      salePayBg: 'var(--orange)',
+      salePayFg: '#fff',
+      salePayConfirm: g(() => this.sendToTerminal()),
+      salePayLabel: `Отправить ${amount} на терминал`,
+    };
+    const wait = {
+      salePayDisabled: 'true',
+      salePayBg: 'var(--n300)',
+      salePayFg: 'var(--n600)',
+      salePayConfirm: () => this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS'))),
+      salePayLabel: 'Ждём оплату на терминале…',
+    };
+    const decline = (text) =>
+      g(() => {
+        if (this.model.terminalHold) {
+          this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+          return;
+        }
+        this.model.dismissTerminal();
+        this.setState({ method: null });
+        this.say(text);
+      });
+    if (!t)
+      return {
+        ...send,
+        saleTerminalSteps: [
+          `1. Нажмите «Отправить ${amount} на терминал».`,
+          '2. Гость оплачивает на терминале Kaspi: QR, карта или ладонь.',
+          '3. Как только оплата пройдёт, заказ сам уйдёт на кухню.',
+        ],
+        saleTerminalDecline: decline('Выберите другой способ оплаты.'),
+      };
+    if (active)
+      return {
+        ...wait,
+        saleTerminalSteps: [
+          `Сумма ${amount} на терминале. Гость оплачивает.`,
+          t.state === 'unknown'
+            ? 'Терминал проверяет оплату. Не принимайте оплату повторно.'
+            : 'Отменить можно только на самом терминале.',
+        ],
+        saleTerminalDecline: decline(''),
+      };
+    if (t.state === 'success')
+      return {
+        ...wait,
+        salePayLabel: 'Оплата прошла · оформляем заказ…',
+        saleTerminalSteps: ['Оплата на терминале прошла. Заказ отправляется на кухню.'],
+        saleTerminalDecline: decline(''),
+      };
+    if (t.state === 'lost')
+      // Sent, but the answer was lost: only the terminal itself knows. Never sent again here.
+      return {
+        salePayDisabled: false,
+        salePayBg: 'var(--orange)',
+        salePayFg: '#fff',
+        salePayConfirm: g(() => this.pay()),
+        salePayLabel: 'Оплата на терминале прошла',
+        saleTerminalSteps: [
+          'Касса не получила ответ терминала. Посмотрите на экран терминала.',
+          'Если там «Оплата прошла» - нажмите «Оплата на терминале прошла».',
+          'Если оплаты нет - нажмите «Терминал отклонил» и отправьте сумму заново.',
+        ],
+        saleTerminalDecline: decline('Отправьте сумму заново или выберите другой способ.'),
+      };
+    // fail or send_failed: nothing was paid; the cashier sends again or picks another way.
+    return {
+      ...send,
+      salePayLabel: `Отправить ${amount} ещё раз`,
+      saleTerminalSteps: [
+        t.state === 'fail' ? 'Оплата на терминале не прошла.' : 'Сумма не дошла до терминала.',
+        ...(t.message ? [t.message] : []),
+        'Отправьте сумму ещё раз или выберите другой способ.',
+      ],
+      saleTerminalDecline: decline('Выберите другой способ оплаты.'),
+    };
   }
   mixValues() {
     const s = this.state,
