@@ -7901,11 +7901,11 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "active",
-      "head": "2ef7eee38484d6d83826def5811dee9ac2e3892a",
-      "updatedAt": "2026-11-15T16:02:02.232Z",
-      "summary": "CI copy fast-forwarded to2f15560e. Foundation43731805565 and Windows43731805635 started on exactSHA; both have failed required guards.15pins match, stage2Windows3PASS. Foundation779:2failures from old28row expectations in Queue/Head PowerShelltests. Runtime029 packager files/install path remain incomplete. No kit or install.",
-      "nextAction": "Claude fixes Queue/Head tests using reviewed29ledger and exact25/28candidate slices, completes Kaspi admin-file closure and guardedruntime029 installation route. RequirebothCI completed/success onnewSHA, thenpackagewithCOMMANDS. OtherCIjobs mayfinish; no bypass or cloud/devicechange."
+      "status": "available",
+      "head": "468460c76fcfa3806ae5fbc5500e71e250d9ad27",
+      "updatedAt": "2026-11-15T16:06:11.606Z",
+      "summary": "CI copy fast-forwarded to f57edaf4. Foundation43733154037 running. Windows43733153883 job132869857621 failed KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool line181: SQL029 LFhash edf0 vs actualCRLFhash e748; exactLFtoCRLF reproduction confirms. Old025/028guards pass. Runtime029operator/packagerhelpers/POS0.5.4 nowexist. No kit or remotechange.",
+      "nextAction": "Fix canonicalLF checkout/packaging of SQL withoutchangingmigrationpins; rerunbothCI onnewSHA. Need owner/Claude actual sourceCommit from runtime-head-028-*/completed.json beforeCOMMANDS; planneddec8 notyetconfirmed. Buildkitonlyafterbothgreen, nofeed/cloud/cashierchanges."
     }
   ],
   "approvedScopeTransfers": [
