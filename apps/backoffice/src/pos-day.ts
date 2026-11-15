@@ -157,9 +157,10 @@ const when = (day: PosDay, v: unknown) =>
 /** «Данные кассы получены в 23:41» (with the date when it is not the viewed day). */
 export function freshnessText(day: PosDay) {
   if (!day.coverage.pos_tables)
-    return 'Облако ещё не получает продажи кассы. Смены видны по отчётам кассы, чеков и сумм пока нет.';
+    return 'Продажи кассы сюда пока не приходят. Смены видны по отчётам кассы, чеков и сумм пока нет.';
   const at = day.coverage.last_received_at;
-  if (!at) return 'Данные кассы в облако ещё не поступали.';
+  if (!at)
+    return 'Чеки кассы ещё не пришли. Смены и заказы кассы уже видны, суммы появятся после первых чеков.';
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(
     new Date(day.as_of),
   );
@@ -502,7 +503,7 @@ export class PosDayView {
               `Питание и маркетинг, чеков: ${String(noRevenue['checks'])}`,
             ],
             [
-              'Webkassa не оформлено',
+              'Чеки без Webkassa',
               String(fiscal?.['count'] ?? 0),
               `На сумму ${money(fiscal?.['amount_minor'] ?? '0')}`,
             ],
@@ -553,13 +554,15 @@ export class PosDayView {
       el(
         'h3',
         '',
-        `${terminalLabel(r, s['terminal_id'])} · смена ${String(s['shift_id']).slice(0, 6)}`,
+        s['opened_at']
+          ? `${terminalLabel(r, s['terminal_id'])} · смена с ${almatyTime(s['opened_at'])}`
+          : terminalLabel(r, s['terminal_id']),
       ),
       el(
         'p',
         'muted',
         [
-          s['opened_at'] ? `Открыта ${almatyTime(s['opened_at'])}` : 'Время открытия не известно',
+          s['opened_at'] ? `Открыта ${almatyTime(s['opened_at'])}` : 'Время открытия неизвестно',
           s['closed_at'] ? `закрыта ${almatyTime(s['closed_at'])}` : '',
         ]
           .filter(Boolean)
@@ -1013,7 +1016,7 @@ export class PosHomeView {
           : 'Только касса: отчёт продаж по всем каналам на сервере выключен.',
       ),
     );
-    head.append(title, button('Открыть «Кассу»', options.open, 'button', 'pos-home-open'));
+    head.append(title, button('Перейти в «Кассу»', options.open, 'button', 'pos-home-open'));
     root.append(head);
     if (this.error) root.append(notice(this.error, 'warn', 'pos-home-error'));
     const d = this.day;
@@ -1066,7 +1069,7 @@ export class PosHomeView {
               : 'Все смены закрыты',
           ],
           [
-            'Webkassa не оформлено',
+            'Чеки без Webkassa',
             pending ? String(pending['count']) : '-',
             pending ? `На сумму ${money(pending['amount_minor'])}` : 'Нет данных кассы',
           ],

@@ -86,7 +86,7 @@ export function ordersView(value: unknown, branch: string): OrdersView {
 }
 /** «Касса 1» by the server's cash desk list; an unknown one by its id. */
 export function deskLabel(view: OrdersView, id: string | null) {
-  if (!id) return 'Касса не известна';
+  if (!id) return 'Касса неизвестна';
   return view.terminals.find((t) => t.terminal_id === id)?.label ?? `Касса ${id.slice(0, 4)}`;
 }
 /**

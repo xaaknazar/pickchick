@@ -313,7 +313,7 @@ with sync_playwright() as pw:
         # F11: the report CSV is in tenge with «Сумма, ₸».
         nav(page, 'reports')
         with page.expect_download() as download:
-            page.get_by_role('button', name='Экспорт CSV').last.click()
+            page.get_by_role('button', name='Скачать CSV').last.click()
         raw = Path(download.value.path()).read_bytes()
         assert raw.startswith(b'\xef\xbb\xbf'), 'CSV must start with a UTF-8 BOM'
         head = raw.decode('utf-8-sig').split('\r\n')[0]

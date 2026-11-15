@@ -110,13 +110,13 @@ export const sections = [
   ['reports', 'Отчёты', 'Показатели за выбранный период'],
   ['finance', 'Финансы', 'Ежедневные операции, движение денег и прибыль'],
   ['settlements', 'Оплаты и чеки', 'Подтверждённые оплаты, возвраты, чеки и сверка'],
-  ['promo', 'Промо и баннеры', 'Контент, каналы и расписание публикаций'],
+  ['promo', 'Промо и баннеры', 'Баннеры в приложении, на киоске и экране: что и когда показывать'],
   ['games', 'Игры и челленджи', 'Шаблоны, доступность и расписание'],
-  ['guests', 'Гости и push', 'Заказы гостей, согласия и кампании'],
+  ['guests', 'Гости и рассылки', 'Заказы гостей, согласия на рассылки и кампании'],
   ['tickets', 'Обращения', 'Вопросы, жалобы и сроки ответа'],
   ['reviews', 'Отзывы', 'Оценки и обратная связь по заказам'],
-  ['stations', 'Станции и маршруты', 'Состав кухни и наблюдаемое состояние заказов'],
-  ['devices', 'Устройства', 'Доступ и последний обмен с точкой'],
+  ['stations', 'Станции и маршруты', 'Какие блюда готовит каждая станция и заказы на кухне'],
+  ['devices', 'Устройства', 'Доступ устройств и когда они были на связи'],
   ['shifts', 'Смены', 'Сотрудники и управленческий журнал смен'],
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
@@ -319,6 +319,94 @@ function panel(title: string, sub = '', actions: HTMLElement[] = []) {
   p.append(h);
   return p;
 }
+/** Review 15.11: every button and window names what it adds or changes. */
+const RECORD_WORDS: Record<
+  string,
+  { add: string; create: string; edit: string; publish?: string; empty: string }
+> = {
+  promo: {
+    add: 'Новое промо',
+    create: 'Новое промо',
+    edit: 'Изменить промо',
+    publish: 'Опубликовать промо?',
+    empty: 'Промо и баннеров пока нет.',
+  },
+  game: {
+    add: 'Добавить игру',
+    create: 'Новая игра',
+    edit: 'Изменить игру',
+    publish: 'Опубликовать игру?',
+    empty: 'Игр пока нет.',
+  },
+  campaign: {
+    add: 'Добавить кампанию',
+    create: 'Новая кампания',
+    edit: 'Изменить кампанию',
+    empty: 'Кампаний пока нет.',
+  },
+  ticket: {
+    add: 'Добавить обращение',
+    create: 'Новое обращение',
+    edit: 'Изменить обращение',
+    empty: 'Обращений пока нет.',
+  },
+  review: {
+    add: 'Добавить отзыв',
+    create: 'Новый отзыв',
+    edit: 'Изменить отзыв',
+    empty: 'Отзывов пока нет.',
+  },
+  station: {
+    add: 'Добавить станцию',
+    create: 'Новая станция',
+    edit: 'Изменить станцию',
+    publish: 'Опубликовать станцию?',
+    empty: 'Станций пока нет.',
+  },
+  ingredient: {
+    add: 'Добавить ингредиент',
+    create: 'Новый ингредиент',
+    edit: 'Изменить ингредиент',
+    empty: 'Ингредиентов пока нет.',
+  },
+  recipe: {
+    add: 'Добавить техкарту',
+    create: 'Новая техкарта',
+    edit: 'Изменить техкарту',
+    empty: 'Техкарт пока нет.',
+  },
+  employee: {
+    add: 'Добавить сотрудника',
+    create: 'Новый сотрудник',
+    edit: 'Изменить сотрудника',
+    empty: 'Сотрудников пока нет.',
+  },
+  shift: {
+    add: 'Добавить смену',
+    create: 'Новая смена',
+    edit: 'Изменить смену',
+    empty: 'Смен пока нет.',
+  },
+  category: {
+    add: 'Добавить категорию',
+    create: 'Новая категория',
+    edit: 'Изменить категорию',
+    empty: 'Категорий пока нет.',
+  },
+  unit: {
+    add: 'Добавить единицу',
+    create: 'Новая единица',
+    edit: 'Изменить единицу',
+    empty: 'Единиц пока нет.',
+  },
+};
+const recordWords = (kind: string) =>
+  RECORD_WORDS[kind] ?? {
+    add: 'Добавить',
+    create: 'Новая запись',
+    edit: 'Изменить запись',
+    empty: 'Данных пока нет',
+  };
 function table(headers: string[], rows: (string | Node)[][], empty = 'Данных пока нет') {
   const wrap = el('div', 'table-wrap'),
     t = el('table', 'op-table'),
@@ -346,7 +434,8 @@ function table(headers: string[], rows: (string | Node)[][], empty = 'Данны
   }
   t.append(body);
   wrap.append(t);
-  return cards(wrap, headers);
+  // A two-column table (name and value) already fits a phone; cards would repeat both labels.
+  return headers.length <= 2 ? wrap : cards(wrap, headers);
 }
 function stats(items: [string, string, string?][]) {
   const n = el('div', 'stats');
@@ -695,10 +784,11 @@ export class OperationsView {
     const stops = this.stops!;
     if (stops.error) content.append(note(message(stops.error)));
     const a = d.availability;
-    if (!a.observed_at)
+    // Without a published menu the blue «publish first» notice explains everything; no red alarm.
+    if (!a.observed_at && d.catalog)
       content.append(
         notice(
-          'Касса ещё не передавала стоп-лист. Пока нет данных кассы, отсутствие позиций на стопе не означает, что всё в продаже.',
+          'Касса ещё не присылала стоп-лист. Пустой список не значит, что всё в продаже.',
           'stop-freshness bad',
           'stop-freshness',
         ),
@@ -725,7 +815,7 @@ export class OperationsView {
         ],
         ['Ждут кассу', String(d.items.filter((i) => i.pending).length)],
         ['Последний обмен с кассой', a.observed_at ? clock(a.observed_at) : '-'],
-        ['Меню', d.catalog ? `v${d.catalog.version}` : 'Не опубликовано'],
+        ['Меню', d.catalog ? `Версия ${d.catalog.version}` : 'Не опубликовано'],
       ]),
     );
     if (blocker) {
@@ -993,7 +1083,7 @@ export class OperationsView {
     if (key && saved && !restored) dropDraft(store, key);
     const p = structuredClone(restored?.payload ?? record?.payload ?? defaultPayload(kind)),
       d = dialog(
-        record ? 'Изменить запись' : 'Новая запись',
+        record ? recordWords(kind).edit : recordWords(kind).create,
         'Изменения сохраняются для выбранной точки и попадают в журнал аудита.',
       );
     d.dataset.testid = 'op-editor';
@@ -1042,10 +1132,10 @@ export class OperationsView {
       );
     if (kind === 'promo' || kind === 'campaign')
       fields.push(
-        { key: 'title.ru', label: 'Заголовок RU' },
-        { key: 'title.kk', label: 'Заголовок KZ' },
-        { key: 'body.ru', label: 'Текст RU', type: 'textarea' },
-        { key: 'body.kk', label: 'Текст KZ', type: 'textarea' },
+        { key: 'title.ru', label: 'Заголовок на русском' },
+        { key: 'title.kk', label: 'Заголовок на казахском' },
+        { key: 'body.ru', label: 'Текст на русском', type: 'textarea' },
+        { key: 'body.kk', label: 'Текст на казахском', type: 'textarea' },
         ...dates,
       );
     if (kind === 'promo')
@@ -1076,7 +1166,7 @@ export class OperationsView {
           ],
         },
         { key: 'enabled', label: 'Доступна', type: 'boolean' },
-        { key: 'daily_attempts', label: 'Планируемый лимит попыток', type: 'number' },
+        { key: 'daily_attempts', label: 'Попыток в день', type: 'number' },
         ...dates,
       );
     if (kind === 'campaign')
@@ -1093,7 +1183,12 @@ export class OperationsView {
     const orders = [...(this.model.data?.orders ?? []), ...(this.model.data?.pos ?? [])].map(
       (o) => ({
         value: String(o['id']),
-        label: String(o['id']).slice(0, 8) + ' · ' + amount(o['total_minor']),
+        label:
+          (o['display_number'] ? '№' + String(o['display_number']) : 'Без номера') +
+          ' · ' +
+          date(o['created_at']) +
+          ' · ' +
+          amount(o['total_minor']),
       }),
     );
     if (kind === 'ticket')
@@ -1478,13 +1573,8 @@ export class OperationsView {
       );
     }
     if (kind === 'campaign')
-      d.append(
-        note(
-          'Сохранение готовит кампанию. Отправка станет доступна после подключения push-провайдера.',
-        ),
-      );
-    if (kind === 'game')
-      d.append(note('Награды пока не начисляются. Для них нужен серверный валидатор результатов.'));
+      d.append(note('Кампания сохранится как черновик. Отправка уведомлений появится позже.'));
+    if (kind === 'game') d.append(note('Награды за игру пока не начисляются.'));
     if (kind === 'station')
       d.append(
         note(
@@ -1562,7 +1652,7 @@ export class OperationsView {
     const writable = permitted(this.model.data, 'records.write') && summary.canDeliver;
     const p = panel(
       'Доставка плана на кассу',
-      'Версия, которую подтвердила касса, а не только публикация в облаке.',
+      'Какую версию плана касса получила и подтвердила.',
       writable
         ? [
             button(
@@ -1570,8 +1660,9 @@ export class OperationsView {
               () =>
                 this.confirm(
                   'Отправить план на кассу',
-                  'Касса получит текущий опубликованный состав станций новой версией. Если план не изменился, касса его не отклоняла и сообщает именно его, новая версия не создаётся.',
+                  'Касса получит текущий опубликованный состав станций. Если план не менялся с прошлой отправки, новая версия не создаётся.',
                   { type: 'deliver_station_plan' },
+                  'Отправить план',
                 ),
               'button subtle',
               'station-plan-deliver',
@@ -1584,8 +1675,8 @@ export class OperationsView {
     p.append(
       stats([
         latest
-          ? ['Последняя версия в облаке', String(latest.version), date(latest.published_at)]
-          : ['Последняя версия в облаке', '-'],
+          ? ['Последняя опубликованная версия', String(latest.version), date(latest.published_at)]
+          : ['Последняя опубликованная версия', 'Ещё не было'],
         [
           'Подтверждено кассой',
           summary.edgeVersion === null ? '-' : String(summary.edgeVersion),
@@ -1616,9 +1707,9 @@ export class OperationsView {
       );
     return p;
   }
-  private confirm(title: string, detail: string, command: Data) {
+  private confirm(title: string, detail: string, command: Data, action = 'Подтвердить') {
     const d = dialog(title, detail);
-    this.footer(d, () => command, 'Подтвердить');
+    this.footer(d, () => command, action);
   }
   private revokeDevice(device: Data) {
     if (['edge', 'kiosk'].includes(String(device['kind']))) return;
@@ -1779,7 +1870,14 @@ export class OperationsView {
         title,
         sub,
         writable
-          ? [button('Добавить', () => this.edit(kind), 'button primary', 'op-add-' + kind)]
+          ? [
+              button(
+                recordWords(kind).add,
+                () => this.edit(kind),
+                'button primary',
+                'op-add-' + kind,
+              ),
+            ]
           : [],
       );
     const entries = this.model.entries(kind);
@@ -1799,12 +1897,17 @@ export class OperationsView {
             button(
               'Опубликовать',
               () =>
-                this.confirm('Опубликовать запись', String(r.payload['name']), {
-                  type: 'publish',
-                  kind,
-                  id: r.id,
-                  expected_revision: r.revision,
-                }),
+                this.confirm(
+                  recordWords(kind).publish ?? 'Опубликовать?',
+                  String(r.payload['name']),
+                  {
+                    type: 'publish',
+                    kind,
+                    id: r.id,
+                    expected_revision: r.revision,
+                  },
+                  'Опубликовать',
+                ),
               'button subtle',
             ),
           );
@@ -1816,7 +1919,13 @@ export class OperationsView {
         actions,
       ];
     });
-    p.append(table(['Название', ...fields.map(([t]) => t), 'Изменено', 'Действия'], rows));
+    p.append(
+      table(
+        ['Название', ...fields.map(([t]) => t), 'Изменено', 'Действия'],
+        rows,
+        recordWords(kind).empty,
+      ),
+    );
     return p;
   }
   private balances() {
@@ -2271,11 +2380,11 @@ export class OperationsView {
   /** The back-office name of an edge staff id (edgeStaffId), or its short code (audit F12). */
   private staffName(id: unknown) {
     if (typeof id !== 'string' || !id) return 'Кассир не определён';
-    return this.model.data?.pos_staff?.[id]?.name ?? `Сотрудник ${id.slice(0, 8)} (нет карточки)`;
+    return this.model.data?.pos_staff?.[id]?.name ?? 'Сотрудник без карточки';
   }
   /** «Касса 1», «Касса 2» by the server's order of first shifts (audit F10). */
   private deskName(id: unknown) {
-    if (typeof id !== 'string' || !id) return 'Касса не известна';
+    if (typeof id !== 'string' || !id) return 'Касса неизвестна';
     return (
       this.model.data?.pos_terminals?.find((t) => t.terminal_id === id)?.label ??
       `Касса ${id.slice(0, 4)}`
@@ -2314,7 +2423,7 @@ export class OperationsView {
       o['display_number'] ? '№' + String(o['display_number']) : String(o['id']).slice(0, 8);
     const payment = (o: Data) =>
       o['channel'] === 'pos' && o['payment_state'] === 'not_started'
-        ? 'Оплата на кассе: данные не поступают'
+        ? 'Касса: нет данных об оплате'
         : status(o['payment_state']);
     const live = (o: Data) => !['cancelled', 'voided'].includes(String(o['state']));
     let query = '',
@@ -2392,7 +2501,7 @@ export class OperationsView {
       [
         button('Проверка восстановления', () => this.restoreReviews()),
         button(
-          'Экспорт CSV',
+          'Скачать CSV',
           () =>
             void exportAll().catch(() => {
               hint.textContent = 'Файл не собран: нет связи с сервером. Повторите позже.';
@@ -2484,7 +2593,7 @@ export class OperationsView {
               status(o['channel']),
               amount(o['total_minor']),
               pay,
-              badge(o['kitchen_state'] ?? o['state']),
+              o['kitchen_state'] ? badge(o['kitchen_state']) : '-',
               button('Открыть', () => void this.order(String(o['id'])), 'button subtle'),
             ];
           }),
@@ -2579,15 +2688,13 @@ export class OperationsView {
         o = object(data['order']),
         s = object(o['snapshot']),
         d = dialog(
-          'Заказ ' + id.slice(0, 8),
+          o['display_number'] ? 'Заказ №' + String(o['display_number']) : 'Заказ',
           'Источник: ' + status(data['owner']) + ' · ' + date(o['created_at']),
         );
       d.append(
         stats([
           ['Сумма заказа', amount(o['total_minor'])],
           ['Статус', status(o['state'])],
-          ['Версия', val(o['version'])],
-          ['Владелец', status(data['owner'])],
           ...(o['kitchen_state']
             ? [['Кухня', status(o['kitchen_state'])] as [string, string]]
             : []),
@@ -2696,6 +2803,7 @@ export class OperationsView {
               'Запросить отмену',
               'Отмена завершится после подтверждения локальной точки.',
               { type: 'cancel_order', id, expected_version: Number(o['version']) },
+              'Запросить отмену',
             ),
           ),
         );
@@ -2706,6 +2814,7 @@ export class OperationsView {
               'Списание по техкартам',
               'Сервер проверит подтверждение кухни и техкарты на момент заказа. Комбо и модификаторы требуют отдельных норм. Повторное списание запрещено.',
               { type: 'consume', order_id: id, expected_balances: this.balances() },
+              'Списать',
             ),
           ),
         );
@@ -2753,6 +2862,7 @@ export class OperationsView {
                   'Отозвать запрос возврата',
                   'Подтвердите, что деньги гостю не возвращались. Запрос закроется без возврата, резерв суммы и отметок снимется.',
                   { type: 'withdraw_refund', id, refund_id: r['id'] },
+                  'Отозвать запрос',
                 ),
               ),
             );
@@ -3012,7 +3122,7 @@ export class OperationsView {
         ['Проблемы сверки', String(src.issues.length) + (clipped?.['issues'] ? '+' : '')],
       ]),
     );
-    const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
+    const p = panel('Фискальные документы', 'Статус чека из кассового аппарата (ОФД).');
     p.append(
       table(
         ['Документ', 'Заказ', 'Тип', 'Сумма', 'Статус'],
@@ -3037,13 +3147,7 @@ export class OperationsView {
         ]),
       ),
     );
-    content.append(
-      p,
-      r,
-      note(
-        'Закрытие фискальной смены и выгрузка в 1С ожидают подключения и проверки соответствующих адаптеров.',
-      ),
-    );
+    content.append(p, r, note('Закрытие смены в ОФД и выгрузка в 1С пока не подключены.'));
   }
   /** Audit F13: the day of «Оплаты и чеки» and its snapshot (GET branches/:id of that day). */
   private settle: { day: string; stamp: string; data: Snapshot | null; failed: boolean } | null =
@@ -3364,7 +3468,7 @@ export class OperationsView {
           'Финансовые показатели',
           'Средняя сумма: исходная сумма выданных заказов, до вычета возвратов.',
           [
-            button('Экспорт CSV', () =>
+            button('Скачать CSV', () =>
               // Audit F11 (with the fixes): tenge with a decimal comma, «Сумма, ₸».
               ui.fixes
                 ? exportCsv(
@@ -3385,7 +3489,7 @@ export class OperationsView {
         content.append(
           p,
           note(
-            'Суммы относятся к приложению и киоску. Финансовые итоги кассы будут доступны после синхронизации кассовых операций. Поступления на банковский счёт, комиссии и чистая прибыль требуют банковского реестра и полной базы расходов.',
+            'Суммы в этом блоке - только приложение и киоск. Продажи кассы и всех каналов - в блоке «Продажи» выше.',
           ),
         );
       }
@@ -3409,7 +3513,7 @@ export class OperationsView {
           'Последние 200 записей каждого источника. Новые отчёты кассы используют исходную дату заказа; для старого обмена отдельно указано время получения сервером.',
           [
             button('Проверка восстановления', () => this.restoreReviews()),
-            button('Экспорт CSV', () =>
+            button('Скачать CSV', () =>
               exportCsv(
                 'orders',
                 ['Заказ', 'Канал', 'Сумма в минимальных единицах KZT', 'Статус'],
@@ -3677,9 +3781,9 @@ export class OperationsView {
           [
             ['Игра', (p) => val(p['template']).toUpperCase().replaceAll('-', ' ')],
             ['Доступ', (p) => (p['enabled'] ? 'Включена' : 'Выключена')],
-            ['Плановый лимит', (p) => val(p['daily_attempts'])],
+            ['Попыток в день', (p) => val(p['daily_attempts'])],
           ],
-          'Публикация меняет доступность игры в приложении. Лимит попыток подготовлен для будущей серверной проверки; награды отключены.',
+          'Опубликованная игра появляется в приложении. Лимит попыток пока не ограничивает игроков, награды не начисляются.',
         ),
       );
     if (page === 'guests') {
@@ -3689,12 +3793,12 @@ export class OperationsView {
       );
       p.append(
         table(
-          ['Гость', 'Заказов', 'Последний заказ', 'Маркетинг'],
+          ['Гость', 'Заказов', 'Последний заказ', 'Рассылки'],
           d.guests.map((v) => [
-            String(v['id']).slice(0, 8),
+            'Гость …' + String(v['id']).slice(-4).toUpperCase(),
             val(v['orders']),
             date(v['last_order_at']),
-            v['marketing_consent'] ? 'Согласие получено' : 'Нет согласия',
+            v['marketing_consent'] ? 'Согласен' : 'Не согласен',
           ]),
         ),
       );
@@ -3708,7 +3812,7 @@ export class OperationsView {
             ['Статус', (p) => badge(p['status'])],
             ['Лимит', (p) => val(p['daily_limit'])],
           ],
-          'Черновики кампаний. Отправка пока не подключена.',
+          'Кампании пока только сохраняются, отправлять уведомления гостям нельзя.',
         ),
       );
     }
@@ -3777,11 +3881,11 @@ export class OperationsView {
           'review',
           'Отзывы',
           [
-            ['Оценка', (p) => '★'.repeat(Number(p['stars']))],
+            ['Оценка', (p) => `${Number(p['stars'])} из 5 ` + '★'.repeat(Number(p['stars']))],
             ['Отзыв', (p) => val(p['text'])],
             ['Статус', (p) => badge(p['status'])],
           ],
-          'Отзывы по заказам, записанные оператором. Внешние площадки не подключены.',
+          'Отзывы гостей, которые внёс сотрудник. Отзывы с сайтов и карт сюда автоматически не попадают.',
         ),
       );
     if (page === 'stations') {
@@ -3800,7 +3904,7 @@ export class OperationsView {
       const plan = this.stationPlan();
       if (plan) content.append(this.stationPlanPanel(plan));
       const p = panel(
-        'Наблюдаемые заказы кухни',
+        'Заказы на кухне',
         ui.fixes
           ? 'Последние 50 заказов из обмена с локальной точкой. Все заказы с оплатой и кухней - в разделе «Заказы».'
           : 'Последнее подтверждённое состояние из обмена с локальной точкой.',
@@ -3819,9 +3923,9 @@ export class OperationsView {
       );
       p.append(
         table(
-          ['Заказ', 'Статус', 'Версия маршрута', 'Получено'],
+          ['Заказ', 'Статус', 'Версия плана станций', 'Получено'],
           (ui.fixes ? d.kitchen.slice(0, 50) : d.kitchen).map((v) => [
-            val(v['display_number'] ?? String(v['order_id']).slice(0, 8)),
+            v['display_number'] ? val(v['display_number']) : 'Без номера',
             badge(v['state']),
             val(v['routing_version']),
             date(v['observed_at']),
@@ -3833,11 +3937,11 @@ export class OperationsView {
     if (page === 'devices') {
       const p = panel(
         'Устройства точки',
-        'Время обмена не является подтверждением, что устройство сейчас онлайн.',
+        'Когда устройство последний раз передавало данные. Это не значит, что оно на связи сейчас.',
       );
       p.append(
         table(
-          ['Устройство', 'Тип', 'Доступ', 'Обмен с кухней', 'POS-обмен', ''],
+          ['Устройство', 'Тип', 'Доступ', 'Связь с кухней', 'Связь с кассой', 'Действия'],
           d.devices.map((v) => [
             val(v['name']),
             status(v['kind']),

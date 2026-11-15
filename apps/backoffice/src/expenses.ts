@@ -197,7 +197,7 @@ export class ExpensesView {
     const list: [Tab, string][] = [
       ['entry', 'Ввод'],
       ['journal', 'Журнал'],
-      ['pnl', 'ОПУ'],
+      ['pnl', 'Прибыль и убытки (ОПУ)'],
       ['analytics', 'Аналитика'],
       ['months', m.can.close ? 'Месяцы и доступ' : 'Месяцы'],
     ];
@@ -381,7 +381,7 @@ export class ExpensesView {
     // Left: places with their status.
     const side = el('aside', 'expenses-places');
     const progress = el('div', 'expenses-progress');
-    progress.append(el('strong', '', `Заполнено ${s.filled} из ${s.total} точек`));
+    progress.append(el('strong', '', `Заполнено точек: ${s.filled} из ${s.total}`));
     const meter = el('div', 'expenses-meter');
     const fill = el('span');
     fill.style.width = s.total ? `${Math.round((s.filled / s.total) * 100)}%` : '0';
@@ -828,7 +828,7 @@ export class ExpensesView {
         ? 'Сальдо на начало дня (введено вручную)'
         : c.opening_source === 'previous'
           ? `Сальдо на начало дня (по отчёту кассира за ${dayText(c.previous_date ?? '')})`
-          : 'Сальдо на начало дня (нет данных, 0)',
+          : 'Сальдо на начало дня (нет отчёта за прошлый день, считаем 0)',
       c.opening_minor,
     );
     line('Наличная выручка', c.cash_revenue_minor, '+ ');
@@ -843,7 +843,7 @@ export class ExpensesView {
     const form = el('div', 'expenses-cash-form');
     const opening = input(c.opening_source === 'manual' ? amountText(c.opening_minor) : '', {
       inputmode: 'decimal',
-      placeholder: 'пусто = по отчёту за прошлый день',
+      placeholder: 'Пусто - по отчёту за прошлый день',
     });
     const counted = input(amountText(c.counted_minor), {
       inputmode: 'decimal',

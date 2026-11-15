@@ -118,7 +118,7 @@
 .device-code code {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 20px;
+  font-size: 22px;
   margin: 16px 0;
   user-select: all;
 }
