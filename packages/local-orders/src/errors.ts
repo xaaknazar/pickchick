@@ -27,7 +27,11 @@ export class OrderError extends Error {
       | 'REFUND_LIMIT'
       | 'REFUND_NOT_SUPPORTED'
       | 'DRAWER_INSUFFICIENT'
-      | 'FISCAL_PENDING',
+      | 'FISCAL_PENDING'
+      // ADR-0017 (Kaspi Smart POS adapter); all are 409.
+      | 'TERMINAL_NOT_LINKED'
+      | 'TERMINAL_BUSY'
+      | 'TERMINAL_ATTEMPT_INVALID',
   ) {
     super(code);
   }
@@ -59,4 +63,7 @@ export const orderErrorStatus = {
   REFUND_NOT_SUPPORTED: 409,
   DRAWER_INSUFFICIENT: 409,
   FISCAL_PENDING: 409,
+  TERMINAL_NOT_LINKED: 409,
+  TERMINAL_BUSY: 409,
+  TERMINAL_ATTEMPT_INVALID: 409,
 } as const;

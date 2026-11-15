@@ -1277,6 +1277,8 @@ schedule();
 setInterval(() => {
   for (const e of root.querySelectorAll('[data-clock]')) e.textContent = time();
   if (reference.state.clock !== time()) schedule();
+  // Kaspi Smart POS of this desk (ADR-0017): one poll a second while the terminal decides.
+  if (model.state.actor && model.terminalHold) void sale.tick();
 }, 1000);
 setInterval(() => {
   if (model.state.actor && !blocked() && !document.hidden)

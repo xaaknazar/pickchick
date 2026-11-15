@@ -358,6 +358,7 @@ test('responses: config, sale, result, receipts and ShiftReport', () => {
     approval_ttl_seconds: 120,
     server_time: time,
     desk_number: null,
+    kaspi_terminal_link: false,
   };
   assert.equal(POS_APPROVAL_TTL_SECONDS, 120);
   assert.deepEqual(PosConfigSchema.parse(config), config);
@@ -368,7 +369,16 @@ test('responses: config, sale, result, receipts and ShiftReport', () => {
     assert.deepEqual(PosConfigSchema.parse({ ...config, desk_number: desk }).desk_number, desk);
   for (const desk of [0, 100, 1.5, '2', undefined])
     assert.equal(PosConfigSchema.safeParse({ ...config, desk_number: desk }).success, false);
-  assert.equal(Object.keys(PosConfigSchema.parse(config)).at(-1), 'desk_number');
+  // Schema029 Kaspi Smart POS (ADR-0017): a boolean, always present, after desk_number.
+  assert.deepEqual(Object.keys(PosConfigSchema.parse(config)).slice(-2), [
+    'desk_number',
+    'kaspi_terminal_link',
+  ]);
+  for (const link of [null, 'true', undefined])
+    assert.equal(
+      PosConfigSchema.safeParse({ ...config, kaspi_terminal_link: link }).success,
+      false,
+    );
   assert.deepEqual(PosSaleSchema.parse(sale), sale);
   const result = {
     order: { ...unpaidOrder, state: 'paid', payment_state: 'captured', execution_mode: 'pos_sale' },
@@ -478,7 +488,7 @@ test('payment method policy and Russian error texts follow contracts section 00'
   assert.equal(POS_PAYMENT_METHOD_POLICY.chocofood.confirmation, 'aggregator_attested');
   assert.deepEqual(POS_PAYMENT_METHOD_POLICY.chocofood.channels, ['hall']);
   assert.deepEqual(POS_PAYMENT_METHOD_POLICY.aggregator_glovo.channels, ['glovo']);
-  assert.equal(PosErrorCodeSchema.options.length, 15);
+  assert.equal(PosErrorCodeSchema.options.length, 18);
   for (const code of PosErrorCodeSchema.options) {
     const text = posErrorTextRu(code);
     assert.match(text, /[А-Яа-яЁё]/);

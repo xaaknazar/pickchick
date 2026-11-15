@@ -4619,3 +4619,152 @@ test('web POS publishes the app version for the lock screen only when it is give
     }
   }
 });
+
+// ADR-0017: the amount goes to the Kaspi Smart POS of this desk; its success makes the sale.
+function terminalEdge() {
+  const base = saleEdge({ config: { ...posConfigFor(), kaspi_terminal_link: true } });
+  const terminal = { attempts: new Map(), next: [], posts: [] };
+  const api = async (path, auth, options = {}) => {
+    if (path === 'pos/terminal-payments' && options.method === 'POST') {
+      base.calls.push({ path, ...globalThis.structuredClone(options) });
+      terminal.posts.push(globalThis.structuredClone(options));
+      assert.ok(options.key, 'sent with an Idempotency-Key');
+      const attempt = {
+        attempt_id: randomUUID(),
+        quote_id: options.body.quote_id,
+        terminal_id: randomUUID(),
+        amount_minor: options.body.amount_minor,
+        state: 'wait',
+        sub_status: null,
+        transaction_id: null,
+        payment_method: null,
+        message: null,
+        order_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      terminal.attempts.set(attempt.attempt_id, attempt);
+      return attempt;
+    }
+    if (path === 'pos/terminal-payments/open') return { items: [] };
+    if (path.startsWith('pos/terminal-payments/')) {
+      base.calls.push({ path, ...globalThis.structuredClone(options) });
+      const attempt = terminal.attempts.get(path.split('/')[2]);
+      if (!attempt) throw new ApiError('NOT_FOUND', 404);
+      const step = terminal.next.shift();
+      if (step) Object.assign(attempt, step);
+      return attempt;
+    }
+    if (path === 'pos/sales' && options.method === 'POST') {
+      for (const t of options.body.tenders)
+        if (t.attempt_id) {
+          const attempt = terminal.attempts.get(t.attempt_id);
+          assert.equal(attempt.state, 'success', 'only a paid attempt is sold');
+          assert.equal(attempt.quote_id, options.body.quote_id);
+        }
+    }
+    return base.api(path, auth, options);
+  };
+  return { ...base, api, terminal };
+}
+
+test('Kaspi terminal linked: send the amount, poll, success sells without a tap', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const model = await saleCashier(edge, storage);
+  assert.equal(model.state.posConfig.kaspi_terminal_link, true);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.deepEqual(
+    edge.terminal.posts.map((p) => p.body),
+    [{ quote_id: quote.quote_id, amount_minor: quote.total_minor }],
+  );
+  assert.equal(model.state.terminal.state, 'wait');
+  assert.equal(model.terminalHold, true);
+  // While the terminal decides the cart stays as it is and no second amount is sent.
+  model.quantity(edge.item.variant_id, 2);
+  assert.equal(model.state.error.message, 'TERMINAL_IN_PROGRESS');
+  await model.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 1);
+  assert.equal(edge.edge.posts.length, 0);
+  // Still waiting: nothing is sold.
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 0);
+  edge.terminal.next.push({ state: 'success', transaction_id: '1234567890', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  assert.deepEqual(posted(edge), [
+    {
+      quote_id: quote.quote_id,
+      service_mode_confirmed: true,
+      order_repeated: true,
+      tenders: [
+        {
+          method: 'kaspi_terminal',
+          amount_minor: quote.total_minor,
+          attempt_id: attempt.attempt_id,
+        },
+      ],
+    },
+  ]);
+  assert.equal(model.state.pending, null);
+  assert.ok(model.state.sale, 'the sale is made, so the kitchen gets the order');
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.terminalHold, false);
+});
+
+test('Kaspi terminal linked: a declined or undelivered amount is sent again only by the cashier', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'dine_in');
+  await model.sendToTerminal();
+  edge.terminal.next.push({ state: 'fail', message: 'Операция отклонена' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal.state, 'fail');
+  assert.equal(model.terminalHold, false);
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 0, 'a declined amount never sells');
+  assert.equal(
+    edge.calls.filter((c) => c.path.startsWith('pos/terminal-payments/')).length,
+    1,
+    'a finished attempt is not asked again',
+  );
+  await model.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 2);
+  // Lost answer: the screen falls back to the manual confirmation; nothing is resent.
+  edge.terminal.next.push({ state: 'lost' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal.state, 'lost');
+  assert.equal(edge.terminal.posts.length, 2);
+  // A stale or foreign attempt id is refused before anything is sent.
+  await model.sell({ method: 'kaspi_terminal', attempt_id: randomUUID() });
+  assert.equal(model.state.error.message, 'TERMINAL_ATTEMPT_INVALID');
+  assert.equal(edge.edge.posts.length, 0);
+  model.dismissTerminal();
+  assert.equal(model.state.terminal, null);
+});
+
+test('Kaspi terminal linked: the pay screen sends, waits and blocks going back', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  const said = [];
+  const view = new SaleView(model, { guard: (fn) => fn, say: (t) => said.push(t) });
+  await reviewed(model, edge, 'takeaway');
+  view.setState({ screen: 'pay', method: 'kaspi_terminal' });
+  let values = view.payValues();
+  assert.match(values.salePayLabel, /^Отправить .* на терминал$/);
+  await values.salePayConfirm();
+  values = view.payValues();
+  assert.equal(values.salePayLabel, 'Ждём оплату на терминале…');
+  assert.equal(values.salePayDisabled, 'true');
+  view.values().salePayBack();
+  assert.equal(view.state.screen, 'pay', 'the order stays on screen while the terminal decides');
+  assert.equal(said.pop(), saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+  edge.terminal.next.push({ state: 'success', transaction_id: '42', payment_method: 'card' });
+  await view.tick();
+  assert.equal(view.state.screen, 'done');
+  assert.ok(model.state.sale);
+  assert.equal(said.length, 0, said.join('; '));
+});

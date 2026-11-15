@@ -33,6 +33,7 @@ import {
 import { consumeApproval, posSalesInstalled } from './approvals.js';
 import type { ConsumedApproval } from './approvals.js';
 import { loadPaymentMethods } from './payment-methods.js';
+import { useTerminalAttempt } from './terminal-payments.js';
 import {
   FISCAL_RECEIPT_COLUMNS,
   appendFiscalEvent,
@@ -230,7 +231,30 @@ export async function createPosSale(
       if (!row) throw new OrderError('NOT_FOUND');
       if ((await client.query('SELECT 1 FROM local_orders WHERE quote_id=$1', [row.id])).rowCount)
         throw new OrderError('CONFLICT');
-      if (!row.valid) throw new OrderError('QUOTE_EXPIRED');
+      // ADR-0017: a terminal part paid by a Kaspi attempt names it; the attempt was created while
+      // the quote was valid, so the guest who already paid is not refused for its expiry.
+      const attempts = request.tenders.filter((tender) => tender.attempt_id !== undefined);
+      if (
+        attempts.some(
+          (tender) => tender.method !== 'kaspi_terminal' || tender.reference !== undefined,
+        )
+      )
+        throw new OrderError('INVALID_REQUEST');
+      const terminalReferences = new Map<string, string>();
+      for (const tender of attempts)
+        terminalReferences.set(
+          tender.attempt_id!,
+          await useTerminalAttempt(
+            client,
+            branchId,
+            actor.terminal_id,
+            request.quote_id,
+            tender.attempt_id!,
+            tender.amount_minor,
+            null,
+          ),
+        );
+      if (!row.valid && attempts.length === 0) throw new OrderError('QUOTE_EXPIRED');
       if (!branch.ordering_enabled) throw new OrderError('BRANCH_UNAVAILABLE');
       const menu = await activeMenu(client, branchId);
       if (menu.release_id !== row.release_id) throw new OrderError('MENU_CHANGED');
@@ -333,10 +357,21 @@ export async function createPosSale(
           throw new OrderError('EXTERNAL_REF_DUPLICATE');
         throw error;
       }
-      for (const tender of request.tenders)
+      for (const tender of request.tenders) {
+        if (tender.attempt_id !== undefined)
+          await useTerminalAttempt(
+            client,
+            branchId,
+            actor.terminal_id,
+            request.quote_id,
+            tender.attempt_id,
+            tender.amount_minor,
+            orderId,
+          );
         await client.query(
-          `INSERT INTO pos_sale_tenders(id,order_id,branch_id,method,amount_minor,confirmation,reference)
-           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          `INSERT INTO pos_sale_tenders(id,order_id,branch_id,method,amount_minor,confirmation,reference${
+            tender.attempt_id !== undefined ? ',attempt_id' : ''
+          }) VALUES($1,$2,$3,$4,$5,$6,$7${tender.attempt_id !== undefined ? ',$8' : ''})`,
           [
             randomUUID(),
             orderId,
@@ -344,9 +379,13 @@ export async function createPosSale(
             tender.method,
             tender.amount_minor,
             POS_PAYMENT_METHOD_POLICY[tender.method].confirmation,
-            tender.reference ?? null,
+            tender.attempt_id !== undefined
+              ? terminalReferences.get(tender.attempt_id)!
+              : (tender.reference ?? null),
+            ...(tender.attempt_id !== undefined ? [tender.attempt_id] : []),
           ],
         );
+      }
       // Manual Webkassa: a receipt is due when any part's method requires one; a number typed
       // with the sale records it at once.
       const receiptDue = plan.methods.some(
