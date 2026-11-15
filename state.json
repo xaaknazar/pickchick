@@ -7894,20 +7894,6 @@
       "nextAction": "After owner logs in to open pickchick.kz/backoffice tab: read-only smoke Home/Orders/Guests/Games(3)/Expenses, append evidence and push ordinary follow-up. Do not redeploy or change flags/schema."
     },
     {
-      "id": "kaspi-pos-kit-1115",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-pos-kit-1115",
-      "scopes": [
-        "docs/operations/kaspi-pos-kit-1115",
-        "@artifacts/kaspi-pos-1115"
-      ],
-      "status": "available",
-      "head": "c72a71b2a6b720f6531a7755c222aef527d9b42d",
-      "updatedAt": "2026-11-15T16:18:05.047Z",
-      "summary": "9b2e751f pushed fast-forward to codex/kaspi-pos-1115. Windows POS43733907474 completed/success3of3, POS0.5.4 built, runtime029guards7PASS including ledgerpins. Foundation43733904023 job132872295252 failed Build and static checks: prettier --check . on head-runtime-029.md, one missing blank line before item6; locally reproduced without source edits. Kit STOP under owner condition. Report c72a71b2 published, source9b unchanged; no feed/cloud/cashier changes.",
-      "nextAction": "Author fixes formatting, then both workflows on new exactSHA. Owner explicitly accepts placeholder <sha рантайма 028> in PredecessorCommit; Claude supplies actual sourceCommit from completed.json on cashier, no additional question. Only after both green build runtime/CI proof/POS0.5.4/COMMANDS kit. Preserve backup settings, check actual schema028/029 backup health, isolated staging and runbook order."
-    },
-    {
       "id": "kex-aquarium-domain-1115",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kex-aquarium-domain-1115",
@@ -7930,6 +7916,20 @@
       "status": "active",
       "head": "8f2abe2dae32471fd7b0424fba1c60ede4063dc2",
       "updatedAt": "2026-11-15T18:09:17.158Z"
+    },
+    {
+      "id": "kaspi-pos-kit-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-pos-kit-1115",
+      "scopes": [
+        "docs/operations/kaspi-pos-kit-1115",
+        "@artifacts/kaspi-pos-1115"
+      ],
+      "status": "active",
+      "head": "c72a71b2a6b720f6531a7755c222aef527d9b42d",
+      "updatedAt": "2026-11-15T19:44:47.763Z",
+      "summary": "9b2e751f pushed fast-forward to codex/kaspi-pos-1115. Windows POS43733907474 completed/success3of3, POS0.5.4 built, runtime029guards7PASS including ledgerpins. Foundation43733904023 job132872295252 failed Build and static checks: prettier --check . on head-runtime-029.md, one missing blank line before item6; locally reproduced without source edits. Kit STOP under owner condition. Report c72a71b2 published, source9b unchanged; no feed/cloud/cashier changes.",
+      "nextAction": "Author fixes formatting, then both workflows on new exactSHA. Owner explicitly accepts placeholder <sha рантайма 028> in PredecessorCommit; Claude supplies actual sourceCommit from completed.json on cashier, no additional question. Only after both green build runtime/CI proof/POS0.5.4/COMMANDS kit. Preserve backup settings, check actual schema028/029 backup health, isolated staging and runbook order."
     }
   ],
   "approvedScopeTransfers": [
