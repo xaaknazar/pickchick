@@ -7937,19 +7937,14 @@
       "scopes": [
         "apps/mobile/src/components/NativeTabScreen.tsx",
         "apps/mobile/src/components/NativeTabLayout.tsx",
-        "tests/mobile/native-tabs.test.mjs",
         "docs/operations/mobile-native-tabs-1116.md",
-        "apps/mobile/src/components/FloatingTabBar.tsx",
-        "apps/mobile/src/components/TabActiveCapsule.tsx",
-        "tests/mobile/tab-bar.test.mjs",
         "@mobile/tab-routes",
         "tests/mobile/ios/TabBarMotionTests.swift",
-        "@ios/native-tabs-preview-1116",
         "docs/operations/mobile-native-tabs-1116"
       ],
       "status": "active",
       "head": "95ad8add98bd5612464beaa173f191f6dd7e257d",
-      "updatedAt": "2026-11-15T20:09:39.472Z",
+      "updatedAt": "2026-11-15T20:20:15.799Z",
       "summary": "Native tab preview only. @mobile/tab-routes reserves exactly apps/mobile/src/app/(tabs)/_layout.ios.tsx, apps/mobile/src/app/(tabs)/menu.ios.tsx, apps/mobile/src/app/(tabs)/events.ios.tsx, apps/mobile/src/app/(tabs)/orders.ios.tsx. Registry scope grammar cannot represent parentheses; exact route paths checked against every active reservation. Other routes untouched. Approved simulator transfer waits for store-kk-1115 to finish its current capture. Owner must see before/after before release."
     }
   ],
