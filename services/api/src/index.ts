@@ -97,6 +97,11 @@ import {
   DeviceAccessTransportController,
 } from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
+import {
+  AppSplashController,
+  AppSplashMediaController,
+  useSplashPartBodyParser,
+} from './app-splash-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { StationPlanTransportController } from './station-plan-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
@@ -300,6 +305,9 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       CatalogMediaController,
       BackofficeController,
       BackofficeContentController,
+      // Video of the app storefront (owner 15.11.2026): answers 404 while the flag is off.
+      AppSplashController,
+      AppSplashMediaController,
       DeviceRegistryController,
       KioskPresenceController,
       DeviceAccessTransportController,
@@ -443,6 +451,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   });
   // Photo uploads (CATALOG_MEDIA_UPLOAD_ENABLED): raw image bytes on one route only.
   if (catalogMediaOptions(process.env).mediaEnabled) useCatalogAssetBodyParser(app);
+  // Raw video parts of the back office, only while BACKOFFICE_APP_SPLASH_ENABLED is on.
+  if (backofficeOptions(process.env).appSplashEnabled) useSplashPartBodyParser(app);
   app.useBodyParser('raw', {
     limit: 16 * 1024,
     type: (request: IncomingMessage) =>

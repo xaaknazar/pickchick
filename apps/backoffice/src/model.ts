@@ -16,6 +16,7 @@ import {
   ApiError,
   mediaUrl,
   uploadAsset,
+  uploadSplashPart,
   type Transport,
   type Request,
   type Uploader,
@@ -62,6 +63,30 @@ export class CatalogModel {
   /** Same-origin URL of an uploaded photo's card rendition for the current access mode. */
   mediaUrl(sha256: string) {
     return mediaUrl(this.token ?? '', sha256);
+  }
+  /** One part of a storefront video (owner request 15.11.2026) for the selected branch. */
+  async uploadSplashPart(
+    uploadId: string,
+    part: number,
+    total: number,
+    sha256: string,
+    bytes: Blob,
+  ): Promise<void> {
+    if (!this.actor || !this.token || !this.state) throw new ApiError('UNAUTHORIZED', 401);
+    try {
+      await uploadSplashPart(
+        this.token,
+        this.state.branch.id,
+        uploadId,
+        part,
+        total,
+        sha256,
+        bytes,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+      throw error;
+    }
   }
   /**
    * Uploads a photo for the selected branch. The asset is shared by the organisation and only

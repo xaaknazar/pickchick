@@ -106,9 +106,19 @@ import {
 import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
 import { readOrdersRegistry } from './orders-registry.js';
 import { guestView } from './guests.js';
+import {
+  finishUpload,
+  publishedSplash,
+  readSplash,
+  setSplash,
+  splashFile,
+  splashInstalled,
+  uploadPart,
+} from './splash.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './guests.js';
+export * from './splash.js';
 export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
@@ -245,6 +255,55 @@ export class Backoffice {
       designations: resolved.designations,
     };
   }
+  /**
+   * Video of the app storefront (splash.ts, owner request 15.11.2026): every role reads, a role
+   * with records.write uploads and chooses. The settings table itself is the change log.
+   */
+  private async splashScope(db: DatabaseClient, token: string, branch: string, write: boolean) {
+    if (this.options.appSplashEnabled !== true) fail('NOT_FOUND');
+    const actor = await this.scope(db, token, branch, write ? 'records.write' : 'reports.read');
+    if (!(await splashInstalled(db))) fail('SERVICE_UNAVAILABLE');
+    return actor;
+  }
+  async splash(token: string, branch: string) {
+    return transaction(this.pool, async (db) =>
+      readSplash(db, (await this.splashScope(db, token, branch, false)).organization_id),
+    );
+  }
+  async splashPart(
+    token: string,
+    branch: string,
+    uploadId: string,
+    part: string,
+    query: unknown,
+    bytes: unknown,
+  ) {
+    return transaction(this.pool, async (db) =>
+      uploadPart(
+        db,
+        await this.splashScope(db, token, branch, true),
+        uploadId,
+        /^\d{1,3}$/.test(part) ? Number(part) : -1,
+        query,
+        bytes,
+      ),
+    );
+  }
+  async splashFinish(token: string, branch: string, uploadId: string) {
+    return transaction(this.pool, async (db) =>
+      finishUpload(db, await this.splashScope(db, token, branch, true), uploadId),
+    );
+  }
+  async splashSet(token: string, branch: string, body: unknown) {
+    return transaction(this.pool, async (db) =>
+      setSplash(db, await this.splashScope(db, token, branch, true), body),
+    );
+  }
+  /** Public video bytes for the app (GET /v1/media/app/<sha256>.mp4), flag on only. */
+  async splashMedia(file: string, range?: string) {
+    if (!this.enabled || this.options.appSplashEnabled !== true) fail('NOT_FOUND');
+    return splashFile(this.pool, file, range);
+  }
   async content(branch: string, channel: string) {
     parse(z.uuid(), branch);
     parse(z.enum(['mobile', 'kiosk', 'display']), channel);
@@ -306,12 +365,18 @@ export class Backoffice {
         cover: urls?.['card'] && urls['hero'] ? { card: urls['card'], hero: urls['hero'] } : null,
       };
     });
+    // Owner 15.11.2026: video of the storefront; only while the flag is on and cloud078 exists.
+    const splash =
+      this.options.appSplashEnabled === true && (await splashInstalled(this.pool))
+        ? await publishedSplash(this.pool, branch)
+        : undefined;
     return {
       schema_version: 1,
       branch_id: branch,
       promos: promos.slice(0, 20),
       games,
       game_cards,
+      ...(splash !== undefined ? { splash } : {}),
     };
   }
   async read(token: string, branch: string, input: unknown = {}) {
@@ -733,6 +798,10 @@ export class Backoffice {
           ...stockV2,
           // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
           ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
+          // Owner 15.11.2026: «Заставка приложения» (BACKOFFICE_APP_SPLASH_ENABLED with cloud078).
+          ...(this.options.appSplashEnabled === true && (await splashInstalled(db))
+            ? { app_splash: true }
+            : {}),
           ...p1,
           // Second wave (bo-ui2): after every bo-ui key, stock_p1 included.
           ...p2,

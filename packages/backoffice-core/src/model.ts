@@ -58,6 +58,12 @@ export const BackofficeErrorReasonSchema = z.enum([
   'ASSIGNMENT_TIME',
   'ASSIGNMENT_OVERLAP',
   'ASSIGNMENT_PREVIOUS_DAY',
+  // Video of the app storefront (splash.ts, owner request 15.11.2026).
+  'SPLASH_PART_SIZE',
+  'SPLASH_UPLOAD_INCOMPLETE',
+  'SPLASH_HASH_MISMATCH',
+  'SPLASH_NOT_MP4',
+  'RANGE',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

@@ -565,6 +565,7 @@ const APP_GAMES = [
   { template: 'pick-man', name: 'Pick Man' },
 ] as const;
 const GAME_OPEN_END = '2100-01-01T00:00:00.000Z';
+const mb = (v: unknown) => `${(Number(v) / 1048576).toFixed(1).replace('.', ',')} МБ`;
 export class OperationsView {
   /** Photo upload of the menu editor, reused for game covers; null where uploads are off. */
   media: {
@@ -574,6 +575,14 @@ export class OperationsView {
       onProgress: (fraction: number) => void,
     ) => Promise<{ image: { asset_id: string; sha256: string } }>;
   } | null = null;
+  /** Raw part of a storefront video (owner request 15.11.2026), set by app.ts. */
+  splashPart:
+    | ((upload: string, part: number, total: number, sha256: string, bytes: Blob) => Promise<void>)
+    | null = null;
+  private splashData: { branch: string; value: Data } | null = null;
+  private splashBusy = '';
+  /** Progress line of the storefront video upload; survives the background re-renders. */
+  private splashStatus = '';
   private inventory = new InventoryView();
   private sales = new SalesReportView();
   private posDay = new PosDayView();
@@ -1781,6 +1790,184 @@ export class OperationsView {
       }
     };
     void load();
+  }
+  /**
+   * Video of the app storefront (owner request 15.11.2026): the current video, upload of a new
+   * MP4 in parts (the portal takes at most 300 KB per request), choose one or return the
+   * built-in video. The app checks the content every minute and when it opens.
+   */
+  private splashPanel() {
+    const branch = this.model.branch ?? '';
+    const writable = permitted(this.model.data, 'records.write');
+    const p = panel(
+      'Видео на главном экране приложения',
+      'Видео над меню в приложении. Выбранное видео гости увидят в течение минуты, в версиях приложения новее сборки 37.',
+    );
+    p.dataset.testid = 'splash-panel';
+    const data = this.splashData?.branch === branch ? this.splashData.value : null;
+    if (!data) {
+      if (this.splashBusy !== 'load') {
+        this.splashBusy = 'load';
+        void this.model
+          .api(`branches/${branch}/splash`)
+          .then((value) => {
+            this.splashData = { branch, value: object(value) };
+          })
+          .catch(() => {
+            this.splashData = { branch, value: { error: true } };
+          })
+          .finally(() => {
+            this.splashBusy = '';
+            this.model.changed();
+          });
+      }
+      p.append(note('Загружается...'));
+      return p;
+    }
+    if (data['error']) {
+      p.append(notice('Не удалось загрузить настройки видео. Нажмите «Обновить».', 'bad'));
+      this.splashData = null;
+      return p;
+    }
+    const videos = (data['videos'] as Data[] | undefined) ?? [];
+    const current = videos.find((v) => v['id'] === data['current']);
+    const status = el('p', 'muted', this.splashStatus);
+    status.setAttribute('aria-live', 'polite');
+    status.dataset.testid = 'splash-status';
+    p.append(
+      el(
+        'p',
+        '',
+        current
+          ? `Сейчас: своё видео от ${date(current['created_at'])}, ${mb(current['size'])}.`
+          : 'Сейчас: видео, встроенное в приложение.',
+      ),
+    );
+    const choose = (video: string | null, label: string) => {
+      const d = dialog(
+        label,
+        video
+          ? 'Это видео увидят все гости приложения.'
+          : 'Приложение покажет своё встроенное видео.',
+      );
+      let reason = '';
+      d.append(
+        field('Причина изменения', reason, (v) => (reason = v), {
+          required: true,
+          id: 'op-reason',
+          max: 500,
+        }),
+      );
+      const error = el('p', 'notice error op-form-error');
+      error.setAttribute('role', 'alert');
+      d.append(
+        error,
+        button(
+          'Подтвердить',
+          () =>
+            void this.model
+              .api(`branches/${branch}/splash`, {
+                method: 'POST',
+                body: { video_id: video, reason: reason.trim() },
+              })
+              .then((value) => {
+                this.splashData = { branch, value: object(value) };
+                this.splashStatus = '';
+                d.close();
+                d.remove();
+                this.model.changed();
+              })
+              .catch(
+                (e) =>
+                  (error.textContent = reason.trim() ? message(e) : 'Укажите причину изменения.'),
+              ),
+          'button primary',
+          'op-save',
+        ),
+      );
+    };
+    if (writable) {
+      const input = Object.assign(el('input'), { type: 'file', accept: 'video/mp4,.mp4' });
+      input.dataset.testid = 'splash-file';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) void this.uploadSplash(branch, file, status);
+      });
+      const pick = el('label', 'field');
+      pick.append(
+        el('span', '', 'Новое видео: MP4 до 25 МБ, лучше вертикальное, без звука'),
+        input,
+      );
+      p.append(pick, status);
+      if (current)
+        p.append(
+          button(
+            'Вернуть встроенное видео',
+            () => choose(null, 'Вернуть встроенное видео'),
+            'button subtle',
+            'splash-reset',
+          ),
+        );
+    }
+    const rows = videos.map((v) => {
+      const actions = el('div', 'op-actions');
+      if (writable && v['id'] !== data['current'])
+        actions.append(
+          button(
+            'Показывать',
+            () => choose(String(v['id']), 'Показывать это видео'),
+            'button subtle',
+            `splash-use-${String(v['id'])}`,
+          ),
+        );
+      return [
+        date(v['created_at']),
+        mb(v['size']),
+        v['id'] === data['current'] ? badge('active') : 'Не показывается',
+        actions,
+      ];
+    });
+    if (rows.length) p.append(table(['Загружено', 'Размер', 'В приложении', 'Действия'], rows));
+    return p;
+  }
+  private async uploadSplash(branch: string, file: File, status: HTMLElement) {
+    const say = (text: string) => {
+      this.splashStatus = text;
+      const live = document.querySelector('[data-testid=splash-status]');
+      if (live) live.textContent = text;
+      else status.textContent = text;
+    };
+    const limits = object(this.splashData?.value['limits'] ?? {});
+    const max = Number(limits['max_bytes'] ?? 25 * 1024 * 1024);
+    const part = Number(limits['part_bytes'] ?? 256 * 1024);
+    if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') return void say('Нужен файл MP4.');
+    if (file.size < 1024 || file.size > max) return void say('Файл должен быть не больше 25 МБ.');
+    if (!this.splashPart) return void say('Загрузка недоступна.');
+    try {
+      say('Подготовка...');
+      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const sha = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      const upload = crypto.randomUUID();
+      const parts = Math.ceil(file.size / part);
+      for (let i = 0; i < parts; i++) {
+        say(`Загружается ${Math.round((i / parts) * 100)}%`);
+        const bytes = file.slice(i * part, Math.min(file.size, (i + 1) * part));
+        // One retry per part: a short Wi-Fi drop should not cost the whole upload.
+        await this.splashPart(upload, i, file.size, sha, bytes).catch(() =>
+          this.splashPart!(upload, i, file.size, sha, bytes),
+        );
+      }
+      say('Проверка видео...');
+      await this.model.api(`branches/${branch}/splash/uploads/${upload}/finish`, {
+        method: 'POST',
+        body: {},
+      });
+      this.splashData = null;
+      say('Видео загружено. Нажмите «Показывать», чтобы гости его увидели.');
+      this.model.changed();
+    } catch (e) {
+      say(message(e));
+    }
   }
   /**
    * Owner 15.11.2026: every game of the app is listed even before anything is saved for it; its
@@ -3884,6 +4071,9 @@ export class OperationsView {
       this.settlementBlocks(content, d);
       return;
     }
+    // Owner 15.11.2026: the storefront video, only on servers with capabilities.app_splash.
+    if (page === 'promo' && d.capabilities?.['app_splash'] === true)
+      content.append(this.splashPanel());
     if (page === 'promo')
       content.append(
         this.records('promo', 'Промо и баннеры', [

@@ -32,6 +32,11 @@ import {
 } from '../../services/api/dist/catalog-media-controller.js';
 import { createHttpApplication, RESOURCE } from '@pickchick/platform';
 import { CatalogAdminController } from '../../services/api/dist/catalog-admin-controller.js';
+import {
+  AppSplashController,
+  AppSplashMediaController,
+  useSplashPartBodyParser,
+} from '../../services/api/dist/app-splash-controller.js';
 import { encodeCatalogImage } from '../../services/api/dist/catalog-image-encoder.js';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import { createBackofficeServer } from '../../apps/backoffice/server.mjs';
@@ -84,6 +89,8 @@ export async function withCatalog(run, options = {}) {
     cloudMigrationDirectory,
     /** «Гости» (owner 15.11.2026): decrypts the guest contacts, as the API does with the PII key. */
     guestContact,
+    /** Video of the app storefront (cloud078, BACKOFFICE_APP_SPLASH_ENABLED). */
+    splash = false,
     ...serverOptions
   } = options;
   await withSyncDatabases(
@@ -117,6 +124,7 @@ export async function withCatalog(run, options = {}) {
         // Lane bo-ui2 step 5 (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED, with the staff positions).
         ...(staffAssignment ? { staffAssignmentEnabled: true } : {}),
         ...(guestContact ? { guestContact } : {}),
+        ...(splash ? { appSplashEnabled: true } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}
@@ -130,6 +138,7 @@ export async function withCatalog(run, options = {}) {
           ...(workforce ? [WorkforceController] : []),
           ...(expenses ? [ExpensesController] : []),
           ...(media ? [CatalogMediaController] : []),
+          ...(splash ? [AppSplashController, AppSplashMediaController] : []),
         ],
         providers: [
           ...(media
@@ -177,6 +186,7 @@ export async function withCatalog(run, options = {}) {
       })(CatalogModule);
       const app = await createHttpApplication(CatalogModule);
       if (media) useCatalogAssetBodyParser(app);
+      if (splash) useSplashPartBodyParser(app);
       await app.listen(0, '127.0.0.1');
       const upstream = await app.getUrl(),
         proxy = createBackofficeServer({

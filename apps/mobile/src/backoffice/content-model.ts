@@ -17,6 +17,8 @@ export type PublishedContent = {
    * servers) and read leniently: a bad entry is dropped, it never hides promos or other games.
    */
   game_cards?: GameCard[];
+  /** Owner 15.11.2026: storefront video from the back office; null or absent: the built-in one. */
+  splash?: { video: string } | null;
 };
 export type GameTemplate = 'pick-run' | 'pick-man' | 'pick-blocks' | 'magic-sort' | 'pick-farm';
 export type GameCard = {
@@ -107,5 +109,16 @@ export function parseContent(value: unknown, branch: string): PublishedContent {
         if (typeof promo[k]?.[locale] !== 'string' || promo[k][locale].length > 2000)
           throw new Error('Invalid promotion text');
   }
-  return { ...(p as PublishedContent), game_cards: gameCards(p['game_cards']) };
+  const splash = p['splash'] as Record<string, unknown> | null | undefined;
+  return {
+    ...(p as PublishedContent),
+    game_cards: gameCards(p['game_cards']),
+    // Read leniently: a bad value only keeps the built-in video.
+    splash:
+      splash &&
+      typeof splash['video'] === 'string' &&
+      /^\/v1\/media\/app\/[a-f0-9]{64}\.mp4$/.test(splash['video'])
+        ? { video: splash['video'] }
+        : null,
+  };
 }
