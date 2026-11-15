@@ -7856,6 +7856,19 @@
       "updatedAt": "2026-11-14T18:02:37.522Z",
       "summary": "Экран assembly active/paired с17:44:16; исчезнувший код относится к восстановлению пароля кухни. Reset applied, не used при18:02:16, expires18:02:57 UTC. Протокол5b886e02 опубликован, только чтение.",
       "nextAction": "Если код потерян, после23:03 Алматы новый reset через владельца; сразу скопировать, проверить delivery. Не переподключать assembly. Причина очистки браузера не доказана, секреты не читать."
+    },
+    {
+      "id": "desktop-kitchen-044-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/desktop-kitchen-044-1115",
+      "scopes": [
+        "docs/operations/desktop-updates-published.json",
+        "docs/operations/desktop-updates-publish-1115.md",
+        "@vps/desktop-updates"
+      ],
+      "status": "active",
+      "head": "8d932830278be7eba84330dac329c2cad83b3226",
+      "updatedAt": "2026-11-15T09:55:33.714Z"
     }
   ],
   "approvedScopeTransfers": [
