@@ -28,6 +28,7 @@ export const inputPaths = [
   'tsconfig.base.json',
   ...[
     'main.mjs',
+    'preload.cjs',
     'security.mjs',
     'updater.mjs',
     'update-feed.json',

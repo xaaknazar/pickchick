@@ -48,6 +48,7 @@ assert.deepEqual(
   asarFiles,
   [
     '/main.mjs',
+    '/preload.cjs',
     '/security.mjs',
     '/gateway.mjs',
     '/terminal-cookie.mjs',
@@ -67,7 +68,7 @@ for (const name of ASSETS) {
   assert.equal(hash(data), manifest.files[name].sha256, `Renderer hash differs: ${name}`);
   assert.equal(data.byteLength, manifest.files[name].bytes);
 }
-for (const name of ['main.mjs', 'security.mjs', 'updater.mjs', 'update-feed.json']) {
+for (const name of ['main.mjs', 'preload.cjs', 'security.mjs', 'updater.mjs', 'update-feed.json']) {
   assert.equal(hash(readEntry(name)), manifest.inputs[`apps/kitchen-desktop/${name}`].sha256);
 }
 assert.equal(hash(readEntry('gateway.mjs')), manifest.inputs['apps/kitchen/server.mjs'].sha256);

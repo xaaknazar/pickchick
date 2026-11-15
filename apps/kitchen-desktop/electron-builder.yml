@@ -9,6 +9,7 @@ directories:
   buildResources: build
 files:
   - main.mjs
+  - preload.cjs
   - security.mjs
   - gateway.mjs
   - terminal-cookie.mjs
