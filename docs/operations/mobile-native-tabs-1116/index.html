@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PickChick - таб-бар до и после</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #07122b;
+        color: #f4f6ff;
+      }
+      body {
+        max-width: 1000px;
+        margin: auto;
+        padding: 32px 20px;
+      }
+      h1 {
+        font-size: clamp(24px, 4vw, 40px);
+        margin: 0 0 12px;
+      }
+      p {
+        line-height: 1.5;
+        color: #b7c3dc;
+      }
+      .compare {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        font-size: 20px;
+        font-weight: 650;
+        margin: 16px 0;
+      }
+      video {
+        display: block;
+        width: 100%;
+        max-height: 620px;
+        background: #020817;
+        border-radius: 24px;
+      }
+      button,
+      a {
+        color: inherit;
+      }
+      button {
+        background: #ff890a;
+        color: #07122b;
+        border: 0;
+        border-radius: 14px;
+        padding: 14px 22px;
+        font: 600 16px system-ui;
+        cursor: pointer;
+        margin: 8px 0 18px;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid white;
+        outline-offset: 4px;
+      }
+      .note {
+        font-size: 14px;
+      }
+      .drag {
+        max-width: 310px;
+        margin: 28px auto;
+      }
+      details {
+        margin: 24px 0;
+      }
+      summary {
+        cursor: pointer;
+        padding: 12px 0;
+      }
+      .images {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .images img {
+        width: 100%;
+        border-radius: 20px;
+      }
+      footer {
+        margin: 32px 0;
+        color: #b7c3dc;
+      }
+      @media (max-width: 560px) {
+        body {
+          padding: 24px 12px;
+        }
+        .compare {
+          gap: 12px;
+        }
+        video {
+          border-radius: 16px;
+        }
+        figcaption {
+          font-size: 17px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Таб-бар PickChick: до и после</h1>
+    <p>
+      Реальные записи приложения на iPhone 17 Pro в симуляторе iOS 26.5. В новом варианте стекло,
+      подсветку и движение выбранной вкладки рисует сама iOS.
+    </p>
+    <button id="replay" type="button">Смотреть оба варианта</button>
+    <div class="compare">
+      <figure>
+        <figcaption>До - сборка 37</figcaption>
+        <video
+          id="before"
+          controls
+          playsinline
+          preload="metadata"
+          poster="before-menu.png"
+          src="before.mp4"
+        ></video>
+      </figure>
+      <figure>
+        <figcaption>После - системная панель</figcaption>
+        <video
+          id="after"
+          controls
+          playsinline
+          preload="metadata"
+          poster="after-menu.png"
+          src="after.mp4"
+        ></video>
+      </figure>
+    </div>
+    <p class="note">
+      Скорость записей не менялась. Нажатия выполнены отдельными прогонами, поэтому их моменты не
+      совпадают. Это локальный вариант для согласования, он ещё не выпущен.
+    </p>
+    <figure class="drag">
+      <figcaption>Перетягивание вкладки</figcaption>
+      <video
+        controls
+        playsinline
+        preload="metadata"
+        poster="after-games.png"
+        src="drag.mp4"
+      ></video>
+    </figure>
+    <details>
+      <summary>Сравнить неподвижные кадры</summary>
+      <div class="images">
+        <figure>
+          <figcaption>До</figcaption>
+          <img src="before-games.png" alt="Игры со старой панелью вкладок" />
+        </figure>
+        <figure>
+          <figcaption>После</figcaption>
+          <img src="after-games.png" alt="Игры с системным стеклянным таб-баром" />
+        </figure>
+      </div>
+    </details>
+    <details>
+      <summary>Корзина над новой панелью</summary>
+      <img
+        style="display: block; max-width: 390px; width: 100%"
+        src="after-cart.png"
+        alt="Корзина расположена выше системных вкладок"
+      />
+    </details>
+    <footer>
+      Проверены переключения, гостевой доступ, перетягивание и открытие корзины. Редкое исходное
+      зависание не воспроизвелось. Проверка на физическом iPhone ещё нужна.
+    </footer>
+    <script>
+      document.getElementById('replay').addEventListener('click', () => {
+        for (const id of ['before', 'after']) {
+          const v = document.getElementById(id);
+          v.currentTime = 0;
+          v.play().catch(() => {});
+        }
+      });
+    </script>
+  </body>
+</html>

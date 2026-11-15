@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-16",
+  "baseCommit": "95ad8add98bd5612464beaa173f191f6dd7e257d",
+  "simulator": "iPhone 17 Pro / iOS 26.5",
+  "baselineBuild": "1.0.1 (37) cached simulator binary and bundle",
+  "candidate": "same native binary, local production-profile JS bundle, no release archive",
+  "checks": {
+    "baselineSwitchingAndGuestGate": "PASS",
+    "nativeSwitchingAndGuestGate": "PASS",
+    "nativeCartPlacementAndOpening": "PASS",
+    "nativeSelectionDrag": "PASS",
+    "finalNativeSuiteWithSelectedTabAssertions": "PASS, 3/3"
+  },
+  "limitations": [
+    "XCTest waits for idle; repeated switches are not a sub-frame stress test",
+    "Rare original freeze not reproduced",
+    "No physical device, signed-in session, checkout, Dynamic Type or Reduce Motion acceptance yet"
+  ],
+  "videoTrimSeconds": {
+    "before.mp4": [16, 28],
+    "after.mp4": [8, 22],
+    "drag.mp4": [33, 36.5]
+  },
+  "sha256": {
+    "after-cart.png": "1af067679c791b749b69a9b7b85af2e9c75fb961f0b025c46f77f93976551341",
+    "after-games.png": "6c87daefd474cb2e934d2de872cb800a70af222e23568d2fd7e9dab057865f3a",
+    "after-menu.png": "7245ba33cabc214d64b0cc2839da230cb0a0e2f18c0069d7e8fb49e337cd753e",
+    "after.mp4": "c0fd150cdd045cd36c7c9c00e7bb350b720898e95add8c2c61794ec6617426e6",
+    "before-games.png": "875da7bb1e6abdd3eac47600a8e51e1d3eccad636dff8c6b115a05e884c9c99a",
+    "before-menu.png": "165b4002265f30bf13700ff845ef1d2741d049be610117ddc2ffc438b74fb1e9",
+    "before.mp4": "f57594dd853ccba2d55010144d331498f8ab3d494fadc90671e44c1cb4b17d85",
+    "drag.mp4": "85f66cb8e04ec9ed216965cb56267ee76377fed99ee2fe056fd1c06f49e35e09"
+  }
+}
