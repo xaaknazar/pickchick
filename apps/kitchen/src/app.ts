@@ -152,9 +152,23 @@ function fullscreenLabel() {
 function syncFullscreenButton() {
   const toggle = document.getElementById('window-fullscreen');
   if (!toggle) return;
-  toggle.textContent = fullscreenLabel();
+  toggle.title = fullscreenLabel();
+  toggle.setAttribute('aria-label', fullscreenLabel());
   toggle.setAttribute('aria-pressed', String(fullscreen));
 }
+// One listener for the whole page: the header is rebuilt by every render (the sign-in screen
+// too), so a listener on the button itself would be lost on the screens that return early.
+document.addEventListener('click', (event) => {
+  if (!kitchenWindow || !(event.target instanceof Element)) return;
+  if (!event.target.closest('#window-fullscreen')) return;
+  void kitchenWindow
+    .toggleFullscreen()
+    .then((value) => {
+      fullscreen = value;
+      syncFullscreenButton();
+    })
+    .catch(() => {});
+});
 if (kitchenWindow) {
   kitchenWindow.onChange((value) => {
     fullscreen = value;
@@ -294,7 +308,7 @@ function render() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${WAIT_LATE_MINUTES} МИН</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" aria-pressed="${fullscreen}">${fullscreenLabel()}</button>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${WAIT_LATE_MINUTES} МИН</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" title="${fullscreenLabel()}" aria-label="${fullscreenLabel()}" aria-pressed="${fullscreen}">⛶</button>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
@@ -556,15 +570,6 @@ function render() {
     'acknowledge-cloud': () => model.acknowledgeConflict('cloud'),
     first: () => model.page(true),
     next: () => model.page(),
-    'window-fullscreen': () => {
-      void kitchenWindow
-        ?.toggleFullscreen()
-        .then((value) => {
-          fullscreen = value;
-          syncFullscreenButton();
-        })
-        .catch(() => {});
-    },
   }))
     document.getElementById(id)?.addEventListener('click', fn);
   document.querySelectorAll<HTMLButtonElement>('[data-station]').forEach((b) =>
