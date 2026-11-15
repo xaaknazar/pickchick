@@ -119,7 +119,7 @@ try {
 } finally {[IO.Directory]::Delete($temp,$true)}
 # The 025 candidate against the reviewed ledger of this branch, read the way the operator reads
 # it on the server: from the file next to the script. That file is pinned by SHA-256 and runs
-# past 025, because the backup tool of this branch accepts schemas up to 028.
+# past 025, because the backup tool of this branch accepts schemas up to 029.
 $queueDir=Join-Path ([IO.Path]::GetTempPath()) ('pickchick-queue-ledger-'+[guid]::NewGuid().ToString('N'));$null=[IO.Directory]::CreateDirectory($queueDir)
 try {
  $ledgerFile=Join-Path $queueDir 'native-edge-backup-ledger.json'
@@ -130,13 +130,13 @@ try {
  [IO.File]::WriteAllText((Join-Path $queueDir 'queue-ledger.ps1'),(($ledgerFunctions|ForEach-Object {$_.Extent.Text}) -join "`n"))
  . (Join-Path $queueDir 'queue-ledger.ps1')
  $rows=[Text.Encoding]::UTF8.GetString($ledgerBytes)|ConvertFrom-Json
- Check (@($rows).Count -eq 28) 'The reviewed ledger of this branch has 28 rows'
+ Check (@($rows).Count -eq 29) 'The reviewed ledger of this branch has 29 rows'
  function Copy-LedgerRows($Rows){return @($Rows|ForEach-Object {@{scope=$_.scope;version=$_.version;checksum=$_.checksum}})}
  $candidate=Copy-LedgerRows $rows[0..24]
  Assert-QueueMigrationSet $candidate;Check $true 'A 025 candidate equal to the first 25 reviewed rows is accepted'
  Rejects {Assert-QueueMigrationSet (Copy-LedgerRows $rows[0..23])} 'A 024 candidate is refused'
  Rejects {Assert-QueueMigrationSet (Copy-LedgerRows $rows[0..25])} 'A 026 candidate is refused'
- Rejects {Assert-QueueMigrationSet (Copy-LedgerRows $rows)} 'The whole 028 ledger is not a 025 candidate'
+ Rejects {Assert-QueueMigrationSet (Copy-LedgerRows $rows)} 'The whole 029 ledger is not a 025 candidate'
  $changed=Copy-LedgerRows $rows[0..24];$changed[24].checksum='0'*64
  Rejects {Assert-QueueMigrationSet $changed} 'A changed 025 migration is refused'
  $changed=Copy-LedgerRows $rows[0..24];$changed[3].checksum='0'*64

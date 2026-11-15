@@ -13,7 +13,11 @@
 - продажа с `attempt_id` проверяется в той же транзакции, номер операции терминала пишется сам;
 - касса: кнопка «Отправить на терминал», ожидание, автоматическая продажа, ручной запасной путь;
 - оператор `infra/windows/kaspi-pos-upgrade-db.mjs` (028 -> 029), скрипт привязки
-  `scripts/kaspi-terminal-setup.mjs`, инструменты копии базы знают schema029.
+  `scripts/kaspi-terminal-setup.mjs`, инструменты копии базы знают schema029;
+- установка рантайма с 029 на точке после рантайма 028: `infra/windows/update-runtime-head-029.ps1`
+  (порядок окна - `docs/operations/stage2-windows-1030/head-runtime-029.md`); файлы Kaspi и
+  журнал копий входят в архив рантайма (`scripts/build-windows-edge-runtime.py`);
+- касса 0.5.4 (`apps/pos-desktop`), старая лента обновлений не менялась.
 
 Проверки: тесты на имитаторе терминала (`tests/unit/kaspi-client.test.mjs`,
 `tests/integration/kaspi-pos.test.mjs`) и кассы (`tests/pos/cashier-ui.test.mjs`). Имитатор - не

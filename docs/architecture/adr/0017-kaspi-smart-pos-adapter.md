@@ -98,7 +98,10 @@
    проверенная копия базы schema028.
 2. Все службы edge остановлены: `node infra/windows/kaspi-pos-upgrade-db.mjs inspect <tools>
 <app> <branch>`, затем то же с `apply`. Повторный `apply` отказывается.
-3. Службы запущены. На терминале: «Защита интеграции» → «Настроить доступ», постоянный IP в
+3. Рантайм 029 на службы: `infra/windows/update-runtime-head-029.ps1` после свежей копии
+   schema029 (порядок: `docs/operations/stage2-windows-1030/head-runtime-029.md`); он сам
+   запускает службы.
+   Службы запущены. На терминале: «Защита интеграции» → «Настроить доступ», постоянный IP в
    роутере.
 4. `node scripts/kaspi-terminal-setup.mjs probe --host <IP>` - отпечаток сертификата сверить с
    терминалом; `register --terminal <касса> --host <IP> --certificate-sha256 <отпечаток>` -

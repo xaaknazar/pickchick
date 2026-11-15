@@ -90,6 +90,13 @@ ADMIN_FILES = (
     'infra/windows/local-pos-service.md',
     'infra/windows/runtime-package.md',
     'infra/windows/PickChickEdge.xml.example',
+    # ADR-0017 (Kaspi Smart POS): edge 029 grants (imported by edge-runtime-grants.mjs), its
+    # guarded upgrade, which reads the reviewed ledger next to it, and the owner tool that links a
+    # terminal to a cash desk (imports ./edge-migrate.mjs and packages of the runtime closure).
+    'infra/windows/kaspi-pos-grants.mjs',
+    'infra/windows/kaspi-pos-upgrade-db.mjs',
+    'infra/windows/native-edge-backup-ledger.json',
+    'scripts/kaspi-terminal-setup.mjs',
 )
 
 
