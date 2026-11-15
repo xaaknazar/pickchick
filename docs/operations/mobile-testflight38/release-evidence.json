@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "app": "PickChick",
+  "version": "1.0.1",
+  "build": "38",
+  "sourceSha": "884dbf5f64ed67c0437a4bbdd1aab9565eeac15e",
+  "dirty": false,
+  "featureProfile": "production",
+  "apiUrl": "https://api.pickchick.kz",
+  "androidVersionCode": 11,
+  "androidDelivered": false,
+  "menuCategoriesGlass": false,
+  "checks": {
+    "node": 613,
+    "python": 96,
+    "typescript": "pass",
+    "eslint": "pass",
+    "prettier": "pass",
+    "browserTabBar": "pass (320/393/1024)",
+    "productionWebExport": "pass",
+    "roadmapTests": 7,
+    "foundation": {
+      "id": 43766448161,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43766448161",
+      "headSha": "884dbf5f64ed67c0437a4bbdd1aab9565eeac15e",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Foundation POS and backoffice integration",
+          "id": 132972618444,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation simulator browser regressions",
+          "id": 132972618570,
+          "conclusion": "success"
+        },
+        {
+          "name": "Private staging image and restricted database role",
+          "id": 132972618583,
+          "conclusion": "success"
+        },
+        {
+          "name": "Local kitchen UI and recovery",
+          "id": 132972618591,
+          "conclusion": "success"
+        },
+        {
+          "name": "Design screens and interaction smoke",
+          "id": 132972618631,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation server account and Kaspi fixtures",
+          "id": 132972618688,
+          "conclusion": "success"
+        },
+        {
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "id": 132972618718,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation static checks and transaction invariants",
+          "id": 132972618763,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation mobile bundles and checkout recovery",
+          "id": 132972618805,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "id": 132972618817,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build, contracts and PostgreSQL integration",
+          "id": 132991979681,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "native": {
+    "archive": "complete",
+    "export": "complete",
+    "version": "1.0.1",
+    "build": "38",
+    "temporarySigningSettingsRestored": true,
+    "ipaBytes": 134742758,
+    "ipaSha256": "6647ae70947165b9a44a7363ab9cf9fce194a672fb38daf1cbb1ad362747b923",
+    "releaseLabel": "mobile-glass-20261116-38-r3",
+    "simulatorBuild": "pass",
+    "simulatorInstallation": "pass",
+    "simulatorUI": "not verified; Mac windows unavailable"
+  },
+  "testFlight": {
+    "uploaded": false,
+    "status": "blocked: Xcode App Store Connect account access required",
+    "groupsAuthorized": ["PickChick Internal", "Testing"],
+    "whatToTest": "Новый таб-бар в стиле Apple: стекло, плавное переключение, можно провести пальцем по вкладкам. Стеклянные: „Настроить комбо“ и кнопка цены в карточке блюда. Категории меню оставлены без стекла.",
+    "publicAppStoreChanged": false,
+    "googlePlayChanged": false
+  },
+  "physicalIphoneAcceptance": false
+}

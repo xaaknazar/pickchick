@@ -5657,7 +5657,7 @@
       "id": "mobile-testflight38",
       "workstream": "mobile",
       "title": "TestFlight 38 - стекло Apple и сохранение Pick Box",
-      "summary": "Объединены cutover 5f288612 и pick-box a4e98d25. iOS 1.0.1 (38), Android 11 не выпускается. По уточнению владельца 16.11 категории меню оставлены без стекла; таб-бар и две кнопки сохраняют стеклянный эффект. Локально 613 Node, 96 Python, TypeScript, ESLint, Prettier, production web-export и браузерная проверка таб-бара PASS. Полная CI, подписанная сборка и доставка в TestFlight ещё выполняются. Владелец разрешил PickChick Internal и отдельно прежнюю внешнюю Testing.",
+      "summary": "Объединены cutover 5f288612 и pick-box a4e98d25. iOS 1.0.1 (38), Android 11 не выпускается. По уточнению владельца 16.11 категории меню оставлены без стекла; таб-бар и две кнопки сохраняют стеклянный эффект. Локально 613 Node, 96 Python, TypeScript, ESLint, Prettier, production web-export и браузерная проверка таб-бара PASS. Полная Foundation CI 43766448161 - 11/11 PASS на 884dbf5f; подписанный архив и IPA готовы (production, dirty=false). Доставка остановилась на доступе Apple Account в Xcode, владелец должен повторить вход. Нативный Simulator build/install PASS, визуальная проверка не выполнена: окна Mac недоступны. Владелец разрешил PickChick Internal и отдельно прежнюю внешнюю Testing.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -5673,10 +5673,10 @@
         "Сборка 38 доступна в разрешённых тестовых группах; App Store и Google Play не изменены.",
         "Владелец проверил стекло iOS 26, плавность, протяжку, вход гостя и понижение прозрачности."
       ],
-      "nextAction": "Дождаться полной CI, собрать с production и dirty=false, загрузить и проверить группы TestFlight; затем приёмка владельцем на iPhone.",
+      "nextAction": "Повторить вход Apple Account в Xcode, загрузить готовый архив r3, проверить группы TestFlight и сохранить скриншот; закончить нативную проверку и обычный merge PR #381. Физическая приёмка владельцем отдельно.",
       "checks": {
         "implemented": true,
-        "verified": false,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }

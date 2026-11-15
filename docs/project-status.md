@@ -5,8 +5,9 @@ cutover (`5f288612`) и pick-box (`a4e98d25`), iOS 1.0.1 (38), Android оста�
 Сохранены обе истории и управляемые карточки игр. По уточнению владельца 16.11
 категории меню возвращены к прежнему виду без стекла; стеклянный таб-бар,
 «Настроить комбо» и кнопка цены сохраняются. Локально 613 Node, 96 Python,
-TypeScript, ESLint и production web-export PASS. Загрузка ожидает полного зелёного
-Foundation CI на точном SHA. Разрешены PickChick Internal и, отдельным ответом владельца,
+TypeScript, ESLint и production web-export PASS. Полная Foundation CI 43766448161 - 11/11 PASS на точном `884dbf5f`,
+подписанный архив и IPA 1.0.1 (38) готовы, dirty=false, production.
+Загрузка остановилась на доступе Apple Account в Xcode; запрошен повторный вход. Разрешены PickChick Internal и, отдельным ответом владельца,
 прежняя внешняя Testing. App Store/Google Play не меняются.
 [Протокол и дальнейшая приёмка](operations/mobile-testflight38.md).
 
