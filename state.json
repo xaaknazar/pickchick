@@ -7901,9 +7901,11 @@
         "docs/operations/kaspi-pos-kit-1115",
         "@artifacts/kaspi-pos-1115"
       ],
-      "status": "active",
-      "head": "982f6e2fd2a1680b1a8ad1731b2cf2de3a6075e4",
-      "updatedAt": "2026-11-15T15:25:23.370Z"
+      "status": "available",
+      "head": "a90c7a65beaa2b5632bc2f916d15824167d888a6",
+      "updatedAt": "2026-11-15T15:30:51.001Z",
+      "summary": "PR378 exact982f6e2 copied unchanged to codex/kaspi-pos-1115. Foundation43729759892 and Windows43729895381 each have a failed required job: stale backup/ledger pins and schema28 assertions. Packaging stopped. Report includes missing Kaspi admin files and absent runtime029 installation path. No cloud/device change.",
+      "nextAction": "Claude fixes source pins/runtime packaging and guarded029 runtime update; obtain new SHA and both fully green CI, then build kit and COMMANDS. Source CI other jobs may still finish; no installation allowed from current failed gates."
     }
   ],
   "approvedScopeTransfers": [
