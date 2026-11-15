@@ -1,0 +1,143 @@
+{
+  "status": "not_deployed",
+  "scope": "read_only_inspection",
+  "baseline": {
+    "checked_at_utc": "2026-11-15T13:26:45.614738+00:00",
+    "api_release": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_image_id": "sha256:3f661b6dd3a18cef72b303aa9a21cf50bcc1b998751d272bff2b71f936b69786",
+    "api_revision": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "api_state": "running",
+    "api_compose_sha256": "686635f1a5a86dff3d7bb76b5ebfd6be53c0f8365eb2dc3ff3bd316ec137405c",
+    "public_release": "21e95fe2dbbf8ff9abe167f8e40b6528b271fd3b",
+    "public_web_source": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+    "web_component_sources": {
+      "operations": "9f6696924e90856f3fccde1d5185801100b62123",
+      "backoffice": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "design": "93b14e7f8491645dcf8ed2aabdd501afc6481a90",
+      "packages": "93b14e7f8491645dcf8ed2aabdd501afc6481a90",
+      "kitchen-demo": "3c1223c47c2341f1503bcd0edf8eaebf07bfdf43"
+    },
+    "public_web_manifest_sha256": "6a5c4e42c258cad843f2a26fcb4c5f35aab1958aa6e79bbab99bfaf099663580",
+    "gateway_caddy_sha256": "285423d63b91cc61ea7d1f48efdaa9fb99007502e0470b4eba4b19d203aa9128",
+    "gateway_state": "running",
+    "deployment_lock_present": false,
+    "guest_contact_prerequisites": {
+      "auth_enabled": true,
+      "pii_key_configured": true
+    },
+    "enabled_cutover_flag_names": ["BACKOFFICE_EXPENSES_ENABLED"],
+    "splash_flag_present": false,
+    "splash_route_present": false,
+    "cloud_migrations": {
+      "count": 70,
+      "latest": "077_cloud_backoffice_expenses.sql",
+      "versions": [
+        "001_cloud_foundation.sql",
+        "002_cloud_snapshot_guards.sql",
+        "003_cloud_menu_sync.sql",
+        "004_cloud_test_order_flow.sql",
+        "005_cloud_test_modifier_task_titles.sql",
+        "006_cloud_test_permanent_access.sql",
+        "007_cloud_customer_identity.sql",
+        "008_cloud_commerce_core.sql",
+        "009_cloud_catalog_admin.sql",
+        "010_cloud_loyalty.sql",
+        "011_cloud_catalog_lock_permissions.sql",
+        "012_cloud_commerce_catalog.sql",
+        "013_cloud_identity_receipt_limits.sql",
+        "014_cloud_fulfillment_transport.sql",
+        "015_cloud_unpaid_cancellation.sql",
+        "016_cloud_pos_order_sync.sql",
+        "017_cloud_backoffice.sql",
+        "018_pos_kitchen_sync.sql",
+        "019_cloud_unpaid_test_orders.sql",
+        "020_cloud_daily_test_numbers.sql",
+        "021_cloud_test_service_shifts.sql",
+        "022_cloud_otp_channels.sql",
+        "023_cloud_otp_delivery_consent.sql",
+        "024_cloud_customer_pilot_orders.sql",
+        "025_cloud_combo_stamps.sql",
+        "026_cloud_kaspi_remote.sql",
+        "027_cloud_deferred_fiscal_pilot.sql",
+        "028_cloud_otp_code_length.sql",
+        "029_cloud_kaspi_invoice_comment.sql",
+        "030_cloud_branch_availability.sql",
+        "031_cloud_otp_auto_channel.sql",
+        "032_cloud_order_feedback.sql",
+        "033_cloud_cashier_reports.sql",
+        "034_cloud_catalog_menu_delivery.sql",
+        "035_cloud_kiosk_sessions.sql",
+        "036_cloud_kiosk_commerce.sql",
+        "037_cloud_farm.sql",
+        "038_cloud_farm_field_capacity.sql",
+        "039_cloud_tiptoppay_checkout.sql",
+        "040_cloud_tiptoppay_test_checkout.sql",
+        "042_cloud_finance.sql",
+        "043_cloud_kiosk_kaspi_qr.sql",
+        "044_cloud_kiosk_enrollment.sql",
+        "045_cloud_kiosk_qr_before_admission.sql",
+        "046_cloud_kiosk_qr_recovery.sql",
+        "047_cloud_edge_menu_state.sql",
+        "048_cloud_stop_commands.sql",
+        "049_cloud_catalog_assets.sql",
+        "050_cloud_kiosk_payment_incidents.sql",
+        "051_cloud_device_registry.sql",
+        "052_cloud_workforce.sql",
+        "053_cloud_channel_numbers.sql",
+        "054_cloud_kitchen_fulfillment.sql",
+        "055_cloud_channel_stops.sql",
+        "056_cloud_kitchen_screens.sql",
+        "057_cloud_workforce_payroll.sql",
+        "058_cloud_device_center.sql",
+        "060_cloud_combo_rewards.sql",
+        "064_cloud_cashier_ordering_state.sql",
+        "066_cloud_edge_identity_rotation.sql",
+        "068_cloud_identity_abuse_limits.sql",
+        "069_cloud_customer_notifications.sql",
+        "070_cloud_station_plans.sql",
+        "071_cloud_daily_reconciliation.sql",
+        "072_cloud_kitchen_restore_review.sql",
+        "073_cloud_pos_sales_sync.sql",
+        "074_cloud_backoffice_cutover.sql",
+        "075_cloud_backoffice_ops.sql",
+        "076_cloud_backoffice_supply.sql",
+        "077_cloud_backoffice_expenses.sql"
+      ]
+    },
+    "staff_login_containers": ["pickchick-staff-login"]
+  },
+  "integrity": {
+    "checked_at_utc": "2026-11-15T13:29:33.042735+00:00",
+    "web_files_checked": 217,
+    "web_hash_mismatch_paths": [],
+    "migration_files_checked": 70,
+    "migration_hash_mismatch_versions": [],
+    "staff_login": {
+      "image_id": "sha256:2389ce322e3b057912a771cff27401fcaae9c77f6f94011f9fa89c441d7febf4",
+      "revision": "7e3120438461cbe561b01a587578060ff2cd9d3b",
+      "health": "healthy"
+    },
+    "http": {
+      "https://api.pickchick.kz/health/live": {
+        "status": 200,
+        "sha256": "3fddbf067b9910ef22a94d282f0d3839f4a9eead40fe44edea00f2ed38d827ed"
+      },
+      "http://127.0.0.1:13100/health/ready": {
+        "status": 200,
+        "sha256": "789c9efce481d180c1207ef1e71e52d83283d15ab09f5174d6608f77319c31c1",
+        "ready": true,
+        "degraded": false
+      },
+      "https://pickchick.kz/backoffice/": {
+        "status": 200,
+        "sha256": "7635a8e22bdcf972de0e55f78b86d58134869b622d0a927899a857cafe965716"
+      },
+      "https://pickchick.kz/backoffice/auth/session": {
+        "status": 200,
+        "sha256": "c9e7f7b6220679dfd827e053379dc7fed1bb2cc1953b5c42b7b8b10f6e666d1c",
+        "authentication_enabled": true,
+        "authenticated": false
+      }
+    }
+  }
+}
