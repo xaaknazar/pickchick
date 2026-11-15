@@ -7836,12 +7836,11 @@
       "branch": "codex/desktop-publish-1114",
       "head": "e647524d88a5ddf42f4c157ee4525a90c756d1fb",
       "scopes": [
-        "docs/operations/desktop-updates-published.json",
         "docs/operations/desktop-updates-publish-1114.md"
       ],
       "status": "available",
-      "updatedAt": "2026-11-14T12:25:37.545Z",
-      "summary": "14.11 DEPLOYED kitchen-0.4.3-pos-0.5.3 from exact dec8b48c; idle. Foundation11/11, Windows self-update both PASS; installer hashes/sizes match build logs; Linux59 tests and local3 feed tests PASS. Guarded tmux publish exit0; before/after API/gateway unchanged; lock absent. Mac outside complete installer downloads PASS. GitHub Desktop update feed check43594561849 PASS. Only feed pointer and release records changed. Server reservation released; no device/store actions.",
+      "updatedAt": "2026-11-15T09:55:28.329Z",
+      "summary": "14.11 DEPLOYED kitchen-0.4.3-pos-0.5.3 from exact dec8b48c; idle. Foundation11/11, Windows self-update both PASS; installer hashes/sizes match build logs; Linux59 tests and local3 feed tests PASS. Guarded tmux publish exit0; before/after API/gateway unchanged; lock absent. Mac outside complete installer downloads PASS. GitHub Desktop update feed check43594561849 PASS. Only feed pointer and release records changed. Server reservation released; no device/store actions.\n15.11: own release record passed to desktop-kitchen-044-1115 for the owner-requested Kitchen0.4.4 publish; prior protocol preserved.",
       "nextAction": "Owner accepts one restaurant monoblock after normal restart: POS0.5.3/Kitchen0.4.3. Receipt branch codex/desktop-publish-1114 published, not merged. Old feed retained; guarded withdraw documented. Do not repeat publication."
     },
     {
