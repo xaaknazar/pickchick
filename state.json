@@ -7906,20 +7906,6 @@
       "nextAction": "Owner reviews before/after. No merge or app release until approval. Then full CI and release archive; physical iPhone, account/badge/payment-resume/accessibility acceptance outstanding."
     },
     {
-      "id": "kaspi-pos-kit-1115",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-pos-kit-1115",
-      "scopes": [
-        "docs/operations/kaspi-pos-kit-1115",
-        "@artifacts/kaspi-pos-1115"
-      ],
-      "status": "available",
-      "head": "b31e79f1a3006a5418b73f9d95fc1c8c7f547784",
-      "updatedAt": "2026-11-15T21:57:25.988Z",
-      "summary": "Exact35efd72c published without force. Foundation43761973367 PASS11/11 and Windows43761995773 PASS3/3 incl029 ledger pins. Kit delivered to ~/Claude/PickChick-exchange/kaspi-pos-kit-1115: 180142411 bytes SHA2564043e009d17a755ab00644c616145e6dddd7f12b78426313b75ee79b60fd3c40. Runtime, POS0.5.4, fullCIproofs, exact operators and COMMANDS verified. Predecessor remains placeholder. No cloud/feed/cashier changes. Docs b31e79f1 published.",
-      "nextAction": "Claude obtains installed028 sourceCommit from completed.json and fills only executable command copy outside immutable kit; follows COMMANDS backup028/DB029/backup029/runtime/POS/terminal stages. Physical acceptance and payment remain on the cashier with owner."
-    },
-    {
       "id": "mobile-build38-1116",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-build38-1116",
@@ -7962,6 +7948,21 @@
       "updatedAt": "2026-11-16T05:56:55.684Z",
       "summary": "16.11: владелец вошёл в Xcode, повторный upload 1.0.1 (38) отклонён Apple с 90062/90186: одобренная 1.0.1 закрыта для новых сборок. Запрошено разрешение на 1.0.2 (38); до ответа версия не изменена. Готовый r3/исходник884dbf5f сохранён, CI11/11PASS. Ветка включает свежий cutover обычным merge423c7c8b, код приложения неизменен. Отчёт ef3d65b9 опубликован, roadmap7/7PASS, PR381 открыт. Группы не назначены, App Store/Play не менялись.",
       "nextAction": "После ответа владельца на 1.0.2 (38) занять ту же задачу; увеличить только маркетинговую версию, пересобрать штатным скриптом из чистого SHA, зелёная Foundation CI до upload. Старый1.0.1r3 не повторять: trainзакрыт. На Mac4ГБ, можно убрать только собственные пересоздаваемые кеши, архивы/ключи сохранить. БраузерASC истёк, для групп потребуется вход. PickChick Internal+Testing разрешены. В конце доказательства/скриншот и обычный mergePR381. Физическая приёмка отдельно."
+    },
+    {
+      "id": "kaspi-pos-kit-1115",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-pos-kit-1115",
+      "scopes": [
+        "docs/operations/kaspi-pos-kit-1115",
+        "@artifacts/kaspi-pos-1115",
+        "@github/releases/kaspi-pos-kit-1115"
+      ],
+      "status": "active",
+      "head": "b31e79f1a3006a5418b73f9d95fc1c8c7f547784",
+      "updatedAt": "2026-11-16T06:17:52.926Z",
+      "summary": "Exact35efd72c published without force. Foundation43761973367 PASS11/11 and Windows43761995773 PASS3/3 incl029 ledger pins. Kit delivered to ~/Claude/PickChick-exchange/kaspi-pos-kit-1115: 180142411 bytes SHA2564043e009d17a755ab00644c616145e6dddd7f12b78426313b75ee79b60fd3c40. Runtime, POS0.5.4, fullCIproofs, exact operators and COMMANDS verified. Predecessor remains placeholder. No cloud/feed/cashier changes. Docs b31e79f1 published.",
+      "nextAction": "Claude obtains installed028 sourceCommit from completed.json and fills only executable command copy outside immutable kit; follows COMMANDS backup028/DB029/backup029/runtime/POS/terminal stages. Physical acceptance and payment remain on the cashier with owner."
     }
   ],
   "approvedScopeTransfers": [
