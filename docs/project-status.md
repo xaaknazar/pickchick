@@ -7,7 +7,9 @@ cutover (`5f288612`) и pick-box (`a4e98d25`), iOS 1.0.1 (38), Android оста�
 «Настроить комбо» и кнопка цены сохраняются. Локально 613 Node, 96 Python,
 TypeScript, ESLint и production web-export PASS. Полная Foundation CI 43766448161 - 11/11 PASS на точном `884dbf5f`,
 подписанный архив и IPA 1.0.1 (38) готовы, dirty=false, production.
-Загрузка остановилась на доступе Apple Account в Xcode; запрошен повторный вход. Разрешены PickChick Internal и, отдельным ответом владельца,
+16.11 владелец вошёл в Xcode; повторный upload отклонён Apple: `90062/90186`,
+одобренная версия 1.0.1 закрыта для новых сборок. Запрошено разрешение на 1.0.2 (38),
+версия пока не изменена. Разрешены PickChick Internal и, отдельным ответом владельца,
 прежняя внешняя Testing. App Store/Google Play не меняются.
 [Протокол и дальнейшая приёмка](operations/mobile-testflight38.md).
 

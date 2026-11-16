@@ -99,11 +99,19 @@
   },
   "testFlight": {
     "uploaded": false,
-    "status": "blocked: Xcode App Store Connect account access required",
+    "status": "rejected: 1.0.1 pre-release train closed; owner decision on 1.0.2 (38) pending",
     "groupsAuthorized": ["PickChick Internal", "Testing"],
     "whatToTest": "Новый таб-бар в стиле Apple: стекло, плавное переключение, можно провести пальцем по вкладкам. Стеклянные: „Настроить комбо“ и кнопка цены в карточке блюда. Категории меню оставлены без стекла.",
     "publicAppStoreChanged": false,
-    "googlePlayChanged": false
+    "googlePlayChanged": false,
+    "uploadAttempt": {
+      "date": "2026-11-16",
+      "xcodeAccountVerified": true,
+      "xcodeExitCode": 70,
+      "appleErrorCodes": [90062, 90186],
+      "accepted": false,
+      "reason": "CFBundleShortVersionString 1.0.1 must exceed approved 1.0.1; pre-release train closed"
+    }
   },
   "physicalIphoneAcceptance": false
 }
