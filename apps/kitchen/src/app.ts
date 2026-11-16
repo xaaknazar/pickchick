@@ -12,7 +12,14 @@ import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js'
 import { createDemo, memoryStorage } from './demo.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
-import { kdsScreen, kdsVisible, modeClass, waitClass, WAIT_LATE_MINUTES } from './kds-view.js';
+import {
+  kdsScreen,
+  kdsVisible,
+  modeChip,
+  sourceLabel,
+  waitClass,
+  WAIT_LATE_MINUTES,
+} from './kds-view.js';
 import { openHandover, openIncident } from './courier.js';
 import { HANDOVER_MARKS, UUID, type Action, type Order } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -453,7 +460,7 @@ function render() {
     const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
     const visibleTasks = prepTicket ? o.tasks.filter((t) => t.stationId === s.stationId) : o.tasks;
     const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
-    return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head ${o.state === 'ready' ? '' : waitClass(o.createdAt, Date.now())}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="${modeClass({ serviceMode: o.serviceMode })}">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
+    return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head ${o.state === 'ready' ? '' : waitClass(o.createdAt, Date.now())}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div>${modeChip(o)}${sourceLabel(o)}${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
       .map((t) => {
         const index = o.tasks.indexOf(t);
         const own = t.stationId === s.stationId;

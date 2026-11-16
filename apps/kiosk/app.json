@@ -19,7 +19,10 @@
         "UIRequiresFullScreen": true,
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false,
-        "NSLocalNetworkUsageDescription": "Подключение к фотопринтеру PickChick в локальной сети ресторана."
+        "NSLocalNetworkUsageDescription": "Подключение к терминалу Kaspi и фотопринтеру PickChick в локальной сети ресторана для оплаты заказа и печати фото.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "web": {

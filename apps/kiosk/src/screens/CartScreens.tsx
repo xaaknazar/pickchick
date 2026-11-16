@@ -29,6 +29,7 @@ import { EmptyCart } from '../components/EmptyCart';
 import { Notice } from '../components/Notice';
 import { CheckoutSummary } from '../components/CheckoutSummary';
 import { PaymentMethodCard } from '../components/PaymentMethodCard';
+import { terminalCopy } from '../terminalCopy';
 import { ProductSheet } from '../components/ProductSheet';
 import { initialSize, sheetFacts, sheetSizeGroup } from '../productSheet';
 import { selectionSummary } from '../components/selectionSummary';
@@ -441,6 +442,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
               selected
               busy={model.busy}
               commercial={!!model.commercial}
+              terminal={!!model.terminalPaymentAvailable}
               locale={context.locale}
               onSelect={() => model.setPaymentMethod('kaspi')}
             />
@@ -448,7 +450,9 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           <Body tone="onBlue">
             {model.commercial
               ? model.checkoutReady && qrAvailable
-                ? t.qrNextScreen
+                ? model.terminalPaymentAvailable
+                  ? `${terminalCopy(context.locale).title} - ${terminalCopy(context.locale).subtitle}`
+                  : t.qrNextScreen
                 : t.kioskPayUnavailable
               : t.testPayment}
           </Body>
