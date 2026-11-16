@@ -519,7 +519,8 @@ def glass_look(browser, width, height):
     page.get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('screen-M09')).to_have_count(0)
     parts = glass_parts(bar)
-    assert not parts['blur'] and 'rgb(10, 32, 80)' in parts['fills'], parts
+    # Reduce Transparency: the bar turns into its opaque night navy (glass.bar.solid #030A1E).
+    assert not parts['blur'] and 'rgb(3, 10, 30)' in parts['fills'], parts
     # The handle and the profile keep their rims on the solid glass too (on iOS 26 the rim comes
     # back with Reduce Transparency: it follows the surface, not a value fixed at launch).
     for shape, rim in ((pill, 'rgba(255, 255, 255, 0.3)'), (profile, 'rgba(255, 255, 255, 0.4)')):
