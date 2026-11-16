@@ -8001,11 +8001,14 @@
         "apps/kiosk/app.json",
         "@release/ios",
         "@ios/ipad",
-        "docs/operations/kiosk-build24-1116.md"
+        "docs/operations/kiosk-build24-1116.md",
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/test_ios_kiosk_release.py",
+        "tests/kiosk/photo-release-disabled.test.mjs"
       ],
       "status": "active",
-      "head": "0400b87fde483b453be1a20c21402ea7720a311e",
-      "updatedAt": "2026-11-16T09:26:27.860Z"
+      "head": "9edd5c2467147b0f8e1c400594e9af4283ea52db",
+      "updatedAt": "2026-11-16T09:40:57.396Z"
     }
   ],
   "approvedScopeTransfers": [
