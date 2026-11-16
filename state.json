@@ -8030,11 +8030,11 @@
         "docs/operations/mobile-testflight39.md",
         "docs/operations/mobile-testflight39"
       ],
-      "status": "active",
-      "head": "d04897ea4895625d36eb46981dd59e63ed94ac62",
-      "updatedAt": "2026-11-16T17:54:07.463Z",
-      "summary": "TestFlight 1.0.2 (39) delivered to PickChick Internal; external Testing is blocked by Apple while 38 is in Beta App Review. Archive/export/upload complete, CI for binary 11/11 PASS. Integrated-head CI pending for PR393. Native release and Apple UI work finished; own release slots released.",
-      "nextAction": "Wait for Foundation 43916150693 on d04897ea, merge PR393 normally. Assign Testing after Apple approves 38; reclaim the TestFlight slot before later changes. Owner physical iPhone acceptance pending."
+      "status": "available",
+      "head": "c847c521a1ce78be282cae2393091bd5355a9fde",
+      "updatedAt": "2026-11-16T18:10:57.436Z",
+      "summary": "TestFlight 1.0.2 (39) available in PickChick Internal (2); Build ID e9e5f12c-c36d-43a9-a354-5a1ae2db450c. Binary 49e4cd38 Foundation 43902039185 11/11 PASS; integration d04897ea Foundation 43916150693 11/11 PASS. Final documentation merge c847c521 validated with unchanged mobile tree and 7 roadmap tests. PR393 merged into cutover as 7339b81f. IPA SHA-256 and screenshots in mobile-testflight39.md. Release/Apple scopes already released.",
+      "nextAction": "After Apple approves external Beta App Review of 1.0.2 (38), claim only @apple/testflight and assign existing build 39 to Testing with automatic notification. Owner performs physical iPhone acceptance. Public App Store/App Review/Google Play unchanged. Online roadmap not published."
     }
   ],
   "approvedScopeTransfers": [
