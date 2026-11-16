@@ -8027,14 +8027,14 @@
         "apps/mobile/app.json",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "@release/ios",
-        "@apple/testflight",
         "docs/operations/mobile-testflight39.md",
         "docs/operations/mobile-testflight39"
       ],
       "status": "active",
       "head": "d04897ea4895625d36eb46981dd59e63ed94ac62",
-      "updatedAt": "2026-11-16T17:14:13.260Z"
+      "updatedAt": "2026-11-16T17:54:07.463Z",
+      "summary": "TestFlight 1.0.2 (39) delivered to PickChick Internal; external Testing is blocked by Apple while 38 is in Beta App Review. Archive/export/upload complete, CI for binary 11/11 PASS. Integrated-head CI pending for PR393. Native release and Apple UI work finished; own release slots released.",
+      "nextAction": "Wait for Foundation 43916150693 on d04897ea, merge PR393 normally. Assign Testing after Apple approves 38; reclaim the TestFlight slot before later changes. Owner physical iPhone acceptance pending."
     }
   ],
   "approvedScopeTransfers": [
