@@ -127,6 +127,38 @@ class KioskPinnedValuesTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 release.kiosk_profile_flags(profile, "https://photo.pickchick.kz", "pk-" + "a1" * 8)
 
+    def test_disabled_printing_requires_an_explicit_choice_and_cannot_inherit_a_host(self):
+        flags = release.kiosk_profile_flags("kiosk-production", None, "pk-" + "a1" * 8,
+                                            photo_disabled=True)
+        self.assertEqual(flags["EXPO_PUBLIC_KIOSK_PHOTO_URL"], release.KIOSK_PHOTO_DISABLED)
+        env = release.archive_environment("kiosk-production", {
+            "EXPO_PUBLIC_KIOSK_PHOTO_URL": "https://old-printer.pickchick.kz:13440",
+        }, flags)
+        self.assertEqual(env["EXPO_PUBLIC_KIOSK_PHOTO_URL"], release.KIOSK_PHOTO_DISABLED)
+        self.assertEqual(env["EXPO_PUBLIC_KIOSK_API_URL"], "https://api.pickchick.kz")
+        with self.assertRaises(RuntimeError):
+            release.kiosk_profile_flags("kiosk-production", "https://photo.pickchick.kz",
+                                        "pk-" + "a1" * 8, photo_disabled=True)
+        with self.assertRaises(RuntimeError):
+            self.flags(photo=release.KIOSK_PHOTO_DISABLED)
+        metadata = {"featureProfile": "kiosk-production", "embeddedPublicEnv": flags,
+                    "kioskBundleVerified": True, "kioskPhotoDisabled": True}
+        release.verify_feature_profile(metadata, "kiosk-production")
+        for changed in [False, "true"]:
+            with self.assertRaises(RuntimeError):
+                release.verify_feature_profile(metadata | {"kioskPhotoDisabled": changed},
+                                               "kiosk-production")
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp)
+            good = b"/v1/kiosk-checkout\x00https://api.pickchick.kz\x00" + (
+                flags["EXPO_PUBLIC_KIOSK_RELEASE_ID"] + "\x00" + release.KIOSK_PHOTO_DISABLED
+            ).encode()
+            (app / "main.jsbundle").write_bytes(good)
+            release.verify_kiosk_bundle(app, flags)
+            (app / "main.jsbundle").write_bytes(good.replace(release.KIOSK_PHOTO_DISABLED.encode(), b""))
+            with self.assertRaisesRegex(RuntimeError, "photo"):
+                release.verify_kiosk_bundle(app, flags)
+
     def test_bundle_must_carry_the_pinned_values(self):
         flags = self.flags()
         with tempfile.TemporaryDirectory() as tmp:
@@ -167,6 +199,10 @@ class KioskPinnedValuesTests(unittest.TestCase):
         for argv in (["archive", "--app", "kiosk"],
                      ["archive", "--app", "kiosk", "--feature-profile", "legacy"],
                      ["archive", "--app", "mobile", "--feature-profile", "kiosk-production"],
+                     ["archive", "--app", "kiosk", "--feature-profile", "kiosk-production",
+                      "--kiosk-photo-disabled", "--kiosk-photo-url", "https://photo.pickchick.kz"],
+                     ["archive", "--app", "mobile", "--kiosk-photo-disabled"],
+                     ["export", "--app", "kiosk", "--kiosk-photo-disabled"],
                      ["export", "--app", "kiosk", "--kiosk-photo-url", "https://photo.pickchick.kz"]):
             with patch.object(release.sys, "argv", ["ios_release.py", *argv]), \
                     patch.object(release, "manual_signing", side_effect=AssertionError("too late")):
