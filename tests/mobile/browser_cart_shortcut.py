@@ -96,7 +96,7 @@ with sync_playwright() as p:
             # glass cannot sample the capsule's glass) and has the common light rim.
             bag = page.get_by_test_id('cart-bag-pill')
             expect(bag).to_be_visible()
-            expect(bag).to_have_css('background-color', 'rgb(7, 26, 68)')
+            expect(bag).to_have_css('background-color', 'rgb(2, 8, 23)')
             expect(bag).to_have_css('border-top-color', 'rgba(255, 255, 255, 0.3)')
             # Not inside the cart button, whose press dims its own content: Apple's glass under a
             # translucent parent renders wrong (QA 28.10). It still sits at the capsule's left.
