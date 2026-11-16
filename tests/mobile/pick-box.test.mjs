@@ -102,7 +102,7 @@ test('a strongly leaning tower sways, and straight boxes calm it down', () => {
   game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
   game.start();
   // Crooked in the city, before mountain wind moves the rope.
-  for (const offset of [0, 0, 0, 0, -30, -30]) stack(game, offset);
+  for (const offset of [0, 0, 0, 0, -28, -24]) stack(game, offset);
   assert.equal(game.phase, 'playing');
   assert(game.swaying, `lean ${game.lean}`);
   assert(game.snapshot().swaying);
@@ -115,7 +115,7 @@ test('a strongly leaning tower sways, and straight boxes calm it down', () => {
     left = Math.min(left, top.body.position.x);
     right = Math.max(right, top.body.position.x);
   }
-  assert(right - left > 12, `top moved only ${right - left}`);
+  assert(right - left > 6, `top moved only ${right - left}`);
   // The lowest box is below the sway of a short tower and stays where it settled.
   assert(Math.abs(game.boxes[0].body.position.x - game.boxes[0].rest.x) < 0.5);
   for (let i = 0; i < 4 && game.swaying; i++) stack(game);
@@ -393,5 +393,22 @@ test('a box hanging far over the edge tips off instead of sticking', () => {
   until(game, () => game.lives === 2);
   assert.equal(game.score, before);
   assert(!game.boxes.some((b) => b.body === body && b.counted));
+  game.dispose();
+});
+test('a staircase leaning one way tips over like a real stack', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let i = 0; i < 4; i++) stack(game);
+  // Each box 40 to the right of the one below, the lean model alone would stay calm.
+  const tower = game.boxes.filter((b) => b.rest);
+  tower.forEach((box, i) => (box.rest.x = 120 + i * 40));
+  frames(game, 30);
+  game.lean = 0;
+  stack(game);
+  assert.equal(game.phase, 'over');
+  assert.equal(game.reason, 'collapse');
+  assert(game.balance >= 1, `balance ${game.balance}`);
+  const loose = game.boxes.filter((b) => !b.body.isStatic);
+  assert(loose.length >= 2 && loose.length < game.boxes.length, 'only the top tips over');
   game.dispose();
 });

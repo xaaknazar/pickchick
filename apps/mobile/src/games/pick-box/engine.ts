@@ -23,6 +23,8 @@ export const LEAN_LIMIT = 85;
 export const SWAY_FROM = 0.4;
 export const SWAY_MAX = 30;
 const COLLAPSE_DEPTH = 10;
+/** Real balance is checked over the newest boxes; deeper ones are forgotten. */
+export const BALANCE_WINDOW = 4;
 /** Towers this tall sway at their slowest and widest. */
 const TALL_TOWER = 30;
 /** Wind on the rope by ascent stage: city, Furmanov, Talgar, atmosphere, space. */
@@ -81,6 +83,13 @@ export class PickBoxEngine {
   cues: Cue[] = [];
   /** Signed tower lean in world units; positive leans right. */
   lean = 0;
+  /**
+   * Real balance of the newest boxes: for each of them, how far the centre of mass of
+   * the boxes above it sits from its middle, as a share of half a box. 1 tips over.
+   */
+  balance = 0;
+  private balanceSide = 0;
+  private balanceBreak = 0;
   /** Current sway amplitude at the top of the tower, in world units. */
   swayAmplitude = 0;
   private swayPhase = 0;
@@ -310,7 +319,7 @@ export class PickBoxEngine {
 
   /** 0 when straight, 1 at the collapse limit. */
   get danger() {
-    return Math.min(1, Math.abs(this.lean) / LEAN_LIMIT);
+    return Math.min(1, Math.max(Math.abs(this.lean) / LEAN_LIMIT, (this.balance - 0.3) / 0.7));
   }
 
   get swaying() {
@@ -374,17 +383,35 @@ export class PickBoxEngine {
     // A straight-standing tower always warns by swaying before it can fall.
     if (!wasSwaying && Math.abs(this.lean) >= LEAN_LIMIT)
       this.lean = Math.sign(this.lean) * LEAN_LIMIT * 0.95;
+    this.measureBalance();
     if (!wasSwaying && this.swaying) this.emit('wobble', body.position.x, body.bounds.min.y);
   }
 
-  /** The top of the tower breaks off towards its lean; the lower part stays standing. */
-  private topple() {
+  /** Like a real stack: the boxes above each recent box must keep their weight over it. */
+  private measureBalance() {
     const tower = this.tower();
-    const direction = Math.sign(this.lean) || 1;
+    const start = Math.max(0, tower.length - BALANCE_WINDOW);
+    this.balance = 0;
+    for (let index = start; index < tower.length - 1; index++) {
+      const above = tower.slice(index + 1);
+      const centre = above.reduce((sum, box) => sum + box.rest!.x, 0) / above.length;
+      const shift = centre - tower[index]!.rest!.x;
+      const share = Math.abs(shift) / (BOX_WIDTH / 2);
+      if (share > this.balance) {
+        this.balance = share;
+        this.balanceSide = Math.sign(shift);
+        this.balanceBreak = above.length;
+      }
+    }
+  }
+
+  /** The top of the tower breaks off towards its lean; the lower part stays standing. */
+  private topple(direction = Math.sign(this.lean) || 1, reach = COLLAPSE_DEPTH) {
+    const tower = this.tower();
     tower.forEach((box, index) => {
       const depth = tower.length - 1 - index;
-      if (depth >= COLLAPSE_DEPTH) return;
-      const lift = 1 - depth / COLLAPSE_DEPTH;
+      if (depth >= reach) return;
+      const lift = 1 - depth / reach;
       Body.setStatic(box.body, false);
       Sleeping.set(box.body, false);
       Body.setVelocity(box.body, { x: direction * (0.4 + 2.6 * lift), y: -0.2 * lift });
@@ -443,7 +470,11 @@ export class PickBoxEngine {
       this.active = null;
       this.cooldown = 450;
       this.version++;
-      if (Math.abs(this.lean) >= LEAN_LIMIT) {
+      if (this.balance >= 1) {
+        // The boxes above the failing one tip over its edge.
+        this.topple(this.balanceSide || 1, this.balanceBreak);
+        this.end('collapse');
+      } else if (Math.abs(this.lean) >= LEAN_LIMIT) {
         this.topple();
         this.end('collapse');
       }
