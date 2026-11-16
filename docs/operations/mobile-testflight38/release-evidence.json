@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "app": "PickChick",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "build": "38",
-  "sourceSha": "884dbf5f64ed67c0437a4bbdd1aab9565eeac15e",
+  "sourceSha": "291627f098af946cd5c59d8f7930e3ad236055f6",
   "dirty": false,
   "featureProfile": "production",
   "apiUrl": "https://api.pickchick.kz",
@@ -19,6 +19,121 @@
     "browserTabBar": "pass (320/393/1024)",
     "productionWebExport": "pass",
     "roadmapTests": 7,
+    "foundation": {
+      "id": 43814033275,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43814033275",
+      "headSha": "291627f098af946cd5c59d8f7930e3ad236055f6",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Foundation simulator browser regressions",
+          "id": 133121998319,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation server account and Kaspi fixtures",
+          "id": 133121998520,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation static checks and transaction invariants",
+          "id": 133121998590,
+          "conclusion": "success"
+        },
+        {
+          "name": "Private staging image and restricted database role",
+          "id": 133121998620,
+          "conclusion": "success"
+        },
+        {
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "id": 133121998626,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation POS and backoffice integration",
+          "id": 133121998681,
+          "conclusion": "success"
+        },
+        {
+          "name": "Design screens and interaction smoke",
+          "id": 133121998706,
+          "conclusion": "success"
+        },
+        {
+          "name": "Foundation mobile bundles and checkout recovery",
+          "id": 133121998767,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "id": 133121998782,
+          "conclusion": "success"
+        },
+        {
+          "name": "Local kitchen UI and recovery",
+          "id": 133121998793,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build, contracts and PostgreSQL integration",
+          "id": 133132731524,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "native": {
+    "archive": "complete",
+    "export": "complete",
+    "version": "1.0.2",
+    "build": "38",
+    "temporarySigningSettingsRestored": true,
+    "ipaBytes": 134741885,
+    "ipaSha256": "d6b936f912ff31e1609a10318cc183025cc94334f3c7cb4d607adb829474888d",
+    "releaseLabel": "mobile-glass-20261116-38-v102",
+    "simulatorBuild": "previous 1.0.1 (38) passed; new marketing version not installed",
+    "simulatorInstallation": "previous 1.0.1 (38) passed",
+    "simulatorUI": "not verified; Mac windows unavailable",
+    "deliveryStatus": "submitted"
+  },
+  "testFlight": {
+    "uploaded": true,
+    "status": "internal testing; external waiting for beta review",
+    "groupsAuthorized": ["PickChick Internal", "Testing"],
+    "whatToTest": "Новый таб-бар в стиле Apple: стекло, плавное переключение, можно провести пальцем по вкладкам. Стеклянные: „Настроить комбо“ и кнопка цены в карточке блюда. Категории меню оставлены без стекла.",
+    "publicAppStoreChanged": false,
+    "googlePlayChanged": false,
+    "ownerApprovedVersion": "1.0.2",
+    "buildId": "fc3b85ca-90bc-40fb-adf3-223fc0a7b826",
+    "uploadObservedAt": "2026-11-16T11:35:00+05:00",
+    "groups": [
+      {
+        "name": "PickChick Internal",
+        "type": "internal",
+        "testers": 2,
+        "status": "testing"
+      },
+      {
+        "name": "Testing",
+        "type": "external",
+        "testers": 11,
+        "status": "waiting for review"
+      }
+    ],
+    "autoNotifyEnabled": true,
+    "whatToTestSaved": true,
+    "screenshots": [
+      "docs/operations/mobile-testflight38/testflight38-groups.jpg",
+      "docs/operations/mobile-testflight38/testflight38-internal.jpg"
+    ]
+  },
+  "physicalIphoneAcceptance": false,
+  "previousAttempt": {
+    "version": "1.0.1",
+    "build": "38",
+    "sourceSha": "884dbf5f64ed67c0437a4bbdd1aab9565eeac15e",
     "foundation": {
       "id": 43766448161,
       "url": "https://github.com/xaaknazar/pickchick/actions/runs/43766448161",
@@ -82,28 +197,9 @@
           "conclusion": "success"
         }
       ]
-    }
-  },
-  "native": {
-    "archive": "complete",
-    "export": "complete",
-    "version": "1.0.1",
-    "build": "38",
-    "temporarySigningSettingsRestored": true,
-    "ipaBytes": 134742758,
-    "ipaSha256": "6647ae70947165b9a44a7363ab9cf9fce194a672fb38daf1cbb1ad362747b923",
+    },
     "releaseLabel": "mobile-glass-20261116-38-r3",
-    "simulatorBuild": "pass",
-    "simulatorInstallation": "pass",
-    "simulatorUI": "not verified; Mac windows unavailable"
-  },
-  "testFlight": {
-    "uploaded": false,
-    "status": "rejected: 1.0.1 train closed; owner authorized replacement 1.0.2 (38)",
-    "groupsAuthorized": ["PickChick Internal", "Testing"],
-    "whatToTest": "Новый таб-бар в стиле Apple: стекло, плавное переключение, можно провести пальцем по вкладкам. Стеклянные: „Настроить комбо“ и кнопка цены в карточке блюда. Категории меню оставлены без стекла.",
-    "publicAppStoreChanged": false,
-    "googlePlayChanged": false,
+    "ipaSha256": "6647ae70947165b9a44a7363ab9cf9fce194a672fb38daf1cbb1ad362747b923",
     "uploadAttempt": {
       "date": "2026-11-16",
       "xcodeAccountVerified": true,
@@ -112,14 +208,5 @@
       "accepted": false,
       "reason": "CFBundleShortVersionString 1.0.1 must exceed approved 1.0.1; pre-release train closed"
     }
-  },
-  "physicalIphoneAcceptance": false,
-  "supersededByAuthorizedVersion": "1.0.2",
-  "nextCandidate": {
-    "version": "1.0.2",
-    "build": "38",
-    "ownerApproved": true,
-    "status": "preparing archive and exact-source CI",
-    "groups": ["PickChick Internal", "Testing"]
   }
 }
