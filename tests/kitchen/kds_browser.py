@@ -79,6 +79,8 @@ with sync_playwright() as p:
     expect(page.locator(f'[data-breading="{orders["yandex"]["id"]}"]')).to_have_count(0)
     assert page.locator('main[data-kds="breading"] [data-command]').count() == 0, 'Station 6 has no buttons'
     expect(page.locator(f'[data-breading="{orders["glovo"]["id"]}"]')).to_contain_text('ДОСТАВКА · Glovo G-456')
+    # The breading view carries no channel: no source label rather than a guessed one.
+    expect(page.locator('main[data-kds="breading"] .channel')).to_have_count(0)
     capture(page, '6-breading')
 
     page.locator(f'[data-station="{stations["toasts"]}"]').tap()
@@ -91,6 +93,11 @@ with sync_playwright() as p:
         expect(ticket(page, key)).to_be_visible()
     expect(ticket(page, 'cloud')).to_contain_text('Отдать: Сборка - зал (стол 1)')
     expect(ticket(page, 'glovo')).to_contain_text('Отдать: Сборка - доставка (стол 2)')
+    # Order source under the mode chip; a delivery ticket names only its aggregator.
+    expect(ticket(page, 'cloud').locator('.ticket-head .channel')).to_have_text('Приложение')
+    expect(ticket(page, 'hall').locator('.ticket-head .channel')).to_have_text('Касса')
+    for key in ['glovo', 'yandex']:
+        expect(ticket(page, key).locator('.channel')).to_have_count(0)
     capture(page, '5-toasts')
     act(page, ticket(page, 'cloud').get_by_role('button', name='Готово', exact=True))
     expect(ticket(page, 'cloud')).to_have_count(0)
@@ -116,6 +123,8 @@ with sync_playwright() as p:
     for key in ['cloud', 'hall', 'glovo']:
         expect(preparing.locator(f'[data-order="{orders[key]["id"]}"]')).to_be_visible()
     expect(ticket(page, 'yandex')).to_have_count(0)
+    expect(ticket(page, 'hall').locator('.ticket-head .channel')).to_have_text('Касса')
+    expect(ticket(page, 'glovo').locator('.channel')).to_have_count(0)
     expect(ticket(page, 'hall')).to_contain_text('Сборка: собран ✓')
     expect(ticket(page, 'hall')).to_contain_text('Подготовить на выдаче')
     act(page, ticket(page, 'glovo').get_by_role('button', name='Напитки переданы', exact=True))

@@ -359,10 +359,12 @@ nav button[aria-pressed='true'] {
   white-space: nowrap;
   color: var(--blue);
 }
+/* Order source (Касса, Киоск, Приложение) under the mode chip; delivery names its aggregator in the chip. */
 .channel {
-  font-size: 13px;
-  margin: 5px 0;
-  color: #53657d;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 6px 0 0;
+  color: #3b4760;
 }
 .age {
   margin-left: auto;
@@ -1642,6 +1644,21 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
 .ticket-head > div:not(.age) {
   flex: 1;
   min-width: 0;
+}
+/* KDS stations read the source from a step back, like the chip above it. In a narrow column
+   (issue screen at 1366) the chip and the source keep their width and the waiting time moves
+   to its own row instead of covering them. */
+.kds .ticket-head {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.kds .ticket-head > div:not(.age) {
+  min-width: min-content;
+}
+.kds .ticket-head .channel {
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  color: #2b3850;
 }
 
 /* On-screen keyboard (components/ScreenKeyboard.ts): monoblocks have no keyboard. */

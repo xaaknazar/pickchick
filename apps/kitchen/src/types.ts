@@ -42,6 +42,8 @@ export type BreadingOrder = {
   orderId: string;
   displayNumber: string | null;
   serviceMode: 'takeaway' | 'dine_in';
+  /** Not sent by today's edge breading view: the tile then shows no source (never a guess). */
+  channel?: Order['channel'];
   delivery?: Delivery;
   lines: { title: string; quantity: number; fingers?: number }[];
   fingers?: number;
@@ -416,6 +418,10 @@ export function breading(v: unknown): Breading {
       orderId: uuid(b.orderId),
       displayNumber: b.displayNumber === null ? null : number(b.displayNumber),
       serviceMode: choice(b.serviceMode, ['takeaway', 'dine_in']),
+      // Optional and only a label: an unknown value is left out rather than failing the queue.
+      ...(typeof b.channel === 'string' && ['mobile', 'kiosk', 'pos'].includes(b.channel)
+        ? { channel: b.channel as Order['channel'] }
+        : {}),
       ...(b.delivery === undefined ? {} : { delivery: delivery(b.delivery) }),
       lines: array(b.lines, 2000, (y) => {
         const l = record(y);

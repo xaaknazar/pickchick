@@ -56,6 +56,24 @@ const modeLabel = (o: { serviceMode: Order['serviceMode']; delivery?: Delivery }
 /** Chip colour: hall, takeaway and delivery read apart at a glance. */
 export const modeClass = (o: { serviceMode: Order['serviceMode']; delivery?: Delivery }) =>
   'mode ' + (o.delivery ? 'mode-delivery' : 'mode-' + o.serviceMode);
+/** The mode chip as markup: hall, takeaway, or the aggregator with its courier number. */
+export const modeChip = (o: { serviceMode: Order['serviceMode']; delivery?: Delivery }) =>
+  `<span class="${modeClass(o)}">${o.delivery ? deliveryChip(o.delivery) : escape(modeLabel(o))}</span>`;
+export const channelName: Record<Order['channel'], string> = {
+  pos: 'Касса',
+  kiosk: 'Киоск',
+  mobile: 'Приложение',
+};
+/**
+ * Where the order came from, under the mode chip of every working ticket (never on the guest
+ * board). A delivery order already names its aggregator in the chip, so it gets no second
+ * label; a feed without a known channel gets no label rather than a guessed one.
+ */
+export function sourceLabel(o: { channel?: string; delivery?: Delivery }) {
+  if (o.delivery || !o.channel || !Object.hasOwn(channelName, o.channel)) return '';
+  const channel = o.channel as Order['channel'];
+  return `<p class="channel" data-source="${channel}">${escape(channelName[channel])}</p>`;
+}
 /** Minutes a ticket may wait before its head turns amber, then red. */
 export const WAIT_WARN_MINUTES = 7;
 export const WAIT_LATE_MINUTES = 12;
@@ -122,12 +140,17 @@ function command(o: Order, a: Action, label: string, blocked: boolean, extra = '
   );
 }
 function head(
-  o: { displayNumber: string | null; serviceMode: Order['serviceMode']; delivery?: Delivery },
+  o: {
+    displayNumber: string | null;
+    serviceMode: Order['serviceMode'];
+    delivery?: Delivery;
+    channel?: string;
+  },
   age: string,
   status = '',
   wait = '',
 ) {
-  return `<div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="${modeClass(o)}">${o.delivery ? deliveryChip(o.delivery) : escape(modeLabel(o))}</span></div><div class="age"><strong>${escape(age)}</strong>${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
+  return `<div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div>${modeChip(o)}${sourceLabel(o)}</div><div class="age"><strong>${escape(age)}</strong>${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
 }
 const minutes = (from: string, now: number) =>
   `${Math.max(0, Math.floor((now - Date.parse(from)) / 60000))} мин`;
