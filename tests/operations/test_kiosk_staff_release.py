@@ -68,9 +68,7 @@ class FixtureRunner(r.Runner):
                 'Labels': {'org.opencontainers.image.revision': self.revision}}}])
         if 'config' in args:
             raw = json.loads(Path(args[args.index('-f') + 1]).read_bytes())
-            # Synthetic Compose interpolation; real Compose remains a host preflight check.
-            for service in raw['services'].values():
-                service['environment'] = {k: v.replace('$$', '$') for k, v in service.get('environment', {}).items()}
+            # Compose config renders literal dollars as $$; up passes a single $.
             return r.encoded(raw)
         if 'up' in args:
             self.events.append('up')
@@ -79,7 +77,7 @@ class FixtureRunner(r.Runner):
             api['Id'] = ('c' if old_id[0] != 'c' else 'd') * 64
             api['Config']['Hostname'] = api['Id'][:12]
             config = self.resolved()['services']['api']
-            api['Config']['Env'] = ['PATH=/bin'] + [k + '=' + v for k, v in config['environment'].items()]
+            api['Config']['Env'] = ['PATH=/bin'] + [k + '=' + v.replace('$$', '$') for k, v in config['environment'].items()]
             api['Config']['Labels']['com.docker.compose.config-hash'] = 'new'
             api['State']['StartedAt'] = 'new-start'
             network = api['NetworkSettings']['Networks']['private']
@@ -192,14 +190,15 @@ class OperatorTests(unittest.TestCase):
     def test_only_one_resolved_environment_addition_is_allowed(self):
         old = self.runner.resolved()
         new = copy.deepcopy(old)
-        new['services']['api']['environment'][r.KEY] = VERIFIER
+        new['services']['api']['environment'][r.KEY] = VERIFIER.replace('$', '$$')
         r.only_verifier(old, new, VERIFIER)
-        for case in ('third-key', 'image', 'neighbor', 'escaped-value'):
+        for case in ('third-key', 'image', 'neighbor', 'unescaped-value', 'double-escaped-value'):
             bad = copy.deepcopy(new)
             if case == 'third-key': bad['services']['api']['environment']['OTHER'] = 'new'
             if case == 'image': bad['services']['api']['image'] = 'other'
             if case == 'neighbor': bad['services']['cloud-db']['environment']['OTHER'] = 'new'
-            if case == 'escaped-value': bad['services']['api']['environment'][r.KEY] = VERIFIER.replace('$', '$$')
+            if case == 'unescaped-value': bad['services']['api']['environment'][r.KEY] = VERIFIER
+            if case == 'double-escaped-value': bad['services']['api']['environment'][r.KEY] = VERIFIER.replace('$', '$$$$')
             with self.assertRaisesRegex(r.Stop, 'compose.only_verifier'): r.only_verifier(old, bad, VERIFIER)
 
     def test_runtime_preserves_non_compose_labels_mounts_network_and_config(self):

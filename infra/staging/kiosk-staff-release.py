@@ -156,7 +156,9 @@ def candidate(raw, value):
 def only_verifier(old, new, value):
     expected = copy.deepcopy(old)
     require(KEY not in expected['services']['api']['environment'], 'compose.baseline_verifier')
-    expected['services']['api']['environment'][KEY] = value
+    # Compose config re-escapes literal dollars for reusable JSON/YAML output.
+    # Container Env is checked separately against the original single-dollar value.
+    expected['services']['api']['environment'][KEY] = value.replace('$', '$$')
     require(new == expected, 'compose.only_verifier')
 
 
