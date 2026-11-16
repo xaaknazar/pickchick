@@ -7943,11 +7943,11 @@
         "@apple/testflight",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "active",
-      "head": "ef3d65b93900df64982765b3cf2b088964ee3636",
-      "updatedAt": "2026-11-16T05:56:55.684Z",
-      "summary": "16.11: владелец вошёл в Xcode, повторный upload 1.0.1 (38) отклонён Apple с 90062/90186: одобренная 1.0.1 закрыта для новых сборок. Запрошено разрешение на 1.0.2 (38); до ответа версия не изменена. Готовый r3/исходник884dbf5f сохранён, CI11/11PASS. Ветка включает свежий cutover обычным merge423c7c8b, код приложения неизменен. Отчёт ef3d65b9 опубликован, roadmap7/7PASS, PR381 открыт. Группы не назначены, App Store/Play не менялись.",
-      "nextAction": "После ответа владельца на 1.0.2 (38) занять ту же задачу; увеличить только маркетинговую версию, пересобрать штатным скриптом из чистого SHA, зелёная Foundation CI до upload. Старый1.0.1r3 не повторять: trainзакрыт. На Mac4ГБ, можно убрать только собственные пересоздаваемые кеши, архивы/ключи сохранить. БраузерASC истёк, для групп потребуется вход. PickChick Internal+Testing разрешены. В конце доказательства/скриншот и обычный mergePR381. Физическая приёмка отдельно."
+      "status": "available",
+      "head": "779e2bc687b2e0ef967fa80cf7ac56d2a37a8c69",
+      "updatedAt": "2026-11-16T06:46:44.606Z",
+      "summary": "Выпуск 1.0.2 (38) доставлен в TestFlight. Бинарный исходник291627f0, production, dirty=false, Foundation43814033275 11/11PASS до upload, 613Node+96PythonPASS. Archive/export/uploadPASS, прежняя подпись. BuildIDfc3b85ca-90bc-40fb-adf3-223fc0a7b826. PickChick Internal(2) Тестируется; Testing(11) подключена, отправлена на beta review, автоуведомление включено. Категории без стекла; Pick Box и обложка сохранены. Итоговый отчёт/скриншоты779e2bc6, 7roadmap+PrettierPASS. PR381 обычным merge включён в cutover43336b46; проверено ancestry. Итоговый docs-only CI отдельно от зелёного бинарного источника, его результат не заявляется. App Store/Google Play и онлайн-пульт не менялись.",
+      "nextAction": "Владельцу проверить iPhone: стекло, плавность, протяжка, guest Orders, Reduce Transparency и Pick Box. Внешняя Testing ожидает Apple beta review. Исходник и отчёт в cutover по запросу владельца, finish по общему shared пока не выполнялся; сохранять обе истории при будущем включении в shared. Повторный upload 1.0.2(38) не запускать: уже submitted. Симулятор возвращён mobile-feedback-1029, не использовать без согласования. Артефакты mobile-glass-20261116-38-v102 и ключи остаются на Mac."
     },
     {
       "id": "kaspi-pos-kit-1115",
