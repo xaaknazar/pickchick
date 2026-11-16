@@ -318,6 +318,7 @@ export function TabBarGlass({ radius }: { radius: number }) {
         pointerEvents="none"
         glassEffectStyle="regular"
         colorScheme="dark"
+        tintColor={tabBarPalette.liquidTint}
         isInteractive={false}
         style={[StyleSheet.absoluteFill, round]}
       />

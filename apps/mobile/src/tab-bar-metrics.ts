@@ -10,11 +10,17 @@ export const tabBarPalette = {
    * the photos below read through it like Apple's glass; inactive labels keep AA even over a white
    * photo (tab-bar.test.mjs models the dim).
    */
-  webVeil: 'rgba(10, 32, 80, 0.72)',
-  webDim: 0.62,
-  webBackdrop: 'blur(28px) saturate(180%) brightness(0.62)',
+  webVeil: 'rgba(10, 32, 80, 0.88)',
+  webDim: 0.42,
+  webBackdrop: 'blur(28px) saturate(180%) brightness(0.42)',
   /** iOS before 26: Apple's own tab bar material (systemChromeMaterialDark) under a brand veil. */
-  chromeVeil: 'rgba(10, 32, 80, 0.45)',
+  chromeVeil: 'rgba(10, 32, 80, 0.7)',
+  /**
+   * iOS 26: Apple's Liquid Glass tinted navy. Untinted it was nearly clear on the iPhone, so the
+   * photos showed through and the icons and labels got lost (owner 16.11.2026: «чуть темнее»,
+   * variant 2 of the mock-ups on his screenshot, 70 %).
+   */
+  liquidTint: 'rgba(10, 32, 80, 0.7)',
   solid: '#0A2050',
   border: 'rgba(255, 255, 255, 0.10)',
   shadow: '#000000',

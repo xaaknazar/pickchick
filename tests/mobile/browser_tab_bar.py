@@ -86,7 +86,7 @@ def assert_floating_bar(page, width, height, active):
     glass = bar.evaluate('''(e) => [...e.querySelectorAll('div')].map((d) => getComputedStyle(d))
       .filter((c) => (c.backdropFilter || c.webkitBackdropFilter || '').includes('blur'))
       .map((c) => c.backgroundColor)''')
-    assert glass == ['rgba(10, 32, 80, 0.72)'], glass
+    assert glass == ['rgba(10, 32, 80, 0.88)'], glass
     for route, _, label in TABS:
         tab = page.get_by_test_id('tab-' + route)
         expect(tab).to_have_attribute('role', 'tab')
