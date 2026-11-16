@@ -3,7 +3,8 @@
 ## Owner request - 16 November 2026: tower balance
 
 An early crooked start must not topple a tower that has since been built straight.
-A strongly leaning tower sways before it can fall; straight boxes calm it. Visual
+The tower leans and sways towards the side the boxes were placed on, wider and slower
+the taller it is; straight boxes calm it; a one-sided overhang tips the top off. Visual
 change: one status line under the score while the tower sways. HUD, cover and
 artwork are unchanged. Details: [balance report](../operations/pick-box-balance-1116.md).
 

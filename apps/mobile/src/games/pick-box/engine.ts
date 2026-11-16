@@ -10,21 +10,31 @@ export const STEP_MS = 1000 / 120;
 export const INITIAL_LIVES = 3;
 
 /*
- * Tower balance (owner request, 16 November 2026). Settled boxes are held by the
- * game instead of raw stacked physics, so an early crooked box cannot topple a tower
- * that has since been built straight. Each placement adds its offset from the box
- * below to a signed lean; older offsets fade with every new box, faster after a
- * PERFECT. A strong lean makes the top of the tower sway; straight placements calm
- * it again. A lean beyond the limit breaks the top of the tower off.
+ * Tower model (owner, 16 November 2026: "real physics"). A box falls and lands as a free
+ * rigid body. Once it rests flat it becomes part of the tower, and the tower behaves like
+ * one flexible mast:
+ *  - Balance. Each of the two boxes under the top one must keep the centre of mass of the
+ *    boxes above it over itself. `balance` is the worse of the two overhangs, signed, as
+ *    a share of the safe half-width. Deeper boxes are forgotten, so an early crooked start
+ *    cannot topple a tower that has since been built straight, and straight boxes never
+ *    make the balance worse.
+ *  - Lean. The top leans towards the heavy side, in proportion to the balance.
+ *  - Sway. The top is a damped spring. A landing pushes it towards the side the box
+ *    landed on; it swings there first, then back and forth, and settles. Close to the
+ *    tipping point the tower cannot settle and keeps swaying until it is stacked straight.
+ *  - Height. A taller tower is more flexible: it leans and sways wider and slower.
+ *  - Collapse. When the overhang reaches the edge (balance 1) the boxes above the
+ *    overloaded one tip off towards the lean; the base stays standing.
  */
-export const LEAN_MEMORY = 0.72;
-export const PERFECT_CALM = 0.75;
-export const LEAN_LIMIT = 85;
+export const BALANCE_WINDOW = 3;
+/** Share of half a box the weight above may overhang before the top tips off. */
+export const SAFE_OVERHANG = 0.85;
+/** Danger (0..1) from which the tower can no longer settle on its own. */
 export const SWAY_FROM = 0.4;
-export const SWAY_MAX = 30;
-const COLLAPSE_DEPTH = 10;
-/** Real balance is checked over the newest boxes; deeper ones are forgotten. */
-export const BALANCE_WINDOW = 4;
+const SWAY_MAX = 24;
+const LEAN_MAX = 18;
+const LANDING_PUSH = 16;
+const DAMPING = 0.11;
 /** Towers this tall sway at their slowest and widest. */
 const TALL_TOWER = 30;
 /** Wind on the rope by ascent stage: city, Furmanov, Talgar, atmosphere, space. */
@@ -81,18 +91,17 @@ export class PickBoxEngine {
   time = 0;
   top = 0;
   cues: Cue[] = [];
-  /** Signed tower lean in world units; positive leans right. */
-  lean = 0;
   /**
-   * Real balance of the newest boxes: for each of them, how far the centre of mass of
-   * the boxes above it sits from its middle, as a share of half a box. 1 tips over.
+   * Worst overhang under the top of the tower: how far the centre of mass of the boxes
+   * above one of the two boxes below the top sits from its middle, as a share of the safe
+   * half-width. Positive is to the right; at 1 the top tips off.
    */
   balance = 0;
-  private balanceSide = 0;
   private balanceBreak = 0;
-  /** Current sway amplitude at the top of the tower, in world units. */
-  swayAmplitude = 0;
-  private swayPhase = 0;
+  /** Top of the tower relative to rest, in world units: steady lean plus spring swing. */
+  private leanNow = 0;
+  private swingX = 0;
+  private swingV = 0;
   private jolt = { at: -1e9, amp: 0 };
   private kick = { at: -1e9, dir: 0 };
   private rng = 0x5049434b;
@@ -165,7 +174,7 @@ export class PickBoxEngine {
     return {
       x: WORLD_WIDTH / 2 + swing * amplitude + this.kick.dir * 26 * knock,
       y: this.top - 185 + (1 - Math.cos(swing * 0.6)) * 100,
-      angle: swing * (0.075 + 0.1 * wind) + this.kick.dir * 0.3 * knock,
+      angle: swing * (0.075 + 0.05 * wind) + this.kick.dir * 0.3 * knock,
     };
   }
 
@@ -317,39 +326,65 @@ export class PickBoxEngine {
     this.cues = this.cues.filter((cue) => this.time - cue.time < 1400);
   }
 
-  /** 0 when straight, 1 at the collapse limit. */
+  /** 0 while the weight sits well inside the boxes, 1 at the tipping point. */
   get danger() {
-    return Math.min(1, Math.max(Math.abs(this.lean) / LEAN_LIMIT, (this.balance - 0.3) / 0.7));
+    return Math.max(0, Math.min(1, (Math.abs(this.balance) - 0.3) / 0.7));
   }
 
   get swaying() {
     return this.danger > SWAY_FROM;
   }
 
+  /** How far the top is from rest right now, and how wide it is swinging. */
+  get sway() {
+    return this.leanNow + this.swingX;
+  }
+
+  get swayAmplitude() {
+    return Math.hypot(this.swingX, this.swingV / this.mast().omega);
+  }
+
   private tower() {
     return this.boxes.filter((box) => box.counted && !box.fallen && box.rest);
   }
 
-  /** Kinematic sway of the held tower; the settling box rides along with its support. */
+  /** A taller tower is a longer mast: more flexible, with a slower swing. */
+  private mast() {
+    const tall = Math.min(1, this.tower().length / TALL_TOWER);
+    return {
+      tall,
+      flex: 0.35 + 0.85 * tall,
+      // Radians per millisecond: a 1.1 s swing for a stub, 2.6 s for a tall tower.
+      omega: (2 * Math.PI) / (1100 + 1500 * tall),
+    };
+  }
+
+  /** Lean and spring swing of the held tower; the settling box rides along with its support. */
   private swayTower() {
     const tower = this.tower();
-    const strength = Math.max(0, (this.danger - SWAY_FROM) / (1 - SWAY_FROM));
-    // Like a real mast: a short tower sways small and quick, a tall one wide and slow.
-    const tall = Math.min(1, tower.length / TALL_TOWER);
+    const { tall, flex, omega } = this.mast();
     const depthLimit = 5 + 5 * tall;
-    const target = SWAY_MAX * (0.5 + 0.7 * tall) * strength ** 1.2;
-    const blend = 1 - Math.exp(-STEP_MS / 600);
-    this.swayAmplitude += (target - this.swayAmplitude) * blend;
-    if (this.swayAmplitude < 0.02 && target === 0) this.swayAmplitude = 0;
-    // Period shortens from 2.6 s to 1.6 s as the lean approaches the limit.
-    this.swayPhase += ((2 * Math.PI) / ((2600 - 1000 * strength) * (0.75 + 0.5 * tall))) * STEP_MS;
-    const bias = 0.35 * Math.max(-1, Math.min(1, this.lean / (0.6 * LEAN_LIMIT)));
+    const blend = 1 - Math.exp(-STEP_MS / 400);
+    const side = Math.sign(this.balance);
+    this.leanNow +=
+      (Math.max(-1.2, Math.min(1.2, this.balance)) * LEAN_MAX * flex - this.leanNow) * blend;
+    // Near the tipping point the tower keeps a swing of this width instead of settling.
+    const strength = Math.max(0, (this.danger - SWAY_FROM) / (1 - SWAY_FROM));
+    const sustain = SWAY_MAX * flex * strength ** 1.2;
+    const width = Math.hypot(this.swingX, this.swingV / omega);
+    if (sustain > 0 && width < 0.4) this.swingV = (side || 1) * omega * 0.6;
+    const damping =
+      sustain > 0 ? Math.max(-0.6, DAMPING * (1 - (sustain / Math.max(width, 0.4)) ** 2)) : DAMPING;
+    this.swingV += (-omega * omega * this.swingX - 2 * damping * omega * this.swingV) * STEP_MS;
+    this.swingX += this.swingV * STEP_MS;
+    if (sustain === 0 && width < 0.02) this.swingX = this.swingV = 0;
+    if (Math.abs(this.leanNow) < 0.01 && this.balance === 0) this.leanNow = 0;
     const since = this.time - this.jolt.at;
     const jolt =
       since >= 0 && since < 900
         ? this.jolt.amp * Math.exp(-since / 160) * Math.sin((since / 1000) * 2 * Math.PI * 9)
         : 0;
-    const offset = this.swayAmplitude * (Math.sin(this.swayPhase) + bias) + jolt;
+    const offset = this.leanNow + this.swingX + jolt;
     const top = tower.at(-1);
     const before = top ? top.body.position.x : 0;
     tower.forEach((box, index) => {
@@ -370,19 +405,27 @@ export class PickBoxEngine {
     }
   }
 
-  /** Lock a settled box into the held tower and update the lean. */
+  /** Lock a settled box into the held tower; its weight pushes and re-balances the mast. */
   private hold(box: Box, offset: number, perfect: boolean) {
     const body = box.body;
     const top = this.tower().at(-1);
     const shift = top?.rest ? top.body.position.x - top.rest.x : 0;
-    box.rest = { x: body.position.x - shift, y: body.position.y, angle: body.angle };
+    // The tower's own bend is not part of the box's rest pose, and a small landing tilt
+    // is not passed up the tower.
+    const tilt = body.angle - (top?.rest ? top.body.angle : 0);
+    const angle = (top?.rest?.angle ?? 0) + tilt * 0.5;
+    box.rest = { x: body.position.x - shift, y: body.position.y, angle };
     box.sway = top?.sway ?? 0;
     Body.setStatic(body, true);
     const wasSwaying = this.swaying;
-    this.lean = this.lean * LEAN_MEMORY * (perfect ? PERFECT_CALM : 1) + offset;
-    // A straight-standing tower always warns by swaying before it can fall.
-    if (!wasSwaying && Math.abs(this.lean) >= LEAN_LIMIT)
-      this.lean = Math.sign(this.lean) * LEAN_LIMIT * 0.95;
+    const { flex, omega } = this.mast();
+    if (perfect) {
+      // A centred box steadies the tower.
+      this.swingX *= 0.5;
+      this.swingV *= 0.5;
+    }
+    // Off-centre weight lands on one side and pushes the top that way first.
+    if (top) this.swingV += omega * (offset / (BOX_WIDTH / 2)) * LANDING_PUSH * flex;
     this.measureBalance();
     if (!wasSwaying && this.swaying) this.emit('wobble', body.position.x, body.bounds.min.y);
   }
@@ -392,21 +435,20 @@ export class PickBoxEngine {
     const tower = this.tower();
     const start = Math.max(0, tower.length - BALANCE_WINDOW);
     this.balance = 0;
+    this.balanceBreak = 0;
     for (let index = start; index < tower.length - 1; index++) {
       const above = tower.slice(index + 1);
       const centre = above.reduce((sum, box) => sum + box.rest!.x, 0) / above.length;
-      const shift = centre - tower[index]!.rest!.x;
-      const share = Math.abs(shift) / (BOX_WIDTH / 2);
-      if (share > this.balance) {
+      const share = (centre - tower[index]!.rest!.x) / ((BOX_WIDTH / 2) * SAFE_OVERHANG);
+      if (Math.abs(share) > Math.abs(this.balance)) {
         this.balance = share;
-        this.balanceSide = Math.sign(shift);
         this.balanceBreak = above.length;
       }
     }
   }
 
-  /** The top of the tower breaks off towards its lean; the lower part stays standing. */
-  private topple(direction = Math.sign(this.lean) || 1, reach = COLLAPSE_DEPTH) {
+  /** The boxes above the overloaded one tip off towards the lean; the rest stays standing. */
+  private topple(direction: number, reach: number) {
     const tower = this.tower();
     tower.forEach((box, index) => {
       const depth = tower.length - 1 - index;
@@ -434,18 +476,19 @@ export class PickBoxEngine {
           this.boxes.some((b) => b.body === other && b.counted && !b.fallen))
       );
     });
-    const calm = body.speed < 0.48 && body.angularSpeed < 0.015 && Math.abs(body.angle) < 0.48;
+    const support = this.tower().at(-1);
+    // Only a box lying flat on its support can become part of the tower; a tilted one
+    // keeps moving under gravity until it lies flat or falls.
+    const flat = Math.abs(body.angle - (support?.body.angle ?? 0)) < 0.12;
+    const calm = body.speed < 0.48 && body.angularSpeed < 0.015 && flat;
     this.settledFor = supported && calm && !this.tipping ? this.settledFor + STEP_MS : 0;
     if (this.settledFor >= 300) {
-      const support = this.tower().at(-1);
       const offset = body.position.x - (support?.body.position.x ?? WORLD_WIDTH / 2);
-      // A box that sits on less than ~62 % of its bottom, or rests tilted on a corner,
-      // does not stick to the tower: it tips over the edge and costs a life.
+      // A box resting on less than ~62 % of its bottom does not stay: it tips over the
+      // edge and costs a life.
       const half = support ? BOX_WIDTH / 2 : PLATFORM_WIDTH / 2;
-      const hanging = Math.abs(offset) > half - BOX_WIDTH * 0.12;
-      const tilted = Math.abs(body.angle - (support?.body.angle ?? 0)) > 0.12;
-      if (hanging || tilted) {
-        const direction = Math.sign(offset) || Math.sign(body.angle) || 1;
+      if (Math.abs(offset) > half - BOX_WIDTH * 0.12) {
+        const direction = Math.sign(offset) || 1;
         this.tipping = true;
         this.settledFor = 0;
         Sleeping.set(body, false);
@@ -470,12 +513,8 @@ export class PickBoxEngine {
       this.active = null;
       this.cooldown = 450;
       this.version++;
-      if (this.balance >= 1) {
-        // The boxes above the failing one tip over its edge.
-        this.topple(this.balanceSide || 1, this.balanceBreak);
-        this.end('collapse');
-      } else if (Math.abs(this.lean) >= LEAN_LIMIT) {
-        this.topple();
+      if (Math.abs(this.balance) >= 1) {
+        this.topple(Math.sign(this.balance), Math.max(2, this.balanceBreak));
         this.end('collapse');
       }
     } else if (

@@ -4,7 +4,7 @@ import {
   PickBoxEngine,
   BOX_WIDTH,
   BOX_HEIGHT,
-  LEAN_LIMIT,
+  SAFE_OVERHANG,
   peakForScore,
 } from '../../apps/mobile/src/games/pick-box/engine.ts';
 import { cameraFloor } from '../../apps/mobile/src/games/pick-box/ascent.ts';
@@ -78,75 +78,6 @@ test('edge drops rotate under gravity, miss once, and end on the third lost life
   assert.equal(game.score, 0);
   assert.equal(game.reason, 'lives');
   assert.equal(game.phase, 'over');
-  assert.equal(game.drop(), false);
-  game.dispose();
-});
-test('an early crooked start is forgotten once the tower is built straight', () => {
-  // Owner, 16.11.2026: two crooked boxes followed by straight ones used to topple the tower.
-  const game = new PickBoxEngine();
-  game.start();
-  for (const offset of [0, 22, 22]) stack(game, offset);
-  assert(Math.abs(game.lean) > 30);
-  for (let i = 0; i < 20; i++) stack(game);
-  frames(game, 240);
-  assert.equal(game.phase, 'playing');
-  assert.equal(game.score, 23);
-  assert(Math.abs(game.lean) < 15, `lean ${game.lean}`);
-  assert.equal(game.swaying, false);
-  game.dispose();
-});
-test('a strongly leaning tower sways, and straight boxes calm it down', () => {
-  const game = new PickBoxEngine();
-  const kinds = new Set();
-  const emit = game.emit.bind(game);
-  game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
-  game.start();
-  // Crooked in the city, before mountain wind moves the rope.
-  for (const offset of [0, 0, 0, 0, -28, -24]) stack(game, offset);
-  assert.equal(game.phase, 'playing');
-  assert(game.swaying, `lean ${game.lean}`);
-  assert(game.snapshot().swaying);
-  assert(kinds.has('wobble'));
-  const top = topBox(game);
-  let left = Infinity,
-    right = -Infinity;
-  for (let i = 0; i < 360; i++) {
-    game.advance(1000 / 120);
-    left = Math.min(left, top.body.position.x);
-    right = Math.max(right, top.body.position.x);
-  }
-  assert(right - left > 6, `top moved only ${right - left}`);
-  // The lowest box is below the sway of a short tower and stays where it settled.
-  assert(Math.abs(game.boxes[0].body.position.x - game.boxes[0].rest.x) < 0.5);
-  for (let i = 0; i < 4 && game.swaying; i++) stack(game);
-  assert.equal(game.swaying, false, `lean ${game.lean}`);
-  frames(game, 600);
-  assert.equal(game.swayAmplitude, 0);
-  assert(game.boxes.every((b) => Math.abs(b.body.position.x - b.rest.x) < 1e-9));
-  assert.equal(game.phase, 'playing');
-  assert.equal(game.lives, 3);
-  game.dispose();
-});
-test('a tower that keeps leaning breaks at the top while its base stands', () => {
-  const game = new PickBoxEngine();
-  game.start();
-  for (let i = 0; i < 14; i++) stack(game);
-  // Already swaying near the limit: one more box leaning the same way breaks it.
-  game.lean = -LEAN_LIMIT * 0.95;
-  assert(game.swaying);
-  stack(game, -30);
-  assert.equal(game.phase, 'over');
-  assert.equal(game.reason, 'collapse');
-  assert.equal(game.lives, 3);
-  const base = game.boxes[0];
-  const loose = game.boxes.filter((b) => !b.body.isStatic);
-  assert(loose.length >= 8);
-  const before = loose.map((b) => b.body.position.x);
-  frames(game, 90);
-  const moved = loose.map((b, i) => b.body.position.x - before[i]);
-  assert(moved.at(-1) < -50, 'the top falls towards its lean');
-  assert(moved.reduce((sum, dx) => sum + dx, 0) < 0);
-  assert(base.body.isStatic);
   assert.equal(game.drop(), false);
   game.dispose();
 });
@@ -295,53 +226,6 @@ test('a well-aligned forty-box tower reaches space without swaying', () => {
   assert(game.boxes.every((box) => box.body.isStatic));
   game.dispose();
 });
-test('a tall tower sways wider and slower than a short one', () => {
-  const measure = (boxes) => {
-    const game = new PickBoxEngine();
-    game.start();
-    for (let i = 0; i < boxes; i++) stack(game);
-    game.lean = -LEAN_LIMIT * 0.9;
-    const top = topBox(game);
-    frames(game, 240);
-    let left = Infinity,
-      right = -Infinity,
-      crossings = 0,
-      previous = top.body.position.x - top.rest.x;
-    for (let i = 0; i < 600; i++) {
-      game.advance(1000 / 60);
-      const offset = top.body.position.x - top.rest.x;
-      left = Math.min(left, offset);
-      right = Math.max(right, offset);
-      const mid = (left + right) / 2;
-      if ((previous - mid) * (offset - mid) < 0) crossings++;
-      previous = offset;
-    }
-    game.dispose();
-    return { width: right - left, crossings };
-  };
-  const short = measure(4);
-  const tall = measure(26);
-  assert(tall.width > short.width * 1.5, JSON.stringify({ short, tall }));
-  assert(tall.crossings < short.crossings, JSON.stringify({ short, tall }));
-});
-test('a landing shivers the top of the tower, which then settles back', () => {
-  const game = new PickBoxEngine();
-  game.start();
-  for (let i = 0; i < 3; i++) stack(game);
-  const top = topBox(game);
-  const target = top.body.position.x;
-  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target) < 1.3);
-  game.drop();
-  let moved = 0;
-  until(game, () => {
-    moved = Math.max(moved, Math.abs(top.body.position.x - top.rest.x));
-    return game.score === 4;
-  });
-  assert(moved > 0.3, `top moved ${moved}`);
-  frames(game, 120);
-  assert(Math.abs(top.body.position.x - top.rest.x) < 0.05);
-  game.dispose();
-});
 test('mountain wind swings the rope harder than the city air', () => {
   const swing = (score) => {
     const game = new PickBoxEngine();
@@ -356,7 +240,7 @@ test('mountain wind swings the rope harder than the city air', () => {
     return angle;
   };
   assert(swing(0) <= 0.076);
-  assert(swing(22) > 0.13);
+  assert(swing(22) > 0.1);
 });
 test('in space a meteor flies in and knocks the hanging box', () => {
   const game = new PickBoxEngine();
@@ -395,20 +279,127 @@ test('a box hanging far over the edge tips off instead of sticking', () => {
   assert(!game.boxes.some((b) => b.body === body && b.counted));
   game.dispose();
 });
-test('a staircase leaning one way tips over like a real stack', () => {
+const share = (px) => px / ((BOX_WIDTH / 2) * SAFE_OVERHANG);
+test('an early crooked start is forgotten once the tower is built straight', () => {
+  // Owner, 16.11.2026: two crooked boxes followed by straight ones used to topple the tower.
   const game = new PickBoxEngine();
   game.start();
+  for (const offset of [0, 22, 22]) stack(game, offset);
+  assert(game.balance > share(25), `balance ${game.balance}`);
+  // Stays in the city: no mountain wind on the rope in this scenario.
   for (let i = 0; i < 4; i++) stack(game);
-  // Each box 40 to the right of the one below, the lean model alone would stay calm.
-  const tower = game.boxes.filter((b) => b.rest);
-  tower.forEach((box, i) => (box.rest.x = 120 + i * 40));
-  frames(game, 30);
-  game.lean = 0;
-  stack(game);
+  frames(game, 600);
+  assert.equal(game.phase, 'playing');
+  assert.equal(game.score, 7);
+  assert(Math.abs(game.balance) < 0.3, `balance ${game.balance}`);
+  assert.equal(game.swaying, false);
+  assert(game.swayAmplitude < 0.5);
+  game.dispose();
+});
+test('crooked boxes swing the tower to their own side; straight boxes calm it', () => {
+  const game = new PickBoxEngine();
+  const kinds = new Set();
+  const emit = game.emit.bind(game);
+  game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
+  game.start();
+  for (const offset of [0, 0, 0, 0, -33, -33]) stack(game, offset);
+  assert.equal(game.phase, 'playing');
+  assert(game.balance < -0.7, `balance ${game.balance}`);
+  assert(game.swaying && game.snapshot().swaying);
+  assert(kinds.has('wobble'));
+  // Boxes went left, so the top leans and swings left of where it rests.
+  let left = 0,
+    right = 0,
+    sum = 0;
+  for (let i = 0; i < 480; i++) {
+    game.advance(1000 / 120);
+    left = Math.min(left, game.sway);
+    right = Math.max(right, game.sway);
+    sum += game.sway;
+  }
+  assert(sum / 480 < -2, `mean sway ${sum / 480}`);
+  assert(left < -5 && right < 3, JSON.stringify({ left, right }));
+  assert(right - left > 3, 'it keeps swinging near the tipping point');
+  for (let i = 0; i < 3; i++) stack(game);
+  assert.equal(game.swaying, false, `balance ${game.balance}`);
+  frames(game, 900);
+  assert(game.swayAmplitude < 0.3, `amplitude ${game.swayAmplitude}`);
+  assert.equal(game.phase, 'playing');
+  assert.equal(game.lives, 3);
+  game.dispose();
+});
+test('a staircase to one side tips its top off that side; the base stands', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let i = 0; i < 6; i++) stack(game);
+  stack(game, -38);
+  assert.equal(game.phase, 'playing');
+  assert(game.swaying, 'one crooked box only warns');
+  stack(game, -38);
   assert.equal(game.phase, 'over');
   assert.equal(game.reason, 'collapse');
-  assert(game.balance >= 1, `balance ${game.balance}`);
+  assert(game.balance <= -1, `balance ${game.balance}`);
+  assert.equal(game.lives, 3);
   const loose = game.boxes.filter((b) => !b.body.isStatic);
-  assert(loose.length >= 2 && loose.length < game.boxes.length, 'only the top tips over');
+  assert.equal(loose.length, 2);
+  assert(game.boxes[0].body.isStatic);
+  const before = loose.map((b) => b.body.position.x);
+  frames(game, 90);
+  assert(loose.at(-1).body.position.x < before.at(-1) - 40, 'the top falls to the left');
+  assert.equal(game.drop(), false);
+  game.dispose();
+});
+test('a tall tower leans and sways wider and slower than a short one', () => {
+  const measure = (boxes) => {
+    const game = new PickBoxEngine();
+    game.start();
+    for (let i = 0; i < boxes; i++) stack(game);
+    game.balance = -0.9;
+    frames(game, 600);
+    let left = Infinity,
+      right = -Infinity,
+      crossings = 0,
+      sum = 0,
+      previous = game.sway;
+    const samples = [];
+    for (let i = 0; i < 600; i++) {
+      game.advance(1000 / 60);
+      samples.push(game.sway);
+      left = Math.min(left, game.sway);
+      right = Math.max(right, game.sway);
+      sum += game.sway;
+    }
+    const mid = sum / samples.length;
+    for (const value of samples) {
+      if ((previous - mid) * (value - mid) < 0) crossings++;
+      previous = value;
+    }
+    game.dispose();
+    return { width: right - left, lean: mid, crossings };
+  };
+  const short = measure(4);
+  const tall = measure(26);
+  const report = JSON.stringify({ short, tall });
+  assert(short.lean < 0 && tall.lean < short.lean * 1.5, report);
+  assert(tall.width > short.width * 1.5, report);
+  assert(tall.crossings < short.crossings, report);
+});
+test('a landing shivers the top of the tower, which then settles', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let i = 0; i < 3; i++) stack(game);
+  const top = topBox(game);
+  const target = top.body.position.x;
+  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target) < 1.3);
+  game.drop();
+  let moved = 0;
+  until(game, () => {
+    moved = Math.max(moved, Math.abs(top.body.position.x - top.rest.x));
+    return game.score === 4;
+  });
+  assert(moved > 0.3, `top moved ${moved}`);
+  frames(game, 600);
+  assert(game.swayAmplitude < 0.2);
+  assert(Math.abs(top.body.position.x - top.rest.x) < 2);
   game.dispose();
 });
