@@ -8018,9 +8018,11 @@
       "scopes": [
         "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md"
       ],
-      "status": "active",
-      "head": "6cf67a12d35f66baddfee5a5eae3cf02d24bc751",
-      "updatedAt": "2026-11-16T14:12:05.761Z"
+      "status": "available",
+      "head": "ab5c18a2bd2062a98c65e06e60c23466d09f10cd",
+      "updatedAt": "2026-11-16T14:13:52.288Z",
+      "summary": "Только чтение: PR388 не слит; Foundation 43881121421 job133347247540 упал в browser_slide_to_pay.py scenario_hint_languages kk. В облаке PEAK GROUP нет, максимум схемы077, API a728cd31 healthy, terminal feature выключена. Протокол опубликован, сервер и Apple без изменений.",
+      "nextAction": "Получить точное имя и ИИН/БИН PEAK GROUP защищённым путём. После исправления CI и слияния PR388 проверять Foundation коммита слияния. Затем штатные резервы, backup/restore proof, выпуск080/API/gateway и native kiosk build>=25. Привязку и PIN сохранить, реальные оплаты выполняет владелец."
     }
   ],
   "approvedScopeTransfers": [
