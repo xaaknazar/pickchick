@@ -29,6 +29,7 @@ type Frame = {
   impactY: number;
   particles: boolean;
   impactId: number;
+  meteor: { x: number; y: number; dir: number; visible: boolean };
 };
 const FRONT = require('../../../assets/games/pick-box/front.png');
 const LID = require('../../../assets/games/pick-box/lid.png');
@@ -45,6 +46,7 @@ const BASE_FRAME: Frame = {
   impactY: 420,
   particles: false,
   impactId: -1,
+  meteor: { x: 0, y: 0, dir: 1, visible: false },
 };
 
 function BoxSprite({
@@ -58,12 +60,18 @@ function BoxSprite({
 }) {
   const style = useAnimatedStyle(() => {
     const box = held ? frame.value.held : frame.value.bodies[id];
+    // Landing squash: the carton gives a little and springs back, bottom edge fixed.
+    const landing = !held && frame.value.impactId === id && frame.value.impact < 320;
+    const p = frame.value.impact / 320;
+    const give = landing ? 0.09 * Math.exp(-3 * p) * Math.cos(2 * Math.PI * 1.2 * p) : 0;
     return {
       opacity: box?.visible ? 1 : 0,
       transform: [
         { translateX: (box?.x ?? 0) - BOX_WIDTH / 2 },
-        { translateY: (box?.y ?? 0) - BOX_HEIGHT / 2 },
+        { translateY: (box?.y ?? 0) - BOX_HEIGHT / 2 + (BOX_HEIGHT * give) / 2 },
         { rotate: `${box?.angle ?? 0}rad` },
+        { scaleX: 1 + give * 0.6 },
+        { scaleY: 1 - give },
       ],
     };
   });
@@ -108,6 +116,24 @@ function Rope({ frame }: { frame: SharedValue<Frame> }) {
     <Animated.View pointerEvents="none" style={[s.rope, style]}>
       <View style={s.ropeLight} />
       <View style={s.knot} />
+    </Animated.View>
+  );
+}
+
+function Meteor({ frame }: { frame: SharedValue<Frame> }) {
+  const style = useAnimatedStyle(() => ({
+    opacity: frame.value.meteor.visible ? 1 : 0,
+    transform: [
+      { translateX: frame.value.meteor.x - 9 },
+      { translateY: frame.value.meteor.y - 9 },
+      // The trail points back the way the meteor came.
+      { scaleX: frame.value.meteor.dir },
+    ],
+  }));
+  return (
+    <Animated.View testID="pick-box-meteor" pointerEvents="none" style={[s.meteor, style]}>
+      <View style={s.meteorTrail} />
+      <View style={s.meteorRock} />
     </Animated.View>
   );
 }
@@ -200,9 +226,11 @@ export function World({
       }
       const recentImpact = [...game.cues]
         .reverse()
-        .find((c) => c.kind === 'impact' || c.kind === 'collapse');
+        .find((c) => c.kind === 'impact' || c.kind === 'collapse' || c.kind === 'meteor');
       const age = recentImpact ? game.time - recentImpact.time : 1000;
-      const strength = recentImpact?.kind === 'collapse' ? 4 : 1.8;
+      const strength =
+        recentImpact?.kind === 'collapse' ? 4 : recentImpact?.kind === 'meteor' ? 1.2 : 1.8;
+      const meteor = game.meteor;
       const shake = reduced || age > 200 ? 0 : Math.sin(age * 0.12) * strength * (1 - age / 200);
       // Rope stays attached to the box's top; it is a visual pendulum, never a physics constraint after release.
       const endX = held.x,
@@ -229,6 +257,7 @@ export function World({
                   Math.abs(box.body.position.y - recentImpact.y) < BOX_HEIGHT,
               )?.id ?? -1)
             : -1,
+        meteor: { ...meteor, y: meteor.y + camera },
         rope: {
           x: anchorX,
           y: anchorY,
@@ -277,6 +306,7 @@ export function World({
             <BoxSprite key={id} frame={frame} id={id} />
           ))}
           <BoxSprite frame={frame} id={0} held />
+          <Meteor frame={frame} />
           {[0, 1, 2, 3].map((index) => (
             <Spark key={index} frame={frame} index={index} />
           ))}
@@ -288,6 +318,24 @@ export function World({
 
 const s = StyleSheet.create({
   spark: { position: 'absolute', left: 0, top: 0 },
+  meteor: { position: 'absolute', left: 0, top: 0, width: 18, height: 18 },
+  meteorTrail: {
+    position: 'absolute',
+    left: 9,
+    top: 6,
+    width: 46,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFB86B66',
+  },
+  meteorRock: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#8A5A3C',
+    borderWidth: 2,
+    borderColor: '#FF9A4D',
+  },
   viewport: { flex: 1, overflow: 'visible' },
   bodyClip: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   world: { position: 'absolute', width: 360, left: 0, top: 0 },

@@ -22,8 +22,13 @@ export const PERFECT_CALM = 0.75;
 export const LEAN_LIMIT = 85;
 export const SWAY_FROM = 0.4;
 export const SWAY_MAX = 30;
-export const SWAY_DEPTH = 7;
 const COLLAPSE_DEPTH = 10;
+/** Towers this tall sway at their slowest and widest. */
+const TALL_TOWER = 30;
+/** Wind on the rope by ascent stage: city, Furmanov, Talgar, atmosphere, space. */
+const WIND = [0, 0.5, 0.8, 1, 0] as const;
+const HOLD_REACH = 135;
+export const METEOR_FLIGHT_MS = 900;
 
 export type Phase = 'ready' | 'playing' | 'paused' | 'over';
 export type Box = {
@@ -37,7 +42,7 @@ export type Box = {
   sway?: number;
 };
 export type Cue = {
-  kind: 'drop' | 'impact' | 'land' | 'perfect' | 'miss' | 'collapse' | 'peak' | 'wobble';
+  kind: 'drop' | 'impact' | 'land' | 'perfect' | 'miss' | 'collapse' | 'peak' | 'wobble' | 'meteor';
   x: number;
   y: number;
   time: number;
@@ -79,6 +84,11 @@ export class PickBoxEngine {
   /** Current sway amplitude at the top of the tower, in world units. */
   swayAmplitude = 0;
   private swayPhase = 0;
+  private jolt = { at: -1e9, amp: 0 };
+  private kick = { at: -1e9, dir: 0 };
+  private rng = 0x5049434b;
+  private meteorAt = 0;
+  private meteorFrom = 1;
   private active: Box | null = null;
   private settledFor = 0;
   private fallingFor = 0;
@@ -110,6 +120,12 @@ export class PickBoxEngine {
       if (pairs.some((p) => p.bodyA === this.active?.body || p.bodyB === this.active?.body)) {
         this.impactPlayed = true;
         this.version++;
+        // The landing knocks the top of the tower; a hard landing shivers it more.
+        const body = this.active.body;
+        this.jolt = {
+          at: this.time,
+          amp: Math.min(3.5, 0.25 * body.speed) * (Math.sign(body.velocity.x) || 1),
+        };
         this.emit('impact', this.active.body.position.x, this.active.body.position.y);
       }
     });
@@ -119,17 +135,79 @@ export class PickBoxEngine {
     return this.phase === 'playing' && !this.active && this.cooldown <= 0;
   }
 
-  get held(): Pose {
+  /** Rope pendulum: wind in the mountains, meteor knocks in space. */
+  private pose(time: number) {
     const speed = 1.35 + Math.min(this.score, 40) * 0.017;
-    const phase = (this.time / 1000) * speed;
-    const amplitude = 112 + Math.min(this.score * 0.65, 23);
+    const wind = WIND[peakForScore(this.score)] ?? 0;
+    const phase = (time / 1000) * speed * (1 + 0.22 * wind);
+    const gust = 0.5 + 0.5 * Math.sin(time * 0.00071 + 1.3);
+    const amplitude = Math.min(
+      HOLD_REACH,
+      112 + Math.min(this.score * 0.65, 23) + 18 * wind * gust,
+    );
+    const swing = Math.sin(phase);
+    const since = time - this.kick.at;
+    const knock =
+      since >= 0 && since < 2600
+        ? Math.exp(-since / 650) * Math.sin((since / 1000) * 2 * Math.PI * 1.4)
+        : 0;
     return {
-      x: WORLD_WIDTH / 2 + Math.sin(phase) * amplitude,
-      y: this.top - 185 + (1 - Math.cos(Math.sin(phase) * 0.6)) * 100,
-      angle: Math.sin(phase) * 0.075,
-      // A little momentum remains after release; the player can learn to lead the target.
-      vx: ((Math.cos(phase) * amplitude * speed) / 60) * 0.18,
+      x: WORLD_WIDTH / 2 + swing * amplitude + this.kick.dir * 26 * knock,
+      y: this.top - 185 + (1 - Math.cos(swing * 0.6)) * 100,
+      angle: swing * (0.075 + 0.1 * wind) + this.kick.dir * 0.3 * knock,
     };
+  }
+
+  get held(): Pose {
+    const pose = this.pose(this.time);
+    // A little momentum remains after release; the player can learn to lead the target.
+    const perMs = (this.pose(this.time + 1).x - this.pose(this.time - 1).x) / 2;
+    return { ...pose, vx: ((perMs * 1000) / 60) * 0.18 };
+  }
+
+  /** The meteor flying at the held box in space, in world coordinates. */
+  get meteor(): { x: number; y: number; dir: number; visible: boolean } {
+    const progress = 1 - (this.meteorAt - this.time) / METEOR_FLIGHT_MS;
+    if (!this.meteorAt || progress < 0 || progress >= 1 || !this.isHolding)
+      return { x: 0, y: 0, dir: this.meteorFrom, visible: false };
+    const target = this.pose(this.time);
+    const startX = this.meteorFrom > 0 ? WORLD_WIDTH + 40 : -40;
+    const eased = progress * progress;
+    return {
+      x: startX + (target.x - this.meteorFrom * 50 - startX) * eased,
+      y: target.y - 150 + 150 * eased,
+      dir: this.meteorFrom,
+      visible: true,
+    };
+  }
+
+  private random() {
+    this.rng ^= this.rng << 13;
+    this.rng ^= this.rng >>> 17;
+    this.rng ^= this.rng << 5;
+    this.rng >>>= 0;
+    return this.rng / 0x1_0000_0000;
+  }
+
+  /** In space a small meteor now and then knocks the hanging box sideways. */
+  private meteors() {
+    if (peakForScore(this.score) < 4) {
+      this.meteorAt = 0;
+      return;
+    }
+    if (!this.meteorAt) {
+      this.meteorAt = this.time + 3500 + this.random() * 3500;
+      this.meteorFrom = this.random() < 0.5 ? -1 : 1;
+      return;
+    }
+    if (this.time < this.meteorAt) return;
+    if (this.isHolding) {
+      // It hits the box from its own side and pushes it the other way.
+      this.kick = { at: this.time, dir: -this.meteorFrom };
+      const pose = this.pose(this.time);
+      this.emit('meteor', pose.x + this.meteorFrom * 50, pose.y);
+    }
+    this.meteorAt = 0;
   }
 
   get isHolding() {
@@ -216,6 +294,7 @@ export class PickBoxEngine {
       }
       this.swayTower();
       this.checkActive();
+      if (this.phase === 'playing') this.meteors();
     }
     // Fallen boxes leave the world. Settled boxes remain dynamic, even below the camera.
     this.boxes = this.boxes.filter((box) => {
@@ -243,25 +322,33 @@ export class PickBoxEngine {
   private swayTower() {
     const tower = this.tower();
     const strength = Math.max(0, (this.danger - SWAY_FROM) / (1 - SWAY_FROM));
-    const target = SWAY_MAX * strength ** 1.2;
+    // Like a real mast: a short tower sways small and quick, a tall one wide and slow.
+    const tall = Math.min(1, tower.length / TALL_TOWER);
+    const depthLimit = 5 + 5 * tall;
+    const target = SWAY_MAX * (0.5 + 0.7 * tall) * strength ** 1.2;
     const blend = 1 - Math.exp(-STEP_MS / 600);
     this.swayAmplitude += (target - this.swayAmplitude) * blend;
     if (this.swayAmplitude < 0.02 && target === 0) this.swayAmplitude = 0;
     // Period shortens from 2.6 s to 1.6 s as the lean approaches the limit.
-    this.swayPhase += ((2 * Math.PI) / (2600 - 1000 * strength)) * STEP_MS;
+    this.swayPhase += ((2 * Math.PI) / ((2600 - 1000 * strength) * (0.75 + 0.5 * tall))) * STEP_MS;
     const bias = 0.35 * Math.max(-1, Math.min(1, this.lean / (0.6 * LEAN_LIMIT)));
-    const offset = this.swayAmplitude * (Math.sin(this.swayPhase) + bias);
+    const since = this.time - this.jolt.at;
+    const jolt =
+      since >= 0 && since < 900
+        ? this.jolt.amp * Math.exp(-since / 160) * Math.sin((since / 1000) * 2 * Math.PI * 9)
+        : 0;
+    const offset = this.swayAmplitude * (Math.sin(this.swayPhase) + bias) + jolt;
     const top = tower.at(-1);
     const before = top ? top.body.position.x : 0;
     tower.forEach((box, index) => {
       const depth = tower.length - 1 - index;
-      const share = Math.max(0, 1 - depth / SWAY_DEPTH) ** 2;
+      const share = Math.max(0, 1 - depth / depthLimit) ** 2;
       box.sway = (box.sway ?? share) + (share - (box.sway ?? share)) * blend;
       if (share === 0 && box.sway < 1e-3) box.sway = 0;
       const rest = box.rest!;
       const x = rest.x + offset * box.sway;
       if (box.body.position.x === x && box.body.angle === rest.angle && share === 0) return;
-      const bend = (2 * Math.max(0, 1 - depth / SWAY_DEPTH)) / (SWAY_DEPTH * BOX_HEIGHT);
+      const bend = (2 * Math.max(0, 1 - depth / depthLimit)) / (depthLimit * BOX_HEIGHT);
       Body.setPosition(box.body, { x, y: rest.y });
       Body.setAngle(box.body, rest.angle + offset * bend * 0.35 * Math.min(1, box.sway * 2));
     });

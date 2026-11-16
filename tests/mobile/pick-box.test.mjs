@@ -101,7 +101,8 @@ test('a strongly leaning tower sways, and straight boxes calm it down', () => {
   const emit = game.emit.bind(game);
   game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
   game.start();
-  for (const offset of [0, 0, 0, 0, 0, 0, 0, 0, -30, -30, -28]) stack(game, offset);
+  // Crooked in the city, before mountain wind moves the rope.
+  for (const offset of [0, 0, 0, 0, -30, -30]) stack(game, offset);
   assert.equal(game.phase, 'playing');
   assert(game.swaying, `lean ${game.lean}`);
   assert(game.snapshot().swaying);
@@ -115,8 +116,8 @@ test('a strongly leaning tower sways, and straight boxes calm it down', () => {
     right = Math.max(right, top.body.position.x);
   }
   assert(right - left > 12, `top moved only ${right - left}`);
-  // The lowest box is far below the sway and stays where it settled.
-  assert.equal(game.boxes[0].body.position.x, game.boxes[0].rest.x);
+  // The lowest box is below the sway of a short tower and stays where it settled.
+  assert(Math.abs(game.boxes[0].body.position.x - game.boxes[0].rest.x) < 0.5);
   for (let i = 0; i < 4 && game.swaying; i++) stack(game);
   assert.equal(game.swaying, false, `lean ${game.lean}`);
   frames(game, 600);
@@ -292,5 +293,91 @@ test('a well-aligned forty-box tower reaches space without swaying', () => {
   assert.equal(game.phase, 'playing');
   assert.equal(game.swaying, false);
   assert(game.boxes.every((box) => box.body.isStatic));
+  game.dispose();
+});
+test('a tall tower sways wider and slower than a short one', () => {
+  const measure = (boxes) => {
+    const game = new PickBoxEngine();
+    game.start();
+    for (let i = 0; i < boxes; i++) stack(game);
+    game.lean = -LEAN_LIMIT * 0.9;
+    const top = topBox(game);
+    frames(game, 240);
+    let left = Infinity,
+      right = -Infinity,
+      crossings = 0,
+      previous = top.body.position.x - top.rest.x;
+    for (let i = 0; i < 600; i++) {
+      game.advance(1000 / 60);
+      const offset = top.body.position.x - top.rest.x;
+      left = Math.min(left, offset);
+      right = Math.max(right, offset);
+      const mid = (left + right) / 2;
+      if ((previous - mid) * (offset - mid) < 0) crossings++;
+      previous = offset;
+    }
+    game.dispose();
+    return { width: right - left, crossings };
+  };
+  const short = measure(4);
+  const tall = measure(26);
+  assert(tall.width > short.width * 1.5, JSON.stringify({ short, tall }));
+  assert(tall.crossings < short.crossings, JSON.stringify({ short, tall }));
+});
+test('a landing shivers the top of the tower, which then settles back', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let i = 0; i < 3; i++) stack(game);
+  const top = topBox(game);
+  const target = top.body.position.x;
+  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target) < 1.3);
+  game.drop();
+  let moved = 0;
+  until(game, () => {
+    moved = Math.max(moved, Math.abs(top.body.position.x - top.rest.x));
+    return game.score === 4;
+  });
+  assert(moved > 0.3, `top moved ${moved}`);
+  frames(game, 120);
+  assert(Math.abs(top.body.position.x - top.rest.x) < 0.05);
+  game.dispose();
+});
+test('mountain wind swings the rope harder than the city air', () => {
+  const swing = (score) => {
+    const game = new PickBoxEngine();
+    game.start();
+    game.score = score;
+    let angle = 0;
+    for (let i = 0; i < 900; i++) {
+      game.advance(1000 / 60);
+      angle = Math.max(angle, Math.abs(game.held.angle));
+    }
+    game.dispose();
+    return angle;
+  };
+  assert(swing(0) <= 0.076);
+  assert(swing(22) > 0.13);
+});
+test('in space a meteor flies in and knocks the hanging box', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  game.score = 40;
+  const kinds = new Set();
+  const emit = game.emit.bind(game);
+  game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
+  let seen = false,
+    angle = 0;
+  for (let i = 0; i < 60 * 9 && !kinds.has('meteor'); i++) {
+    game.advance(1000 / 60);
+    seen ||= game.meteor.visible;
+  }
+  assert(seen, 'the meteor is visible before it hits');
+  assert(kinds.has('meteor'));
+  for (let i = 0; i < 60; i++) {
+    game.advance(1000 / 60);
+    angle = Math.max(angle, Math.abs(game.held.angle));
+  }
+  assert(angle > 0.12, `knock angle ${angle}`);
+  assert.equal(game.phase, 'playing');
   game.dispose();
 });

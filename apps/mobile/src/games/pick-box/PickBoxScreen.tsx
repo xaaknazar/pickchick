@@ -241,7 +241,7 @@ export function PickBoxScreen() {
   }, [game, updatePreferences]);
   const cue = useCallback(
     (event: Cue) => {
-      play(event.kind, game.combo);
+      play(event.kind === 'meteor' ? 'impact' : event.kind, game.combo);
       if (event.kind === 'peak') {
         setMilestone(game.snapshot().peak);
         if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
@@ -250,6 +250,9 @@ export function PickBoxScreen() {
       }
       if (event.kind === 'impact' && preferencesRef.current.haptics && Platform.OS !== 'web') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+      if (event.kind === 'meteor' && preferencesRef.current.haptics && Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }
       if (event.kind === 'wobble' && preferencesRef.current.haptics && Platform.OS !== 'web') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
