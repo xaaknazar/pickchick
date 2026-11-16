@@ -451,7 +451,8 @@ const s = StyleSheet.create({
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
   aboveTabBar: { paddingBottom: tabCartGap },
-  root: { width: '100%', maxWidth: 390, alignSelf: 'center' },
+  // Owner 16.11.2026: the quick payment bar shorter than the tab bar (390 before).
+  root: { width: '100%', maxWidth: 330, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
