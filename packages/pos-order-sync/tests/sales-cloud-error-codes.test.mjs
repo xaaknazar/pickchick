@@ -21,6 +21,13 @@ const nest = createRequire(fileURLToPath(import.meta.resolve('@pickchick/platfor
 );
 const POS_CODES = PosErrorCodeSchema.options;
 const KDS_CODES = ['HANDOVER_MARKS_REQUIRED'];
+/** Kiosk Kaspi Smart POS terminal routes (ADR-0018), cloud 409 only. */
+const KIOSK_TERMINAL_CODES = [
+  'KIOSK_TERMINAL_TAKEN',
+  'KIOSK_TERMINAL_NOT_LINKED',
+  'KIOSK_TERMINAL_DISABLED',
+  'KIOSK_TERMINAL_WHOLE_TENGE',
+];
 /** ErrorSchema.code of D0 5b212949. */
 const D0_CODES = Object.freeze([
   'CATALOG_UPGRADE_REQUIRED',
@@ -129,7 +136,11 @@ test('ErrorSchema lists every POS code of PosErrorCodeSchema and the KDS handove
   for (const code of D0_CODES) assert.ok(listed.includes(code), code);
   assert.deepEqual(
     listed.filter((code) => !D0_CODES.includes(code)),
-    [...POS_CODES.filter((code) => !D0_CODES.includes(code)), ...KDS_CODES],
+    [
+      ...POS_CODES.filter((code) => !D0_CODES.includes(code)),
+      ...KDS_CODES,
+      ...KIOSK_TERMINAL_CODES,
+    ],
   );
 });
 

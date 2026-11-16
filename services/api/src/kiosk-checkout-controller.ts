@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -8,6 +9,7 @@ import {
   Inject,
   Param,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -27,6 +29,8 @@ import {
   kioskCheckoutOptions,
   kioskInvoiceAccountUnserved,
   kioskPiiKey,
+  kioskKaspiTerminalConfig,
+  KioskTerminalError,
   KioskStaffPin,
   KioskStaffPinError,
   kioskStaffPinVerifier,
@@ -61,7 +65,14 @@ export class KioskCheckoutController {
         : null;
     this.sessions = options && key ? new KioskSessions(resources.pool, { piiKey: key }) : null;
     this.checkout = this.sessions
-      ? new KioskCheckout(resources.pool, options, this.sessions)
+      ? new KioskCheckout(
+          resources.pool,
+          options,
+          this.sessions,
+          undefined,
+          // ADR-0018: invalid KIOSK_KASPI_TERMINAL_ENABLED/ACCOUNT_ID stops startup.
+          kioskKaspiTerminalConfig(process.env),
+        )
       : null;
   }
   private async execute<T>(response: ServerResponse, run: () => Promise<T>) {
@@ -70,6 +81,8 @@ export class KioskCheckoutController {
     try {
       return await run();
     } catch (error) {
+      // ADR-0018 contract reasons: every one is a 409 conflict with the kiosk's state.
+      if (error instanceof KioskTerminalError) throw new HttpException({ code: error.code }, 409);
       if (error instanceof AvailabilityError)
         throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
       if (error instanceof KioskStaffPinError)
@@ -244,8 +257,38 @@ export class KioskCheckoutController {
     @Headers('authorization') auth?: string,
   ) {
     return this.execute(res, async () =>
-      this.checkout!.config(await this.guest(device, key, auth)),
+      this.checkout!.kioskConfig(await this.guest(device, key, auth)),
     );
+  }
+  /**
+   * ADR-0018: link (or refresh) this kiosk's Kaspi Smart POS terminal from the kiosk service
+   * menu. Device credentials only, like staff/verify; no guest is allocated.
+   * Body { terminal_id, serial, host } (host: private IPv4). 409 KIOSK_TERMINAL_TAKEN when the
+   * terminal belongs to another active kiosk.
+   */
+  @Put('terminal') @HttpCode(200) linkTerminal(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Body() body: unknown,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const enrolled = await this.sessions!.validateDevice(device ?? '', key ?? '');
+      // A device of another branch never gains access to this checkout deployment.
+      await this.checkout!.config({ ...enrolled, sessionId: enrolled.deviceId });
+      return this.checkout!.terminal.link(enrolled, body);
+    });
+  }
+  @Delete('terminal') @HttpCode(200) unlinkTerminal(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const enrolled = await this.sessions!.validateDevice(device ?? '', key ?? '');
+      await this.checkout!.config({ ...enrolled, sessionId: enrolled.deviceId });
+      return this.checkout!.terminal.unlink(enrolled);
+    });
   }
   @Post('quotes') @HttpCode(200) quote(
     @Body() body: unknown,
@@ -279,6 +322,19 @@ export class KioskCheckoutController {
   ) {
     return this.execute(res, async () =>
       this.checkout!.pay(await this.guest(device, key, auth, true), id, body),
+    );
+  }
+  /** ADR-0018: kiosk-attested terminal events; answers the order as GET orders/:id. */
+  @Post('orders/:id/terminal-events') @HttpCode(200) terminalEvent(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.execute(res, async () =>
+      this.checkout!.terminalEvent(await this.guest(device, key, auth, true), id, body),
     );
   }
   @Get('orders/:id') read(

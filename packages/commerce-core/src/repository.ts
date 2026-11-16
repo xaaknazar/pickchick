@@ -1066,7 +1066,7 @@ export class CommerceRepository {
           throw new CommerceError('NOT_READY');
         return true;
       }
-      await this.startAttempt(scope, key, request, false, client);
+      await this.startAttempt(scope, key, request, null, client);
       return false;
     });
     // The durable release must commit before the customer is offered a new quote.
@@ -1172,20 +1172,34 @@ export class CommerceRepository {
     );
   }
   async startPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
-    return this.startAttempt(scope, key, input, false);
+    return this.startAttempt(scope, key, input, null);
   }
   /** Kiosk QR is paid before edge admission by the owner's explicit policy.
    * This trusted port is not a caller-supplied skip flag. Other rails keep admission. */
   async startKioskQrPaymentAttempt(scope: CommerceScope, key: string, input: unknown) {
-    return this.startAttempt(scope, key, input, true);
+    return this.startAttempt(scope, key, input, 'kaspi-qr');
+  }
+  /**
+   * ADR-0018: the kiosk's own Kaspi Smart POS terminal ('kaspi-pos') follows the kiosk QR policy
+   * (payment before edge admission, original non-ended guest). Runs inside the caller's
+   * transaction so the terminal attempt row is created atomically with the payment attempt.
+   */
+  async startKioskTerminalPaymentAttempt(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    client: DatabaseClient,
+  ) {
+    return this.startAttempt(scope, key, input, 'kaspi-pos', client);
   }
   private async startAttempt(
     scope: CommerceScope,
     key: string,
     input: unknown,
-    kioskQr: boolean,
+    kioskRail: 'kaspi-qr' | 'kaspi-pos' | null,
     db?: DatabaseClient,
   ) {
+    const kioskQr = kioskRail !== null;
     const request = parse(AttemptSchema, input);
     return this.command(
       scope,
@@ -1207,13 +1221,14 @@ export class CommerceRepository {
            WHERE s.id=$1 AND s.organization_id=$2 AND s.branch_id=$3
             AND s.ended_at IS NULL AND s.created_at<=o.created_at
             AND s.expires_at>o.created_at AND d.active
-            AND a.provider='kaspi-qr'`,
+            AND a.provider=$6`,
             [
               row.principal_id,
               row.organization_id,
               row.branch_id,
               request.providerAccountId,
               row.id,
+              kioskRail,
             ],
           );
           if (row.customer_id !== null || row.snapshot.channel !== 'kiosk' || !guest.rowCount)
@@ -1318,9 +1333,10 @@ export class CommerceRepository {
     kind: 'payment' | 'refund' | 'fiscal',
     event: { eventId: string },
     run: (client: DatabaseClient, provider: TrustedProvider) => Promise<T>,
+    db?: DatabaseClient,
   ) {
     const provider = parse(ProviderSchema, providerInput);
-    return transaction(this.pool, async (client) => {
+    const execute = async (client: DatabaseClient) => {
       // Disabled accounts still accept observations for their in-flight effects.
       await account(client, provider, provider.accountId, kind === 'fiscal' ? 'fiscal' : 'payment');
       await lock(client, ['provider', provider.accountId, kind, event.eventId]);
@@ -1340,71 +1356,108 @@ export class CommerceRepository {
         [provider.accountId, kind, event.eventId, digest(event), event, result],
       );
       return result;
-    });
+    };
+    return db ? execute(db) : transaction(this.pool, execute);
   }
   async observePayment(provider: TrustedProvider, input: unknown) {
+    return this.observePaymentWith(provider, input);
+  }
+  /** Same observation inside the caller's transaction (kiosk-attested terminal results). */
+  async observePaymentInTransaction(
+    client: DatabaseClient,
+    provider: TrustedProvider,
+    input: unknown,
+  ) {
+    return this.observePaymentWith(provider, input, client);
+  }
+  private async observePaymentWith(provider: TrustedProvider, input: unknown, db?: DatabaseClient) {
     const event = parse(PaymentObservationSchema, input);
-    return this.observation(provider, 'payment', event, async (client, trusted) => {
-      const hint = (
-        await client.query<AttemptRow>(
-          'SELECT * FROM commerce_payment_attempts WHERE id=$1 AND account_id=$2',
-          [event.attemptId, trusted.accountId],
-        )
-      ).rows[0];
-      if (!hint) throw new CommerceError('NOT_FOUND');
-      const row = await order(client, trusted, hint.order_id);
-      const attempt = (
-        await client.query<AttemptRow>('SELECT * FROM commerce_payment_attempts WHERE id=$1', [
-          hint.id,
-        ])
-      ).rows[0]!;
-      if (event.outcome === 'captured') {
-        const inserted = await client.query<{ id: string }>(
-          'INSERT INTO commerce_captures(id,order_id,attempt_id,account_id,operation_id,amount_minor,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,operation_id) DO NOTHING RETURNING id',
-          [
-            randomUUID(),
-            row.id,
-            attempt.id,
-            trusted.accountId,
-            event.operationId,
-            event.amountMinor,
-            event.occurredAt,
-          ],
-        );
-        const existing = (
-          await client.query<{
-            id: string;
-            order_id: string;
-            attempt_id: string;
-            amount_minor: string;
-          }>('SELECT * FROM commerce_captures WHERE account_id=$1 AND operation_id=$2', [
-            trusted.accountId,
-            event.operationId,
+    return this.observation(
+      provider,
+      'payment',
+      event,
+      async (client, trusted) => {
+        const hint = (
+          await client.query<AttemptRow>(
+            'SELECT * FROM commerce_payment_attempts WHERE id=$1 AND account_id=$2',
+            [event.attemptId, trusted.accountId],
+          )
+        ).rows[0];
+        if (!hint) throw new CommerceError('NOT_FOUND');
+        const row = await order(client, trusted, hint.order_id);
+        const attempt = (
+          await client.query<AttemptRow>('SELECT * FROM commerce_payment_attempts WHERE id=$1', [
+            hint.id,
           ])
         ).rows[0]!;
-        if (
-          existing.order_id !== row.id ||
-          existing.attempt_id !== attempt.id ||
-          existing.amount_minor !== event.amountMinor
-        ) {
-          await issue(
-            client,
-            row,
-            'capture-conflict:' + digest(event.operationId),
-            'CAPTURE_REFERENCE_CONFLICT',
-            { operationId: event.operationId, existingOrderId: existing.order_id },
+        if (event.outcome === 'captured') {
+          const inserted = await client.query<{ id: string }>(
+            'INSERT INTO commerce_captures(id,order_id,attempt_id,account_id,operation_id,amount_minor,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,operation_id) DO NOTHING RETURNING id',
+            [
+              randomUUID(),
+              row.id,
+              attempt.id,
+              trusted.accountId,
+              event.operationId,
+              event.amountMinor,
+              event.occurredAt,
+            ],
           );
+          const existing = (
+            await client.query<{
+              id: string;
+              order_id: string;
+              attempt_id: string;
+              amount_minor: string;
+            }>('SELECT * FROM commerce_captures WHERE account_id=$1 AND operation_id=$2', [
+              trusted.accountId,
+              event.operationId,
+            ])
+          ).rows[0]!;
+          if (
+            existing.order_id !== row.id ||
+            existing.attempt_id !== attempt.id ||
+            existing.amount_minor !== event.amountMinor
+          ) {
+            await issue(
+              client,
+              row,
+              'capture-conflict:' + digest(event.operationId),
+              'CAPTURE_REFERENCE_CONFLICT',
+              { operationId: event.operationId, existingOrderId: existing.order_id },
+            );
+          } else {
+            await client.query(
+              "UPDATE commerce_payment_attempts SET state='succeeded' WHERE id=$1",
+              [attempt.id],
+            );
+            if (inserted.rowCount)
+              await emit(client, row.id, 'capture:' + existing.id, 'payment.capture_recorded', {
+                orderId: row.id,
+                captureId: existing.id,
+                amountMinor: event.amountMinor,
+              });
+            if (BigInt((await totals(client, row.id)).captured) < BigInt(row.total_minor))
+              await emit(
+                client,
+                row.id,
+                'payment-resolution:' + attempt.id,
+                'payment.reconcile_requested',
+                { attemptId: attempt.id, accountId: trusted.accountId },
+              );
+          }
         } else {
-          await client.query("UPDATE commerce_payment_attempts SET state='succeeded' WHERE id=$1", [
-            attempt.id,
-          ]);
-          if (inserted.rowCount)
-            await emit(client, row.id, 'capture:' + existing.id, 'payment.capture_recorded', {
-              orderId: row.id,
-              captureId: existing.id,
-              amountMinor: event.amountMinor,
-            });
-          if (BigInt((await totals(client, row.id)).captured) < BigInt(row.total_minor))
+          const rank: Record<string, number> = { pending: 0, unknown: 1, failed: 2, succeeded: 3 };
+          if (rank[event.outcome]! > rank[attempt.state]!)
+            await client.query('UPDATE commerce_payment_attempts SET state=$2 WHERE id=$1', [
+              attempt.id,
+              event.outcome,
+            ]);
+          if (
+            event.outcome === 'unknown' &&
+            attempt.state !== 'succeeded' &&
+            attempt.state !== 'failed'
+          )
             await emit(
               client,
               row.id,
@@ -1413,28 +1466,10 @@ export class CommerceRepository {
               { attemptId: attempt.id, accountId: trusted.accountId },
             );
         }
-      } else {
-        const rank: Record<string, number> = { pending: 0, unknown: 1, failed: 2, succeeded: 3 };
-        if (rank[event.outcome]! > rank[attempt.state]!)
-          await client.query('UPDATE commerce_payment_attempts SET state=$2 WHERE id=$1', [
-            attempt.id,
-            event.outcome,
-          ]);
-        if (
-          event.outcome === 'unknown' &&
-          attempt.state !== 'succeeded' &&
-          attempt.state !== 'failed'
-        )
-          await emit(
-            client,
-            row.id,
-            'payment-resolution:' + attempt.id,
-            'payment.reconcile_requested',
-            { attemptId: attempt.id, accountId: trusted.accountId },
-          );
-      }
-      return reconcile(client, row);
-    });
+        return reconcile(client, row);
+      },
+      db,
+    );
   }
   async requestRefund(scope: CommerceScope, key: string, input: unknown, db?: DatabaseClient) {
     const request = parse(RefundRequestSchema, input);
