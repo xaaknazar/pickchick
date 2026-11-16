@@ -361,6 +361,8 @@ export const COMMERCIAL_ERROR_TEXT: Record<Exclude<KioskErrorCode, 'NOT_ACCEPTIN
   CONNECTION: 'Связь с сервером прервалась. Проверяем снова, не оплачивайте повторно.',
   OFFLINE: 'Нет связи с сервером. Новый заказ можно начать, когда связь восстановится.',
   STAFF: 'Киоск временно не может начать новый заказ. Пригласите сотрудника.',
+  TERMINAL:
+    'Здесь оплата только на терминале Kaspi, а он не подключён к киоску. Пригласите сотрудника.',
 };
 function decode(raw: string): unknown {
   if (raw.length > 200000) throw new KioskError('RECOVERY_DATA_INVALID');
@@ -801,6 +803,8 @@ export class CommercialKioskController {
   private terminalSession: TerminalSession | null = null;
   /** `kaspi_terminal` of the last `/config`; null when absent (older server) or unreadable. */
   private terminalConfig: { enabled: boolean; terminalId: string | null } | null = null;
+  /** ADR-0019: `/config` says this point pays on the terminal only (no QR, no invoice). */
+  private terminalOnly = false;
   /** The last terminal or server read of the terminal payment failed (retried every second). */
   private terminalOffline = false;
   /** The terminal's latest subStatus while waiting (memory only). */
@@ -1128,6 +1132,7 @@ export class CommercialKioskController {
     if (code === 'DEVICE_NOT_PROVISIONED') return 'DEVICE';
     if (code === 'INVALID_PHONE') return 'PHONE';
     if (code === 'CART_LIMIT_LINE') return code;
+    if (code === 'TERMINAL_REQUIRED') return 'TERMINAL';
     if (code === 'CONNECTION_SOFT') return 'CONNECTION';
     if (code === 'RETRY_PAYMENT') return 'RETRY_PAYMENT';
     if (this.current.resetPending && !this.pending() && transient(error)) return 'OFFLINE';
@@ -1250,7 +1255,13 @@ export class CommercialKioskController {
     const availability = await this.readAvailability('/availability', guest.token);
     const applied = applyAvailability(next, availability.data, true);
     // Everything is loaded: apply it at once, so a failed reload keeps the previous state.
-    this.paymentMethods = methods.map((m) => (m === 'kaspi_qr' ? 'kaspi' : 'kaspi_invoice'));
+    // ADR-0019: a point paid on the kiosk's terminal only (`kaspi_terminal.only`) offers no QR
+    // or invoice; its «Kaspi» choice is the terminal, refused with a staff notice when none is
+    // linked on this iPad.
+    this.terminalOnly = isObject(config.kaspi_terminal) && config.kaspi_terminal.only === true;
+    this.paymentMethods = this.terminalOnly
+      ? ['kaspi']
+      : methods.map((m) => (m === 'kaspi_qr' ? 'kaspi' : 'kaspi_invoice'));
     if (
       !this.current.intent &&
       !this.current.order &&
@@ -1726,6 +1737,8 @@ export class CommercialKioskController {
       // ADR-0018: the kiosk's own Kaspi terminal takes card and Kaspi QR (whole tenge only).
       const terminal =
         selected === 'kaspi' && this.terminalActive() && BigInt(displayedTotalMinor) % 100n === 0n;
+      // ADR-0019: no QR on this point; nothing is created until staff link the terminal.
+      if (this.terminalOnly && !terminal) throw new KioskError('TERMINAL_REQUIRED');
       const intent: Intent = {
         guestId: guest.sessionId,
         quoteKey: this.io.uuid(),

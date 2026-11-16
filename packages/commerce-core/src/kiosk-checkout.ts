@@ -14,6 +14,7 @@ import { KioskSessions } from './kiosk-sessions.js';
 import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { KioskTerminal, KioskTerminalError, KioskTerminalPaymentSchema } from './kiosk-terminal.js';
 import type { KioskTerminalConfig } from './kiosk-terminal.js';
+import { readKioskBranchSetting } from './kiosk-branches.js';
 import { readCheckoutOrder } from './order-view.js';
 import { catalogStopView } from '@pickchick/menu-sync';
 import {
@@ -123,6 +124,12 @@ export type KioskGuest = {
   branchId: string;
   deviceId: string;
 };
+/**
+ * The point a kiosk guest belongs to. `primary`: the env point (KIOSK_CHECKOUT_BRANCH_ID) with its
+ * configured QR/invoice rails. Otherwise a point switched on in the back office (ADR-0019), paid
+ * only on the kiosk's own terminal through `terminalAccountId`.
+ */
+type KioskBranch = { scope: CommerceScope; primary: boolean; terminalAccountId: string | null };
 const paymentKey = (orderId: string) => {
   const h = createHash('sha256').update(`kiosk-kaspi:${orderId}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -138,6 +145,8 @@ export class KioskCheckout {
     private readonly sessions: KioskSessions,
     private readonly now: () => Date = () => new Date(),
     terminal: KioskTerminalConfig | null = null,
+    /** ADR-0019 KIOSK_MULTI_BRANCH_ENABLED: off, only the env point is served (as before). */
+    private readonly multiBranch = false,
   ) {
     this.repository = new CommerceRepository(
       pool,
@@ -147,22 +156,52 @@ export class KioskCheckout {
     );
     this.terminal = new KioskTerminal(pool, terminal, this.repository, now);
   }
-  private scope(guest: KioskGuest): CommerceScope {
+  /** Deferred-fiscal pilot repositories of the other points (the policy names one point). */
+  private readonly pointRepositories = new Map<string, CommerceRepository>();
+  private fiscalRepository(branchId: string) {
+    const opt = this.options!;
+    if (branchId === opt.branchId) return this.repository;
+    let repository = this.pointRepositories.get(branchId);
+    if (!repository) {
+      repository = new CommerceRepository(this.pool, {
+        ...opt,
+        branchId,
+        repeatOrdersEnabled: true,
+      });
+      this.pointRepositories.set(branchId, repository);
+    }
+    return repository;
+  }
+  /**
+   * The guest's point. The env point is served as before. Another point of the same organization
+   * only with KIOSK_MULTI_BRANCH_ENABLED and «Киоски на этой точке» on (kiosk_branch_settings);
+   * switched off it is NOT_READY (an enrolled kiosk waits), with the flag off FORBIDDEN as before.
+   */
+  private async branch(guest: KioskGuest): Promise<KioskBranch> {
     if (!this.options) throw new CommerceError('NOT_READY');
-    if (
-      guest.organizationId !== this.options.organizationId ||
-      guest.branchId !== this.options.branchId
-    )
-      throw new CommerceError('FORBIDDEN');
-    return {
+    if (guest.organizationId !== this.options.organizationId) throw new CommerceError('FORBIDDEN');
+    const scope: CommerceScope = {
       organizationId: guest.organizationId,
       branchId: guest.branchId,
       principalId: guest.sessionId,
       role: 'sales',
     };
+    if (guest.branchId === this.options.branchId)
+      return { scope, primary: true, terminalAccountId: this.terminal.accountId };
+    if (!this.multiBranch) throw new CommerceError('FORBIDDEN');
+    const setting = await readKioskBranchSetting(this.pool, guest.organizationId, guest.branchId);
+    if (!setting?.enabled) throw new CommerceError('NOT_READY');
+    return {
+      scope,
+      primary: false,
+      terminalAccountId: setting.terminalAccountId ?? this.terminal.accountId,
+    };
+  }
+  private async scope(guest: KioskGuest): Promise<CommerceScope> {
+    return (await this.branch(guest)).scope;
   }
   async catalog(guest: KioskGuest) {
-    const scope = this.scope(guest);
+    const scope = await this.scope(guest);
     const row = (
       await this.pool.query<{
         id: string;
@@ -200,7 +239,7 @@ export class KioskCheckout {
   }
   /** Photo map of the head publication for the same authenticated kiosk guest as catalog(). */
   async catalogMedia(guest: KioskGuest, version: unknown, media: CatalogMediaMapOptions) {
-    return catalogMediaMap(this.pool, this.scope(guest), version, media);
+    return catalogMediaMap(this.pool, await this.scope(guest), version, media);
   }
   async availability(guest: KioskGuest) {
     return (await this.availabilityState(guest)).body;
@@ -210,7 +249,7 @@ export class KioskCheckout {
    * `?after=` long-poll and the X-Catalog-Version / X-Availability-Signature response headers.
    */
   async availabilityState(guest: KioskGuest) {
-    const scope = this.scope(guest),
+    const scope = await this.scope(guest),
       catalog = await this.catalog(guest);
     const state = await branchAvailability(this.pool, scope.branchId),
       stopped = new Set(state.stoppedIds);
@@ -226,7 +265,8 @@ export class KioskCheckout {
     };
   }
   async config(guest: KioskGuest) {
-    const scope = this.scope(guest),
+    const branch = await this.branch(guest),
+      scope = branch.scope,
       opt = this.options!;
     const row = (
       await this.pool.query<{
@@ -270,8 +310,9 @@ export class KioskCheckout {
     // source for every channel, so no per-device menu ACK is required; the kitchen must be online.
     const primary = opt.paymentMethod ?? 'kaspi_invoice';
     const paymentMethods: ('kaspi_qr' | 'kaspi_invoice')[] = [];
-    if (row.ready) paymentMethods.push(primary);
-    if (primary === 'kaspi_qr' && opt.invoicePaymentAccountId) {
+    // ADR-0019: the QR bridge and the invoice worker serve the env point's accounts only.
+    if (row.ready && branch.primary) paymentMethods.push(primary);
+    if (branch.primary && primary === 'kaspi_qr' && opt.invoicePaymentAccountId) {
       const invoice = await this.pool.query(
         `SELECT 1 FROM commerce_provider_accounts a JOIN branches b ON b.id=a.branch_id
          WHERE a.id=$1 AND a.organization_id=$2 AND a.branch_id=$3
@@ -293,11 +334,23 @@ export class KioskCheckout {
     const terminalEnabled =
       this.terminal.enabled &&
       row.ready_base &&
-      (await this.terminal.accountReady({
-        organizationId: scope.organizationId,
-        branchId: scope.branchId,
-      }));
+      (await this.terminal.accountReady(
+        { organizationId: scope.organizationId, branchId: scope.branchId },
+        branch.terminalAccountId,
+      ));
     const terminal = terminalEnabled ? await this.terminal.linked(guest.deviceId) : null;
+    if (!branch.primary)
+      // ADR-0019: another point takes orders when its terminal rail is ready; the kiosk itself
+      // says «позовите сотрудника» while no terminal is linked on this iPad (`only`).
+      return {
+        enabled: terminalEnabled && row.version !== null && kitchen,
+        branchId: scope.branchId,
+        restaurant: row.name,
+        paymentMethod: primary,
+        paymentMethods,
+        ...(cloud ? { kitchen: kitchen ? ('online' as const) : ('offline' as const) } : {}),
+        kaspi_terminal: { enabled: terminalEnabled, terminal, only: true as const },
+      };
     return {
       enabled: (paymentMethods.length > 0 || terminal !== null) && row.version !== null && kitchen,
       branchId: scope.branchId,
@@ -317,7 +370,7 @@ export class KioskCheckout {
       : new CommerceError('NOT_READY');
   }
   async quote(guest: KioskGuest, input: unknown) {
-    const scope = this.scope(guest),
+    const scope = await this.scope(guest),
       req = parse(QuoteInput, input),
       opt = this.options!;
     if (scope.branchId !== req.branchId) throw new CommerceError('FORBIDDEN');
@@ -390,7 +443,7 @@ export class KioskCheckout {
     return this.sessions.withLock(guest.sessionId, () => this.createLocked(guest, input));
   }
   private async createLocked(guest: KioskGuest, input: unknown) {
-    const scope = this.scope(guest),
+    const scope = await this.scope(guest),
       req = parse(z.strictObject({ key: z.uuid(), quoteId: z.uuid() }), input),
       opt = this.options!;
     const prior = (
@@ -419,7 +472,11 @@ export class KioskCheckout {
     try {
       order =
         opt.fiscalPolicy === 'deferred_pilot'
-          ? await this.repository.createDeferredFiscalOrder(scope, req.key, req.quoteId)
+          ? await this.fiscalRepository(scope.branchId).createDeferredFiscalOrder(
+              scope,
+              req.key,
+              req.quoteId,
+            )
           : await this.repository.createOrder(scope, req.key, {
               quoteId: req.quoteId,
               fiscalAccountId: opt.fiscalAccountId!,
@@ -435,13 +492,14 @@ export class KioskCheckout {
     return this.sessions.withLock(guest.sessionId, () => this.payLocked(guest, orderId, input));
   }
   private async payLocked(guest: KioskGuest, orderId: string, input: unknown) {
-    const scope = this.scope(guest);
+    const branch = await this.branch(guest),
+      scope = branch.scope;
     if (
       typeof input === 'object' &&
       input !== null &&
       (input as { method?: unknown }).method === 'kaspi_terminal'
     )
-      return this.payTerminal(guest, scope, orderId, input);
+      return this.payTerminal(guest, branch, orderId, input);
     const req = parse(
       z.union([
         z.strictObject({ method: z.literal('kaspi_qr') }),
@@ -499,16 +557,18 @@ export class KioskCheckout {
    */
   private async payTerminal(
     guest: KioskGuest,
-    scope: CommerceScope,
+    branch: KioskBranch,
     orderId: string,
     input: unknown,
   ) {
+    const scope = branch.scope,
+      account = branch.terminalAccountId ?? undefined;
     if (!this.terminal.enabled) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
     const req = parse(KioskTerminalPaymentSchema, input);
     await this.assertKioskOrder(scope, orderId);
     const method = await this.orderPaymentMethod(orderId);
     if (method !== null && method !== 'kaspi_terminal') throw new CommerceError('CONFLICT');
-    await this.terminal.reviewOverdue(scope.branchId);
+    await this.terminal.reviewOverdue(scope.branchId, 20, account);
     const prior = await this.terminal.existing(orderId, req.request_id);
     if (prior) return prior;
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
@@ -523,23 +583,28 @@ export class KioskCheckout {
       snapshotAvailabilityItems(order.snapshot),
     );
     return transaction(this.pool, (client) =>
-      this.terminal.begin(client, scope, guest.deviceId, orderId, req.request_id),
+      this.terminal.begin(client, scope, guest.deviceId, orderId, req.request_id, account),
     );
   }
   /** ADR-0018 POST orders/:id/terminal-events; answers the order as GET orders/:id. */
   async terminalEvent(guest: KioskGuest, orderId: string, input: unknown) {
-    const scope = this.scope(guest);
+    const branch = await this.branch(guest),
+      scope = branch.scope;
     if (!this.terminal.enabled) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
     parse(UUIDSchema, orderId);
     await this.sessions.withLock(guest.sessionId, (client) =>
-      this.terminal.event(client, scope, orderId, input),
+      this.terminal.event(client, scope, orderId, input, branch.terminalAccountId ?? undefined),
     );
     return this.read(guest, orderId);
   }
   /** GET config, after moving this branch's overdue terminal attempts to reconciliation. */
   async kioskConfig(guest: KioskGuest) {
-    const scope = this.scope(guest);
-    await this.terminal.reviewOverdue(scope.branchId);
+    const branch = await this.branch(guest);
+    await this.terminal.reviewOverdue(
+      branch.scope.branchId,
+      20,
+      branch.terminalAccountId ?? undefined,
+    );
     return this.config(guest);
   }
   private async orderPaymentMethod(orderId: string) {
@@ -567,10 +632,11 @@ export class KioskCheckout {
     if (!found.rowCount) throw new CommerceError('NOT_FOUND');
   }
   async read(guest: KioskGuest, orderId: string) {
-    await this.assertKioskOrder(this.scope(guest), orderId);
+    const branch = await this.branch(guest);
+    await this.assertKioskOrder(branch.scope, orderId);
     const paymentMethod = await this.orderPaymentMethod(orderId);
-    if (paymentMethod === 'kaspi_terminal') return this.readTerminal(guest, orderId);
-    const order = await readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
+    if (paymentMethod === 'kaspi_terminal') return this.readTerminal(branch, orderId);
+    const order = await readCheckoutOrder(this.pool, this.repository, branch.scope, orderId);
     if (paymentMethod !== 'kaspi_qr')
       return paymentMethod === 'kaspi_invoice' ? { ...order, paymentMethod } : order;
     const payment = await readKioskQrPayment(this.pool, orderId);
@@ -612,9 +678,9 @@ export class KioskCheckout {
    * captured. Open → awaiting_payment, fail → failed (a new attempt may start), unknown or
    * overdue → checking (on reconciliation, never the kitchen); paid → the usual kitchen phases.
    */
-  private async readTerminal(guest: KioskGuest, orderId: string) {
-    const scope = this.scope(guest);
-    await this.terminal.reviewOverdue(scope.branchId);
+  private async readTerminal(branch: KioskBranch, orderId: string) {
+    const scope = branch.scope;
+    await this.terminal.reviewOverdue(scope.branchId, 20, branch.terminalAccountId ?? undefined);
     const order = await readCheckoutOrder(this.pool, this.repository, scope, orderId);
     const payment = await this.terminal.presentation(orderId);
     const phase =

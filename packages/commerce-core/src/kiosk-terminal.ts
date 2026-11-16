@@ -161,19 +161,29 @@ export class KioskTerminal {
   get enabled() {
     return this.config !== null;
   }
+  /** KIOSK_KASPI_TERMINAL_ACCOUNT_ID, or null when the terminal is off. */
+  get accountId() {
+    return this.config?.accountId ?? null;
+  }
   private assertEnabled(): KioskTerminalConfig {
     if (!this.config) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
     return this.config;
   }
-  /** The branch's 'kaspi-pos' account is enabled and belongs to the branch's legal entity. */
-  async accountReady(scope: { organizationId: string; branchId: string }) {
-    if (!this.config) return false;
+  /**
+   * The branch's 'kaspi-pos' account is enabled and belongs to the branch's legal entity.
+   * `accountId`: the point's own account (ADR-0019); the env account by default.
+   */
+  async accountReady(
+    scope: { organizationId: string; branchId: string },
+    accountId: string | null = this.config?.accountId ?? null,
+  ) {
+    if (!this.config || !accountId) return false;
     return !!(
       await this.pool.query(
         `SELECT 1 FROM commerce_provider_accounts a JOIN branches b ON b.id=a.branch_id
          WHERE a.id=$1 AND a.organization_id=$2 AND a.branch_id=$3 AND a.legal_entity_id=b.legal_entity_id
           AND a.kind='payment' AND a.provider='kaspi-pos' AND a.enabled`,
-        [this.config.accountId, scope.organizationId, scope.branchId],
+        [accountId, scope.organizationId, scope.branchId],
       )
     ).rowCount;
   }
@@ -299,8 +309,10 @@ export class KioskTerminal {
     deviceId: string,
     orderId: string,
     requestId: string,
+    accountId?: string,
   ) {
     const config = this.assertEnabled();
+    const account = accountId ?? config.accountId;
     const order = (
       await client.query<{ total_minor: string; principal_id: string }>(
         `SELECT total_minor::text total_minor,principal_id FROM commerce_orders WHERE id=$1 AND principal_id=$2
@@ -337,7 +349,7 @@ export class KioskTerminal {
     const started = await this.repository.startKioskTerminalPaymentAttempt(
       scope,
       commandKey(orderId, requestId),
-      { orderId, providerAccountId: config.accountId },
+      { orderId, providerAccountId: account },
       client,
     );
     const row = (
@@ -348,7 +360,7 @@ export class KioskTerminal {
         [
           started.attemptId,
           orderId,
-          config.accountId,
+          account,
           scope.organizationId,
           scope.branchId,
           deviceId,
@@ -370,7 +382,13 @@ export class KioskTerminal {
     return attemptView(row);
   }
   /** One kiosk-attested terminal event, inside the caller's session-locked transaction. */
-  async event(client: DatabaseClient, scope: CommerceScope, orderId: string, input: unknown) {
+  async event(
+    client: DatabaseClient,
+    scope: CommerceScope,
+    orderId: string,
+    input: unknown,
+    accountId?: string,
+  ) {
     const config = this.assertEnabled();
     const event = parse(KioskTerminalEventSchema, input);
     const order = await client.query(
@@ -382,7 +400,7 @@ export class KioskTerminal {
     const attempt = (
       await client.query<AttemptRow>(
         `SELECT ${ATTEMPT_COLUMNS} FROM commerce_kiosk_terminal_attempts WHERE attempt_id=$1 AND order_id=$2 AND account_id=$3 FOR UPDATE`,
-        [event.attempt_id, orderId, config.accountId],
+        [event.attempt_id, orderId, accountId ?? config.accountId],
       )
     ).rows[0];
     if (!attempt) throw new CommerceError('NOT_FOUND');
@@ -553,16 +571,17 @@ export class KioskTerminal {
   }
   /**
    * Attempts without a result for 15 minutes become incidents (not failures). Called by the
-   * kiosk API on its reads and by a worker tick; `branchId` limits the sweep to one branch.
+   * kiosk API on its reads and by a worker tick; `branchId` limits the sweep to one branch,
+   * `accountId` names that point's own account (ADR-0019; the env account by default).
    */
-  async reviewOverdue(branchId?: string, limit = 20) {
+  async reviewOverdue(branchId?: string, limit = 20, accountId?: string) {
     if (!this.config) return { overdue: 0 };
     const due = (
       await this.pool.query<{ attempt_id: string; order_id: string }>(
         `SELECT attempt_id,order_id FROM commerce_kiosk_terminal_attempts
          WHERE state='pending' AND expires_at<=clock_timestamp() AND account_id=$1
           AND ($2::uuid IS NULL OR branch_id=$2) ORDER BY expires_at LIMIT $3`,
-        [this.config.accountId, branchId ?? null, limit],
+        [accountId ?? this.config.accountId, branchId ?? null, limit],
       )
     ).rows;
     let overdue = 0;

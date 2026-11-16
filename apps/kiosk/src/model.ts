@@ -115,7 +115,9 @@ export type KioskErrorCode =
   | 'CONNECTION'
   | 'OFFLINE'
   /** The kiosk cannot start a new guest without staff (finding 3.1, neutral text). */
-  | 'STAFF';
+  | 'STAFF'
+  /** ADR-0019: this point pays on the Kaspi terminal only, and none is linked on this iPad. */
+  | 'TERMINAL';
 export interface KioskState {
   commercial?: boolean;
   /**

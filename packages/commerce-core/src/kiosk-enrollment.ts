@@ -9,6 +9,7 @@ import {
 import { transaction, type DatabasePool } from '@pickchick/database';
 import { z } from 'zod';
 import { CommerceError } from './model.js';
+import { readKioskBranchSetting } from './kiosk-branches.js';
 const Login = z.string().regex(/^[A-Za-z0-9_.-]{3,64}$/);
 const Input = z.strictObject({
   login: Login,
@@ -79,6 +80,8 @@ export class KioskEnrollment {
       encryptionKey: Buffer;
       organizationId: string;
       branchId: string;
+      /** ADR-0019: also points switched on in the back office (KIOSK_MULTI_BRANCH_ENABLED). */
+      multiBranch?: boolean;
     },
   ) {
     if (options.encryptionKey.length !== 32) throw new CommerceError('INVALID');
@@ -101,10 +104,17 @@ export class KioskEnrollment {
         if (!row) return null;
         if (
           row.organization_id !== this.options.organizationId.toLowerCase() ||
-          row.branch_id !== this.options.branchId.toLowerCase() ||
           !row.active ||
           !row.live ||
           row.locked
+        )
+          return null;
+        if (
+          row.branch_id !== this.options.branchId.toLowerCase() &&
+          !(
+            this.options.multiBranch &&
+            (await readKioskBranchSetting(db, row.organization_id, row.branch_id))?.enabled
+          )
         )
           return null;
         if (!timingSafeEqual(supplied, row.password_verifier)) {

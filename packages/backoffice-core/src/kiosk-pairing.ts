@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { DatabaseClient } from '@pickchick/database';
-import { createKioskEnrollmentMaterial } from '@pickchick/commerce-core';
+import { createKioskEnrollmentMaterial, readKioskBranchSetting } from '@pickchick/commerce-core';
 import { BackofficeError, parse } from './model.js';
 
 /**
@@ -14,10 +14,30 @@ import { BackofficeError, parse } from './model.js';
  */
 export type KioskPairingOptions = {
   encryptionKey: Buffer;
-  /** The one branch the kiosk API serves (KIOSK_CHECKOUT_ORGANIZATION_ID/BRANCH_ID). */
+  /** The env point of the kiosk API (KIOSK_CHECKOUT_ORGANIZATION_ID/BRANCH_ID). */
   organizationId: string;
   branchId: string;
+  /**
+   * ADR-0019 KIOSK_MULTI_BRANCH_ENABLED: other points of the organization are served once their
+   * manager switches «Киоски на этой точке» on (kiosk_branch_settings). Off: the env point only.
+   */
+  multiBranch?: boolean;
+  /** KIOSK_KASPI_TERMINAL_ACCOUNT_ID, shown as the env point's terminal account. */
+  terminalAccountId?: string | null;
 };
+/** The kiosk API serves this point: the env point, or one switched on (ADR-0019). */
+export async function kioskBranchServed(
+  db: DatabaseClient,
+  options: KioskPairingOptions,
+  organizationId: string,
+  branch: string,
+) {
+  if (organizationId.toLowerCase() !== options.organizationId.toLowerCase()) return false;
+  if (branch.toLowerCase() === options.branchId.toLowerCase()) return true;
+  return (
+    !!options.multiBranch && !!(await readKioskBranchSetting(db, organizationId, branch))?.enabled
+  );
+}
 /** The iPad has to be set up while the manager is next to it. Schema 044 allows at most 24 h. */
 export const KIOSK_PAIRING_TTL_SECONDS = 1800;
 const PER_ACTOR_10_MIN = 5;
@@ -102,10 +122,7 @@ export async function issueKioskPairing(
   const body = parse(KioskPairingRequest, input);
   if (!options || !(await kioskPairingAvailable(db)))
     throw new BackofficeError('SERVICE_UNAVAILABLE', 'KIOSK_PAIRING_DISABLED');
-  if (
-    branch.toLowerCase() !== options.branchId.toLowerCase() ||
-    actor.organization_id.toLowerCase() !== options.organizationId.toLowerCase()
-  )
+  if (!(await kioskBranchServed(db, options, actor.organization_id, branch)))
     throw new BackofficeError('CONFLICT', 'KIOSK_BRANCH_NOT_SERVED');
   await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
     'kiosk-pairing:' + branch,
