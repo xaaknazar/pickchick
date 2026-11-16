@@ -1388,7 +1388,15 @@ def scenario_location(browser):
                 cart.get_by_role('radio', name=mode, exact=True).click()
                 page.go_back()
                 branch = page.get_by_test_id('cart-shortcut-location').filter(visible=True)
-                expect(branch).to_have_text('Abay Plaza')
+                if len(mode) > 10:
+                    # «Мейрамханада» fills the 270 pt bar (owner 16.11.2026): the restaurant is
+                    # left out rather than shown as «A…»; it stays in the button's name below.
+                    page.wait_for_timeout(300)
+                    if branch.count():
+                        assert branch.bounding_box()['width'] >= 24, (width, lang, mode, branch.bounding_box())
+                else:
+                    expect(branch).to_have_text('Abay Plaza')
+                    assert branch.bounding_box()['width'] >= 24, (width, lang, mode, branch.bounding_box())
                 expect(page.get_by_test_id('cart-shortcut-dining-label').filter(visible=True)).to_have_text(mode)
                 expect(page.get_by_test_id('open-cart').filter(visible=True)).to_have_accessible_name(re.compile('Abay Plaza'))
                 dining = page.get_by_test_id('cart-shortcut-dining-label').filter(visible=True)
