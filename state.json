@@ -7987,9 +7987,11 @@
         "infra/staging/kiosk-staff-release.py",
         "tests/operations/test_kiosk_staff_release.py"
       ],
-      "status": "active",
-      "head": "43336b4639a39483626fcf1bb221bc734bbb1b87",
-      "updatedAt": "2026-11-16T09:35:15.039Z"
+      "status": "available",
+      "head": "0f8aa96f36ff184ae57a9d999785bdf151800dc7",
+      "updatedAt": "2026-11-16T09:35:22.964Z",
+      "summary": "PIN e1b20b4a applied 08:50 UTC; ingress0400b87f applied09:31UTC after Foundation43834739754 attempt2 11/11PASS. Exact insertion, neighbors/containers preserved, healthy API, customer snapshots/polls200. Guards and rollback paths in deployment protocol; PR383 draft. Only owned lock released, temporary ingress scopes returned and API reservation released. No binding reset or orders/payments created.",
+      "nextAction": "Physical iPad acceptance in kiosk-build24-1116. Review and integrate PR383 through normal merge after checks; latest commit is deployment documentation only, binary sources already passed CI. Do not repeat apply."
     },
     {
       "id": "kiosk-build24-1116",
