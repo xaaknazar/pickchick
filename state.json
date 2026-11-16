@@ -8018,6 +8018,23 @@
       "updatedAt": "2026-11-16T14:21:02.708Z",
       "summary": "Владелец явно разрешил временно учитывать тестовые платежи PEAK GROUP на основном ИП PICK CHICK ALA AP. Отдельный kaspi-pos, новые UUID/reference, старые QR/remote и основное юрлицо сохраняются. ИИН/БИН PEAK GROUP для теста не нужен. Решение и несовместимость отдельного юрлица с текущими guard записаны. Сервер/Apple без изменений.",
       "nextAction": "PR388 пока открыт, head12fceecd, Foundation43881121421 имеет падение browser_slide_to_pay.py scenario_hint_languages kk. После исправления, merge и зелёной Foundation коммита слияния продолжить разрешённый выпуск: штатные резервы, свежая копия и восстановление,080/grants/API/gateway, отдельный тестовый kaspi-pos под существующим ИП и native kiosk>=25 в TestFlight. Не объединять существующие аккаунты, не менять PIN/привязку. Оплату делает владелец."
+    },
+    {
+      "id": "mobile-build39-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-build39-1116",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@release/ios",
+        "@apple/testflight",
+        "docs/operations/mobile-testflight39.md",
+        "docs/operations/mobile-testflight39"
+      ],
+      "status": "active",
+      "head": "59a52502211fc9da757833c785612311ec91cd80",
+      "updatedAt": "2026-11-16T15:47:31.942Z"
     }
   ],
   "approvedScopeTransfers": [
