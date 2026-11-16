@@ -7986,11 +7986,13 @@
         "infra/public-staging/front-site.Caddyfile",
         "infra/staging/kiosk-connection-release.py",
         "tests/operations/test_kiosk_connection_release.py",
-        "docs/operations/deployments/2026-11-16-kiosk-connection.md"
+        "docs/operations/deployments/2026-11-16-kiosk-connection.md",
+        "infra/staging/kiosk-staff-release.py",
+        "tests/operations/test_kiosk_staff_release.py"
       ],
       "status": "active",
       "head": "43336b4639a39483626fcf1bb221bc734bbb1b87",
-      "updatedAt": "2026-11-16T07:39:07.471Z"
+      "updatedAt": "2026-11-16T07:43:23.371Z"
     }
   ],
   "approvedScopeTransfers": [
