@@ -26,4 +26,5 @@ export * from './pos-outbox.js';
 export type * from './ports.js';
 // ADR-0017: Kaspi Smart POS adapter (edge schema029).
 export * from './kaspi-client.js';
+export * from './webkassa-client.js';
 export * from './terminal-payments.js';
