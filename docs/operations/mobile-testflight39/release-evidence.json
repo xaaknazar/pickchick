@@ -1,0 +1,132 @@
+{
+  "foundation": {
+    "sha": "49e4cd38244e309edb70167afd960fc6c2db3e99",
+    "run": 43902039185,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/43902039185",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 133420899672,
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:08:33Z"
+      },
+      {
+        "id": 133420900002,
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:16:53Z"
+      },
+      {
+        "id": 133420900027,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:03:20Z"
+      },
+      {
+        "id": 133420900124,
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T15:58:28Z"
+      },
+      {
+        "id": 133420900185,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:06:26Z"
+      },
+      {
+        "id": 133420900292,
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:25:13Z"
+      },
+      {
+        "id": 133420900323,
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:49:09Z"
+      },
+      {
+        "id": 133420900335,
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:01:31Z"
+      },
+      {
+        "id": 133420900489,
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T15:59:38Z"
+      },
+      {
+        "id": 133420900820,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:11:21Z"
+      },
+      {
+        "id": 133454914437,
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success",
+        "completed_at": "2026-11-16T16:49:19Z"
+      }
+    ]
+  },
+  "artifact": {
+    "sourceSha": "49e4cd38244e309edb70167afd960fc6c2db3e99",
+    "version": "1.0.2",
+    "build": "39",
+    "bundleIdentifier": "kz.pickchick.app",
+    "featureProfile": "production",
+    "apiUrl": "https://api.pickchick.kz",
+    "dirty": false,
+    "ipaPath": "/Users/xaknazar/Library/Caches/PickChick/releases/mobile-pick-box-20261116-39/export/PickChick.ipa",
+    "bytes": 134747343,
+    "sha256": "a0d4cb27765c991dfac0327b5ef1dc6847cb1f7e5853f5faecd2b5f8718ba1c6",
+    "extensions": 0,
+    "signingSettingsRestored": true
+  },
+  "backendEvents": {
+    "archive": {
+      "message": "Mobile JS bundle backend",
+      "feature_profile": "production",
+      "environment": "production",
+      "api_url": "https://api.pickchick.kz",
+      "profile_from_default": false
+    },
+    "export": {
+      "message": "Mobile JS bundle backend",
+      "feature_profile": "production",
+      "environment": "production",
+      "api_url": "https://api.pickchick.kz",
+      "profile_from_default": false
+    },
+    "upload": {
+      "message": "Mobile JS bundle backend",
+      "feature_profile": "production",
+      "environment": "production",
+      "api_url": "https://api.pickchick.kz",
+      "profile_from_default": false
+    }
+  },
+  "deliveryStatus": "submitted",
+  "testflight": {
+    "appId": "6809208492",
+    "buildId": "e9e5f12c-c36d-43a9-a354-5a1ae2db450c",
+    "version": "1.0.2",
+    "build": "39",
+    "internal": {
+      "group": "PickChick Internal",
+      "testers": 2,
+      "status": "Testing"
+    },
+    "external": {
+      "group": "Testing",
+      "status": "assignment blocked by Apple while 1.0.2 (38) is waiting for Beta App Review",
+      "autoNotify": "pending assignment, requested same as 38"
+    },
+    "whatToTestSaved": true,
+    "publicAppReviewChanged": false
+  }
+}
