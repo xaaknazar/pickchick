@@ -99,7 +99,7 @@
   },
   "testFlight": {
     "uploaded": false,
-    "status": "rejected: 1.0.1 pre-release train closed; owner decision on 1.0.2 (38) pending",
+    "status": "rejected: 1.0.1 train closed; owner authorized replacement 1.0.2 (38)",
     "groupsAuthorized": ["PickChick Internal", "Testing"],
     "whatToTest": "Новый таб-бар в стиле Apple: стекло, плавное переключение, можно провести пальцем по вкладкам. Стеклянные: „Настроить комбо“ и кнопка цены в карточке блюда. Категории меню оставлены без стекла.",
     "publicAppStoreChanged": false,
@@ -113,5 +113,13 @@
       "reason": "CFBundleShortVersionString 1.0.1 must exceed approved 1.0.1; pre-release train closed"
     }
   },
-  "physicalIphoneAcceptance": false
+  "physicalIphoneAcceptance": false,
+  "supersededByAuthorizedVersion": "1.0.2",
+  "nextCandidate": {
+    "version": "1.0.2",
+    "build": "38",
+    "ownerApproved": true,
+    "status": "preparing archive and exact-source CI",
+    "groups": ["PickChick Internal", "Testing"]
+  }
 }
