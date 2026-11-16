@@ -55,6 +55,8 @@ const BAG_GAP = 10;
 const HINT_MAX_SCALE = 1.4;
 const HINT_MIN_FIT = 0.7;
 /** The capsule is always ROW + 2 * PAD tall inside its rim (the cart button's minimum height). */
+/** Below this the restaurant name would show as «A…»: it is left out of the bar instead. */
+const LOCATION_MIN_WIDTH = 24;
 const CAPSULE_RADIUS = (ROW + PAD * 2) / 2 + glassBarRim;
 
 /** A product without its own photo (or a restored unavailable line) gets a neutral circle. */
@@ -155,6 +157,13 @@ export function CartShortcut({
   const canPayNow = useRef(availability.canPay);
   canPayNow.current = availability.canPay;
   const [barWidth, setBarWidth] = useState(0);
+  // The 270 pt bar (owner 16.11.2026) leaves a long dining label («Мейрамханада») no room for the
+  // restaurant: a sliver «A…» is not readable, so the name steps aside (it stays in the cart
+  // button's VoiceOver label). Measured again whenever the label, the place or the size changes.
+  const [locationFits, setLocationFits] = useState(true);
+  useEffect(() => {
+    setLocationFits(true);
+  }, [diningLabel, locationName, width, fontScale, closed]);
   const [phase, setPhase] = useState<SlidePhase>('idle');
   const content = useSharedValue(1);
   useEffect(() => {
@@ -366,7 +375,7 @@ export function CartShortcut({
                   >
                     {diningLabel}
                   </Text>
-                  {locationName ? (
+                  {locationName && locationFits ? (
                     <>
                       <Text style={s.diningText} maxFontSizeMultiplier={1.3}>
                         ·
@@ -376,6 +385,10 @@ export function CartShortcut({
                         numberOfLines={1}
                         ellipsizeMode="tail"
                         maxFontSizeMultiplier={1.3}
+                        onLayout={(event) => {
+                          if (event.nativeEvent.layout.width < LOCATION_MIN_WIDTH)
+                            setLocationFits(false);
+                        }}
                         style={[s.diningText, s.locationText]}
                       >
                         {locationName}
