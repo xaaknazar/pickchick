@@ -6502,7 +6502,6 @@
         "apps/kiosk/src/components/ReviewAccess.tsx",
         "apps/kiosk/src/components/ReviewAccess.stories.tsx",
         "apps/kiosk/src/review-access.ts",
-        "apps/kiosk/app.json",
         "scripts/mobile/kiosk-review-code.py",
         "tests/kiosk/review-access.test.mjs",
         "tests/kiosk/browser_review_access.py",
@@ -6515,7 +6514,7 @@
       ],
       "status": "available",
       "head": "b10885f15d87cd1e602dd712bfe424a1fa879bcc",
-      "updatedAt": "2026-10-29T12:23:05.591Z",
+      "updatedAt": "2026-11-16T09:26:22.365Z",
       "summary": "PR281: b10885f15d87cd1e602dd712bfe424a1fa879bcc published and clean. Apple review isolated demo with private local code, normal/staff demo preserved. Full Foundation CI40394938861 attempt2 success11/11; kiosk retry after Ubuntu package download timeout, no test weakening. Review isolation40394938953, UI library and photo invariants green. Local287 kiosk +47 release tests; browser review3 sizes/3 locales, normal/staff/QR/recovery checks. Xcode26.6 doctor, native project and existing signing inputs checked. No signed IPA: true private verifier and confirmed restaurant photo HTTPS origin missing. No Apple upload/submission/unlisted request, installs, server changes, flags, migrations or merge. Shared docs remain reserved; online roadmap unchanged. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: @release/ios. Остальные резервы сохранены.",
       "nextAction": "Continue on this exact branch/source after owner enters review-only code privately outside Git and confirms current printer HTTPS origin. Owner already authorized @release/ios only for local kiosk archive/export; no new approval needed for those. Preserve bundle/signature, verify native24 and IPA, record proof privately and public nonsecret evidence in PR/protocol. All upload/submission/unlisted/install/merge steps still require separate owner authorization. Do not finish reservation until merged."
     },
@@ -7926,7 +7925,6 @@
         "tests/mobile/android-ux.test.mjs",
         "docs/operations/pick-box-1112",
         "apps/mobile/app.json",
-        "@release/ios",
         "docs/operations/pick-box-test-release-1112.md",
         "tests/mobile/android-config.test.mjs",
         "docs/design/pick-box-review-1113.md",
@@ -7943,7 +7941,7 @@
       ],
       "status": "available",
       "head": "779e2bc687b2e0ef967fa80cf7ac56d2a37a8c69",
-      "updatedAt": "2026-11-16T06:46:44.606Z",
+      "updatedAt": "2026-11-16T09:26:22.368Z",
       "summary": "Выпуск 1.0.2 (38) доставлен в TestFlight. Бинарный исходник291627f0, production, dirty=false, Foundation43814033275 11/11PASS до upload, 613Node+96PythonPASS. Archive/export/uploadPASS, прежняя подпись. BuildIDfc3b85ca-90bc-40fb-adf3-223fc0a7b826. PickChick Internal(2) Тестируется; Testing(11) подключена, отправлена на beta review, автоуведомление включено. Категории без стекла; Pick Box и обложка сохранены. Итоговый отчёт/скриншоты779e2bc6, 7roadmap+PrettierPASS. PR381 обычным merge включён в cutover43336b46; проверено ancestry. Итоговый docs-only CI отдельно от зелёного бинарного источника, его результат не заявляется. App Store/Google Play и онлайн-пульт не менялись.",
       "nextAction": "Владельцу проверить iPhone: стекло, плавность, протяжка, guest Orders, Reduce Transparency и Pick Box. Внешняя Testing ожидает Apple beta review. Исходник и отчёт в cutover по запросу владельца, finish по общему shared пока не выполнялся; сохранять обе истории при будущем включении в shared. Повторный upload 1.0.2(38) не запускать: уже submitted. Симулятор возвращён mobile-feedback-1029, не использовать без согласования. Артефакты mobile-glass-20261116-38-v102 и ключи остаются на Mac."
     },
@@ -8291,6 +8289,20 @@
       "from": "stage2-candidate-1105",
       "to": "kiosk-connection-1116",
       "authorization": "Owner 16.11 explicitly requested fix of kiosk nip.io timeout and staff PIN, keeping existing binding. Previous task belongs to this workstation and is handed off."
+    },
+    {
+      "at": "2026-11-16T09:26:22.365Z",
+      "path": "apps/kiosk/app.json",
+      "from": "kiosk-apple-demo",
+      "to": "kiosk-build24-1116",
+      "authorization": "Owner explicitly approved transfer of kiosk app.json and iOS release queue on 16.11 for kiosk build 24, installed in place over existing iPad app. Consumer app and stores excluded."
+    },
+    {
+      "at": "2026-11-16T09:26:22.368Z",
+      "path": "@release/ios",
+      "from": "mobile-build38-1116",
+      "to": "kiosk-build24-1116",
+      "authorization": "Owner explicitly approved transfer of kiosk app.json and iOS release queue on 16.11 for kiosk build 24, installed in place over existing iPad app. Consumer app and stores excluded."
     }
   ]
 }
