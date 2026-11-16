@@ -91,6 +91,8 @@ export class PickBoxEngine {
   private meteorFrom = 1;
   private active: Box | null = null;
   private settledFor = 0;
+  /** The active box hangs too far over or rests tilted, and is being tipped off. */
+  private tipping = false;
   private fallingFor = 0;
   private cooldown = 0;
   private accumulator = 0;
@@ -261,6 +263,7 @@ export class PickBoxEngine {
     this.boxes.push(this.active);
     Composite.add(this.physics.world, body);
     this.impactPlayed = false;
+    this.tipping = false;
     this.settledFor = this.fallingFor = 0;
     this.emit('drop', pose.x, pose.y);
     this.version++;
@@ -405,10 +408,24 @@ export class PickBoxEngine {
       );
     });
     const calm = body.speed < 0.48 && body.angularSpeed < 0.015 && Math.abs(body.angle) < 0.48;
-    this.settledFor = supported && calm ? this.settledFor + STEP_MS : 0;
+    this.settledFor = supported && calm && !this.tipping ? this.settledFor + STEP_MS : 0;
     if (this.settledFor >= 300) {
       const support = this.tower().at(-1);
       const offset = body.position.x - (support?.body.position.x ?? WORLD_WIDTH / 2);
+      // A box that sits on less than ~62 % of its bottom, or rests tilted on a corner,
+      // does not stick to the tower: it tips over the edge and costs a life.
+      const half = support ? BOX_WIDTH / 2 : PLATFORM_WIDTH / 2;
+      const hanging = Math.abs(offset) > half - BOX_WIDTH * 0.12;
+      const tilted = Math.abs(body.angle - (support?.body.angle ?? 0)) > 0.12;
+      if (hanging || tilted) {
+        const direction = Math.sign(offset) || Math.sign(body.angle) || 1;
+        this.tipping = true;
+        this.settledFor = 0;
+        Sleeping.set(body, false);
+        Body.setAngularVelocity(body, direction * 0.05);
+        Body.setVelocity(body, { x: direction * 1.4, y: body.velocity.y });
+        return;
+      }
       const perfect = Math.abs(offset) <= 8 && Math.abs(body.angle) < 0.08;
       box.counted = true;
       this.hold(box, offset, perfect);

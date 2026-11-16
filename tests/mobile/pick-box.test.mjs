@@ -134,7 +134,7 @@ test('a tower that keeps leaning breaks at the top while its base stands', () =>
   // Already swaying near the limit: one more box leaning the same way breaks it.
   game.lean = -LEAN_LIMIT * 0.95;
   assert(game.swaying);
-  stack(game, -36);
+  stack(game, -30);
   assert.equal(game.phase, 'over');
   assert.equal(game.reason, 'collapse');
   assert.equal(game.lives, 3);
@@ -379,5 +379,19 @@ test('in space a meteor flies in and knocks the hanging box', () => {
   }
   assert(angle > 0.12, `knock angle ${angle}`);
   assert.equal(game.phase, 'playing');
+  game.dispose();
+});
+test('a box hanging far over the edge tips off instead of sticking', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  stack(game);
+  const before = game.score;
+  const target = topBox(game).body.position.x + 54;
+  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target) < 1.3);
+  game.drop();
+  const body = game.boxes.at(-1).body;
+  until(game, () => game.lives === 2);
+  assert.equal(game.score, before);
+  assert(!game.boxes.some((b) => b.body === body && b.counted));
   game.dispose();
 });
