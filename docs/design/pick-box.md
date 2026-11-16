@@ -1,6 +1,13 @@
 # Pick Box - mobile game surface
 
-## Latest owner correction - 14 November 2026
+## Owner request - 16 November 2026: tower balance
+
+An early crooked start must not topple a tower that has since been built straight.
+A strongly leaning tower sways before it can fall; straight boxes calm it. Visual
+change: one status line under the score while the tower sways. HUD, cover and
+artwork are unchanged. Details: [balance report](../operations/pick-box-balance-1116.md).
+
+## Owner correction - 14 November 2026
 
 Use a compact arcade HUD: score and record left, current peak and ascent progress
 right, hearts beside pause. Keep the centre clear, with no central title, score or

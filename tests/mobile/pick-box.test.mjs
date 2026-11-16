@@ -1,17 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import {
   PickBoxEngine,
   BOX_WIDTH,
   BOX_HEIGHT,
+  LEAN_LIMIT,
   peakForScore,
 } from '../../apps/mobile/src/games/pick-box/engine.ts';
 import { cameraFloor } from '../../apps/mobile/src/games/pick-box/ascent.ts';
 import { PickBoxRecords, parseRecord } from '../../apps/mobile/src/games/pick-box/storage.ts';
 
-const require = createRequire(new URL('../../apps/mobile/package.json', import.meta.url));
-const { Body, Sleeping } = require('matter-js');
 const frames = (game, count) => {
   for (let i = 0; i < count; i++) game.advance(1000 / 60);
 };
@@ -19,15 +17,13 @@ const until = (game, condition, limit = 1800) => {
   for (let i = 0; i < limit && !condition(); i++) game.advance(1000 / 60);
   assert(condition(), `Condition not reached: ${JSON.stringify(game.snapshot())}`);
 };
-function stack(game) {
+const topBox = (game) => game.boxes.filter((b) => b.counted && !b.fallen).at(-1);
+function stack(game, offset = 0) {
   const previous = game.score;
-  const target =
-    game.boxes
-      .filter((b) => b.counted && !b.fallen)
-      .sort((a, b) => a.body.position.y - b.body.position.y)[0]?.body.position.x ?? 180;
-  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target) < 1.3);
+  const target = () => (topBox(game)?.body.position.x ?? 180) + offset;
+  until(game, () => game.canDrop && Math.abs(game.held.x + game.held.vx * 24 - target()) < 1.3);
   assert(game.drop());
-  until(game, () => game.score === previous + 1);
+  until(game, () => game.score === previous + 1 || game.phase === 'over');
 }
 
 test('box collision proportions match the supplied 23 x 23 x 10 cm packaging', () => {
@@ -56,7 +52,8 @@ test('twelve timed drops stack through real collisions and unlock Furmanov', () 
   assert.equal(game.lives, 3);
   assert.equal(game.snapshot().peak, 1);
   assert(game.top < -BOX_HEIGHT * 11.5);
-  assert(game.boxes.every((b) => !b.body.isStatic));
+  // Settled boxes are held by the tower; only the box in flight is a free body.
+  assert(game.boxes.every((b) => b.counted && b.body.isStatic));
   game.dispose();
 });
 test('edge drops rotate under gravity, miss once, and end on the third lost life', () => {
@@ -84,20 +81,72 @@ test('edge drops rotate under gravity, miss once, and end on the third lost life
   assert.equal(game.drop(), false);
   game.dispose();
 });
-test('foundation loss ends the tower without waiting for three misses', () => {
+test('an early crooked start is forgotten once the tower is built straight', () => {
+  // Owner, 16.11.2026: two crooked boxes followed by straight ones used to topple the tower.
   const game = new PickBoxEngine();
   game.start();
-  for (let i = 0; i < 5; i++) stack(game);
-  // A deterministic physical perturbation, not a mocked collision or score change.
-  const base = game.boxes[0].body;
-  Sleeping.set(base, false);
-  Body.translate(base, { x: 200, y: 0 });
-  Body.setVelocity(base, { x: 2, y: 0 });
-  until(game, () => game.phase === 'over');
+  for (const offset of [0, 22, 22]) stack(game, offset);
+  assert(Math.abs(game.lean) > 30);
+  for (let i = 0; i < 20; i++) stack(game);
+  frames(game, 240);
+  assert.equal(game.phase, 'playing');
+  assert.equal(game.score, 23);
+  assert(Math.abs(game.lean) < 15, `lean ${game.lean}`);
+  assert.equal(game.swaying, false);
+  game.dispose();
+});
+test('a strongly leaning tower sways, and straight boxes calm it down', () => {
+  const game = new PickBoxEngine();
+  const kinds = new Set();
+  const emit = game.emit.bind(game);
+  game.emit = (kind, ...rest) => (kinds.add(kind), emit(kind, ...rest));
+  game.start();
+  for (const offset of [0, 0, 0, 0, 0, 0, 0, 0, -30, -30, -28]) stack(game, offset);
+  assert.equal(game.phase, 'playing');
+  assert(game.swaying, `lean ${game.lean}`);
+  assert(game.snapshot().swaying);
+  assert(kinds.has('wobble'));
+  const top = topBox(game);
+  let left = Infinity,
+    right = -Infinity;
+  for (let i = 0; i < 360; i++) {
+    game.advance(1000 / 120);
+    left = Math.min(left, top.body.position.x);
+    right = Math.max(right, top.body.position.x);
+  }
+  assert(right - left > 12, `top moved only ${right - left}`);
+  // The lowest box is far below the sway and stays where it settled.
+  assert.equal(game.boxes[0].body.position.x, game.boxes[0].rest.x);
+  for (let i = 0; i < 4 && game.swaying; i++) stack(game);
+  assert.equal(game.swaying, false, `lean ${game.lean}`);
+  frames(game, 600);
+  assert.equal(game.swayAmplitude, 0);
+  assert(game.boxes.every((b) => Math.abs(b.body.position.x - b.rest.x) < 1e-9));
+  assert.equal(game.phase, 'playing');
+  assert.equal(game.lives, 3);
+  game.dispose();
+});
+test('a tower that keeps leaning breaks at the top while its base stands', () => {
+  const game = new PickBoxEngine();
+  game.start();
+  for (let i = 0; i < 14; i++) stack(game);
+  // Already swaying near the limit: one more box leaning the same way breaks it.
+  game.lean = -LEAN_LIMIT * 0.95;
+  assert(game.swaying);
+  stack(game, -36);
+  assert.equal(game.phase, 'over');
   assert.equal(game.reason, 'collapse');
   assert.equal(game.lives, 3);
-  frames(game, 200);
-  assert.equal(game.reason, 'collapse');
+  const base = game.boxes[0];
+  const loose = game.boxes.filter((b) => !b.body.isStatic);
+  assert(loose.length >= 8);
+  const before = loose.map((b) => b.body.position.x);
+  frames(game, 90);
+  const moved = loose.map((b, i) => b.body.position.x - before[i]);
+  assert(moved.at(-1) < -50, 'the top falls towards its lean');
+  assert(moved.reduce((sum, dx) => sum + dx, 0) < 0);
+  assert(base.body.isStatic);
+  assert.equal(game.drop(), false);
   game.dispose();
 });
 test('pausing freezes falling bodies, pendulum and score; resuming cannot fast-forward', () => {
@@ -146,6 +195,7 @@ test('new game clears lives, bodies, combo and camera target', () => {
     peak: 0,
     reason: null,
     canDrop: false,
+    swaying: false,
   });
   assert.equal(game.top, 0);
   assert.equal(game.boxes.length, 0);
@@ -223,7 +273,7 @@ test('storage failure keeps gameplay available and never overwrites an unread re
   assert.equal(writes, 0);
 });
 
-test('a well-aligned forty-box tower can reach space through unmodified physics', () => {
+test('a well-aligned forty-box tower reaches space without swaying', () => {
   const game = new PickBoxEngine();
   game.start();
   for (let score = 0; score < 40; score++) {
@@ -240,6 +290,7 @@ test('a well-aligned forty-box tower can reach space through unmodified physics'
   }
   assert.equal(game.snapshot().peak, 4);
   assert.equal(game.phase, 'playing');
-  assert(game.boxes.every((box) => !box.body.isStatic));
+  assert.equal(game.swaying, false);
+  assert(game.boxes.every((box) => box.body.isStatic));
   game.dispose();
 });

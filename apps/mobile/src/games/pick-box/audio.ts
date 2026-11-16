@@ -51,7 +51,8 @@ export function usePickBoxAudio(enabled: boolean) {
   const play = useCallback(
     (kind: Cue['kind'], combo = 0) => {
       if (!gate.current.enabled || !gate.current.ready || kind === 'land') return;
-      const player = players[kind];
+      const player = kind in players ? players[kind as keyof typeof players] : null;
+      if (!player) return;
       const generation = gate.current.generation;
       try {
         player.playbackRate =

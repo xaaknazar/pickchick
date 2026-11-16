@@ -251,6 +251,9 @@ export function PickBoxScreen() {
       if (event.kind === 'impact' && preferencesRef.current.haptics && Platform.OS !== 'web') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }
+      if (event.kind === 'wobble' && preferencesRef.current.haptics && Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      }
       if (['land', 'perfect', 'miss', 'collapse'].includes(event.kind)) {
         setFeedback(event.kind);
         if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
@@ -362,7 +365,9 @@ export function PickBoxScreen() {
   const statusText = coaching
     ? copy.hint
     : hud.canDrop
-      ? copy.ready
+      ? hud.swaying
+        ? copy.swaying
+        : copy.ready
       : hud.settling
         ? copy.settling
         : game.isWaiting
@@ -474,7 +479,9 @@ export function PickBoxScreen() {
                   ? `${feedbackText}${hud.combo > 1 && feedback === 'perfect' ? ` · ${hud.combo} ${copy.combo}` : ''}`
                   : coaching
                     ? copy.drop
-                    : ''}
+                    : hud.swaying && hud.phase === 'playing'
+                      ? copy.swaying
+                      : ''}
               </Text>
             </View>
           </View>
