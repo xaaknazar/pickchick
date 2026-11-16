@@ -18,11 +18,13 @@ import {
   taskKds,
 } from '../dist/types.js';
 import {
+  channelName,
   incidentBanner,
   kdsScreen,
   kdsVisible,
   modeClass,
   plural,
+  sourceLabel,
   toastTotals,
   waitClass,
 } from '../dist/kds-view.js';
@@ -754,4 +756,95 @@ test('readability: waiting time turns amber at 7 and red at 12 minutes; chip col
     modeClass({ serviceMode: 'takeaway', delivery: { provider: 'glovo', externalNumber: 'G-1' } }),
     'mode mode-delivery',
   );
+});
+
+test('order source: Касса, Киоск or Приложение on every working view; delivery keeps the aggregator', () => {
+  const f = edge();
+  const now = new Date().toISOString();
+  const head = (html, orderId) =>
+    html.match(new RegExp(`data-order="${orderId}"[\\s\\S]*?</div></div>`))?.[0] ?? '';
+  const kdsTask = (station, fn, extra) => task(station, { kds: { function: fn, ...extra } });
+  const orders = [
+    ['pos', 'Касса'],
+    ['kiosk', 'Киоск'],
+    ['mobile', 'Приложение'],
+  ].map(([channel, label]) => ({
+    order: {
+      ...f.hallOrder,
+      orderId: id(),
+      channel,
+      createdAt: now,
+      tasks: [
+        kdsTask(stationIds.table1, 'assembly_hall'),
+        {
+          ...kdsTask(stationIds.toasts, 'toasts', { upstreamOf: stationIds.table1 }),
+          kind: 'prep',
+        },
+        kdsTask(stationIds.issue, 'issue'),
+      ],
+    },
+    label,
+  }));
+  const list = orders.map((x) => x.order);
+  for (const [fn, station] of [
+    ['toasts', stationIds.toasts],
+    ['assembly_hall', stationIds.table1],
+    ['issue', stationIds.issue],
+  ]) {
+    const html = view(fn, station, list);
+    for (const { order, label } of orders)
+      assert.match(
+        head(html, order.orderId),
+        new RegExp(`<p class="channel" data-source="${order.channel}">${label}</p>`),
+        `${fn}: ${label}`,
+      );
+  }
+  // Delivery: the chip names the aggregator; no second «Касса» on table 2, issue or counter 3.
+  const table2 = view('assembly_delivery', stationIds.table2, [
+    {
+      ...f.deliveryOrder,
+      state: 'in_production',
+      createdAt: now,
+      tasks: [kdsTask(stationIds.table2, 'assembly_delivery')],
+    },
+  ]);
+  const issue = view('issue', stationIds.issue, [
+    {
+      ...f.deliveryOrder,
+      state: 'in_production',
+      createdAt: now,
+      tasks: [kdsTask(stationIds.issue, 'issue')],
+    },
+  ]);
+  const counter = view('delivery_handover', stationIds.counter, [f.deliveryOrder]);
+  for (const html of [table2, issue])
+    assert.match(html, /ДОСТАВКА · Glovo <span class="nowrap">G-456<\/span>/);
+  assert.match(counter, /class="courier-provider">Glovo</);
+  for (const html of [table2, issue, counter]) {
+    assert.ok(!html.includes('class="channel"'), 'no second source label on a delivery ticket');
+    assert.ok(!html.includes('Касса'));
+  }
+  // Station 6: today's breading view sends no channel, so its tiles show none; a known channel
+  // is shown, an unknown one is dropped by the parser instead of failing the whole queue.
+  const parsed = breading({
+    orders: ['kiosk', undefined, 'telegram'].map((channel, i) => ({
+      orderId: id(),
+      displayNumber: String(40 + i),
+      serviceMode: 'takeaway',
+      ...(channel ? { channel } : {}),
+      lines: [{ title: 'Фингерсы', quantity: 1 }],
+    })),
+  });
+  assert.deepEqual(
+    parsed.orders.map((o) => o.channel),
+    ['kiosk', undefined, undefined],
+  );
+  const station6 = view('breading', stationIds.breading, [], { breading: parsed });
+  assert.equal(station6.match(/class="channel"/g)?.length, 1);
+  assert.match(station6, /<p class="channel" data-source="kiosk">Киоск<\/p>/);
+  // The helper: no label without a known channel, or for a delivery order.
+  assert.equal(sourceLabel({}), '');
+  assert.equal(sourceLabel({ channel: 'toString' }), '');
+  assert.equal(sourceLabel({ channel: 'pos', delivery: f.deliveryOrder.delivery }), '');
+  assert.equal(channelName.pos, 'Касса');
 });

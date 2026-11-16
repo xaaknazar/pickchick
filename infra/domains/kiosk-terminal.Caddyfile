@@ -1,0 +1,43 @@
+	# BEGIN KIOSK TERMINAL
+	# ADR-0018: kiosk paid on its own Kaspi Smart POS terminal. The installed gateway lists every
+	# kiosk path explicitly; insert this block before @backoffice_get (same pattern as
+	# kiosk-staff.Caddyfile). Link/unlink use device credentials only; terminal events carry the
+	# guest bearer token like orders/:id/payment.
+	@kiosk_terminal_link {
+		method PUT DELETE
+		path /v1/kiosk-checkout/terminal
+	}
+	handle @kiosk_terminal_link {
+		header X-PickChick-Data kiosk
+		request_body {
+			max_size 1KB
+		}
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -Authorization
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	@kiosk_terminal_events {
+		method POST
+		path_regexp kiosk_terminal_events ^/v1/kiosk-checkout/orders/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/terminal-events$
+	}
+	handle @kiosk_terminal_events {
+		header X-PickChick-Data kiosk
+		request_body {
+			max_size 4KB
+		}
+		reverse_proxy pickchick-staging-api-1:3100 {
+			header_up -Cookie
+			header_up -X-Device-Id
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	# END KIOSK TERMINAL

@@ -35,10 +35,54 @@ versionCode `11`, ресурсы и зависимости сохраняютс�
 тестов пульта среда запретила loopback; повтор с разрешённым локальным портом прошёл.
 Зависимости установлены по frozen lockfile, без обновления. Прежний профиль подписи
 сверен по SHA-256 с выпуском 38.
-Архив, экспорт и доставка ещё не выполнены. До нативной сборки требуется полный
-PASS Foundation CI точного опубликованного SHA кандидата.
-Дерево для архива должно быть чистым. Каждая фаза штатного `ios_release.py`
-вызывается с явным `--feature-profile production`.
+Точный исходник бинарника: `49e4cd38244e309edb70167afd960fc6c2db3e99`, dirty=false.
+[Foundation CI 43902039185](https://github.com/xaaknazar/pickchick/actions/runs/43902039185)
+завершилась 11/11 PASS 16.11 в 16:49:19 UTC, до prebuild и нативного archive.
+[Project roadmap 43902039232](https://github.com/xaaknazar/pickchick/actions/runs/43902039232)
+тоже PASS.
+
+Prebuild, CocoaPods, archive, export и upload прошли. В каждой фазе archive,
+export, upload событие `Mobile JS bundle backend` подтверждает
+`environment=production`, `api_url=https://api.pickchick.kz`,
+`profile_from_default=false`, без warning. В архиве и IPA подтверждены
+версия `1.0.2`, build `39`, Bundle ID `kz.pickchick.app`, отсутствие `.appex`.
+`EXPO_PUBLIC_UPCOMING_PAYMENTS` не задан. Временные настройки подписи восстановлены.
+
+Выпуск на Mac:
+`~/Library/Caches/PickChick/releases/mobile-pick-box-20261116-39/`.
+IPA: `export/PickChick.ipa`, 134747343 байт, SHA-256:
+`a0d4cb27765c991dfac0327b5ef1dc6847cb1f7e5853f5faecd2b5f8718ba1c6`.
+Хеш относится к локальному export, не к повторно упакованному транспортному upload.
+[Машиночитаемые подтверждения](mobile-testflight39/release-evidence.json).
+
+## Доставка в TestFlight
+
+Apple приняла и обработала 1.0.2 (39). Build ID:
+`e9e5f12c-c36d-43a9-a354-5a1ae2db450c`.
+PickChick Internal (2 тестировщика) назначена, статус сборки в группе -
+«Тестируется». Русский текст «Что тестировать» сохранён точно по поручению.
+Настройки прежней внутренней группы не менялись.
+
+Внешняя Testing пока не назначена: Apple отключает её выбор, потому что
+1.0.2 (38) уже ожидает бета-проверки и одновременно можно отправить только одну
+сборку этой версии. Проверка 38 не отозвана. После решения по 38 добавить 39
+в Testing и выбрать автоматическое уведомление, как у 38. Новая загрузка IPA
+для этого не требуется. Это ограничение внешнего TestFlight, не публичного App Review.
+
+[Сборка, сохранённые примечания и внутренняя группа](mobile-testflight39/testflight39-groups.jpg).
+[Ограничение Apple для внешней Testing](mobile-testflight39/testing-blocked.jpg).
+
+Публичный App Store, App Review и Google Play не менялись. Серверы и устройства
+этим выпуском не изменялись. Онлайн-пульт не публиковался.
+
+## Интеграция протокола
+
+[PR393](https://github.com/xaaknazar/pickchick/pull/393) направлен в `codex/cutover-1119`.
+После доставки обычным merge включён свежий cutover `1ef16b2d` (PR388 киоска).
+Единственный конфликт в общем статусе разрешён сохранением обеих записей.
+Исходники `apps/mobile` и инструменты iOS после архивирования не изменялись;
+SHA уже доставленного бинарника остаётся `49e4cd38`. Проверка объединённой ветки
+выполняется отдельно от доказательства происхождения IPA.
 
 ## Что тестировать
 

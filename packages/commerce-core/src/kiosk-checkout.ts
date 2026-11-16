@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { DatabasePool } from '@pickchick/database';
+import { transaction, type DatabasePool } from '@pickchick/database';
 import {
   CatalogPricing,
   CatalogPricingError,
@@ -12,6 +12,8 @@ import { catalogMediaMap, storefrontPayload } from './catalog-media.js';
 import type { CatalogMediaMapOptions } from './catalog-media.js';
 import { KioskSessions } from './kiosk-sessions.js';
 import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
+import { KioskTerminal, KioskTerminalError, KioskTerminalPaymentSchema } from './kiosk-terminal.js';
+import type { KioskTerminalConfig } from './kiosk-terminal.js';
 import { readCheckoutOrder } from './order-view.js';
 import { catalogStopView } from '@pickchick/menu-sync';
 import {
@@ -128,11 +130,14 @@ const paymentKey = (orderId: string) => {
 
 export class KioskCheckout {
   readonly repository: CommerceRepository;
+  /** ADR-0018 kiosk Kaspi Smart POS terminal; inert unless KIOSK_KASPI_TERMINAL_ENABLED. */
+  readonly terminal: KioskTerminal;
   constructor(
     private readonly pool: DatabasePool,
     private readonly options: KioskCheckoutOptions | null,
     private readonly sessions: KioskSessions,
     private readonly now: () => Date = () => new Date(),
+    terminal: KioskTerminalConfig | null = null,
   ) {
     this.repository = new CommerceRepository(
       pool,
@@ -140,6 +145,7 @@ export class KioskCheckout {
         ? { ...options, repeatOrdersEnabled: true }
         : undefined,
     );
+    this.terminal = new KioskTerminal(pool, terminal, this.repository, now);
   }
   private scope(guest: KioskGuest): CommerceScope {
     if (!this.options) throw new CommerceError('NOT_READY');
@@ -226,6 +232,7 @@ export class KioskCheckout {
       await this.pool.query<{
         name: string;
         ready: boolean;
+        ready_base: boolean;
         kitchen: boolean;
         version: number | null;
       }>(
@@ -235,6 +242,8 @@ export class KioskCheckout {
        AND a.kind='payment' AND a.provider=$5 AND a.enabled) AND
        ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
        AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready,
+       (b.ordering_enabled AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
+       AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready_base,
        EXISTS(SELECT 1 FROM fulfillment_transport_bindings t JOIN devices d ON d.id=t.device_id
        WHERE t.branch_id=b.id AND t.active AND d.status='active'
        AND NOT EXISTS(SELECT 1 FROM cloud_branch_availability a WHERE a.branch_id=b.id
@@ -280,14 +289,25 @@ export class KioskCheckout {
       );
       if (invoice.rowCount) paymentMethods.push('kaspi_invoice');
     }
+    // ADR-0018: kept out of paymentMethods (installed builds parse that list strictly).
+    const terminalEnabled =
+      this.terminal.enabled &&
+      row.ready_base &&
+      (await this.terminal.accountReady({
+        organizationId: scope.organizationId,
+        branchId: scope.branchId,
+      }));
+    const terminal = terminalEnabled ? await this.terminal.linked(guest.deviceId) : null;
     return {
-      enabled: paymentMethods.length > 0 && row.version !== null && kitchen,
+      enabled: (paymentMethods.length > 0 || terminal !== null) && row.version !== null && kitchen,
       branchId: scope.branchId,
       restaurant: row.name,
       paymentMethod: primary,
       paymentMethods,
       // Only in mode 'cloud' (edge answers keep their shape): lets the kiosk name the reason.
       ...(cloud ? { kitchen: kitchen ? ('online' as const) : ('offline' as const) } : {}),
+      // Only with KIOSK_KASPI_TERMINAL_ENABLED: off, the answer stays exactly as before.
+      ...(this.terminal.enabled ? { kaspi_terminal: { enabled: terminalEnabled, terminal } } : {}),
     };
   }
   /** Not ready: in mode 'cloud' a closed kitchen gate is KITCHEN_OFFLINE, otherwise NOT_READY. */
@@ -416,6 +436,12 @@ export class KioskCheckout {
   }
   private async payLocked(guest: KioskGuest, orderId: string, input: unknown) {
     const scope = this.scope(guest);
+    if (
+      typeof input === 'object' &&
+      input !== null &&
+      (input as { method?: unknown }).method === 'kaspi_terminal'
+    )
+      return this.payTerminal(guest, scope, orderId, input);
     const req = parse(
       z.union([
         z.strictObject({ method: z.literal('kaspi_qr') }),
@@ -466,6 +492,56 @@ export class KioskCheckout {
     });
     return this.read(guest, orderId);
   }
+  /**
+   * ADR-0018 POST orders/:id/payment { method: 'kaspi_terminal', request_id }. Answers
+   * { attempt_id, amount_tenge, terminal_id, expires_at }. A replay of the request, or any
+   * request while the order has an open or paid terminal attempt, answers that attempt.
+   */
+  private async payTerminal(
+    guest: KioskGuest,
+    scope: CommerceScope,
+    orderId: string,
+    input: unknown,
+  ) {
+    if (!this.terminal.enabled) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
+    const req = parse(KioskTerminalPaymentSchema, input);
+    await this.assertKioskOrder(scope, orderId);
+    const method = await this.orderPaymentMethod(orderId);
+    if (method !== null && method !== 'kaspi_terminal') throw new CommerceError('CONFLICT');
+    await this.terminal.reviewOverdue(scope.branchId);
+    const prior = await this.terminal.existing(orderId, req.request_id);
+    if (prior) return prior;
+    assertRestaurantOrderingOpen(this.options!.hours, this.now());
+    const config = await this.config(guest);
+    if (!config.kaspi_terminal?.enabled) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
+    if (!config.kaspi_terminal.terminal) throw new KioskTerminalError('KIOSK_TERMINAL_NOT_LINKED');
+    if (!config.enabled) throw this.notReady(config);
+    const order = await this.repository.readOrder(scope, orderId);
+    await assertBranchItemsAvailable(
+      this.pool,
+      scope.branchId,
+      snapshotAvailabilityItems(order.snapshot),
+    );
+    return transaction(this.pool, (client) =>
+      this.terminal.begin(client, scope, guest.deviceId, orderId, req.request_id),
+    );
+  }
+  /** ADR-0018 POST orders/:id/terminal-events; answers the order as GET orders/:id. */
+  async terminalEvent(guest: KioskGuest, orderId: string, input: unknown) {
+    const scope = this.scope(guest);
+    if (!this.terminal.enabled) throw new KioskTerminalError('KIOSK_TERMINAL_DISABLED');
+    parse(UUIDSchema, orderId);
+    await this.sessions.withLock(guest.sessionId, (client) =>
+      this.terminal.event(client, scope, orderId, input),
+    );
+    return this.read(guest, orderId);
+  }
+  /** GET config, after moving this branch's overdue terminal attempts to reconciliation. */
+  async kioskConfig(guest: KioskGuest) {
+    const scope = this.scope(guest);
+    await this.terminal.reviewOverdue(scope.branchId);
+    return this.config(guest);
+  }
   private async orderPaymentMethod(orderId: string) {
     const row = (
       await this.pool.query<{ provider: string }>(
@@ -478,7 +554,9 @@ export class KioskCheckout {
       ? 'kaspi_qr'
       : row?.provider === 'kaspi-remote'
         ? 'kaspi_invoice'
-        : null;
+        : row?.provider === 'kaspi-pos'
+          ? 'kaspi_terminal'
+          : null;
   }
   private async assertKioskOrder(scope: CommerceScope, orderId: string) {
     parse(UUIDSchema, orderId);
@@ -490,8 +568,9 @@ export class KioskCheckout {
   }
   async read(guest: KioskGuest, orderId: string) {
     await this.assertKioskOrder(this.scope(guest), orderId);
-    const order = await readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
     const paymentMethod = await this.orderPaymentMethod(orderId);
+    if (paymentMethod === 'kaspi_terminal') return this.readTerminal(guest, orderId);
+    const order = await readCheckoutOrder(this.pool, this.repository, this.scope(guest), orderId);
     if (paymentMethod !== 'kaspi_qr')
       return paymentMethod === 'kaspi_invoice' ? { ...order, paymentMethod } : order;
     const payment = await readKioskQrPayment(this.pool, orderId);
@@ -527,5 +606,25 @@ export class KioskCheckout {
     const phase = handed || refused ? 'failed' : shown;
     // Existing QR-only native builds use a strict response schema. Keep their shape.
     return { ...order, phase, payment };
+  }
+  /**
+   * Terminal orders (new kiosk builds only): the latest attempt decides the phase until money is
+   * captured. Open → awaiting_payment, fail → failed (a new attempt may start), unknown or
+   * overdue → checking (on reconciliation, never the kitchen); paid → the usual kitchen phases.
+   */
+  private async readTerminal(guest: KioskGuest, orderId: string) {
+    const scope = this.scope(guest);
+    await this.terminal.reviewOverdue(scope.branchId);
+    const order = await readCheckoutOrder(this.pool, this.repository, scope, orderId);
+    const payment = await this.terminal.presentation(orderId);
+    const phase =
+      payment.state === 'pending'
+        ? 'awaiting_payment'
+        : payment.state === 'checking'
+          ? 'checking'
+          : payment.state === 'failed'
+            ? 'failed'
+            : order.phase;
+    return { ...order, phase, paymentMethod: 'kaspi_terminal' as const, payment };
   }
 }
