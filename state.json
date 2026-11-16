@@ -7921,13 +7921,10 @@
         "tests/mobile/browser_pick_box.py",
         "docs/design/pick-box.md",
         "docs/operations/pick-box-1112.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "scripts/mobile/pick-box-assets.py",
         "tests/mobile/android-ux.test.mjs",
         "docs/operations/pick-box-1112",
-        "apps/mobile/app.json",
         "docs/operations/pick-box-test-release-1112.md",
         "tests/mobile/android-config.test.mjs",
         "docs/design/pick-box-review-1113.md",
@@ -7939,15 +7936,13 @@
         "docs/operations/pick-box-hud-release-1114.md",
         "docs/operations/mobile-testflight38.md",
         "docs/operations/mobile-testflight38",
-        "@apple/testflight",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
-        "@release/ios"
+        "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
       "status": "available",
       "head": "779e2bc687b2e0ef967fa80cf7ac56d2a37a8c69",
-      "updatedAt": "2026-11-16T10:55:54.901Z",
+      "updatedAt": "2026-11-16T15:47:25.219Z",
       "summary": "Выпуск 1.0.2 (38) доставлен в TestFlight. Бинарный исходник291627f0, production, dirty=false, Foundation43814033275 11/11PASS до upload, 613Node+96PythonPASS. Archive/export/uploadPASS, прежняя подпись. BuildIDfc3b85ca-90bc-40fb-adf3-223fc0a7b826. PickChick Internal(2) Тестируется; Testing(11) подключена, отправлена на beta review, автоуведомление включено. Категории без стекла; Pick Box и обложка сохранены. Итоговый отчёт/скриншоты779e2bc6, 7roadmap+PrettierPASS. PR381 обычным merge включён в cutover43336b46; проверено ancestry. Итоговый docs-only CI отдельно от зелёного бинарного источника, его результат не заявляется. App Store/Google Play и онлайн-пульт не менялись.",
-      "nextAction": "16.11: kiosk24 installed in place from3f04e86c, owner staff-PIN acceptance PASS; PR387/report records facts. Preserve this newer kiosk version and binding. Temporary scope returned. Владельцу проверить iPhone: стекло, плавность, протяжка, guest Orders, Reduce Transparency и Pick Box. Внешняя Testing ожидает Apple beta review. Исходник и отчёт в cutover по запросу владельца, finish по общему shared пока не выполнялся; сохранять обе истории при будущем включении в shared. Повторный upload 1.0.2(38) не запускать: уже submitted. Симулятор возвращён mobile-feedback-1029, не использовать без согласования. Артефакты mobile-glass-20261116-38-v102 и ключи остаются на Mac."
+      "nextAction": "16.11: kiosk24 installed in place from3f04e86c, owner staff-PIN acceptance PASS; PR387/report records facts. Preserve this newer kiosk version and binding. Temporary scope returned. Владельцу проверить iPhone: стекло, плавность, протяжка, guest Orders, Reduce Transparency и Pick Box. Внешняя Testing ожидает Apple beta review. Исходник и отчёт в cutover по запросу владельца, finish по общему shared пока не выполнялся; сохранять обе истории при будущем включении в shared. Повторный upload 1.0.2(38) не запускать: уже submitted. Симулятор возвращён mobile-feedback-1029, не использовать без согласования. Артефакты mobile-glass-20261116-38-v102 и ключи остаются на Mac. Выпуск39 поручен владельцем16.11; пять областей версии, статуса и TestFlight переданы mobile-build39-1116, прочие сохранены."
     },
     {
       "id": "kaspi-pos-kit-1115",
