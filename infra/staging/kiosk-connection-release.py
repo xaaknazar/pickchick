@@ -23,6 +23,7 @@ CADDY = 'deploy-caddy-1'
 API = 'pickchick-staging-api-1'
 LOCK = ROOT / '.market-release.lock'
 SITE = 'pickchick.185.129.51.103.nip.io {'
+PROBE_TRACE_ID = 'e3c9367b-21bf-4cc7-bc0a-a66fce86d8bc'
 BLOCK = '''\t# Kiosk availability may wait 25 seconds for an unchanged snapshot.
 \t@kiosk_availability_watch {
 \t\tmethod GET
@@ -149,7 +150,10 @@ def probes():
     }.items():
         for path in paths:
             try:
-                r = urllib.request.urlopen('https://' + host + path, timeout=15)
+                # The API echoes a valid request ID, keeping its auth-error body comparable.
+                request = urllib.request.Request('https://' + host + path,
+                                                 headers={'X-Request-Id': PROBE_TRACE_ID})
+                r = urllib.request.urlopen(request, timeout=15)
             except urllib.error.HTTPError as e:
                 r = e
             body = r.read()

@@ -37,6 +37,29 @@ class KioskIngressGuards(unittest.TestCase):
         historical = (ROOT / 'infra/pickchick-ingress/sites.Caddyfile').read_bytes()
         self.assertNotIn(fragment, historical)
 
+    def test_auth_probe_trace_is_stable_without_ignoring_response_fields(self):
+        from types import SimpleNamespace
+        from uuid import uuid4
+        seen = []
+        error_code = ['INVALID_REQUEST']
+
+        def response(request, timeout):
+            seen.append(request)
+            is_kiosk = request.full_url.endswith('/v1/kiosk-checkout/config')
+            trace = request.get_header('X-request-id') or str(uuid4())
+            body = (json.dumps({'code': error_code[0], 'trace_id': trace,
+                                'message_key': 'errors.invalid_request', 'retryable': False}).encode()
+                    if is_kiosk else b'unchanged')
+            return SimpleNamespace(status=400 if is_kiosk else 200,
+                                   read=lambda: body, geturl=lambda: request.full_url)
+
+        with patch.object(m.urllib.request, 'urlopen', side_effect=response):
+            original = m.probes()
+            self.assertEqual(original, m.probes())
+            error_code[0] = 'CHANGED_ERROR'
+            self.assertNotEqual(original, m.probes())
+        self.assertTrue(all(r.get_header('X-request-id') == m.PROBE_TRACE_ID for r in seen))
+
     def test_duplicate_site_or_existing_rule_stops(self):
         old = self.original()
         for raw in [old + old, m.candidate(old)]:
