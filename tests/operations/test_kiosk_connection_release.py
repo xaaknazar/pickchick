@@ -28,11 +28,14 @@ class KioskIngressGuards(unittest.TestCase):
         self.assertIn(b'response_header_timeout 8s', new)
         self.assertLess(new.index(m.BLOCK), new.index(b'\n\thandle {'))
 
-    def test_both_repository_templates_are_consistent(self):
-        for file in ['infra/public-staging/front-site.Caddyfile', 'infra/pickchick-ingress/sites.Caddyfile']:
-            raw = (ROOT / file).read_bytes()
-            self.assertEqual(raw.count(m.BLOCK), 1)
-            self.assertEqual(m.candidate(raw.replace(m.BLOCK, b'', 1)), raw)
+    def test_front_template_and_separate_fragment_are_consistent(self):
+        raw = (ROOT / 'infra/public-staging/front-site.Caddyfile').read_bytes()
+        fragment = (ROOT / 'infra/pickchick-ingress/kiosk-availability.Caddyfile').read_bytes()
+        self.assertEqual(fragment, m.BLOCK)
+        self.assertEqual(raw.count(fragment), 1)
+        self.assertEqual(m.candidate(raw.replace(fragment, b'', 1)), raw)
+        historical = (ROOT / 'infra/pickchick-ingress/sites.Caddyfile').read_bytes()
+        self.assertNotIn(fragment, historical)
 
     def test_duplicate_site_or_existing_rule_stops(self):
         old = self.original()
