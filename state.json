@@ -7974,6 +7974,23 @@
       "updatedAt": "2026-11-16T07:35:27.029Z",
       "summary": "Владелец передал подтверждение Claude: EDGE_DEVICE_ID Fulfillment на кассе192.168.2.66 совпадает с облачным транспортом. Подтверждение опубликовано в протоколе, собственных подключений к кассе и серверных изменений не было.",
       "nextAction": "Открыть текущий iPad и проверить свежий сигнал. Активная привязка Abay Plaza сохраняется, повторная выдача не нужна по текущим данным. Отсутствие staff PIN и таймаут nip.io требуют отдельного поручения на исправление."
+    },
+    {
+      "id": "kiosk-connection-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-connection-1116",
+      "scopes": [
+        "infra/pickchick-ingress",
+        "@vps/ingress",
+        "@vps/api",
+        "infra/public-staging/front-site.Caddyfile",
+        "infra/staging/kiosk-connection-release.py",
+        "tests/operations/test_kiosk_connection_release.py",
+        "docs/operations/deployments/2026-11-16-kiosk-connection.md"
+      ],
+      "status": "active",
+      "head": "43336b4639a39483626fcf1bb221bc734bbb1b87",
+      "updatedAt": "2026-11-16T07:39:07.471Z"
     }
   ],
   "approvedScopeTransfers": [
