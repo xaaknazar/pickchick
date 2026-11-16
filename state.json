@@ -7991,6 +7991,20 @@
       "status": "active",
       "head": "43336b4639a39483626fcf1bb221bc734bbb1b87",
       "updatedAt": "2026-11-16T07:43:23.371Z"
+    },
+    {
+      "id": "kiosk-build24-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-build24-1116",
+      "scopes": [
+        "apps/kiosk/app.json",
+        "@release/ios",
+        "@ios/ipad",
+        "docs/operations/kiosk-build24-1116.md"
+      ],
+      "status": "active",
+      "head": "0400b87fde483b453be1a20c21402ea7720a311e",
+      "updatedAt": "2026-11-16T09:26:27.860Z"
     }
   ],
   "approvedScopeTransfers": [
