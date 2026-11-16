@@ -1,90 +1,96 @@
-# Пакет Kaspi Smart POS, 16.11.2026
+# Пакет Kaspi Smart POS, HTTP-привязка, 16.11.2026
 
 ## Статус
 
-Готовый `kaspi-pos-kit-1115` собран и сохранён для установки Claude.
-Ветка `codex/kaspi-pos-1115` перемотана без force на точный исходник
-`35efd72ce470789466dd265814d0bcdf49182431` из `claude/project-thread-ej7z1n`.
-Относительно e92e6ba6 изменён только тест сотрудников бэк-офиса; код кандидата
-при подготовке не менялся. [Аудит исходника](source-audit-35efd72c.json).
+`codex/kaspi-pos-1115` перемотана без force на
+`8290c87f7e1cf3262d59c7014aec25ed0eb97a3c` из `claude/project-thread-ej7z1n`.
+Готов новый набор с HTTP-привязкой терминала по ADR-0017 п. 11.
+Код кандидата при подготовке не менялся; PR378 не сливался.
 
-- [Foundation 43761973367](https://github.com/xaaknazar/pickchick/actions/runs/43761973367):
-  completed/success, 11/11 заданий.
-- [Windows POS 43761995773](https://github.com/xaaknazar/pickchick/actions/runs/43761995773):
-  completed/success, 3/3 заданий, `apply=idle`.
+- [Foundation43815847968](https://github.com/xaaknazar/pickchick/actions/runs/43815847968):
+  success, 11/11.
+- [Windows POS43815851233](https://github.com/xaaknazar/pickchick/actions/runs/43815851233):
+  success, 3/3, `apply=idle`.
 - Семь тестов `test_windows_head_029_runtime_release.py` прошли на Windows
-  PowerShell 5.1, включая
-  `KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool`.
-- Исправленный тест `backoffice-p1-staff-roster.test.mjs` прошёл в составе
-  полного интеграционного набора. Самообновление POS на стенде прошло.
+  PowerShell5.1, включая `KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool`.
+- В Foundation прошли новые тесты HTTP probe, отказа HTTPS-связи от автоматического
+  перехода на HTTP, TLS probe и взаимоисключающих аргументов регистрации.
 
-[Снимок CI](ci-35efd72c.json). Полные ответы GitHub run/jobs обеих CI включены
-в набор. Windows workflow запущен явно, поскольку изменение теста бэк-офиса
-не входит в его автоматический фильтр путей.
+[Снимок CI](ci-8290c87f.json), [аудит исходника](source-audit-8290c87f.json).
+Миграции001-029 и закрепления операторов не менялись. Первые28 миграций побайтно
+равны подтверждённому владельцем установленному `dec8b48c`.
 
-## Доставка
+## Скачать
 
-Архив на Mac:
+[Предварительный выпуск GitHub](https://github.com/xaaknazar/pickchick/releases/tag/kaspi-pos-kit-1115-8290c87f)
+с тегом, указывающим точно на `8290c87f7e1cf3262d59c7014aec25ed0eb97a3c`.
+Это отдельный pre-release, не Latest; существующие выпуски не менялись.
 
-```text
-/Users/xaknazar/Claude/PickChick-exchange/kaspi-pos-kit-1115/kaspi-pos-kit-1115-35efd72c.zip
-```
+[Архив kaspi-pos-kit-1115-8290c87f.zip](https://github.com/xaaknazar/pickchick/releases/download/kaspi-pos-kit-1115-8290c87f/kaspi-pos-kit-1115-8290c87f.zip),
+[файл SHA-256](https://github.com/xaaknazar/pickchick/releases/download/kaspi-pos-kit-1115-8290c87f/kaspi-pos-kit-1115-8290c87f.zip.sha256).
 
-- Размер: `180142411` байт.
-- SHA-256: `4043e009d17a755ab00644c616145e6dddd7f12b78426313b75ee79b60fd3c40`.
-- Рядом находится файл `.zip.sha256`; распакованная проверенная копия - `kit/`.
-- В `kit/SHA256SUMS.txt` перечислены контрольные суммы файлов,
-  в `kit/packages.json` - размеры, исходник и состав.
+- Размер архива: `180145417` байт.
+- SHA-256: `3e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f`.
+- GitHub release ID: `446698042`.
+- Внутри: рантайм, POS0.5.4, оператор029 с помощниками, edge-backup, полные CI
+  run/jobs, COMMANDS.md, packages.json и SHA256SUMS.txt.
 
 | Файл внутри набора                    |      Байт | SHA-256                                                          |
 | ------------------------------------- | --------: | ---------------------------------------------------------------- |
-| runtime-35efd72c.zip                  |   8959421 | 6c407a9deb6ff9480d2b7bd94480f5708d51cfb6907019767e628673533719a3 |
-| pos/PickChick-POS-Setup-0.5.4-x64.exe | 172282370 | f954c11fe3456005940684c32e97a0d7f081cc75cec62b358ab36c083850feca |
+| runtime-8290c87f.zip                  |   8961648 | 45f06480ad9fdc04175630dae4801062209172b7decec7ad82507ee7e21e6f10 |
+| pos/PickChick-POS-Setup-0.5.4-x64.exe | 172282433 | adc64c48b08d1d947da9c2ccb95af8974b14ef1635fa33864b3dba9899613e82 |
 
-Установщик получен из артефакта GitHub `14180252776` этого Windows-запуска.
-SHA-256 артефакта ZIP сверён с digest GitHub:
-`c59b59ceda142e407ee9b4e07b84275763d70d1d0c45e81a4f9e3d0ccf7e2ee2`.
-verification.json подтверждает чистый исходник exact 35efd72c, размер и SHA
-установщика. [Полная запись доставки](delivery-35efd72c.json).
+Установщик получен из exact-source Windows-артефакта `14202865012`, ZIP digest
+`162706daca384f07d5b10cfb447f4ccc32f082b687ac1250ff8c2eac66b91383`.
+Размер и сумма установщика совпадают с verification.json и CI-SHA256SUMS.txt.
 
-## Проверки набора
+Локальная копия:
 
-- Рантайм содержит 8134 файла, 135 размещений пакетов и 245 проверенных связей
-  зависимостей; symlinks и native addons отсутствуют.
-- Все 29 миграций имеют LF и совпадают с закреплённым ledger по SHA-256.
-  Административные инструменты 029, новый edge-backup и terminal setup взяты
-  побайтно из exact source. Закрепления PowerShell-помощников проверены.
-- Внешний ZIP перечитан; все 28 доставленных файлов совпали с исходными байтами.
-  После копирования в папку обмена вновь проверены ZIP и SHA256SUMS.txt.
-- Проверены пути архива, отсутствие файлов секретов, owner env и identity,
-  сигнатур приватных ключей и токенов GitHub.
-- Восемь блоков [COMMANDS.md](COMMANDS.md) прошли локальный parse-only
-  PowerShell 7.7.0. Функция свежести backup проверена на положительных
-  DateTime/ISO примерах и отказах при старой/будущей копии, неверной схеме,
-  stale health и неуспешной задаче. Установочные команды не исполнялись.
+```text
+/Users/xaknazar/Claude/PickChick-exchange/kaspi-pos-kit-1115/8290c87f/kaspi-pos-kit-1115-8290c87f.zip
+```
 
-## Дальше
+Рядом - `.zip.sha256` и распакованный `kit/`.
+[Запись доставки](delivery-8290c87f.json) содержит контрольные суммы всех файлов.
 
-Claude устанавливает по [COMMANDS.md](COMMANDS.md) и исходному
-[runbook 029](../stage2-windows-1030/head-runtime-029.md).
-`-PredecessorCommit` оставлен как `<sha рантайма 028>` по последнему решению
-владельца. Его нужно получить из `sourceCommit` установленного
-`EdgeTools\runtime-head-028-*\completed.json` и подставить только в исполняемую
-копию блока вне набора. Доставленные файлы не редактировать: их байты защищены
-SHA256SUMS. Незаполненный placeholder останавливает команды до изменений.
+## Проверки и установка
 
-Порядок: свежая backup028, остановка writers и штатный maintenance lease,
-DB029 inspect/apply, свежая backup029, runtime verify/apply, включение backup,
-POS 0.5.4 и отдельная привязка терминала. Оператор повторно проверяет
-установленный predecessor и сохраняет защиты соседних служб.
+В рантайме8134 файла, 135 размещений пакетов, 245 связей зависимостей.
+Пути, полный manifest, LF и SHA всех29 миграций, точные помощники проверены;
+symlinks и native addons отсутствуют. Внешний архив перечитан; все28 файлов
+сверены после копирования. Значения GitHub asset digest совпали с локальными.
+Полное скачивание опубликованного ZIP без авторизации: HTTP200, 180145417байт,
+SHA-256 совпал. Публичный файл .sha256 также совпал с локальным.
+Проверено отсутствие секретных файлов, owner env, identity, приватных ключей
+и токенов GitHub в текстовых файлах и рантайме. Секреты в публикацию не включены.
 
-Фактическая установка, работа на физическом терминале и реальная оплата
-не проверялись. Лента обновлений, облако и касса не менялись. Секретов в наборе
-и Git нет. Общий статус, roadmap и онлайн-пульт в этой узкой задаче не менялись;
-протокол сохранён в собственной ветке документов.
+Восемь PowerShell-блоков [COMMANDS.md](COMMANDS.md) прошли локальную проверку
+синтаксиса без выполнения установочных команд. Положительные и отрицательные
+примеры свежести backup прошли. Это не проверка самих команд на настоящей кассе.
 
-История неудачных кандидатов:
-[e92e6ba6](attempt-e92e6ba6.md), [9b2e751f](attempt-9b2e751f.md),
-[f57edaf4](attempt-f57edaf4.md), [2f15560e](attempt-2f15560e.md),
-[982f6e2f](attempt-982f6e2f.md). Старый `COMMANDS.e92e6ba6.draft.md` является
-только историческим черновиком, для установки не использовать.
+`-PredecessorCommit dec8b48cd899fe015baee17a3853affbe7eee774` уже задан по
+подтверждению владельца. Инструкция и оператор сверяют completed.json, файлы
+установленного028 и XML перед изменениями; при несовпадении останавливаются.
+
+Порядок прежний: backup028, остановленные writers и maintenance lease,
+DB029 inspect/apply, backup029, runtime verify/apply, включение backup, POS.
+Привязка - отдельным действием после успешного рантайма:
+
+```text
+probe --host 192.168.2.236
+register --terminal <terminalId кассы> --host 192.168.2.236 --transport http
+```
+
+Между ними проверяются `transport: http`, данные физического терминала и
+отсутствие прежней привязки. terminalId берётся из config.json кассы, не из
+серийного номера или terminal id Kaspi. HTTP выбран владельцем по ADR-0017 п. 11;
+существующие HTTPS-связи автоматически не переключаются.
+
+Устанавливает Claude. Облако, касса, рабочая лента обновлений, реальные оплаты
+и привязки при подготовке не менялись. Физическая приёмка остаётся на точке.
+Общий статус, roadmap и онлайн-пульт этой узкой задачей не обновлялись.
+
+Предыдущий готовый набор сохранён: [35efd72c](release-35efd72c.md).
+История отказов CI: [e92e6ba6](attempt-e92e6ba6.md),
+[9b2e751f](attempt-9b2e751f.md), [f57edaf4](attempt-f57edaf4.md),
+[2f15560e](attempt-2f15560e.md), [982f6e2f](attempt-982f6e2f.md).

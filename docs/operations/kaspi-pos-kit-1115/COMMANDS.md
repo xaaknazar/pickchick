@@ -1,12 +1,12 @@
 # Команды установки edge029 и POS 0.5.4
 
-- Source: 35efd72ce470789466dd265814d0bcdf49182431
-- Predecessor: <sha рантайма 028>
+- Source: 8290c87f7e1cf3262d59c7014aec25ed0eb97a3c
+- Predecessor: dec8b48cd899fe015baee17a3853affbe7eee774
 - Branch: 7a6f6d98-395d-4462-b5e4-b0364a4a8ec1
 
-Набор подготовлен после полного success Foundation43761973367 (11/11) и Windows43761995773 (3/3) точного source. Оба подтверждения включены в ci/. Перед установкой сверить внешний архив и весь SHA256SUMS.txt. Установку на кассе выполняет Claude по поручению владельца; подготовка набора сама ничего не устанавливает. Ниже нет публикации cloud/feed, автоматического DB restore или регистрации терминала вместе с runtime apply.
+Набор подготовлен после полного success Foundation43815847968 (11/11) и Windows43815851233 (3/3) точного source. Оба подтверждения включены в ci/. Перед установкой сверить внешний архив и весь SHA256SUMS.txt. Установку на кассе выполняет Claude по поручению владельца; подготовка набора сама ничего не устанавливает. Ниже нет публикации cloud/feed, автоматического DB restore или регистрации терминала вместе с runtime apply.
 
-Перед первым блоком Claude читает sourceCommit из C:\ProgramData\PickChick\EdgeTools\runtime-head-028-*\completed.json и подставляет полный SHA вместо <sha рантайма 028> только в исполняемый блок PowerShell или его рабочую копию вне каталога набора. Доставленные COMMANDS.md, packages.json и SHA256SUMS.txt не редактировать: они защищены контрольными суммами. Поле predecessorCommit этого файла не подходит: оно относится к более старому рантайму. Не выбирать первый файл автоматически при нескольких каталогах.
+Владелец подтвердил установленный рантайм028: dec8b48cd899fe015baee17a3853affbe7eee774. Значение уже подставлено в -PredecessorCommit. Перед изменениями инструкция и штатный оператор сверяют sourceCommit в EdgeTools\runtime-head-028-*\completed.json, байты рантайма и XML служб. При несовпадении остановиться. Доставленные COMMANDS.md, packages.json и SHA256SUMS.txt не редактировать: они защищены контрольными суммами.
 
 Работать в одной elevated x64 Windows PowerShell5.1 сессии, по одному блоку. При любой ошибке STOP: не выполнять следующий блок, не повторять apply, не удалять attempt-каталоги. Сохранять receipts локально, без вывода env/ключей/credential в чат.
 
@@ -15,7 +15,7 @@
 Проверить SHA внешнего kit-архива по доверенному сообщению выпускающего оператора; затем суммы всех файлов по SHA256SUMS.txt. Распакованный kit хранить в приватном NTFS-каталоге EdgeTools (Administrators/SYSTEM/оператор). Перейти в корень kit.
 
 ```text
-runtime-35efd72c.zip
+runtime-8290c87f.zip
 ci/foundation.json
 ci/windows-pos.json
 pos/PickChick-POS-Setup-0.5.4-x64.exe
@@ -37,9 +37,9 @@ edge-backup-lib.mjs, edge-backup-restore.mjs, edge-backup-setup.mjs, edge-backup
 ```powershell
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$SourceCommit = '35efd72ce470789466dd265814d0bcdf49182431'
-$PredecessorCommit = '<sha рантайма 028>'
-if ($PredecessorCommit -cnotmatch '^[a-f0-9]{40}$') { throw 'predecessor.fill_from_completed_json' }
+$SourceCommit = '8290c87f7e1cf3262d59c7014aec25ed0eb97a3c'
+$PredecessorCommit = 'dec8b48cd899fe015baee17a3853affbe7eee774'
+if ($PredecessorCommit -cnotmatch '^[a-f0-9]{40}$') { throw 'predecessor.invalid_commit' }
 $BranchId = [guid]'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
 $Kit = (Get-Location).Path
 $seen=@{}
@@ -52,17 +52,17 @@ foreach ($line in (Get-Content -LiteralPath (Join-Path $Kit 'SHA256SUMS.txt'))) 
     if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expected) { throw 'kit.file_hash' }
 }
 $Ops = Join-Path $Kit 'operators\infra\windows'
-$RuntimeArchive = Join-Path $Kit 'runtime-35efd72c.zip'
-$RuntimeSha256 = '6c407a9deb6ff9480d2b7bd94480f5708d51cfb6907019767e628673533719a3'
+$RuntimeArchive = Join-Path $Kit 'runtime-8290c87f.zip'
+$RuntimeSha256 = '45f06480ad9fdc04175630dae4801062209172b7decec7ad82507ee7e21e6f10'
 $CiProof = Join-Path $Kit 'ci\foundation.json'
 $WindowsProof = Join-Path $Kit 'ci\windows-pos.json'
 $NodeExe = 'C:\Program Files\PickChick\Edge\edge-0186902\node\node.exe'
 $EdgeTools = 'C:\ProgramData\PickChick\EdgeTools'
 $ToolsRoot = Join-Path $EdgeTools 'edge-0186902'
 $OwnerEnv = Join-Path $ToolsRoot 'private\edge-owner.env'
-$Stage = Join-Path $EdgeTools 'k029-35efd72'
-$FinalRoot = 'C:\Program Files\PickChick\Edge\edge-35efd72'
-$Attempt = Join-Path $EdgeTools 'runtime-head-029-35efd72'
+$Stage = Join-Path $EdgeTools 'k029-8290c87'
+$FinalRoot = 'C:\Program Files\PickChick\Edge\edge-8290c87'
+$Attempt = Join-Path $EdgeTools 'runtime-head-029-8290c87'
 $PreviousProof = Join-Path $EdgeTools ('runtime-head-028-'+$PredecessorCommit.Substring(0,7))
 $LeasePath = Join-Path $EdgeTools 'unified-menu-maintenance.lock'
 $BackupConfig = 'C:\ProgramData\PickChick\EdgeBackup\private\edge-backup.json'
@@ -114,11 +114,11 @@ Assert-UpdateAcl $EdgeTools '' -Protected
 foreach ($path in @($CiProof,$WindowsProof,$OwnerEnv,$BackupConfig)) { Assert-UpdateAcl $path }
 $ci=Get-Content -LiteralPath $CiProof -Raw | ConvertFrom-Json
 Assert-UnifiedCi $ci $SourceCommit
-if ([string]$ci.run.id -cne '43761973367') { throw 'ci.foundation_run' }
+if ([string]$ci.run.id -cne '43815847968') { throw 'ci.foundation_run' }
 $win=Get-Content -LiteralPath $WindowsProof -Raw | ConvertFrom-Json
 $names=@('Native release guards on Windows PowerShell 5.1',
     'Package installed Windows x64 POS','Installed POS updates itself from a feed')
-if ([string]$win.run.id -cne '43761995773' -or $win.run.head_sha -cne $SourceCommit -or
+if ([string]$win.run.id -cne '43815851233' -or $win.run.head_sha -cne $SourceCommit -or
     $win.run.status -cne 'completed' -or $win.run.conclusion -cne 'success' -or
     $win.run.head_repository.full_name -cne 'xaaknazar/pickchick' -or
     $win.run.path -cne '.github/workflows/windows-pos.yml' -or
@@ -401,20 +401,23 @@ POS Setup находится в pos\PickChick-POS-Setup-0.5.4-x64.exe. Его ш
 
 ```powershell
 Check-Stage
+$probeRaw=& $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool probe --host 192.168.2.236
+if ($LASTEXITCODE -ne 0) { throw 'terminal.probe' }
+$terminalProbe=($probeRaw -join [Environment]::NewLine) | ConvertFrom-Json
+if ($terminalProbe.host -cne '192.168.2.236' -or $terminalProbe.transport -cne 'http') {
+    throw 'terminal.unexpected_transport_or_host'
+}
+$terminalProbe | Select-Object host,transport,kaspi_terminal_id,serial_number
 & $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool status
 if ($LASTEXITCODE -ne 0) { throw 'terminal.status' }
-$TerminalId=Read-Host 'UUID кассы из config.json'
-$TerminalIp=Read-Host 'Постоянный private IPv4 терминала'
-& $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool probe --host $TerminalIp
-if ($LASTEXITCODE -ne 0) { throw 'terminal.probe' }
 ```
 
-Сверить выведенный SHA256 сертификата на терминале/с доверенной локальной карточкой, не автоматически доверять результату probe. На терминале открыть «Защита интеграции -> Настроить доступ». При уже существующей привязке остановиться, не unlink/re-register автоматически.
+Сверить terminal id и серийный номер из probe с физическим терминалом. Продолжать только при transport: http для этого устройства, как в ADR-0017 п. 11. Владелец явно разрешил HTTP для 192.168.2.236; токен передаётся внутри сети точки без TLS. Закреплённые HTTPS-связи сами на HTTP не переходят. При уже существующей привязке остановиться, не unlink/re-register автоматически. На терминале открыть «Защита интеграции -> Настроить доступ».
 
 ```powershell
-$CertificateSha256=Read-Host 'Сверенный SHA256 сертификата терминала'
+$TerminalId=Read-Host 'UUID кассы из config.json (terminalId кассы, не terminal id Kaspi)'
 # После запуска register физически нажать «Разрешить» на терминале в течение окна регистрации.
-& $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool register --terminal $TerminalId --host $TerminalIp --certificate-sha256 $CertificateSha256
+& $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool register --terminal $TerminalId --host 192.168.2.236 --transport http
 if ($LASTEXITCODE -ne 0) { throw 'terminal.register' }
 & $NodeExe ('--env-file='+$OwnerEnv) $TerminalTool status
 if ($LASTEXITCODE -ne 0) { throw 'terminal.status_after_register' }
@@ -424,6 +427,6 @@ if ($LASTEXITCODE -ne 0) { throw 'terminal.status_after_register' }
 
 ## Пределы проверки
 
-Runbook и помощники взяты из точного 35efd72. Foundation43761973367 завершился success (11/11), Windows43761995773 - success (3/3). В Windows CI прошли семь тестов test_windows_head_029_runtime_release.py, включая KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool. PowerShell-блоки этого документа прошли локальный Parser.ParseInput без исполнения установочных команд; функция проверки свежести копии проверена на синтетических данных. Это проверка синтаксиса документа, не приёмка этих блоков на Windows5.1. Исходный оператор проверен CI с подменой SCM и SQL. Фактическая установка на кассе и физический терминал в эту проверку не входят.
+Runbook и помощники взяты из точного 8290c87. Foundation43815847968 завершился success (11/11), Windows43815851233 - success (3/3). В Windows CI прошли семь тестов test_windows_head_029_runtime_release.py, включая KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool. PowerShell-блоки этого документа прошли локальный Parser.ParseInput без исполнения установочных команд; функция проверки свежести копии проверена на синтетических данных. Это проверка синтаксиса документа, не приёмка этих блоков на Windows5.1. Исходный оператор проверен CI с подменой SCM и SQL. Фактическая установка на кассе и физический терминал в эту проверку не входят.
 
 Новых требований isolated restore к runbook029 этот документ не добавляет. Зашифрованная копия с проверенным health не является свидетельством полного тестового восстановления.

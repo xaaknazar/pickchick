@@ -1,0 +1,202 @@
+{
+  "date": "2026-11-16",
+  "sourceCommit": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+  "predecessorCommit": "dec8b48cd899fe015baee17a3853affbe7eee774",
+  "terminalHost": "192.168.2.236",
+  "terminalTransport": "http",
+  "archive": {
+    "path": "/Users/xaknazar/Claude/PickChick-exchange/kaspi-pos-kit-1115/8290c87f/kaspi-pos-kit-1115-8290c87f.zip",
+    "bytes": 180145417,
+    "sha256": "3e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f"
+  },
+  "runtime": {
+    "path": "runtime-8290c87f.zip",
+    "bytes": 8961648,
+    "sha256": "45f06480ad9fdc04175630dae4801062209172b7decec7ad82507ee7e21e6f10",
+    "files": 8134,
+    "migrationLedgerVerified": true,
+    "installedPredecessorCheck": "owner_confirmed_operator_rechecks_on_cashier"
+  },
+  "posInstaller": {
+    "path": "pos/PickChick-POS-Setup-0.5.4-x64.exe",
+    "bytes": 172282433,
+    "sha256": "adc64c48b08d1d947da9c2ccb95af8974b14ef1635fa33864b3dba9899613e82"
+  },
+  "checksumsPath": "/Users/xaknazar/Claude/PickChick-exchange/kaspi-pos-kit-1115/8290c87f/kit/SHA256SUMS.txt",
+  "manifestSha256": "1d7f292aa83df9d4603857b4e1402138e2ca0bb7feb65d9e89957b32dcebae86",
+  "checksumsSha256": "181d81010302475a60c6d0543ad667e2f6812fd584e2f5f7a2b58a26a12d3f18",
+  "files": [
+    {
+      "path": "COMMANDS.md",
+      "bytes": 30149,
+      "sha256": "b78875e00fe1060ea3ba91d81919605c5dc6a1a4b2c9a481d2e5c89674a3a703"
+    },
+    {
+      "path": "ci/foundation.json",
+      "bytes": 66348,
+      "sha256": "3182f697518206061de163ac250bb7dc5499efb46898b3132f5402176b4e19c0"
+    },
+    {
+      "path": "ci/pos-artifact.json",
+      "bytes": 785,
+      "sha256": "4d3c78ee602296bd0c4eb5b72eacbafdcde55b1060d4fae8cd627d33acc85b7b"
+    },
+    {
+      "path": "ci/windows-pos.json",
+      "bytes": 28312,
+      "sha256": "dbf5e095d94c74bfb4f8191572d3190377185446fceb84a4667121f42b243f7e"
+    },
+    {
+      "path": "operators/infra/windows/backup-native-service.mjs",
+      "bytes": 15080,
+      "sha256": "e29210d9635112acb96ba0ca86b2b54a87413a3133265074522802f7501c0061"
+    },
+    {
+      "path": "operators/infra/windows/edge-backup-lib.mjs",
+      "bytes": 42363,
+      "sha256": "687bbb1c4e069733258a05d22efff57c8da66b647103c83ac7bc929dcec79119"
+    },
+    {
+      "path": "operators/infra/windows/edge-backup-restore.mjs",
+      "bytes": 6033,
+      "sha256": "dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d"
+    },
+    {
+      "path": "operators/infra/windows/edge-backup-setup.mjs",
+      "bytes": 19191,
+      "sha256": "bd61834cf87cd5462d4b7f3ae9c7eff8d333fe324bccef7812301e48472bdabe"
+    },
+    {
+      "path": "operators/infra/windows/edge-backup-task.mjs",
+      "bytes": 6715,
+      "sha256": "c1ec995611196dc0aec8aed8f608e7e3c92caa680487c36c42ad70fb7e9c5ead"
+    },
+    {
+      "path": "operators/infra/windows/install-edge-backup.ps1",
+      "bytes": 21759,
+      "sha256": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6"
+    },
+    {
+      "path": "operators/infra/windows/install-native-foundation.ps1",
+      "bytes": 18653,
+      "sha256": "6addec134f3c5aa548406286ccf061722360cc968dee1d34743365ad61d62af5"
+    },
+    {
+      "path": "operators/infra/windows/native-edge-backup-ledger.json",
+      "bytes": 4608,
+      "sha256": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59"
+    },
+    {
+      "path": "operators/infra/windows/native-foundation-db.mjs",
+      "bytes": 10360,
+      "sha256": "01a376ee8848cbd53cb62b125d706039dd103205acfabeef0e20bdfed91e433e"
+    },
+    {
+      "path": "operators/infra/windows/update-native-service.ps1",
+      "bytes": 28875,
+      "sha256": "96c2b48c103d8ae74b055468c791ae048c0edb13f2093e0b26c8df2d94acdcea"
+    },
+    {
+      "path": "operators/infra/windows/update-native-unified-menu.ps1",
+      "bytes": 30072,
+      "sha256": "b764a8733224f951ad1543d9d1b18bf7ac269b1e034a1fbadbefbba488f903ef"
+    },
+    {
+      "path": "operators/infra/windows/update-runtime-head-029.ps1",
+      "bytes": 24476,
+      "sha256": "c088562ee3c548d0d9f891932d06aa43087ad8b5657193ecc643f358efd5db08"
+    },
+    {
+      "path": "pos/CI-SHA256SUMS.txt",
+      "bytes": 205,
+      "sha256": "afafdc38d70897e6395c15f0d58801f1378e06e6d4e0e9672b322d512a6a19e6"
+    },
+    {
+      "path": "pos/PickChick-POS-Setup-0.5.4-x64.exe",
+      "bytes": 172282433,
+      "sha256": "adc64c48b08d1d947da9c2ccb95af8974b14ef1635fa33864b3dba9899613e82"
+    },
+    {
+      "path": "pos/asset-manifest.json",
+      "bytes": 24943,
+      "sha256": "9d7ddc7146256226cf2c626c6632086f3787e91c8a987a9febd71be358131093"
+    },
+    {
+      "path": "pos/verification.json",
+      "bytes": 4348,
+      "sha256": "0402e2bdb2fa0407e3b94619b01db15474fd17da6a7b56db17430a36addbe887"
+    },
+    {
+      "path": "reference/docs/architecture/adr/0017-kaspi-smart-pos-adapter.md",
+      "bytes": 14149,
+      "sha256": "54d3197532379dc9400dc1961a376de881d3251df48139359b220b8d1ac67506"
+    },
+    {
+      "path": "reference/docs/integrations/kaspi-smart-pos-api.md",
+      "bytes": 8083,
+      "sha256": "e89edc497e4577f13f75f3249d3c624769175f21bc455d895897c503dba5693c"
+    },
+    {
+      "path": "reference/docs/operations/edge-restore.md",
+      "bytes": 26870,
+      "sha256": "aaa050dc18f9dd75955d74a58c9c8afc9e6f6d3adfc03df7fc72cbf2a4877737"
+    },
+    {
+      "path": "reference/docs/operations/stage2-windows-1030/head-runtime-029.md",
+      "bytes": 6756,
+      "sha256": "81033ba0302fb17ca034676fbda212b23aae2b5e5f2f2fdb8b592c0767f933a3"
+    },
+    {
+      "path": "reference/infra/windows/edge-backup.md",
+      "bytes": 25199,
+      "sha256": "00baa9c1af020ef10514c86addd2db21aa32100d4281827ef6e3016fd6445522"
+    },
+    {
+      "path": "runtime-8290c87f.zip",
+      "bytes": 8961648,
+      "sha256": "45f06480ad9fdc04175630dae4801062209172b7decec7ad82507ee7e21e6f10"
+    }
+  ],
+  "verifiedDeliveryFiles": 28,
+  "installed": false,
+  "physicalTerminalTested": false,
+  "cloudChanged": false,
+  "feedChanged": false,
+  "credentialsIncluded": false,
+  "github": {
+    "id": 446698042,
+    "tag": "kaspi-pos-kit-1115-8290c87f",
+    "url": "https://github.com/xaaknazar/pickchick/releases/tag/kaspi-pos-kit-1115-8290c87f",
+    "published": true,
+    "prerelease": true,
+    "sourceCommit": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+    "publishedAt": "2026-11-16T07:01:20Z",
+    "assets": [
+      {
+        "id": 753814432,
+        "name": "kaspi-pos-kit-1115-8290c87f.zip",
+        "bytes": 180145417,
+        "digest": "sha256:3e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f",
+        "url": "https://github.com/xaaknazar/pickchick/releases/download/kaspi-pos-kit-1115-8290c87f/kaspi-pos-kit-1115-8290c87f.zip"
+      },
+      {
+        "id": 753814431,
+        "name": "kaspi-pos-kit-1115-8290c87f.zip.sha256",
+        "bytes": 98,
+        "digest": "sha256:7b271ea691602b11dfb034e5e9cd985101ee70e094b53e219a940856448521f0",
+        "url": "https://github.com/xaaknazar/pickchick/releases/download/kaspi-pos-kit-1115-8290c87f/kaspi-pos-kit-1115-8290c87f.zip.sha256"
+      }
+    ]
+  },
+  "compiledHttpAdapterPresent": true,
+  "newTerminalCliPresent": true,
+  "publicDownload": {
+    "checkedAt": "2026-11-16T07:15:37.696891+00:00",
+    "url": "https://github.com/xaaknazar/pickchick/releases/download/kaspi-pos-kit-1115-8290c87f/kaspi-pos-kit-1115-8290c87f.zip",
+    "httpStatus": 200,
+    "authorizationHeaderSent": false,
+    "bytes": 180145417,
+    "sha256": "3e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f",
+    "checksumAssetMatches": true
+  }
+}

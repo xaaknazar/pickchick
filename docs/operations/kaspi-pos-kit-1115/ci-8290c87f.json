@@ -1,0 +1,160 @@
+{
+  "sourceCommit": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+  "checkedAt": "2026-11-16 06:54:28 UTC",
+  "runs": [
+    {
+      "id": 43815847968,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968",
+      "workflow": ".github/workflows/ci.yml",
+      "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "jobCount": 11,
+      "jobs": [
+        {
+          "id": 133127590801,
+          "name": "Foundation simulator browser regressions",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127590801"
+        },
+        {
+          "id": 133127591051,
+          "name": "Foundation static checks and transaction invariants",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591051"
+        },
+        {
+          "id": 133127591062,
+          "name": "Private staging image and restricted database role",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591062"
+        },
+        {
+          "id": 133127591100,
+          "name": "Foundation POS and backoffice integration",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591100"
+        },
+        {
+          "id": 133127591186,
+          "name": "Local kitchen UI and recovery",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591186"
+        },
+        {
+          "id": 133127591203,
+          "name": "Foundation server account and Kaspi fixtures",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591203"
+        },
+        {
+          "id": 133127591216,
+          "name": "Cloud-edge fulfillment transport and recovery",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591216"
+        },
+        {
+          "id": 133127591253,
+          "name": "Design screens and interaction smoke",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591253"
+        },
+        {
+          "id": 133127591318,
+          "name": "Foundation mobile bundles and checkout recovery",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591318"
+        },
+        {
+          "id": 133127591342,
+          "name": "iPad kiosk state, bundles and browser recovery",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133127591342"
+        },
+        {
+          "id": 133139669209,
+          "name": "Build, contracts and PostgreSQL integration",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815847968/job/133139669209"
+        }
+      ]
+    },
+    {
+      "id": 43815851233,
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815851233",
+      "workflow": ".github/workflows/windows-pos.yml",
+      "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+      "event": "workflow_dispatch",
+      "status": "completed",
+      "conclusion": "success",
+      "jobCount": 3,
+      "jobs": [
+        {
+          "id": 133127606519,
+          "name": "Installed POS updates itself from a feed",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815851233/job/133127606519"
+        },
+        {
+          "id": 133127606844,
+          "name": "Package installed Windows x64 POS",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815851233/job/133127606844"
+        },
+        {
+          "id": 133127606876,
+          "name": "Native release guards on Windows PowerShell 5.1",
+          "headSha": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/43815851233/job/133127606876"
+        }
+      ]
+    }
+  ],
+  "windows029Guards": {
+    "testFile": "tests/operations/test_windows_head_029_runtime_release.py",
+    "tests": 7,
+    "result": "PASS",
+    "requiredTest": "KaspiHeadRuntimeGuards.test_ledger_pins_match_the_kaspi_tool"
+  },
+  "httpTestEvidence": [
+    "2026-11-16T06:21:29.0210440Z ✔ plain HTTP terminal: probe says http, a plain link sends the token, TLS links refuse it (7.048516ms)",
+    "2026-11-16T06:21:29.0249307Z ✔ probe of a TLS terminal reports its certificate (3.791083ms)",
+    "2026-11-16T06:31:41.0071533Z ✔ owner tool arguments: a pinned certificate or an explicit plain HTTP transport, never both (1.208558ms)"
+  ],
+  "localCommandChecks": {
+    "powershellBlocks": 8,
+    "parse": "PASS",
+    "freshBackupPositiveAndNegativeFixtures": "PASS",
+    "installationCommandsExecuted": false
+  },
+  "noDeployment": true
+}

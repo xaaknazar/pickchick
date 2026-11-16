@@ -1,0 +1,31 @@
+{
+  "sourceCommit": "8290c87f7e1cf3262d59c7014aec25ed0eb97a3c",
+  "previousKitSource": "35efd72ce470789466dd265814d0bcdf49182431",
+  "predecessorCommit": "dec8b48cd899fe015baee17a3853affbe7eee774",
+  "changedFiles": [
+    "docs/architecture/adr/0017-kaspi-smart-pos-adapter.md",
+    "docs/integrations/kaspi-smart-pos-api.md",
+    "docs/project-status.md",
+    "packages/local-orders/src/kaspi-client.ts",
+    "scripts/kaspi-terminal-setup.mjs",
+    "tests/integration/kaspi-pos.test.mjs",
+    "tests/unit/kaspi-client.test.mjs"
+  ],
+  "migrationCount": 29,
+  "ledgerHashes": "PASS",
+  "allMigrationsUnchanged": true,
+  "first28MatchConfirmedPredecessor": true,
+  "lineEndings": "LF",
+  "unchangedOperatorPins": {
+    "update-runtime-head-029.ps1": "c088562ee3c548d0d9f891932d06aa43087ad8b5657193ecc643f358efd5db08",
+    "install-native-foundation.ps1": "6addec134f3c5aa548406286ccf061722360cc968dee1d34743365ad61d62af5",
+    "update-native-service.ps1": "96c2b48c103d8ae74b055468c791ae048c0edb13f2093e0b26c8df2d94acdcea",
+    "update-native-unified-menu.ps1": "b764a8733224f951ad1543d9d1b18bf7ac269b1e034a1fbadbefbba488f903ef",
+    "install-edge-backup.ps1": "7af020ea91004b0befdc2172ee074f8790e8c824e0ffc2f68e59f83361dc14e6",
+    "native-edge-backup-ledger.json": "c850177df4b8df7eea934a0e19cb48954aa891b4bf36f69ef41764c7587d5e59",
+    "kaspi-pos-upgrade-db.mjs": "b732b1137bdb88ca34d127f0ff00e3d33898426c1c58b51d8519eefcb0f73284"
+  },
+  "sourceCodeEditedByPackagingTask": false,
+  "terminalHost": "192.168.2.236",
+  "terminalTransport": "http"
+}
