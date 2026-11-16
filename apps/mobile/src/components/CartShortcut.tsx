@@ -257,7 +257,13 @@ export function CartShortcut({
           style={[s.capsule, capsuleGlass, closed && s.capsuleClosed]}
         >
           {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
-          <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
+          <GlassFill
+            radius={CAPSULE_RADIUS}
+            rim={glassBarRim}
+            place="bar"
+            body={false}
+            tint={glass.bar.liquidTint}
+          />
           {/* Reading and focus order follow the picture: the hint, the payment handle, then the
               cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
               handle is drawn after the hint, so its stretching pill covers the hint. */}
@@ -459,7 +465,7 @@ const s = StyleSheet.create({
     alignItems: 'stretch',
     // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
     shadowColor: '#000000',
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.5,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 18,
     elevation: 12,
@@ -504,7 +510,7 @@ const s = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: 12,
     lineHeight: 17,
-    color: '#B8BAC2',
+    color: '#A9B4C8',
     flexShrink: 1,
     includeFontPadding: false,
   },
@@ -525,8 +531,9 @@ const s = StyleSheet.create({
   photo: {
     overflow: 'hidden',
     backgroundColor: '#FFF8EE',
-    borderWidth: 2,
-    borderColor: '#0A2050',
+    // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
+    borderWidth: 3,
+    borderColor: glass.pillBase,
   },
   placeholder: {
     alignItems: 'center',
