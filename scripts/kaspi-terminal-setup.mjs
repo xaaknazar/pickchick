@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool, transaction } from '@pickchick/database';
-import { kaspiCertificate, kaspiExpiration, kaspiPort, privateIPv4 } from '@pickchick/local-orders';
+import {
+  KASPI_PLAIN_HTTP,
+  kaspiExpiration,
+  kaspiPort,
+  kaspiProbe,
+  privateIPv4,
+} from '@pickchick/local-orders';
 import { edgeInstallConfig } from './edge-migrate.mjs';
 
 /**
@@ -11,10 +17,12 @@ import { edgeInstallConfig } from './edge-migrate.mjs';
  * edge database only and never printed.
  *
  *   node scripts/kaspi-terminal-setup.mjs probe --host 192.168.2.50
- *       prints the SHA-256 of the terminal certificate (compare it on site, then register)
+ *       prints how the terminal answers: `https` with the SHA-256 of its certificate (compare it
+ *       on site), or `http` with its Kaspi terminal id and serial number (plain HTTP API)
  *   node scripts/kaspi-terminal-setup.mjs register --terminal <cash desk uuid> --host <ip>
- *       --certificate-sha256 <hex> [--name PickChick-1]
- *       calls /v2/register: press «Разрешить» on the terminal within a minute
+ *       (--certificate-sha256 <hex> | --transport http) [--name PickChick-1]
+ *       calls /v2/register: press «Разрешить» on the terminal within a minute. `--transport http`
+ *       only for a terminal whose probe said `http`: the token then crosses the network unencrypted
  *   node scripts/kaspi-terminal-setup.mjs status
  *   node scripts/kaspi-terminal-setup.mjs unlink --terminal <cash desk uuid>
  *
@@ -58,7 +66,7 @@ export function parseKaspiTerminalSetupArgs(argv) {
   }
   const allowed = {
     probe: ['host'],
-    register: ['terminal', 'host', 'certificate-sha256', 'name'],
+    register: ['terminal', 'host', 'certificate-sha256', 'transport', 'name'],
     status: [],
     unlink: ['terminal'],
   }[command];
@@ -69,11 +77,22 @@ export function parseKaspiTerminalSetupArgs(argv) {
   if ((command === 'register' || command === 'unlink') && !UUID.test(options.terminal ?? ''))
     throw new KaspiTerminalSetupError('INVALID_ARGUMENTS');
   if (command === 'register') {
-    options['certificate-sha256'] = (options['certificate-sha256'] ?? '')
-      .toLowerCase()
-      .replaceAll(':', '');
-    if (!/^[a-f0-9]{64}$/.test(options['certificate-sha256']))
-      throw new KaspiTerminalSetupError('INVALID_ARGUMENTS');
+    // Exactly one of: a pinned certificate, or the explicit plain HTTP transport.
+    if (options.transport !== undefined) {
+      if (options.transport !== 'http' || options['certificate-sha256'] !== undefined)
+        throw new KaspiTerminalSetupError('INVALID_ARGUMENTS');
+      delete options.transport;
+      options['certificate-sha256'] = KASPI_PLAIN_HTTP;
+    } else {
+      options['certificate-sha256'] = (options['certificate-sha256'] ?? '')
+        .toLowerCase()
+        .replaceAll(':', '');
+      if (
+        !/^[a-f0-9]{64}$/.test(options['certificate-sha256']) ||
+        options['certificate-sha256'] === KASPI_PLAIN_HTTP
+      )
+        throw new KaspiTerminalSetupError('INVALID_ARGUMENTS');
+    }
     options.name ??= 'PickChick-POS';
     if (!/^[A-Za-z0-9_-]{3,40}$/.test(options.name))
       throw new KaspiTerminalSetupError('INVALID_ARGUMENTS');
@@ -103,7 +122,9 @@ export async function kaspiTerminalStatus(pool, branchId) {
     await requireInstalled(client);
     const devices = (
       await client.query(
-        `SELECT d.terminal_id,host(d.host) AS host,d.integration_name,d.kaspi_terminal_id,d.serial_number,
+        `SELECT d.terminal_id,host(d.host) AS host,
+         CASE WHEN d.certificate_sha256=repeat('0',64) THEN 'http' ELSE 'https' END AS transport,
+         d.integration_name,d.kaspi_terminal_id,d.serial_number,
          d.token_expires_at,d.created_at,
          (SELECT count(*)::int FROM kaspi_pos_attempts a WHERE a.device_id=d.id AND a.state IN ('created','sending','wait','unknown')) AS open_attempts,
          (SELECT count(*)::int FROM kaspi_pos_attempts a WHERE a.device_id=d.id AND (a.state='lost' OR (a.state='success' AND a.order_id IS NULL))) AS attention_attempts
@@ -195,6 +216,7 @@ export async function linkKaspiTerminal(pool, branchId, args, port = kaspiPort) 
     linked: true,
     terminal_id: args.terminal,
     host: args.host,
+    transport: args['certificate-sha256'] === KASPI_PLAIN_HTTP ? 'http' : 'https',
     kaspi_terminal_id: field('terminalId'),
     serial_number: field('serialNum'),
     token_expires_at: expires.toISOString(),
@@ -240,7 +262,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     let result;
     if (command === 'probe') {
       try {
-        result = { host: args.host, certificate_sha256: await kaspiCertificate(args.host) };
+        const probe = await kaspiProbe(args.host);
+        result =
+          probe.transport === 'https'
+            ? { host: args.host, transport: 'https', certificate_sha256: probe.certificateSha256 }
+            : {
+                host: args.host,
+                transport: 'http',
+                kaspi_terminal_id: probe.terminalId,
+                serial_number: probe.serialNumber,
+              };
       } catch {
         throw new KaspiTerminalSetupError('UNREACHABLE');
       }
