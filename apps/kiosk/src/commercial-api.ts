@@ -12,7 +12,7 @@ export async function commercialKioskRequest(
   device?: { deviceId: string; key: string },
 ): Promise<unknown> {
   if (
-    !/^\/(?:enrollment\/check|staff\/verify|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
+    !/^\/(?:enrollment\/check|staff\/verify|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/(?:payment|terminal-events))?)?)$/.test(
       path,
     )
   )
@@ -87,6 +87,38 @@ export async function commercialKioskRead(
   };
 }
 
+/**
+ * ADR-0018: PUT/DELETE /terminal (the terminal this kiosk uses: terminal_id, serial, host; never
+ * its token). Device credentials always; the guest token when the kiosk has one.
+ */
+export async function commercialKioskSend(
+  method: 'PUT' | 'DELETE',
+  path: '/terminal',
+  token: string | undefined,
+  body: unknown,
+  fetcher: typeof fetch = fetch,
+  device?: { deviceId: string; key: string },
+): Promise<unknown> {
+  if (path !== '/terminal' || (method === 'PUT') !== (body !== undefined))
+    throw new KioskError('INVALID_PATH');
+  if (!device || !/^[a-f0-9-]{36}$/.test(device.deviceId) || !/^[a-f0-9]{64}$/.test(device.key))
+    throw new KioskError('DEVICE_NOT_PROVISIONED');
+  return (
+    await sendKioskRequestWithHeaders(
+      path,
+      body,
+      {
+        'X-Kiosk-Device': device.deviceId,
+        'X-Kiosk-Key': device.key,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      fetcher,
+      15000,
+      method,
+    )
+  ).data;
+}
+
 export async function exchangeKioskEnrollment(
   input: { login: string; password: string; requestId: string },
   fetcher: typeof fetch = fetch,
@@ -114,12 +146,13 @@ async function sendKioskRequestWithHeaders(
   authentication: Record<string, string>,
   fetcher: typeof fetch,
   timeoutMs: number,
+  method?: 'PUT' | 'DELETE',
 ): Promise<{ data: unknown; headers: Headers }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetcher(`${KIOSK_API_URL}/v1/kiosk-checkout${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       credentials: 'omit',
       redirect: 'error',
       signal: controller.signal,

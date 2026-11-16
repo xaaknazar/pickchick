@@ -6,8 +6,11 @@ import { KioskError, kioskRequest } from './api';
 import {
   commercialKioskRead,
   commercialKioskRequest,
+  commercialKioskSend,
   exchangeKioskEnrollment,
 } from './commercial-api';
+import { kaspiTerminalCall } from './kaspi-terminal';
+import { KASPI_TERMINAL_LINK_KEY } from './kaspi-terminal-link';
 import { enrollDevice, KIOSK_ENROLLMENT_REQUEST_KEY } from './enrollment';
 import {
   COMMERCIAL_FLOW_KEY,
@@ -75,6 +78,18 @@ export function createCommercialKioskIO(): CommercialKioskIO {
       commercialKioskRequest(path, token, body, key, fetch, await credentials()),
     read: async (path, token, readOptions) =>
       commercialKioskRead(path, token, fetch, await credentials(), readOptions),
+    send: async (method, path, token, body) =>
+      commercialKioskSend(method, path, token, body, fetch, await credentials()),
+    // ADR-0018: the terminal link and its token live only in this iPad's SecureStore.
+    terminal: {
+      store: {
+        read: () => read(KASPI_TERMINAL_LINK_KEY),
+        write: (raw) => SecureStore.setItemAsync(KASPI_TERMINAL_LINK_KEY, raw, options),
+        remove: () => SecureStore.deleteItemAsync(KASPI_TERMINAL_LINK_KEY),
+      },
+      call: (host, method, params, callOptions) =>
+        kaspiTerminalCall(host, method, params, callOptions, fetch),
+    },
     // Audit 19.10: the staff code is sent once for the server check and never stored.
     verifyStaff: async (pin) => {
       const answer = await commercialKioskRequest(

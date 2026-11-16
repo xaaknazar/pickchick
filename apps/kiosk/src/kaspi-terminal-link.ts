@@ -1,0 +1,211 @@
+import {
+  kaspiExpiration,
+  kaspiText,
+  privateIPv4,
+  type KaspiCallOptions,
+  type KaspiCallResult,
+  type KaspiMethod,
+  type KaspiTerminalPort,
+} from './kaspi-terminal.ts';
+
+/**
+ * The kiosk's own Kaspi Smart POS (ADR-0018): its address, identity and the integration token.
+ * Stored only in SecureStore of this iPad (WHEN_UNLOCKED_THIS_DEVICE_ONLY); the token is never
+ * sent to the cloud, which only learns terminal_id, serial and host.
+ */
+export const KASPI_TERMINAL_LINK_KEY = 'pickchick.kiosk.kaspi-terminal.v1';
+export interface TerminalLink {
+  host: string;
+  terminalId: string;
+  serial: string;
+  /** The integration name of /v2/register; /v2/revoke needs the same one. */
+  name: string;
+  accessToken: string;
+  refreshToken: string;
+  /** Token expiry, ms since epoch (the terminal gives its local time, UTC+5). */
+  expiresAt: number;
+  linkedAt: number;
+}
+export interface TerminalLinkStore {
+  read(): Promise<string | null>;
+  write(raw: string): Promise<void>;
+  remove(): Promise<void>;
+}
+/** Renew the 24 h token when less than this is left (ADR-0018, owner task: 2 h). */
+export const TOKEN_RENEW_BEFORE_MS = 2 * 3600000;
+/** A failed renewal is tried again at most this often (the payment poll runs every second). */
+export const TOKEN_RENEW_RETRY_MS = 60000;
+const TOKEN = /^[A-Za-z0-9_.:-]{1,512}$/;
+const NAME = /^pickchick-kiosk-[a-z0-9]{6}$/;
+const FIELD = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/** `pickchick-kiosk-<6 characters>` from a random UUID. */
+export const terminalIntegrationName = (uuid: string) =>
+  `pickchick-kiosk-${uuid
+    .replace(/[^a-f0-9]/gi, '')
+    .toLowerCase()
+    .slice(0, 6)
+    .padEnd(6, '0')}`;
+
+export function parseTerminalLink(raw: string | null): TerminalLink | null {
+  if (!raw || raw.length > 4000) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (
+    !privateIPv4(v.host) ||
+    typeof v.terminalId !== 'string' ||
+    !FIELD.test(v.terminalId) ||
+    typeof v.serial !== 'string' ||
+    !FIELD.test(v.serial) ||
+    typeof v.name !== 'string' ||
+    !NAME.test(v.name) ||
+    typeof v.accessToken !== 'string' ||
+    !TOKEN.test(v.accessToken) ||
+    typeof v.refreshToken !== 'string' ||
+    !TOKEN.test(v.refreshToken) ||
+    !Number.isSafeInteger(v.expiresAt) ||
+    !Number.isSafeInteger(v.linkedAt)
+  )
+    return null;
+  return {
+    host: v.host,
+    terminalId: v.terminalId,
+    serial: v.serial,
+    name: v.name,
+    accessToken: v.accessToken,
+    refreshToken: v.refreshToken,
+    expiresAt: v.expiresAt as number,
+    linkedAt: v.linkedAt as number,
+  };
+}
+
+/** Identity of the terminal from /v2/deviceinfo, or null when the answer lacks it. */
+export function terminalIdentity(answer: KaspiCallResult | null) {
+  if (answer?.kind !== 'ok') return null;
+  const terminalId = kaspiText(answer.data.terminalId);
+  const serial = kaspiText(answer.data.serialNum);
+  if (!terminalId || !FIELD.test(terminalId) || !serial || !FIELD.test(serial)) return null;
+  return { terminalId, serial };
+}
+
+/** Tokens of a register/revoke answer, or null. */
+export function terminalTokens(answer: KaspiCallResult, now: number) {
+  if (answer.kind !== 'ok') return null;
+  const access = answer.data.accessToken;
+  const refresh = answer.data.refreshToken;
+  if (typeof access !== 'string' || !TOKEN.test(access)) return null;
+  if (typeof refresh !== 'string' || !TOKEN.test(refresh)) return null;
+  // Unreadable expiry: assume the shortest sensible life so it is renewed early again.
+  const expiresAt =
+    kaspiExpiration(answer.data.expirationDate) ?? now + TOKEN_RENEW_BEFORE_MS + 60000;
+  return { accessToken: access, refreshToken: refresh, expiresAt };
+}
+
+const tokenRefused = (answer: KaspiCallResult) =>
+  answer.kind === 'refused' && (answer.httpStatus === 401 || answer.httpStatus === 403);
+
+/**
+ * Calls of the linked terminal with a fresh token: renewed by /v2/revoke when less than two hours
+ * are left, and after a 401/403 (then a read is retried once with the new token). A payment is
+ * never retried: after a refused token it is renewed for the next, deliberate attempt.
+ */
+export class TerminalSession {
+  private link: TerminalLink | null = null;
+  private renewRetryAt = 0;
+  private readonly store: TerminalLinkStore;
+  private readonly port: KaspiTerminalPort;
+  private readonly now: () => number;
+  constructor(store: TerminalLinkStore, port: KaspiTerminalPort, now: () => number) {
+    this.store = store;
+    this.port = port;
+    this.now = now;
+  }
+  current() {
+    return this.link;
+  }
+  async load() {
+    this.link = parseTerminalLink(await this.store.read());
+    return this.link;
+  }
+  async save(link: TerminalLink) {
+    await this.store.write(JSON.stringify(link));
+    this.link = link;
+  }
+  async forget() {
+    await this.store.remove();
+    this.link = null;
+  }
+  /** Read-only identity check of any address (no token needed). */
+  deviceInfo(host: string) {
+    return this.port(host, 'deviceinfo', {});
+  }
+  register(host: string, name: string) {
+    return this.port(host, 'register', { name });
+  }
+  /** /v2/revoke with the stored refresh token; the new tokens are stored before use. */
+  async renew(force = false): Promise<boolean> {
+    const link = this.link;
+    if (!link) return false;
+    if (!force && link.expiresAt - this.now() >= TOKEN_RENEW_BEFORE_MS) return true;
+    if (!force && this.now() < this.renewRetryAt) return false;
+    let answer: KaspiCallResult;
+    try {
+      answer = await this.port(
+        link.host,
+        'revoke',
+        { name: link.name, refreshToken: link.refreshToken },
+        { token: link.accessToken },
+      );
+    } catch {
+      answer = { kind: 'unreachable', reason: 'CONNECT' };
+    }
+    const tokens = terminalTokens(answer, this.now());
+    if (!tokens || this.link !== link) {
+      this.renewRetryAt = this.now() + TOKEN_RENEW_RETRY_MS;
+      return false;
+    }
+    try {
+      await this.save({ ...link, ...tokens });
+    } catch {
+      this.renewRetryAt = this.now() + TOKEN_RENEW_RETRY_MS;
+      return false;
+    }
+    this.renewRetryAt = 0;
+    return true;
+  }
+  /** A call to the linked terminal; null when no terminal is linked. */
+  async call(
+    method: Exclude<KaspiMethod, 'register' | 'revoke'>,
+    params: Record<string, string>,
+    options: Omit<KaspiCallOptions, 'token'> = {},
+  ): Promise<KaspiCallResult | null> {
+    if (!this.link) return null;
+    await this.renew();
+    const link = this.link;
+    if (!link) return null;
+    const first = await this.safeCall(link, method, params, options);
+    if (!tokenRefused(first)) return first;
+    const renewed = await this.renew(true);
+    if (!renewed || method === 'payment' || !this.link) return first;
+    return this.safeCall(this.link, method, params, options);
+  }
+  private async safeCall(
+    link: TerminalLink,
+    method: KaspiMethod,
+    params: Record<string, string>,
+    options: Omit<KaspiCallOptions, 'token'>,
+  ): Promise<KaspiCallResult> {
+    try {
+      return await this.port(link.host, method, params, { ...options, token: link.accessToken });
+    } catch {
+      // Invalid link or parameters: nothing was sent.
+      return { kind: 'unreachable', reason: 'CONNECT' };
+    }
+  }
+}

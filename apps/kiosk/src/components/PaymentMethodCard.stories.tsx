@@ -30,6 +30,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+/** ADR-0018: the kiosk's own Kaspi terminal takes the payment. */
+export const OnTerminal: Story = { args: { terminal: true } };
+export const OnTerminalKk: Story = { args: { terminal: true, locale: 'kk' } };
 export const PhoneInvoice: Story = { args: { method: 'kaspi_invoice' } };
 export const PhoneInvoiceKk: Story = {
   args: { method: 'kaspi_invoice', locale: 'kk', selected: false },

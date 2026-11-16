@@ -4,14 +4,25 @@ import {
 } from '@pickchick/contracts';
 import { z } from 'zod';
 const CustomerCommerceOrderSchema = BaseOrderSchema.extend({
-  paymentMethod: z.enum(['kaspi_qr', 'kaspi_invoice']).nullable().optional(),
+  paymentMethod: z.enum(['kaspi_qr', 'kaspi_invoice', 'kaspi_terminal']).nullable().optional(),
   payment: z
-    .strictObject({
-      kind: z.literal('kaspi_qr'),
-      state: z.enum(['preparing', 'pending', 'checking', 'paid', 'failed']),
-      qrPayload: z.string().min(1).max(4096).nullable(),
-      expiresAt: z.iso.datetime().nullable(),
-    })
+    .discriminatedUnion('kind', [
+      z.strictObject({
+        kind: z.literal('kaspi_qr'),
+        state: z.enum(['preparing', 'pending', 'checking', 'paid', 'failed']),
+        qrPayload: z.string().min(1).max(4096).nullable(),
+        expiresAt: z.iso.datetime().nullable(),
+      }),
+      // ADR-0018: the latest attempt on the kiosk's own Kaspi Smart POS (unknown fields dropped).
+      z.object({
+        kind: z.literal('kaspi_terminal'),
+        state: z.enum(['pending', 'checking', 'paid', 'failed']),
+        attempt_id: z.string().max(64).nullable().optional(),
+        amount_tenge: z.number().int().nullable().optional(),
+        terminal_id: z.string().max(64).nullable().optional(),
+        expires_at: z.string().max(64).nullable().optional(),
+      }),
+    ])
     .optional(),
 });
 type CustomerCommerceOrder = z.infer<typeof CustomerCommerceOrderSchema>;
@@ -19,6 +30,14 @@ import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
+import { privateIPv4, type KaspiCallResult, type KaspiTerminalPort } from './kaspi-terminal.ts';
+import {
+  TerminalSession,
+  terminalIdentity,
+  terminalIntegrationName,
+  terminalTokens,
+  type TerminalLinkStore,
+} from './kaspi-terminal-link.ts';
 import { placeLine, selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
 import type { Locale } from './i18n';
@@ -32,6 +51,9 @@ import type {
   KioskStep,
   KioskPaymentMethod,
   StaffPinError,
+  TerminalPaymentView,
+  TerminalSetupResult,
+  TerminalSetupView,
 } from './model';
 
 export const COMMERCIAL_SESSION_KEY = 'pickchick.kiosk.commercial-session.v1';
@@ -49,6 +71,18 @@ export interface CommercialKioskIO extends KioskIO {
    * server code. Absent (the demo transport, tests) means staff actions are unavailable.
    */
   verifyStaff?(pin: string): Promise<void>;
+  /**
+   * ADR-0018: the kiosk's own Kaspi Smart POS over the LAN (link in SecureStore, LAN calls).
+   * Absent (web, the demo, older tests): the kiosk only knows the QR on screen.
+   */
+  terminal?: { store: TerminalLinkStore; call: KaspiTerminalPort };
+  /** PUT/DELETE /terminal of kiosk-checkout (device headers; the guest token when there is one). */
+  send?(
+    method: 'PUT' | 'DELETE',
+    path: '/terminal',
+    token?: string,
+    body?: unknown,
+  ): Promise<unknown>;
 }
 /** Server long-poll window is 25 s; the client gives up a little later. */
 export const AVAILABILITY_LONG_POLL_MS = 32000;
@@ -71,7 +105,7 @@ type Intent = {
   paymentKey: string;
   quoteId: string | null;
   orderId: string | null;
-  method?: 'kaspi_qr' | 'kaspi_invoice';
+  method?: 'kaspi_qr' | 'kaspi_invoice' | 'kaspi_terminal';
   phone?: string;
   expectedTotalMinor: string;
   payload: {
@@ -112,6 +146,123 @@ export const STAFF_PIN_LOCK_MS = 5 * 60000;
 /** Next /sessions/end of an abandoned guest after a refusal: 5 s, 10 s, 20 s, then every 30 s. */
 export const abandonedRetryMs = (failures: number) =>
   Math.min(30000, 5000 * 2 ** Math.min(Math.max(failures, 0), 3));
+/**
+ * ADR-0018: one payment on the kiosk's Kaspi Smart POS, written to the flow before every step
+ * that may reach the terminal or the cloud, so a restart resumes it and reports its result.
+ * - request: POST orders/:id/payment {kaspi_terminal, request_id} not yet answered;
+ * - created: the cloud attempt exists, /v2/payment not yet sent;
+ * - sending: /v2/payment may be in flight (after a restart: lost, never sent again);
+ * - wait: the terminal took it (processId), /v2/status every second;
+ * - unknown: the terminal does not know the result, /v2/actualize at most every 10 s;
+ * - lost: sent without an answer and no processId: never repeated, staff checks the terminal;
+ * - send_failed: definitely not started on the terminal (refused or unreachable before sending);
+ * - success / fail: the terminal's result, `reported` once the cloud took it.
+ */
+export type TerminalPhase =
+  | 'request'
+  | 'created'
+  | 'sending'
+  | 'wait'
+  | 'unknown'
+  | 'lost'
+  | 'send_failed'
+  | 'success'
+  | 'fail';
+export type TerminalReason = 'busy' | 'blocked' | 'token' | 'unreachable' | 'refused';
+export type TerminalAttempt = {
+  orderId: string;
+  requestId: string;
+  attemptId: string | null;
+  terminalId: string;
+  amountTenge: number | null;
+  processId: string | null;
+  phase: TerminalPhase;
+  reason: TerminalReason | null;
+  started: boolean;
+  reported: boolean;
+  subStatus: string | null;
+  transactionId: string | null;
+  method: 'qr' | 'card' | 'alaqan' | null;
+  message: string | null;
+  actualizedAt: number;
+};
+/** Kaspi: /v2/status about once a second, /v2/actualize no more often than every 10 s. */
+export const TERMINAL_POLL_MS = 1000;
+export const TERMINAL_ACTUALIZE_MS = 10000;
+/** The staff terminal setup stays open this long after the staff code. */
+export const TERMINAL_SETUP_MS = 10 * 60000;
+const TERMINAL_PHASES: TerminalPhase[] = [
+  'request',
+  'created',
+  'sending',
+  'wait',
+  'unknown',
+  'lost',
+  'send_failed',
+  'success',
+  'fail',
+];
+const TERMINAL_KEYS = [
+  'orderId',
+  'requestId',
+  'attemptId',
+  'terminalId',
+  'amountTenge',
+  'processId',
+  'phase',
+  'reason',
+  'started',
+  'reported',
+  'subStatus',
+  'transactionId',
+  'method',
+  'message',
+  'actualizedAt',
+];
+const SHORT = /^[A-Za-z0-9_.:-]{1,64}$/;
+const nullableText = (v: unknown, max: number) =>
+  v === null || (typeof v === 'string' && v.length <= max);
+function terminalAttempt(value: unknown): TerminalAttempt | null {
+  if (value === undefined || value === null) return null;
+  if (
+    !isObject(value) ||
+    !exactKeys(value, [...TERMINAL_KEYS]) ||
+    !id(value.orderId) ||
+    !id(value.requestId) ||
+    !(
+      value.attemptId === null ||
+      (typeof value.attemptId === 'string' && SHORT.test(value.attemptId))
+    ) ||
+    typeof value.terminalId !== 'string' ||
+    !SHORT.test(value.terminalId) ||
+    !(
+      value.amountTenge === null ||
+      (Number.isSafeInteger(value.amountTenge) && Number(value.amountTenge) > 0)
+    ) ||
+    !(
+      value.processId === null ||
+      (typeof value.processId === 'string' && SHORT.test(value.processId))
+    ) ||
+    !TERMINAL_PHASES.includes(value.phase as TerminalPhase) ||
+    !(
+      value.reason === null ||
+      ['busy', 'blocked', 'token', 'unreachable', 'refused'].includes(String(value.reason))
+    ) ||
+    typeof value.started !== 'boolean' ||
+    typeof value.reported !== 'boolean' ||
+    !nullableText(value.subStatus, 40) ||
+    !nullableText(value.transactionId, 64) ||
+    !(value.method === null || ['qr', 'card', 'alaqan'].includes(String(value.method))) ||
+    !nullableText(value.message, 200) ||
+    !Number.isSafeInteger(value.actualizedAt) ||
+    (value.phase !== 'request' && (value.attemptId === null || value.amountTenge === null)) ||
+    (['wait', 'unknown', 'success', 'fail'].includes(String(value.phase)) &&
+      value.processId === null) ||
+    (value.phase === 'success' && value.transactionId === null)
+  )
+    throw new KioskError('RECOVERY_DATA_INVALID');
+  return value as unknown as TerminalAttempt;
+}
 type Flow = {
   version: 1;
   guestId: string | null;
@@ -123,6 +274,8 @@ type Flow = {
   resetPending: boolean;
   /** Stored only while not empty: flows of installed builds have no such field. */
   abandoned: AbandonedGuest[];
+  /** ADR-0018 terminal payment of `order`; stored only while there is one. */
+  terminal: TerminalAttempt | null;
 };
 const isObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -438,7 +591,9 @@ function abandonedGuests(value: unknown, guestId: unknown): AbandonedGuest[] {
 function flow(value: unknown): Flow {
   if (
     !isObject(value) ||
-    !(exactKeys(value, [...FLOW_KEYS]) || exactKeys(value, [...FLOW_KEYS, 'abandoned'])) ||
+    ![[], ['abandoned'], ['terminal'], ['abandoned', 'terminal']].some((extra) =>
+      exactKeys(value, [...FLOW_KEYS, ...extra]),
+    ) ||
     value.version !== 1 ||
     !(value.guestId === null || id(value.guestId)) ||
     ![null, 'takeaway', 'dine_in'].includes(value.mode as null) ||
@@ -470,7 +625,7 @@ function flow(value: unknown): Flow {
         'paymentKey',
         'quoteId',
         'orderId',
-        ...(p.method === 'kaspi_qr'
+        ...(p.method === 'kaspi_qr' || p.method === 'kaspi_terminal'
           ? ['method']
           : p.method === 'kaspi_invoice'
             ? ['method', 'phone']
@@ -487,6 +642,7 @@ function flow(value: unknown): Flow {
       !(p.orderId === null || id(p.orderId)) ||
       !(
         p.method === 'kaspi_qr' ||
+        p.method === 'kaspi_terminal' ||
         ((p.method === undefined || p.method === 'kaspi_invoice') &&
           typeof p.phone === 'string' &&
           invoicePhone(p.phone))
@@ -520,9 +676,64 @@ function flow(value: unknown): Flow {
   )
     throw new KioskError('RECOVERY_DATA_INVALID');
   const abandoned = abandonedGuests(value.abandoned, value.guestId);
-  return { ...value, order, abandoned } as unknown as Flow;
+  const attempt = terminalAttempt(value.terminal);
+  if (attempt && (p !== null || !order || order.orderId !== attempt.orderId || value.resetPending))
+    throw new KioskError('RECOVERY_DATA_INVALID');
+  return { ...value, order, abandoned, terminal: attempt } as unknown as Flow;
 }
 
+/**
+ * `kaspi_terminal` of GET /config (ADR-0018): `{ enabled, terminal: null | { terminal_id, ... } }`.
+ * Absent or unreadable means the terminal is not used (the QR stays).
+ */
+function terminalConfigOf(value: unknown): { enabled: boolean; terminalId: string | null } | null {
+  if (!isObject(value) || typeof value.enabled !== 'boolean') return null;
+  const terminal = value.terminal;
+  const terminalId =
+    isObject(terminal) &&
+    typeof terminal.terminal_id === 'string' &&
+    SHORT.test(terminal.terminal_id)
+      ? terminal.terminal_id
+      : null;
+  return { enabled: value.enabled, terminalId };
+}
+const newTerminalAttempt = (
+  orderId: string,
+  requestId: string,
+  terminalId: string,
+): TerminalAttempt => ({
+  orderId,
+  requestId,
+  attemptId: null,
+  terminalId,
+  amountTenge: null,
+  processId: null,
+  phase: 'request',
+  reason: null,
+  started: false,
+  reported: false,
+  subStatus: null,
+  transactionId: null,
+  method: null,
+  message: null,
+  actualizedAt: 0,
+});
+/** processId / transactionId of the terminal: a short string or a whole number. */
+function kaspiProcessId(value: unknown) {
+  const text =
+    typeof value === 'string'
+      ? value.trim()
+      : typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+        ? String(value)
+        : '';
+  return /^[A-Za-z0-9_-]{1,64}$/.test(text) ? text : null;
+}
+/** Codes of POST orders/:id/payment {kaspi_terminal}: no attempt was created. */
+const TERMINAL_REQUEST_DEFINITIVE = [
+  'KIOSK_TERMINAL_NOT_LINKED',
+  'KIOSK_TERMINAL_DISABLED',
+  'KIOSK_TERMINAL_WHOLE_TENGE',
+];
 /** Navigation steps a background reload keeps (the guest is browsing, nothing is pending). */
 const BROWSING: KioskStep[] = ['menu', 'product', 'upsell', 'cart', 'loyalty'];
 /** A read that may simply be retried: the network, a timeout or a server outage. */
@@ -586,11 +797,24 @@ export class CommercialKioskController {
   private staffError: StaffPinError | null = null;
   private staffFailures = 0;
   private staffLockedUntil = 0;
+  /** ADR-0018: the linked terminal (SecureStore) and its calls; null without `io.terminal`. */
+  private terminalSession: TerminalSession | null = null;
+  /** `kaspi_terminal` of the last `/config`; null when absent (older server) or unreadable. */
+  private terminalConfig: { enabled: boolean; terminalId: string | null } | null = null;
+  /** The last terminal or server read of the terminal payment failed (retried every second). */
+  private terminalOffline = false;
+  /** The terminal's latest subStatus while waiting (memory only). */
+  private terminalSub: string | null = null;
+  private setupUntil = 0;
+  private setupConfirming = false;
+  private setupResult: TerminalSetupResult | null = null;
   private listeners = new Set<() => void>();
   private view: KioskState;
   private io: CommercialKioskIO;
   constructor(io: CommercialKioskIO) {
     this.io = io;
+    if (io.terminal)
+      this.terminalSession = new TerminalSession(io.terminal.store, io.terminal.call, io.now);
     this.current = this.empty();
     this.view = this.snapshot();
   }
@@ -606,6 +830,7 @@ export class CommercialKioskController {
       lastActivityAt: this.io.now(),
       resetPending: false,
       abandoned: this.current?.abandoned ?? [],
+      terminal: null,
     };
   }
   subscribe = (fn: () => void) => {
@@ -646,6 +871,7 @@ export class CommercialKioskController {
     return (
       this.blocked ||
       !!this.current.intent ||
+      (!!this.current.terminal && !this.terminalSettled()) ||
       (!!this.current.order && !terminal(this.current.order))
     );
   }
@@ -701,7 +927,10 @@ export class CommercialKioskController {
       !this.blocked &&
       !!this.io.verifyStaff &&
       ((!!intent && !intent.orderId && !this.current.order) ||
-        (this.current.resetPending && !this.pending()))
+        (this.current.resetPending && !this.pending()) ||
+        // ADR-0018: a terminal payment that never started, or whose result only the terminal
+        // and the manager can tell (lost, unknown): staff checks the terminal and resets.
+        ['request', 'send_failed', 'lost', 'unknown'].includes(this.current.terminal?.phase ?? ''))
     );
   }
   private snapshot(): KioskState {
@@ -740,6 +969,9 @@ export class CommercialKioskController {
       invoicePhone: this.phone,
       phoneValid: !!invoicePhone(this.phone),
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
+      terminalPayment: this.terminalView(),
+      terminalPaymentAvailable: this.terminalActive(),
+      terminalSetup: this.terminalSession ? this.setupView() : null,
       paymentPhase: order?.phase,
       receiptState: order?.receipt,
       catalog: this.menu,
@@ -786,6 +1018,61 @@ export class CommercialKioskController {
       staffPinError: this.staffError,
     };
   }
+  /** A terminal attempt the kiosk no longer has to drive: its failure was reported. */
+  private terminalSettled() {
+    const a = this.current.terminal;
+    return !!a && a.phase === 'fail' && a.reported;
+  }
+  /**
+   * New payments go to the terminal: the cloud enables it and knows the same terminal as the one
+   * linked on this iPad. Otherwise the QR on screen stays (the fallback, unchanged).
+   */
+  private terminalActive() {
+    const link = this.terminalSession?.current();
+    return (
+      !!link && !!this.terminalConfig?.enabled && this.terminalConfig.terminalId === link.terminalId
+    );
+  }
+  private terminalView(): TerminalPaymentView | null {
+    const a = this.current.terminal;
+    if (!a) return null;
+    const phase: TerminalPaymentView['phase'] =
+      a.phase === 'request' || a.phase === 'created' || a.phase === 'sending'
+        ? 'starting'
+        : a.phase === 'wait'
+          ? 'waiting'
+          : a.phase === 'unknown'
+            ? 'checking'
+            : a.phase === 'success'
+              ? 'paid'
+              : a.phase === 'fail'
+                ? a.subStatus === 'ProcessCancelled'
+                  ? 'cancelled'
+                  : 'failed'
+                : a.phase === 'send_failed'
+                  ? 'not_started'
+                  : 'lost';
+    return {
+      phase,
+      reason: a.phase === 'send_failed' ? a.reason : null,
+      offline: this.terminalOffline,
+      subStatus: (a.phase === 'wait' ? this.terminalSub : null) ?? a.subStatus,
+    };
+  }
+  private setupOpen() {
+    return this.setupUntil > this.io.now();
+  }
+  private setupView(): TerminalSetupView {
+    const link = this.terminalSession?.current() ?? null;
+    return {
+      open: this.setupOpen(),
+      confirming: this.setupConfirming,
+      result: this.setupResult,
+      link: link ? { terminalId: link.terminalId, serial: link.serial, host: link.host } : null,
+      cloudLinked: !!link && this.terminalConfig?.terminalId === link.terminalId,
+      enabled: !!this.terminalConfig?.enabled,
+    };
+  }
   private emit() {
     this.view = this.snapshot();
     for (const fn of this.listeners) fn();
@@ -805,6 +1092,7 @@ export class CommercialKioskController {
     const stored: Record<string, unknown> = { ...next, abandoned };
     // Installed builds read flows without the field: it is written only while a guest waits.
     if (!abandoned.length) delete stored.abandoned;
+    if (!next.terminal) delete stored.terminal;
     await this.io.writeFlow(JSON.stringify(stored));
     this.current = { ...next, abandoned };
   }
@@ -977,6 +1265,7 @@ export class CommercialKioskController {
     }
     this.signature = availability.signature;
     this.configEnabled = config.enabled;
+    this.terminalConfig = terminalConfigOf(config.kaspi_terminal);
     this.stale = !applied.fresh;
     this.checkoutReady = applied.fresh && config.enabled;
     this.cloudKitchen = config.kitchen === 'online' || config.kitchen === 'offline';
@@ -1206,25 +1495,29 @@ export class CommercialKioskController {
     this.step =
       this.blocked || this.current.intent
         ? 'recovery'
-        : this.current.order
-          ? paid(this.current.order) || this.current.order.phase === 'failed'
-            ? 'order'
-            : 'payment'
-          : this.current.resetPending
-            ? 'start'
-            : !this.current.mode
-              ? shown === 'mode'
-                ? 'mode'
-                : 'start'
-              : BROWSING.includes(shown)
-                ? shown
-                : 'menu';
+        : this.current.terminal
+          ? 'payment'
+          : this.current.order
+            ? paid(this.current.order) || this.current.order.phase === 'failed'
+              ? 'order'
+              : 'payment'
+            : this.current.resetPending
+              ? 'start'
+              : !this.current.mode
+                ? shown === 'mode'
+                  ? 'mode'
+                  : 'start'
+                : BROWSING.includes(shown)
+                  ? shown
+                  : 'menu';
   }
   restore = () =>
     this.run(async () => {
       if (!this.initialized) {
         this.blocked = true;
         const [raw, guestRaw] = await Promise.all([this.io.readFlow(), this.io.readSession()]);
+        // An unreadable terminal link is no link: payments then use the QR on screen.
+        await this.terminalSession?.load().catch(() => null);
         this.current = raw ? flow(decode(raw)) : this.empty();
         this.guest = guestRaw ? session(decode(guestRaw)) : null;
         // A QR shown before the restart may have been scanned meanwhile (finding 3.3).
@@ -1265,6 +1558,7 @@ export class CommercialKioskController {
       }
       if (this.guest && !this.guest.branchId) await this.resumeSession(this.guest);
       if (this.current.intent) await this.resumeIntent();
+      else if (this.current.terminal) await this.driveTerminal();
       else if (this.current.order) await this.readOrder();
       this.derive();
     }, true);
@@ -1424,6 +1718,9 @@ export class CommercialKioskController {
       }
       // Finding 3.0: a guest close to its expiry is replaced before the intent exists.
       const guest = await this.authenticate(SESSION_RENEW_MS);
+      // ADR-0018: the kiosk's own Kaspi terminal takes card and Kaspi QR (whole tenge only).
+      const terminal =
+        selected === 'kaspi' && this.terminalActive() && BigInt(displayedTotalMinor) % 100n === 0n;
       const intent: Intent = {
         guestId: guest.sessionId,
         quoteKey: this.io.uuid(),
@@ -1433,7 +1730,7 @@ export class CommercialKioskController {
         orderId: null,
         ...(selected === 'kaspi_invoice'
           ? { method: 'kaspi_invoice' as const, phone: phone! }
-          : { method: 'kaspi_qr' as const }),
+          : { method: terminal ? ('kaspi_terminal' as const) : ('kaspi_qr' as const) }),
         expectedTotalMinor: displayedTotalMinor,
         payload: {
           items: this.current.cart.map((p) => ({
@@ -1543,6 +1840,19 @@ export class CommercialKioskController {
       intent = { ...intent, orderId: created.orderId };
       await this.save({ ...this.current, intent, order: created });
     }
+    if (intent.method === 'kaspi_terminal') {
+      // One write replaces the intent by the terminal attempt; its request_id is the saved
+      // payment key, so a lost answer replays the same attempt (ADR-0018).
+      const terminalId = this.terminalSession?.current()?.terminalId;
+      if (!terminalId) throw new KioskError('RECOVERY_REQUIRED');
+      await this.save({
+        ...this.current,
+        intent: null,
+        terminal: newTerminalAttempt(intent.orderId!, intent.paymentKey, terminalId),
+      });
+      await this.driveTerminal();
+      return;
+    }
     let order: CustomerCommerceOrder;
     try {
       order = CustomerCommerceOrderSchema.parse(
@@ -1611,14 +1921,21 @@ export class CommercialKioskController {
     const guest = this.guest;
     const abandoned = !ended && guest?.branchId ? this.abandon(guest) : null;
     if (!abandoned) {
-      await this.save({ ...this.current, intent: null, order: null });
+      await this.save({ ...this.current, intent: null, order: null, terminal: null });
       this.phone = '';
       await this.detachGuest();
       this.step = 'cart';
       return;
     }
     // One write forgets the order and the guest identity and remembers the session to end.
-    await this.save({ ...this.current, intent: null, order: null, guestId: null, abandoned });
+    await this.save({
+      ...this.current,
+      intent: null,
+      order: null,
+      terminal: null,
+      guestId: null,
+      abandoned,
+    });
     this.phone = '';
     this.guest = null;
     this.step = 'cart';
@@ -1665,11 +1982,333 @@ export class CommercialKioskController {
     if (order.orderId !== orderId) throw new KioskError('INVALID_RESPONSE');
     await this.save({ ...this.current, order });
   }
+  private async saveTerminal(next: TerminalAttempt | null, order?: CustomerCommerceOrder) {
+    await this.save({ ...this.current, terminal: next, ...(order ? { order } : {}) });
+  }
+  /**
+   * Advances the terminal payment as far as it can go now (ADR-0018). A cloud or terminal answer
+   * that does not come is not an error for the guest: the screen keeps the payment and the next
+   * poll (every second) asks again. Only a definitive refusal to create the attempt leaves it.
+   */
+  private async driveTerminal() {
+    for (let step = 0; step < 6; step++) {
+      let more: boolean;
+      try {
+        more = await this.terminalStep();
+      } catch (error) {
+        if (!transient(error)) throw error;
+        this.terminalOffline = true;
+        return;
+      }
+      if (!more) return;
+    }
+  }
+  private async terminalStep(): Promise<boolean> {
+    const a = this.current.terminal;
+    if (!a || !this.guest) return false;
+    switch (a.phase) {
+      case 'request':
+        return this.requestTerminalAttempt(a);
+      case 'created':
+        return this.sendTerminalPayment(a);
+      case 'sending':
+        // Stopped while /v2/payment may have been in flight: it is never sent again.
+        await this.saveTerminal({ ...a, phase: 'lost' });
+        return false;
+      case 'wait':
+        // The notice may wait for the server; the terminal is read regardless.
+        if (!a.started) await this.reportTerminal(a, 'started').catch(() => false);
+        return this.readTerminal(this.current.terminal!);
+      case 'unknown':
+        if (this.io.now() - a.actualizedAt < TERMINAL_ACTUALIZE_MS) return false;
+        return this.readTerminal(a);
+      case 'success':
+      case 'fail':
+        if (a.reported) return false;
+        if (!a.started) await this.reportTerminal(a, 'started');
+        await this.reportTerminal(this.current.terminal!, 'result');
+        return false;
+      default:
+        return false;
+    }
+  }
+  /** POST orders/:id/payment {kaspi_terminal, request_id}: the cloud attempt for the exact sum. */
+  private async requestTerminalAttempt(a: TerminalAttempt) {
+    const order = this.current.order;
+    if (!order || order.orderId !== a.orderId) throw new KioskError('RECOVERY_REQUIRED');
+    let answer: unknown;
+    try {
+      answer = await this.io.request(`/orders/${a.orderId}/payment`, this.guest!.token, {
+        method: 'kaspi_terminal',
+        request_id: a.requestId,
+      });
+    } catch (error) {
+      const off = error instanceof KioskError && TERMINAL_REQUEST_DEFINITIVE.includes(error.code);
+      if (off || definitive(error, PAYMENT_DEFINITIVE)) {
+        // No attempt exists, so no money can move. The guest returns to the cart; the terminal
+        // is off until the next /config says otherwise, so the next try shows the QR.
+        if (off) this.terminalConfig = null;
+        await this.abandonUnpaidOrder();
+        throw new KioskError('RETRY_PAYMENT');
+      }
+      throw error;
+    }
+    if (
+      !isObject(answer) ||
+      typeof answer.attempt_id !== 'string' ||
+      !SHORT.test(answer.attempt_id) ||
+      !Number.isSafeInteger(answer.amount_tenge) ||
+      Number(answer.amount_tenge) <= 0 ||
+      BigInt(Number(answer.amount_tenge)) * 100n !== BigInt(order.totalMinor) ||
+      answer.terminal_id !== a.terminalId ||
+      this.terminalSession?.current()?.terminalId !== a.terminalId
+    )
+      throw new KioskError('INVALID_RESPONSE');
+    this.terminalOffline = false;
+    await this.saveTerminal({
+      ...a,
+      phase: 'created',
+      attemptId: answer.attempt_id,
+      amountTenge: Number(answer.amount_tenge),
+    });
+    return true;
+  }
+  /** /v2/payment, sent once: 'sending' is written first, so a restart never sends it again. */
+  private async sendTerminalPayment(a: TerminalAttempt) {
+    const link = this.terminalSession?.current();
+    if (!link || link.terminalId !== a.terminalId) {
+      await this.saveTerminal({ ...a, phase: 'send_failed', reason: 'unreachable' });
+      return false;
+    }
+    await this.saveTerminal({ ...a, phase: 'sending', reason: null, message: null });
+    const answer: KaspiCallResult = (await this.terminalSession!.call('payment', {
+      amount: String(a.amountTenge),
+    })) ?? { kind: 'unreachable', reason: 'CONNECT' };
+    const sent = this.current.terminal!;
+    if (answer.kind === 'ok') {
+      const processId = kaspiProcessId(answer.data.processId);
+      this.terminalSub = null;
+      this.terminalOffline = false;
+      // Taken without a process number: it may run on the terminal, but cannot be read.
+      await this.saveTerminal(
+        processId
+          ? { ...sent, phase: 'wait', processId, subStatus: 'Initialize' }
+          : { ...sent, phase: 'lost' },
+      );
+      return !!processId;
+    }
+    if (answer.kind === 'lost') {
+      await this.saveTerminal({ ...sent, phase: 'lost' });
+      return false;
+    }
+    const reason: TerminalReason =
+      answer.kind === 'unreachable'
+        ? 'unreachable'
+        : answer.httpStatus === 401 || answer.httpStatus === 403
+          ? 'token'
+          : answer.statusCode === 107
+            ? 'busy'
+            : answer.statusCode === 106
+              ? 'blocked'
+              : 'refused';
+    await this.saveTerminal({
+      ...sent,
+      phase: 'send_failed',
+      reason,
+      message: answer.kind === 'refused' ? (answer.message?.slice(0, 200) ?? null) : null,
+    });
+    return false;
+  }
+  /** /v2/status while waiting, /v2/actualize (at most every 10 s) while the result is unknown. */
+  private async readTerminal(a: TerminalAttempt) {
+    const actualize = a.phase === 'unknown';
+    const answer: KaspiCallResult = (await this.terminalSession?.call(
+      actualize ? 'actualize' : 'status',
+      { processId: a.processId! },
+    )) ?? { kind: 'unreachable', reason: 'CONNECT' };
+    const stamp = actualize ? { actualizedAt: this.io.now() } : {};
+    if (answer.kind !== 'ok') {
+      this.terminalOffline = answer.kind !== 'refused';
+      // 101: the terminal no longer knows the process; only actualize and staff can tell.
+      if (answer.kind === 'refused' && answer.statusCode === 101 && a.phase === 'wait')
+        await this.saveTerminal({ ...a, phase: 'unknown', actualizedAt: 0 });
+      else if (actualize) await this.saveTerminal({ ...a, ...stamp });
+      return false;
+    }
+    this.terminalOffline = false;
+    const data = answer.data;
+    const subStatus =
+      typeof data.subStatus === 'string' && /^[A-Za-z]{1,40}$/.test(data.subStatus)
+        ? data.subStatus
+        : null;
+    const cheque = isObject(data.chequeInfo) ? data.chequeInfo : {};
+    const method = ['qr', 'card', 'alaqan'].includes(String(cheque.method))
+      ? (cheque.method as 'qr' | 'card' | 'alaqan')
+      : null;
+    const text = (v: unknown) =>
+      typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : null;
+    if (data.status === 'success') {
+      const transactionId = kaspiProcessId(data.transactionId);
+      // A success without its operation number is not taken; the next read asks again.
+      if (!transactionId) return false;
+      await this.saveTerminal({
+        ...a,
+        ...stamp,
+        phase: 'success',
+        subStatus,
+        transactionId,
+        method,
+        message: null,
+      });
+      return true;
+    }
+    if (data.status === 'fail') {
+      await this.saveTerminal({
+        ...a,
+        ...stamp,
+        phase: 'fail',
+        subStatus,
+        method,
+        message: text(data.message),
+      });
+      return true;
+    }
+    if (data.status === 'unknown') {
+      if (a.phase !== 'unknown' || actualize)
+        await this.saveTerminal({
+          ...a,
+          ...stamp,
+          phase: 'unknown',
+          subStatus,
+          message: text(data.message),
+        });
+      return false;
+    }
+    if (data.status === 'wait') {
+      this.terminalSub = subStatus;
+      // actualize answered that the operation still runs: back to the status reads.
+      if (actualize) await this.saveTerminal({ ...a, ...stamp, phase: 'wait' });
+    }
+    return false;
+  }
+  /**
+   * POST orders/:id/terminal-events (idempotent by attempt, kind and process). `started` is a
+   * notice; `result` carries the terminal's answer and its response is the order. A transient
+   * failure throws and the next poll sends the same event again.
+   */
+  private async reportTerminal(
+    a: TerminalAttempt,
+    kind: 'started' | 'result',
+    status?: 'unknown',
+  ): Promise<boolean> {
+    const body: Record<string, unknown> = {
+      attempt_id: a.attemptId,
+      kind,
+      process_id: a.processId,
+      terminal_id: a.terminalId,
+    };
+    if (kind === 'result') {
+      body.status = status ?? (a.phase === 'success' ? 'success' : 'fail');
+      body.amount_tenge = a.amountTenge;
+      if (a.subStatus) body.sub_status = a.subStatus;
+      if (a.transactionId && body.status === 'success') body.transaction_id = a.transactionId;
+      if (a.method) body.method = a.method;
+      if (a.message) body.message = a.message;
+    }
+    let answer: unknown;
+    try {
+      answer = await this.io.request(
+        `/orders/${a.orderId}/terminal-events`,
+        this.guest!.token,
+        body,
+      );
+    } catch (error) {
+      if (transient(error)) throw error;
+      // Refused for good (409: another result is already recorded, ...). `started` is only a
+      // notice; after a refused result the server's order decides and is read from it.
+      if (kind === 'started') {
+        await this.saveTerminal({ ...a, started: true });
+        return true;
+      }
+      if (status) return false;
+      await this.readOrder();
+      await this.saveTerminal(
+        a.phase === 'success' ? null : { ...a, started: true, reported: true },
+      );
+      return true;
+    }
+    const order = CustomerCommerceOrderSchema.parse(answer);
+    this.assertOrder(order);
+    if (order.orderId !== a.orderId) throw new KioskError('INVALID_RESPONSE');
+    this.terminalOffline = false;
+    if (kind === 'started' || status) await this.saveTerminal({ ...a, started: true }, order);
+    // A paid result leaves the terminal; the order screen takes over from the order's phase.
+    else if (a.phase === 'success') await this.saveTerminal(null, order);
+    else await this.saveTerminal({ ...a, started: true, reported: true }, order);
+    return true;
+  }
+  /** One background step of the terminal payment; the screen calls it every second. */
+  pollTerminal = async (): Promise<boolean> => {
+    const a = this.current.terminal;
+    if (!a || !this.ready || this.busy || this.backgroundTask) return false;
+    if (['lost', 'send_failed'].includes(a.phase) || this.terminalSettled()) return false;
+    return this.run(
+      async () => {
+        await this.driveTerminal();
+        this.derive();
+      },
+      false,
+      true,
+    );
+  };
+  /**
+   * The guest tries again: a payment that never started is sent to the terminal again (the same
+   * cloud attempt, nothing reached the terminal); after a failure a new attempt starts.
+   */
+  retryTerminal = () =>
+    this.run(async () => {
+      const a = this.current.terminal;
+      if (!a) throw new KioskError('QUIET');
+      if (a.phase === 'send_failed')
+        await this.saveTerminal({ ...a, phase: 'created', reason: null });
+      else if (a.phase === 'fail' && a.reported) {
+        const link = this.terminalSession?.current();
+        if (!link || !this.terminalActive()) throw new KioskError('QUIET');
+        await this.saveTerminal(newTerminalAttempt(a.orderId, this.io.uuid(), link.terminalId));
+      } else throw new KioskError('QUIET');
+      this.terminalOffline = false;
+      await this.driveTerminal();
+      this.derive();
+    });
+  /**
+   * Back to the cart to choose again: after a reported failure (like the QR's failed result), or
+   * when the payment never started on the terminal (no money can move: the order stays unpaid and
+   * the cloud moves its open attempt to review after 15 minutes).
+   */
+  leaveTerminal = () =>
+    this.run(async () => {
+      const a = this.current.terminal;
+      if (!a || !(a.phase === 'send_failed' || this.terminalSettled()))
+        throw new KioskError('QUIET');
+      if (a.phase === 'send_failed') {
+        await this.abandonUnpaidOrder();
+        return;
+      }
+      await this.readOrder();
+      if (this.current.order?.phase !== 'failed') {
+        this.derive();
+        throw new KioskError('QUIET');
+      }
+      const ended = await this.io.request('/sessions/end', this.guest!.token, {});
+      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      await this.abandonUnpaidOrder(true);
+    });
   private refreshResult = (background = false) =>
     this.run(
       async () => {
         if (this.current.resetPending) await this.finishReset();
         if (this.current.intent) await this.resumeIntent();
+        else if (this.current.terminal) await this.driveTerminal();
         else if (this.current.order) {
           try {
             await this.readOrder();
@@ -1845,6 +2484,140 @@ export class CommercialKioskController {
     this.staffFailures = 0;
     this.staffError = null;
   }
+  /**
+   * Staff terminal setup (ADR-0018), behind the server-checked staff code. Only on an idle kiosk:
+   * no guest order, intent or terminal payment, so a link never changes under a payment.
+   */
+  openTerminalSetup = (pin: string) =>
+    this.run(async () => {
+      if (!this.terminalSession || !this.setupIdle()) throw new KioskError('QUIET');
+      await this.staff(pin);
+      this.setupUntil = this.io.now() + TERMINAL_SETUP_MS;
+      this.setupResult = null;
+      this.setupConfirming = false;
+    });
+  closeTerminalSetup = () => {
+    this.setupUntil = 0;
+    this.setupResult = null;
+    this.setupConfirming = false;
+    this.emit();
+  };
+  private setupIdle() {
+    return !this.unsafe() && !this.current.order && !this.current.terminal;
+  }
+  private setupFail(result: TerminalSetupResult): never {
+    this.setupResult = result;
+    this.setupConfirming = false;
+    throw new KioskError('QUIET');
+  }
+  private setupAction(fn: (session: TerminalSession) => Promise<TerminalSetupResult>) {
+    return this.run(async () => {
+      const session = this.terminalSession;
+      if (!session || !this.setupOpen()) {
+        this.setupUntil = 0;
+        throw new KioskError('QUIET');
+      }
+      if (!this.setupIdle()) this.setupFail('busy');
+      this.setupResult = null;
+      this.setupResult = await fn(session);
+      // Every staff action keeps the setup open a while longer.
+      this.setupUntil = this.io.now() + TERMINAL_SETUP_MS;
+    });
+  }
+  /** PUT /terminal: tells the cloud which terminal this kiosk uses (never its token). */
+  private async putTerminal(session: TerminalSession): Promise<TerminalSetupResult> {
+    const link = session.current();
+    if (!link || !this.io.send) return 'cloud';
+    try {
+      const answer = await this.io.send('PUT', '/terminal', this.guest?.token, {
+        terminal_id: link.terminalId,
+        serial: link.serial,
+        host: link.host,
+      });
+      if (!isObject(answer) || answer.terminal_id !== link.terminalId)
+        throw new KioskError('INVALID_RESPONSE');
+    } catch (error) {
+      if (error instanceof KioskError && error.code === 'KIOSK_TERMINAL_TAKEN') {
+        // One terminal, one kiosk: this iPad does not keep a terminal another kiosk holds.
+        await session.forget();
+        return 'taken';
+      }
+      return 'cloud';
+    }
+    this.terminalConfig = {
+      enabled: this.terminalConfig?.enabled ?? false,
+      terminalId: link.terminalId,
+    };
+    return 'linked';
+  }
+  /**
+   * IP → /v2/deviceinfo → /v2/register (staff presses «Разрешить» on the terminal) → tokens in
+   * SecureStore → PUT /terminal. A refused or unanswered register keeps the previous link.
+   */
+  linkTerminal = (host: string) =>
+    this.setupAction(async (session) => {
+      const address = host.trim();
+      if (!privateIPv4(address)) return 'host';
+      const identity = terminalIdentity(await session.deviceInfo(address).catch(() => null!));
+      if (!identity) return 'unreachable';
+      this.setupConfirming = true;
+      this.emit();
+      const name = terminalIntegrationName(this.io.uuid());
+      let answer: KaspiCallResult;
+      try {
+        answer = await session.register(address, name);
+      } catch {
+        answer = { kind: 'unreachable', reason: 'CONNECT' };
+      } finally {
+        this.setupConfirming = false;
+      }
+      const tokens = terminalTokens(answer, this.io.now());
+      if (!tokens)
+        return answer.kind === 'refused' && answer.statusCode === 105
+          ? 'pending'
+          : answer.kind === 'unreachable'
+            ? 'unreachable'
+            : 'denied';
+      await session.save({
+        host: address,
+        terminalId: identity.terminalId,
+        serial: identity.serial,
+        name,
+        ...tokens,
+        linkedAt: this.io.now(),
+      });
+      return this.putTerminal(session);
+    });
+  /** «Проверить связь»: the terminal answers with the same ID, the token is fresh, the cloud agrees. */
+  checkTerminal = () =>
+    this.setupAction(async (session) => {
+      const link = session.current();
+      if (!link) return 'unreachable';
+      const identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+      if (!identity) return 'unreachable';
+      if (identity.terminalId !== link.terminalId) return 'mismatch';
+      await session.renew();
+      if (this.terminalConfig?.terminalId !== link.terminalId) {
+        const put = await this.putTerminal(session);
+        return put === 'linked' ? 'ok' : put;
+      }
+      return 'ok';
+    });
+  /** «Отвязать»: DELETE /terminal first, then the local link and its token are removed. */
+  unlinkTerminal = () =>
+    this.setupAction(async (session) => {
+      if (!this.io.send) return 'cloud';
+      try {
+        await this.io.send('DELETE', '/terminal', this.guest?.token);
+      } catch (error) {
+        // Nothing linked in the cloud any more: the local link is removed all the same.
+        if (!(error instanceof KioskError && error.code === 'KIOSK_TERMINAL_NOT_LINKED'))
+          return 'cloud';
+      }
+      await session.forget();
+      if (this.terminalConfig) this.terminalConfig = { ...this.terminalConfig, terminalId: null };
+      return 'unlinked';
+    });
   /** Staff code check for actions outside this controller (the demo mode). */
   verifyStaff = (pin: string) =>
     this.run(async () => {
@@ -1865,6 +2638,11 @@ export class CommercialKioskController {
       if (!this.staffResettable()) throw new KioskError('QUIET');
       await this.staff(pin);
       if (!this.staffResettable()) throw new KioskError('QUIET');
+      // ADR-0018: an unknown terminal result goes to the manager's review at once (best effort;
+      // otherwise the cloud does it after 15 minutes). A lost one has no process to name.
+      const pending = this.current.terminal;
+      if (pending?.phase === 'unknown' && this.guest)
+        await this.reportTerminal(pending, 'result', 'unknown').catch(() => false);
       const guest = this.guest;
       const abandoned = guest?.branchId ? this.abandon(guest) : null;
       await this.save({ ...this.empty(), ...(abandoned ? { abandoned } : {}) });
