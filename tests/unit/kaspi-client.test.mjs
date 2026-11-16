@@ -6,11 +6,15 @@ import { createServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { createServer as createHttpServer } from 'node:http';
 import {
+  KASPI_PLAIN_HTTP,
   kaspiCall,
   kaspiCertificate,
   kaspiExpiration,
   kaspiPeerCertificate,
+  kaspiPeerProbe,
+  kaspiProbe,
   kaspiRequest,
   privateIPv4,
 } from '@pickchick/local-orders';
@@ -193,6 +197,68 @@ test('nothing listening: unreachable; only private IPv4 on port 8080; strict par
   );
   assert.equal(privateIPv4('192.168.2.66'), true);
   assert.equal(privateIPv4('172.32.0.1'), false);
+});
+
+// 16.11.2026: the test point's Smart POS 3 (application 2.64.9) serves the API as plain HTTP on 8080
+// and answers no TLS. Simulated here by a plain HTTP server with the observed deviceinfo answer.
+test('plain HTTP terminal: probe says http, a plain link sends the token, TLS links refuse it', async () => {
+  const seen = [];
+  const server = createHttpServer((request, response) => {
+    seen.push({ url: request.url, token: request.headers.accesstoken ?? null });
+    if (request.url.startsWith('/v2/deviceinfo'))
+      return json(response, 200, {
+        data: { posNum: '0', serialNum: 'ND-SYN', terminalId: 'TID-SYN' },
+        statusCode: 0,
+      });
+    if (request.url.startsWith('/v2/payment'))
+      return json(response, 200, { data: { processId: 'p-1', status: 'wait' }, statusCode: 0 });
+    json(response, 404, {});
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const port = server.address().port;
+    assert.deepEqual(await kaspiPeerProbe('127.0.0.1', port), {
+      transport: 'http',
+      terminalId: 'TID-SYN',
+      serialNumber: 'ND-SYN',
+    });
+    const plain = { host: '127.0.0.1', port, certificateSha256: KASPI_PLAIN_HTTP };
+    assert.deepEqual(
+      await kaspiRequest(plain, 'payment', { amount: '100' }, { token: 'tok-12345' }),
+      {
+        kind: 'ok',
+        data: { processId: 'p-1', status: 'wait' },
+      },
+    );
+    assert.deepEqual(seen.at(-1), { url: '/v2/payment?amount=100', token: 'tok-12345' });
+    // A link pinned to a certificate never falls back to plain HTTP: nothing is sent.
+    const before = seen.length;
+    const pinned = await kaspiRequest(
+      { host: '127.0.0.1', port, certificateSha256: real.sha256 },
+      'payment',
+      { amount: '100' },
+      { token: 'tok-12345', timeoutMs: 2000 },
+    );
+    assert.equal(pinned.kind, 'unreachable');
+    assert.equal(seen.length, before);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+  await assert.rejects(kaspiProbe('8.8.8.8'), /KASPI_HOST_INVALID/);
+});
+
+test('probe of a TLS terminal reports its certificate', async () => {
+  const sim = await terminal({ cert: real.cert, key: real.key }, (request, response) =>
+    json(response, 404, {}),
+  );
+  try {
+    assert.deepEqual(await kaspiPeerProbe('127.0.0.1', sim.link().port), {
+      transport: 'https',
+      certificateSha256: real.sha256,
+    });
+  } finally {
+    await sim.close();
+  }
 });
 
 test('expirationDate is the terminal local time, UTC+5', () => {

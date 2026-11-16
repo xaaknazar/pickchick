@@ -19,6 +19,7 @@ import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.
 import { assertKaspiPosRuntimePrivileges } from '../../infra/windows/kaspi-pos-grants.mjs';
 import {
   linkKaspiTerminal,
+  parseKaspiTerminalSetupArgs,
   unlinkKaspiTerminal,
   KaspiTerminalSetupError,
 } from '../../scripts/kaspi-terminal-setup.mjs';
@@ -556,6 +557,24 @@ test('runtime role: exact schema029 privileges and the attempt flow without owne
       await ctx.edge.admin.query(`DROP ROLE ${role}`);
     }
   });
+});
+
+test('owner tool arguments: a pinned certificate or an explicit plain HTTP transport, never both', () => {
+  const desk = '11111111-1111-4111-8111-111111111111';
+  const base = ['register', '--terminal', desk, '--host', '192.168.2.236'];
+  assert.equal(
+    parseKaspiTerminalSetupArgs([...base, '--transport', 'http'])['certificate-sha256'],
+    '0'.repeat(64),
+  );
+  const invalid = (argv) =>
+    assert.throws(
+      () => parseKaspiTerminalSetupArgs(argv),
+      (e) => e instanceof KaspiTerminalSetupError && e.code === 'INVALID_ARGUMENTS',
+    );
+  invalid(base);
+  invalid([...base, '--transport', 'https']);
+  invalid([...base, '--transport', 'http', '--certificate-sha256', 'a'.repeat(64)]);
+  invalid([...base, '--certificate-sha256', '0'.repeat(64)]);
 });
 
 test('owner tool: register stores the link and its token, unlink refuses an open attempt', async () => {

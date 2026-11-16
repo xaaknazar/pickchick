@@ -1,7 +1,7 @@
 import { request as httpRequest } from 'node:http';
-import { isIP } from 'node:net';
+import { connect as netConnect, isIP } from 'node:net';
+import type { Socket } from 'node:net';
 import { connect as tlsConnect } from 'node:tls';
-import type { TLSSocket } from 'node:tls';
 
 /**
  * Kaspi Smart POS local API client (ADR-0017, docs/integrations/kaspi-smart-pos-api.md): HTTPS on
@@ -10,7 +10,17 @@ import type { TLSSocket } from 'node:tls';
  * the leaf certificate is pinned instead, and no byte of a request leaves before it matches.
  * Results say exactly what is known: `unreachable` - nothing was sent; `lost` - the request may
  * have reached the terminal but no valid answer came back (a payment then is never repeated).
+ *
+ * Plain HTTP (16.11.2026, the test point's Smart POS 3, application 2.64.9): unlike the Kaspi
+ * document, that terminal serves the same API as plain HTTP on 8080 and offers no TLS on any port
+ * (TLS ClientHello unanswered; GET /v2/deviceinfo answered 200 JSON). Such a terminal is linked
+ * explicitly by the owner (`kaspi-terminal-setup.mjs register --transport http`) and stored with
+ * the pin KASPI_PLAIN_HTTP; nothing falls back from TLS to plain HTTP by itself. On plain HTTP the
+ * access token crosses the restaurant network unencrypted: the only protection left is the
+ * private-IPv4 rule and the terminal's own token (ADR-0017, point 11).
  */
+/** The certificate pin of a terminal linked over plain HTTP (no certificate exists). */
+export const KASPI_PLAIN_HTTP = '0'.repeat(64);
 export interface KaspiLink {
   host: string;
   port: number;
@@ -46,13 +56,17 @@ export function privateIPv4(value: unknown): value is string {
 }
 const normalizeFingerprint = (value: string) => value.replaceAll(':', '').toLowerCase();
 
-/** A TLS connection to the terminal whose leaf certificate is the pinned one (or any, unpinned). */
+/**
+ * A TLS connection to the terminal whose leaf certificate is the pinned one (or any, unpinned),
+ * or a plain TCP connection for a terminal linked with KASPI_PLAIN_HTTP.
+ */
 function openPinned(
   link: { host: string; port: number; certificateSha256: string | null },
   timeoutMs: number,
 ): Promise<
-  { socket: TLSSocket; fingerprint: string } | { failed: 'CONNECT' | 'CERTIFICATE' | 'TIMEOUT' }
+  { socket: Socket; fingerprint: string } | { failed: 'CONNECT' | 'CERTIFICATE' | 'TIMEOUT' }
 > {
+  if (link.certificateSha256 === KASPI_PLAIN_HTTP) return openPlain(link, timeoutMs);
   return new Promise((resolve) => {
     let done = false;
     const socket = tlsConnect({
@@ -64,8 +78,7 @@ function openPinned(
     });
     const finish = (
       value:
-        | { socket: TLSSocket; fingerprint: string }
-        | { failed: 'CONNECT' | 'CERTIFICATE' | 'TIMEOUT' },
+        { socket: Socket; fingerprint: string } | { failed: 'CONNECT' | 'CERTIFICATE' | 'TIMEOUT' },
     ) => {
       if (done) return;
       done = true;
@@ -84,6 +97,62 @@ function openPinned(
       finish({ socket, fingerprint });
     });
   });
+}
+
+function openPlain(
+  link: { host: string; port: number },
+  timeoutMs: number,
+): Promise<{ socket: Socket; fingerprint: string } | { failed: 'CONNECT' | 'TIMEOUT' }> {
+  return new Promise((resolve) => {
+    let done = false;
+    const socket = netConnect({ host: link.host, port: link.port });
+    const finish = (
+      value: { socket: Socket; fingerprint: string } | { failed: 'CONNECT' | 'TIMEOUT' },
+    ) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if ('failed' in value) socket.destroy();
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish({ failed: 'TIMEOUT' }), timeoutMs);
+    socket.once('error', () => finish({ failed: 'CONNECT' }));
+    socket.once('connect', () => finish({ socket, fingerprint: KASPI_PLAIN_HTTP }));
+  });
+}
+
+export type KaspiProbe =
+  | { transport: 'https'; certificateSha256: string }
+  | { transport: 'http'; terminalId: string | null; serialNumber: string | null };
+
+/**
+ * How the terminal at this address speaks (setup `probe`): its certificate when it answers TLS,
+ * otherwise whether GET /v2/deviceinfo answers the Kaspi envelope over plain HTTP. Changes nothing
+ * on the terminal (deviceinfo is read-only).
+ */
+export async function kaspiProbe(host: string, port = 8080): Promise<KaspiProbe> {
+  if (!privateIPv4(host) || port !== 8080) throw new Error('KASPI_HOST_INVALID');
+  return kaspiPeerProbe(host, port);
+}
+/** @internal kaspiProbe without the address rule (loopback simulator in tests). */
+export async function kaspiPeerProbe(host: string, port: number): Promise<KaspiProbe> {
+  try {
+    return { transport: 'https', certificateSha256: await kaspiPeerCertificate(host, port, 5000) };
+  } catch {
+    // Not TLS: maybe the plain HTTP API.
+  }
+  const answer = await kaspiRequest(
+    { host, port, certificateSha256: KASPI_PLAIN_HTTP },
+    'deviceinfo',
+    {},
+    { timeoutMs: 5000 },
+  );
+  if (answer.kind !== 'ok') throw new Error('KASPI_UNREACHABLE');
+  const field = (name: string) =>
+    typeof answer.data[name] === 'string' && (answer.data[name] as string).trim()
+      ? (answer.data[name] as string).trim().slice(0, 64)
+      : null;
+  return { transport: 'http', terminalId: field('terminalId'), serialNumber: field('serialNum') };
 }
 
 /** SHA-256 of the terminal's certificate, for the operator to compare and pin (setup `probe`). */

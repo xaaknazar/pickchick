@@ -18,6 +18,8 @@
   (порядок окна - `docs/operations/stage2-windows-1030/head-runtime-029.md`); файлы Kaspi и
   журнал копий входят в архив рантайма (`scripts/build-windows-edge-runtime.py`);
 - касса 0.5.4 (`apps/pos-desktop`), старая лента обновлений не менялась.
+- 16.11: терминал тестовой точки (Smart POS 3, 192.168.2.236) отвечает обычным HTTP без TLS;
+  добавлена явная привязка `register --transport http` (ADR-0017, п. 11).
 
 Проверки: тесты на имитаторе терминала (`tests/unit/kaspi-client.test.mjs`,
 `tests/integration/kaspi-pos.test.mjs`) и кассы (`tests/pos/cashier-ui.test.mjs`). Имитатор - не
