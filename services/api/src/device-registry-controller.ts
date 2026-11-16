@@ -20,7 +20,12 @@ import {
   kioskPresence,
 } from '@pickchick/backoffice-core/devices';
 import { SyncError } from '@pickchick/menu-sync';
-import { kioskCheckoutOptions, kioskEnrollmentKey } from '@pickchick/commerce-core';
+import {
+  kioskCheckoutOptions,
+  kioskEnrollmentKey,
+  kioskKaspiTerminalConfig,
+  kioskMultiBranchEnabled,
+} from '@pickchick/commerce-core';
 import type { KioskPairingOptions } from '@pickchick/backoffice-core/devices';
 
 /**
@@ -36,10 +41,16 @@ export function kioskPairingOptions(
   if (!['true', 'false'].includes(flag)) throw new Error('Invalid kiosk pairing flag');
   if (flag !== 'true' || !backofficeEnabled) return null;
   // A broken kiosk checkout env must not take «Устройства» down: pairing simply stays off.
-  let checkout: ReturnType<typeof kioskCheckoutOptions>, encryptionKey: Buffer | null;
+  let checkout: ReturnType<typeof kioskCheckoutOptions>,
+    encryptionKey: Buffer | null,
+    multiBranch: boolean,
+    terminal: ReturnType<typeof kioskKaspiTerminalConfig>;
   try {
     checkout = kioskCheckoutOptions(env);
     encryptionKey = kioskEnrollmentKey(env);
+    // ADR-0019: other points («Киоски на этой точке») only with KIOSK_MULTI_BRANCH_ENABLED.
+    multiBranch = kioskMultiBranchEnabled(env);
+    terminal = kioskKaspiTerminalConfig(env);
   } catch {
     return null;
   }
@@ -48,6 +59,8 @@ export function kioskPairingOptions(
     encryptionKey,
     organizationId: checkout.organizationId,
     branchId: checkout.branchId,
+    multiBranch,
+    terminalAccountId: terminal?.accountId ?? null,
   };
 }
 
@@ -168,6 +181,17 @@ export class DeviceRegistryController {
     @Headers('authorization') auth?: string,
   ) {
     return run(() => this.service.issueKiosk(this.token(auth), branch, bounded(body)));
+  }
+  /** ADR-0019 «Киоски на этой точке»: body { request_id, enabled, expected_version, reason }. */
+  @Post('kiosk-branch')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  kioskBranch(
+    @Param('branch') branch: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return run(() => this.service.kioskBranch(this.token(auth), branch, bounded(body)));
   }
   @Post('kitchen-password-reset')
   @HttpCode(201)

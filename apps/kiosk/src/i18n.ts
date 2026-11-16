@@ -30,6 +30,8 @@ const ru = {
   err_CONNECTION: 'Связь с сервером прервалась. Проверяем снова, не оплачивайте повторно.',
   err_OFFLINE: 'Нет связи с сервером. Новый заказ можно начать, когда связь восстановится.',
   err_STAFF: 'Киоск временно не может начать новый заказ. Пригласите сотрудника.',
+  err_TERMINAL:
+    'Здесь оплата только на терминале Kaspi, а он не подключён к киоску. Пригласите сотрудника.',
   willCancel: 'Заказ будет отменён через',
   secondsShort: 'с',
   backToPayment: 'Вернуться к оплате',
@@ -341,6 +343,8 @@ const kk: Strings = {
   err_CONNECTION: 'Сервермен байланыс үзілді. Қайта тексеріп жатырмыз, қайта төлемеңіз.',
   err_OFFLINE: 'Сервермен байланыс жоқ. Байланыс қалпына келгенде жаңа тапсырыс бастауға болады.',
   err_STAFF: 'Киоск жаңа тапсырысты уақытша бастай алмайды. Қызметкерді шақырыңыз.',
+  err_TERMINAL:
+    'Мұнда төлем тек Kaspi терминалында, ал ол киоскке қосылмаған. Қызметкерді шақырыңыз.',
   willCancel: 'Тапсырыс мына уақыттан кейін жойылады',
   secondsShort: 'с',
   backToPayment: 'Төлемге оралу',
@@ -650,6 +654,8 @@ const en: Strings = {
   err_CONNECTION: 'The connection to the server was lost. Checking again - do not pay again.',
   err_OFFLINE: 'No connection to the server. A new order can start once it is back.',
   err_STAFF: 'The kiosk cannot start a new order right now. Please call a team member.',
+  err_TERMINAL:
+    'Payment here is on the Kaspi terminal only, and it is not connected to the kiosk. Please call a team member.',
   willCancel: 'Your order will be cancelled in',
   secondsShort: 's',
   backToPayment: 'Back to payment',

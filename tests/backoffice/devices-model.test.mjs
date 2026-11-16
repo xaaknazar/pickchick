@@ -251,6 +251,45 @@ test('«Подключить киоск»: ID and key stay in memory, are checke
   assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-pairing`), true);
   assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-pairing/x`), false);
 });
+test('«Киоски на этой точке» (ADR-0019): sends the version on screen; the main point is not switched', async () => {
+  const branch = randomUUID();
+  const sent = [];
+  let kiosk_branch = { primary: false, enabled: false, version: 0, payment_account: null };
+  const model = new DevicesModel(
+    async (path, req) => {
+      if (!req) return { ...snapshot(branch), kiosk_branch };
+      sent.push({ path, body: req.body });
+      if (req.body.expected_version !== kiosk_branch.version)
+        throw new ApiError('CONFLICT', 409, 'KIOSK_BRANCH_VERSION');
+      kiosk_branch = {
+        ...kiosk_branch,
+        enabled: req.body.enabled,
+        version: kiosk_branch.version + 1,
+        payment_account: { id: randomUUID(), reference: 'kiosk-terminal:' + branch, enabled: true },
+      };
+      return kiosk_branch;
+    },
+    () => {},
+  );
+  await model.load(randomUUID(), branch);
+  assert.equal(await model.setKioskBranch(true, 'Новая точка'), true);
+  assert.equal(sent[0].path, `branches/${branch}/devices/kiosk-branch`);
+  assert.equal(sent[0].body.enabled, true);
+  assert.equal(sent[0].body.expected_version, 0);
+  assert.match(sent[0].body.request_id, /^[0-9a-f-]{36}$/);
+  assert.equal(model.data.kiosk_branch.enabled, true);
+  // Changed elsewhere meanwhile: refused, the list is reloaded and the notice stays.
+  kiosk_branch = { ...kiosk_branch, version: 5 };
+  model.data.kiosk_branch.version = 1;
+  assert.equal(await model.setKioskBranch(false, 'Закрываем'), false);
+  assert.equal(model.error.reason, 'KIOSK_BRANCH_VERSION');
+  assert.equal(model.data.kiosk_branch.version, 5);
+  kiosk_branch = { ...kiosk_branch, primary: true };
+  await model.load(model.actor, branch);
+  await assert.rejects(model.setKioskBranch(false, 'Нельзя'), { message: 'FORBIDDEN' });
+  assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-branch`), true);
+  assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-branch/x`), false);
+});
 test('a waiting kiosk says what to do on the iPad; an expired one asks for new data', async () => {
   const { deviceConnection } = await import('../../apps/backoffice/dist/devices-model.js');
   const d = {

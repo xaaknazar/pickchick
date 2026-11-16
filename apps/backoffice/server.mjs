@@ -410,7 +410,7 @@ export const allowed = (method, path) => {
   if (
     method === 'POST' &&
     new RegExp(
-      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|kiosk-pairing|revoke|kitchen-password-reset|inventory)$`,
+      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|kiosk-pairing|kiosk-branch|revoke|kitchen-password-reset|inventory)$`,
       'i',
     ).test(pathname)
   )

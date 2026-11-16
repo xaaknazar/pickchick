@@ -35,6 +35,8 @@ export type DeviceList = {
   pairing_enabled?: boolean;
   inventory_enabled?: boolean;
   kiosk_pairing_enabled?: boolean;
+  /** ADR-0019 «Киоски на этой точке»; absent while kiosks serve one point only. */
+  kiosk_branch?: KioskBranch;
   branch_id: string;
   role: 'manager' | 'analyst';
   devices: DeviceRow[];
@@ -47,6 +49,13 @@ export type IssuedCode = {
   code: string;
   expires_at: string;
   purpose?: string;
+};
+export type KioskBranch = {
+  /** The main point of the kiosk server: always on, not switched here. */
+  primary: boolean;
+  enabled: boolean;
+  version: number;
+  payment_account: { id: string; reference: string; enabled: boolean } | null;
 };
 /** ID and one-time password for the iPad form «Настройка киоска»; memory-only, shown once. */
 export type IssuedKiosk = {
@@ -163,6 +172,24 @@ export class DevicesModel {
   }
   async issueKiosk(body: Data) {
     return this.send('kiosk-pairing', body);
+  }
+  /** «Киоски на этой точке»: on or off, against the version on screen. */
+  async setKioskBranch(enabled: boolean, reason: string) {
+    const current = this.data?.kiosk_branch;
+    if (!current || current.primary) throw new ApiError('FORBIDDEN');
+    const done = await this.send('kiosk-branch', {
+      enabled,
+      expected_version: current.version,
+      reason,
+    });
+    // Changed by someone else meanwhile: show the current state, keep the notice.
+    if (!done && this.error instanceof ApiError && this.error.reason === 'KIOSK_BRANCH_VERSION') {
+      const error = this.error;
+      await this.load(this.actor, this.branch);
+      this.error = error;
+      this.changed();
+    }
+    return done;
   }
   async resetPassword(body: Data) {
     return this.send('kitchen-password-reset', body);

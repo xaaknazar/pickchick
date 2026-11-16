@@ -25,7 +25,12 @@ const storedLink = (over = {}) => ({
  * The shared commercial fixture plus the ADR-0018 cloud routes and a terminal simulator.
  * `t.statuses` is a queue of /v2/status answers (the last one repeats).
  */
-function terminalFixture({ linked = true, enabled = true, cloudTerminal = TERMINAL_ID } = {}) {
+function terminalFixture({
+  linked = true,
+  enabled = true,
+  cloudTerminal = TERMINAL_ID,
+  only = false,
+} = {}) {
   const h = fixture();
   const t = {
     raw: linked ? JSON.stringify(storedLink()) : null,
@@ -55,7 +60,10 @@ function terminalFixture({ linked = true, enabled = true, cloudTerminal = TERMIN
       const config = await base(path, token, body, key);
       return {
         ...config,
+        // ADR-0019: another point offers no QR and no invoice.
+        ...(only ? { paymentMethods: [] } : {}),
         kaspi_terminal: {
+          ...(only ? { only: true } : {}),
           enabled: t.cloud.enabled,
           terminal: t.cloud.terminal
             ? {
@@ -427,6 +435,48 @@ test('without a linked terminal, or disabled in the cloud, the QR flow is unchan
     assert.equal(s.step, 'payment');
     assert.equal(h.terminal.calls.length, 0, JSON.stringify(options));
     assert.ok(h.calls.some((call) => call.body?.method === 'kaspi_qr'));
+  }
+});
+
+test('ADR-0019 terminal-only point: the Kaspi choice is the terminal, paid as on the main point', async () => {
+  const h = terminalFixture({ only: true });
+  const c = await pay(h);
+  assert.deepEqual(c.getSnapshot().commercialPaymentMethods, ['kaspi']);
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'waiting');
+  assert.equal(sent(h, 'payment').length, 1);
+  assert.equal(
+    h.calls.some((call) => call.body?.method === 'kaspi_qr'),
+    false,
+  );
+  h.terminal.statuses = [success()];
+  assert.equal(await c.pollTerminal(), true);
+  assert.equal(c.getSnapshot().order.payment_state, 'paid');
+});
+
+test('ADR-0019 terminal-only point without a linked terminal: a staff notice, never a QR', async () => {
+  const { dictionariesForTest } = await import('../../apps/kiosk/src/i18n.ts');
+  for (const options of [{ linked: false }, { cloudTerminal: 'OTHER' }, { enabled: false }]) {
+    const h = terminalFixture({ only: true, ...options });
+    const c = await cart(h);
+    const before = h.calls.length;
+    assert.equal(await c.beginPayment(), false, JSON.stringify(options));
+    const s = c.getSnapshot();
+    assert.equal(s.errorCode, 'TERMINAL', JSON.stringify(options));
+    assert.match(s.error, /терминале Kaspi.*Пригласите сотрудника/);
+    assert.equal(s.order, null);
+    assert.equal(s.recoveryRequired, false);
+    assert.equal(h.terminal.calls.length, 0);
+    // Nothing was created: no quote, order or payment request after the config reload.
+    assert.equal(
+      h.calls
+        .slice(before)
+        .some((call) => /\/quotes|\/orders/.test(call.path) || call.body?.method),
+      false,
+    );
+  }
+  for (const [locale, strings] of Object.entries(dictionariesForTest)) {
+    assert.equal(typeof strings.err_TERMINAL, 'string', locale);
+    assert.doesNotMatch(strings.err_TERMINAL, /[–—]|тест|test/i, locale);
   }
 });
 

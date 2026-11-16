@@ -15,10 +15,13 @@ import {
 import { BackofficeError, parse } from './model.js';
 import {
   issueKioskPairing,
+  kioskBranchServed,
   kioskPairingAvailable,
   kioskPairingStates,
   type KioskPairingOptions,
 } from './kiosk-pairing.js';
+import { kioskBranchView, setKioskBranch } from './kiosk-branch-settings.js';
+export type { KioskBranchView } from './kiosk-branch-settings.js';
 export { kioskPresence } from './device-presence.js';
 export { KIOSK_PAIRING_TTL_SECONDS, type KioskPairingOptions } from './kiosk-pairing.js';
 
@@ -226,6 +229,12 @@ export class DeviceRegistry {
             [branch],
           )
         ).rows[0] ?? null;
+      const kioskBranch = await kioskBranchView(
+        db,
+        this.kioskPairing,
+        actor.organization_id,
+        branch,
+      );
       return {
         branch_id: branch,
         role: actor.role,
@@ -236,9 +245,20 @@ export class DeviceRegistry {
         inventory_enabled: this.centerEnabled,
         kiosk_pairing_enabled:
           !!this.kioskPairing &&
-          branch.toLowerCase() === this.kioskPairing.branchId.toLowerCase() &&
+          (await kioskBranchServed(db, this.kioskPairing, actor.organization_id, branch)) &&
           (await kioskPairingAvailable(db)),
+        // ADR-0019: only with KIOSK_MULTI_BRANCH_ENABLED; absent, the answer is as before.
+        ...(kioskBranch ? { kiosk_branch: kioskBranch } : {}),
       };
+    });
+  }
+  /** «Киоски на этой точке» (ADR-0019): a manager switches kiosks on or off for the point. */
+  async kioskBranch(token: string, branch: string, input: unknown) {
+    return transaction(this.pool, async (db) => {
+      if (!this.kioskPairing?.multiBranch)
+        throw new BackofficeError('SERVICE_UNAVAILABLE', 'KIOSK_MULTI_BRANCH_DISABLED');
+      const actor = await this.scope(db, token, branch, true, false);
+      return setKioskBranch(db, actor, branch, input, this.kioskPairing);
     });
   }
   async inventory(token: string, branch: string, input: unknown) {

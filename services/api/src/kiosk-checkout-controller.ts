@@ -30,6 +30,7 @@ import {
   kioskInvoiceAccountUnserved,
   kioskPiiKey,
   kioskKaspiTerminalConfig,
+  kioskMultiBranchEnabled,
   KioskTerminalError,
   KioskStaffPin,
   KioskStaffPinError,
@@ -55,12 +56,15 @@ export class KioskCheckoutController {
         JSON.stringify({ event: 'kiosk_checkout', warning: 'kiosk_invoice_account_not_served' }),
       );
     const enrollmentKey = kioskEnrollmentKey(process.env);
+    // ADR-0019: invalid KIOSK_MULTI_BRANCH_ENABLED stops startup; off serves the env point only.
+    const multiBranch = kioskMultiBranchEnabled(process.env);
     this.enrollment =
       options && enrollmentKey
         ? new KioskEnrollment(resources.pool, {
             encryptionKey: enrollmentKey,
             organizationId: options.organizationId,
             branchId: options.branchId,
+            multiBranch,
           })
         : null;
     this.sessions = options && key ? new KioskSessions(resources.pool, { piiKey: key }) : null;
@@ -72,6 +76,7 @@ export class KioskCheckoutController {
           undefined,
           // ADR-0018: invalid KIOSK_KASPI_TERMINAL_ENABLED/ACCOUNT_ID stops startup.
           kioskKaspiTerminalConfig(process.env),
+          multiBranch,
         )
       : null;
   }
