@@ -25,7 +25,8 @@ export const INITIAL_LIVES = 3;
  *    back and forth, and settles. An unsettled tower is livelier: the same push moves
  *    it further and it takes longer to calm down. Close to the tipping point it cannot
  *    settle at all and keeps swaying until it is stacked straight.
- *  - Height. A taller tower is more flexible: it leans and sways wider and slower.
+ *  - Height. A stack of up to four boxes is rigid and does not move at all. Above that the
+ *    tower grows more flexible with every box: it leans and sways wider and slower.
  *  - Shape. The whole column bends from its base and every box tilts with the bend, so
  *    boxes never slide across each other.
  *  - Collapse. When the overhang reaches the edge (balance 1) the boxes above the
@@ -47,6 +48,8 @@ const LANDING_PUSH = 26;
 const DAMPING = 0.11;
 /** Towers this tall sway at their slowest and widest. */
 const TALL_TOWER = 30;
+/** A stack this low is rigid: it neither leans nor sways, however crooked (owner, 16.11). */
+export const STIFF_STACK = 4;
 /** Wind on the rope by ascent stage: city, Furmanov, Talgar, atmosphere, space. */
 const WIND = [0, 0.5, 0.8, 1, 0] as const;
 const HOLD_REACH = 135;
@@ -344,7 +347,7 @@ export class PickBoxEngine {
   }
 
   get swaying() {
-    return this.danger > SWAY_FROM;
+    return this.danger > SWAY_FROM && this.mast().flex > 0;
   }
 
   /** How far the top is from rest right now, and how wide it is swinging. */
@@ -362,11 +365,13 @@ export class PickBoxEngine {
 
   /** A taller tower is a longer column: more flexible, with a slower swing. */
   private mast() {
-    const tall = Math.min(1, this.tower().length / TALL_TOWER);
+    const boxes = this.tower().length;
+    const tall = Math.min(1, boxes / TALL_TOWER);
+    const give = Math.max(0, Math.min(1, (boxes - STIFF_STACK) / (TALL_TOWER - STIFF_STACK)));
     return {
       tall,
-      // A stack of two or three boxes is stiff; a tall tower gives a lot.
-      flex: 0.25 + 0.95 * tall ** 0.8,
+      // A few boxes stand like a block; the give grows with every box above that.
+      flex: 1.2 * give ** 0.8,
       // Radians per millisecond: a 1.1 s swing for a stub, 2.6 s for a tall tower. Close
       // to tipping the column has little left to pull it back and swings slower still.
       omega: ((2 * Math.PI) / (1100 + 1500 * tall)) * (1 - 0.25 * this.danger),
@@ -401,7 +406,8 @@ export class PickBoxEngine {
       since >= 0 && since < 900
         ? this.jolt.amp * Math.exp(-since / 160) * Math.sin((since / 1000) * 2 * Math.PI * 9)
         : 0;
-    const offset = this.leanNow + this.swingX + jolt;
+    // A low stack hardly shivers under a landing; a tall one passes the knock up.
+    const offset = this.leanNow + this.swingX + jolt * Math.min(1, tower.length / 8);
     const top = tower.at(-1);
     const before = top ? { x: top.body.position.x, angle: top.body.angle } : null;
     tower.forEach((box, index) => {
