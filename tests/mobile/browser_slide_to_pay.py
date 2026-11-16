@@ -354,7 +354,9 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
-    assert abs(bar['width'] - min(width - 32, 390)) <= 0.5 and bar['x'] >= 15, bar
+    # Owner 16.11.2026, Drinkit's bar: at most 270 pt wide (390, then 330 before), centred.
+    assert abs(bar['width'] - min(width - 32, 270)) <= 0.5 and bar['x'] >= 15, bar
+    assert abs(bar['x'] + bar['width'] / 2 - width / 2) <= 1, bar
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
     # Its frame is level with the cart button (same top and height), the visible pill inside it.
@@ -469,9 +471,10 @@ def scenario_full_slide(browser):
     for product in ['pick-combo', 'burger', 'wedges', 'coleslaw']:
         add(page, product)
     page.wait_for_timeout(500)
-    ids = [page.get_by_test_id(f'cart-recent-photo-{i}').get_attribute('id') for i in range(3)]
-    assert ids == ['cart-recent-coleslaw', 'cart-recent-wedges', 'cart-recent-burger'], ids
-    expect(page.get_by_test_id('cart-recent-photo-3')).to_have_count(0)
+    # One photo, the newest item (owner 16.11.2026, Drinkit's bar).
+    ids = [page.get_by_test_id(f'cart-recent-photo-{i}').get_attribute('id') for i in range(1)]
+    assert ids == ['cart-recent-coleslaw'], ids
+    expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
     page.screenshot(path=str(OUT / 'bar-4-items-393.png'))
     assert not checkout_traffic(state)
     # The server quote equals the total shown in the bar (no price change in this scenario).
