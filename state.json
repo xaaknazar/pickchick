@@ -7263,7 +7263,6 @@
         "tests/operations/test_auth_links_release.py",
         "infra/staging/watchdog/setup-telegram.py",
         "tests/operations/test_watchdog_telegram_setup.py",
-        "infra/pickchick-ingress",
         "tests/operations/test_pickchick_ingress.py",
         "infra/staging/release-stage2-1024.py",
         "tests/operations/test_stage2_release_1024.py",
@@ -7292,7 +7291,6 @@
         "tests/operations/test_c1_window.py",
         "infra/staging/stage2-owner-connection.py",
         "tests/operations/test_stage2_owner_connection.py",
-        "@vps/ingress",
         "@vps/watchdog"
       ],
       "status": "available",
@@ -8258,6 +8256,22 @@
       "from": "mobile-tab-motion-1102",
       "to": "mobile-build38-1116",
       "authorization": "Owner explicitly requested 16.11 to remove glass from menu categories in build 38; same-owner previous task is handed off."
+    }
+  ],
+  "transfers": [
+    {
+      "at": "2026-11-16T07:39:01.638Z",
+      "path": "@vps/ingress",
+      "from": "stage2-candidate-1105",
+      "to": "kiosk-connection-1116",
+      "authorization": "Owner 16.11 explicitly requested fix of kiosk nip.io timeout and staff PIN, keeping existing binding. Previous task belongs to this workstation and is handed off."
+    },
+    {
+      "at": "2026-11-16T07:39:01.639Z",
+      "path": "infra/pickchick-ingress",
+      "from": "stage2-candidate-1105",
+      "to": "kiosk-connection-1116",
+      "authorization": "Owner 16.11 explicitly requested fix of kiosk nip.io timeout and staff PIN, keeping existing binding. Previous task belongs to this workstation and is handed off."
     }
   ]
 }
