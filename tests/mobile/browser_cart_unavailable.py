@@ -398,14 +398,15 @@ def expect_closed_bar(page, total='4 190 ₸', lang='ru'):
     assert caption['x'] - box['x'] <= 40, ('empty glass before the caption', caption, box)
     assert abs(amount['x'] + amount['width'] / 2 - caption['x'] - caption['width'] / 2) <= 1, (amount, caption)
     assert box['x'] + box['width'] - (newest['x'] + newest['width']) <= 12, (newest, box)
-    assert box['width'] <= min(view - 32, 390) - 30, ('the capsule did not shrink', box, view)
+    # Narrower than the open bar (at most 270 pt since 16.11.2026): the handle's room is gone.
+    assert box['width'] <= min(view - 32, 270) - 12, ('the capsule did not shrink', box, view)
 
 
 def expect_open_bar(page, timeout=10000):
     expect(visible(page, 'cart-pay-handle')).to_have_count(1, timeout=timeout)
     expect(page.locator('#cart-pay-mark-kaspi').filter(visible=True)).to_have_count(1)
-    # Owner 06.11: room for the selected location (16 pt gutters, at most 390 pt).
-    width = min(page.viewport_size['width'] - 32, 390)
+    # 16 pt gutters, at most 270 pt (owner 16.11.2026, Drinkit's bar; 390 since 06.11 before).
+    width = min(page.viewport_size['width'] - 32, 270)
     for _ in range(20):
         box = visible(page, 'cart-shortcut').bounding_box()
         if abs(box['width'] - width) <= 2:
