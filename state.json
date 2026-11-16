@@ -8007,19 +8007,6 @@
       "nextAction": "Review and integrate stacked PR387 after PR383 with normal merge and required checks. Installed binary source CI is green; latest commits are reports only. Printing remains deferred and needs a future signed build with a confirmed HTTPS origin. Do not reinstall24 or upload to stores."
     },
     {
-      "id": "kiosk-terminal-release-1116",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-terminal-release-1116",
-      "scopes": [
-        "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md"
-      ],
-      "status": "available",
-      "head": "a02e14b074c42689d6a12b7846381282a5e37a3f",
-      "updatedAt": "2026-11-16T14:21:02.708Z",
-      "summary": "Владелец явно разрешил временно учитывать тестовые платежи PEAK GROUP на основном ИП PICK CHICK ALA AP. Отдельный kaspi-pos, новые UUID/reference, старые QR/remote и основное юрлицо сохраняются. ИИН/БИН PEAK GROUP для теста не нужен. Решение и несовместимость отдельного юрлица с текущими guard записаны. Сервер/Apple без изменений.",
-      "nextAction": "PR388 пока открыт, head12fceecd, Foundation43881121421 имеет падение browser_slide_to_pay.py scenario_hint_languages kk. После исправления, merge и зелёной Foundation коммита слияния продолжить разрешённый выпуск: штатные резервы, свежая копия и восстановление,080/grants/API/gateway, отдельный тестовый kaspi-pos под существующим ИП и native kiosk>=25 в TestFlight. Не объединять существующие аккаунты, не менять PIN/привязку. Оплату делает владелец."
-    },
-    {
       "id": "mobile-build39-1116",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-build39-1116",
@@ -8035,6 +8022,19 @@
       "status": "active",
       "head": "49e4cd38244e309edb70167afd960fc6c2db3e99",
       "updatedAt": "2026-11-16T15:58:22.129Z"
+    },
+    {
+      "id": "kiosk-terminal-release-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-terminal-release-1116",
+      "scopes": [
+        "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md"
+      ],
+      "status": "active",
+      "head": "a02e14b074c42689d6a12b7846381282a5e37a3f",
+      "updatedAt": "2026-11-16T16:56:24.317Z",
+      "summary": "Владелец явно разрешил временно учитывать тестовые платежи PEAK GROUP на основном ИП PICK CHICK ALA AP. Отдельный kaspi-pos, новые UUID/reference, старые QR/remote и основное юрлицо сохраняются. ИИН/БИН PEAK GROUP для теста не нужен. Решение и несовместимость отдельного юрлица с текущими guard записаны. Сервер/Apple без изменений.",
+      "nextAction": "PR388 пока открыт, head12fceecd, Foundation43881121421 имеет падение browser_slide_to_pay.py scenario_hint_languages kk. После исправления, merge и зелёной Foundation коммита слияния продолжить разрешённый выпуск: штатные резервы, свежая копия и восстановление,080/grants/API/gateway, отдельный тестовый kaspi-pos под существующим ИП и native kiosk>=25 в TestFlight. Не объединять существующие аккаунты, не менять PIN/привязку. Оплату делает владелец."
     }
   ],
   "approvedScopeTransfers": [
