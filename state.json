@@ -7963,6 +7963,17 @@
       "updatedAt": "2026-11-16T07:17:24.007Z",
       "summary": "Exact8290c87f published without force. Foundation43815847968 success11/11; Windows43815851233 success3/3. Public prerelease https://github.com/xaaknazar/pickchick/releases/tag/kaspi-pos-kit-1115-8290c87f contains kit180145417bytes SHA2563e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f and checksum asset. Full unauthenticated HTTP200 download and SHA PASS. Includes runtime029, POS0.5.4, fullCIproofs, exact operators and COMMANDS. Predecessor dec8b48cd899fe015baee17a3853affbe7eee774 confirmed by owner; terminal192.168.2.236 explicit HTTP probe/register. No cloud/feed/cashier changes. Protocol cf99b46f published.",
       "nextAction": "Claude downloads and verifies kit/checksums, follows COMMANDS backup028/DB029/backup029/runtime/POS then probe and owner-approved register --transport http after physical terminal identity confirmation. Actual cashier installation/payment acceptance remain on site."
+    },
+    {
+      "id": "kiosk-binding-audit-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-binding-audit-1116",
+      "scopes": [
+        "docs/operations/deployments/2026-11-16-kiosk-binding-audit.md"
+      ],
+      "status": "active",
+      "head": "43336b4639a39483626fcf1bb221bc734bbb1b87",
+      "updatedAt": "2026-11-16T07:28:49.058Z"
     }
   ],
   "approvedScopeTransfers": [
