@@ -558,8 +558,9 @@ const s = StyleSheet.create({
   // The bundled Jost lacks Kazakh glyphs. Use one native face for the entire phrase,
   // rather than mixing Jost letters with per-character system fallbacks.
   hintKazakh: {
-    // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt.
-    fontSize: 17,
+    // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt, where
+    // the 270 pt bar (owner 16.11.2026) leaves about 176 pt beside the handle.
+    fontSize: 16,
     fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'system-ui' }),
     fontWeight: '600',
   },
