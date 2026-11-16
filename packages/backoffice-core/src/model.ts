@@ -69,6 +69,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   'KIOSK_BRANCH_NOT_SERVED',
   'KIOSK_PAIRING_LIMIT',
   'KIOSK_PAIRING_ALREADY_ISSUED',
+  // «Киоски на этой точке» (kiosk-branch-settings.ts, ADR-0019).
+  'KIOSK_MULTI_BRANCH_DISABLED',
+  'KIOSK_BRANCH_PRIMARY',
+  'KIOSK_BRANCH_VERSION',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
