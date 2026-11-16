@@ -131,14 +131,10 @@ export function CartShortcut({
   const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
   const baseLayout = cartBarLayout({ width, fontScale, totalLength: total.length });
-  const layout = { ...baseLayout, handleWidth: locationName ? 64 : baseLayout.handleWidth };
-  // Keep the full Kazakh dining label and its icon readable on a narrow phone.
-  const photoLimit =
-    locationName && width < 360
-      ? 1
-      : width < 360 && diningLabel.length > 10
-        ? Math.min(2, layout.photos)
-        : layout.photos;
+  // Owner 16.11.2026, Drinkit's bar in our colours: a short capsule, a wide dark handle on the
+  // left, the total in the middle and one photo (the newest item) on the right.
+  const layout = { ...baseLayout, handleWidth: baseLayout.compact ? 64 : 72 };
+  const photoLimit = 1;
   const recent = recentCartLines(model.cart, model.recentCartProductIds, photoLimit);
   const payable = slideToPayAvailable({
     kaspiCheckout: kaspiCheckoutEnabled,
@@ -451,8 +447,8 @@ const s = StyleSheet.create({
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
   aboveTabBar: { paddingBottom: tabCartGap },
-  // Owner 16.11.2026: the quick payment bar shorter than the tab bar (390 before).
-  root: { width: '100%', maxWidth: 330, alignSelf: 'center' },
+  // Owner 16.11.2026: as short as Drinkit's bar, about two thirds of the screen (390, then 330).
+  root: { width: '100%', maxWidth: 270, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
