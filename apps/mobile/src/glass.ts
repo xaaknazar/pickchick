@@ -125,7 +125,8 @@ export const glass = {
    * Apple's glass cannot sample other glass, so a pill's glass samples this base, never the
    * capsule's glass; the stretched handle also covers the hint instead of showing it through.
    */
-  pillBase: '#071A44',
+  /** Owner 16.11.2026, the bar «as at Drinkit» at night: the handle sits on an almost black navy. */
+  pillBase: '#020817',
   pressedVeil: 'rgba(255, 255, 255, 0.14)',
   /** Light from above and a faint glow along the bottom edge, as on Liquid Glass. */
   sheen:
@@ -136,14 +137,17 @@ export const glass = {
   /** Drinkit-like red trash (iOS system red, owner 27.10); >= 3:1 on the navy glass (WCAG non-text). */
   danger: '#FF3B30',
   /** The cart bar capsule: it carries the total over scrolling photos, so its veil is denser. */
+  // Owner 16.11.2026 picked «Ночной, как у Drinkit»: almost black navy glass (was navy 10,32,80).
   bar: {
-    /** Web, over `backdrop` (0.94 before 28.10). */
-    veil: 'rgba(10, 32, 80, 0.8)',
-    backdrop: 'saturate(180%) blur(20px)',
+    /** Web, over `backdrop` (0.94 before 28.10, navy 0.8 before 16.11). */
+    veil: 'rgba(3, 10, 30, 0.72)',
+    backdrop: 'saturate(160%) blur(24px)',
     /** Native without Liquid Glass: nothing blurs behind the capsule, so the fill stays dense. */
-    fallback: 'rgba(10, 32, 80, 0.94)',
-    solid: '#0A2050',
-    rim: 'rgba(255, 255, 255, 0.24)',
+    fallback: 'rgba(3, 10, 30, 0.94)',
+    solid: '#030A1E',
+    rim: 'rgba(255, 255, 255, 0.14)',
+    /** iOS 26: Apple's Liquid Glass tinted with the same night navy (untinted it read light). */
+    liquidTint: 'rgba(3, 10, 30, 0.72)',
   },
 } as const;
 

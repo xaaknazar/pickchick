@@ -131,14 +131,10 @@ export function CartShortcut({
   const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
   const baseLayout = cartBarLayout({ width, fontScale, totalLength: total.length });
-  const layout = { ...baseLayout, handleWidth: locationName ? 64 : baseLayout.handleWidth };
-  // Keep the full Kazakh dining label and its icon readable on a narrow phone.
-  const photoLimit =
-    locationName && width < 360
-      ? 1
-      : width < 360 && diningLabel.length > 10
-        ? Math.min(2, layout.photos)
-        : layout.photos;
+  // Owner 16.11.2026, Drinkit's bar in our colours: a short capsule, a wide dark handle on the
+  // left, the total in the middle and one photo (the newest item) on the right.
+  const layout = { ...baseLayout, handleWidth: baseLayout.compact ? 64 : 72 };
+  const photoLimit = 1;
   const recent = recentCartLines(model.cart, model.recentCartProductIds, photoLimit);
   const payable = slideToPayAvailable({
     kaspiCheckout: kaspiCheckoutEnabled,
@@ -261,7 +257,13 @@ export function CartShortcut({
           style={[s.capsule, capsuleGlass, closed && s.capsuleClosed]}
         >
           {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
-          <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
+          <GlassFill
+            radius={CAPSULE_RADIUS}
+            rim={glassBarRim}
+            place="bar"
+            body={false}
+            tint={glass.bar.liquidTint}
+          />
           {/* Reading and focus order follow the picture: the hint, the payment handle, then the
               cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
               handle is drawn after the hint, so its stretching pill covers the hint. */}
@@ -451,8 +453,8 @@ const s = StyleSheet.create({
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
   aboveTabBar: { paddingBottom: tabCartGap },
-  // Owner 16.11.2026: the quick payment bar shorter than the tab bar (390 before).
-  root: { width: '100%', maxWidth: 330, alignSelf: 'center' },
+  // Owner 16.11.2026: as short as Drinkit's bar, about two thirds of the screen (390, then 330).
+  root: { width: '100%', maxWidth: 270, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
@@ -463,7 +465,7 @@ const s = StyleSheet.create({
     alignItems: 'stretch',
     // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
     shadowColor: '#000000',
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.5,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 18,
     elevation: 12,
@@ -508,7 +510,7 @@ const s = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: 12,
     lineHeight: 17,
-    color: '#B8BAC2',
+    color: '#A9B4C8',
     flexShrink: 1,
     includeFontPadding: false,
   },
@@ -529,8 +531,9 @@ const s = StyleSheet.create({
   photo: {
     overflow: 'hidden',
     backgroundColor: '#FFF8EE',
-    borderWidth: 2,
-    borderColor: '#0A2050',
+    // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
+    borderWidth: 3,
+    borderColor: glass.pillBase,
   },
   placeholder: {
     alignItems: 'center',
