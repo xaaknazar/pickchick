@@ -20,6 +20,36 @@ import {
   kioskPresence,
 } from '@pickchick/backoffice-core/devices';
 import { SyncError } from '@pickchick/menu-sync';
+import { kioskCheckoutOptions, kioskEnrollmentKey } from '@pickchick/commerce-core';
+import type { KioskPairingOptions } from '@pickchick/backoffice-core/devices';
+
+/**
+ * «Подключить киоск» (owner request 16.11.2026): only with BACKOFFICE_KIOSK_PAIRING_ENABLED=true,
+ * the back office on, the kiosk checkout configured and KIOSK_ENROLLMENT_KEY present (the same key
+ * /enrollment/exchange decrypts with). Otherwise kiosk registration stays offline-only.
+ */
+export function kioskPairingOptions(
+  env: NodeJS.ProcessEnv,
+  backofficeEnabled: boolean,
+): KioskPairingOptions | null {
+  const flag = env['BACKOFFICE_KIOSK_PAIRING_ENABLED'] ?? 'false';
+  if (!['true', 'false'].includes(flag)) throw new Error('Invalid kiosk pairing flag');
+  if (flag !== 'true' || !backofficeEnabled) return null;
+  // A broken kiosk checkout env must not take «Устройства» down: pairing simply stays off.
+  let checkout: ReturnType<typeof kioskCheckoutOptions>, encryptionKey: Buffer | null;
+  try {
+    checkout = kioskCheckoutOptions(env);
+    encryptionKey = kioskEnrollmentKey(env);
+  } catch {
+    return null;
+  }
+  if (!checkout || !encryptionKey) return null;
+  return {
+    encryptionKey,
+    organizationId: checkout.organizationId,
+    branchId: checkout.branchId,
+  };
+}
 
 async function run<T>(fn: () => Promise<T>) {
   try {
@@ -75,6 +105,7 @@ export class DeviceRegistryController {
       deviceAccessEnabled() && resources.config.backofficeEnabled === true,
       process.env['DEVICE_CENTER_ENABLED'] === 'true' &&
         resources.config.backofficeEnabled === true,
+      kioskPairingOptions(process.env, resources.config.backofficeEnabled === true),
     );
   }
   private token(auth?: string) {
@@ -127,6 +158,16 @@ export class DeviceRegistryController {
     @Headers('authorization') auth?: string,
   ) {
     return run(() => this.service.issue(this.token(auth), branch, bounded(body)));
+  }
+  @Post('kiosk-pairing')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  issueKiosk(
+    @Param('branch') branch: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return run(() => this.service.issueKiosk(this.token(auth), branch, bounded(body)));
   }
   @Post('kitchen-password-reset')
   @HttpCode(201)

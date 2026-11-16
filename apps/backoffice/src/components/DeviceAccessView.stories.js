@@ -2,7 +2,7 @@ import { DeviceAccessView } from './DeviceAccessView.js';
 import { DevicesModel } from '../devices-model.js';
 import { surface, rows, branch, actor } from '../../../operations-storybook/surface.mjs';
 export default { title: 'Backoffice/Devices' };
-function render(role = 'manager', showCode = false) {
+function render(role = 'manager', showCode = false, kiosk = false) {
   return surface('backoffice', (root) => {
     const css = globalThis.document.createElement('link');
     css.rel = 'stylesheet';
@@ -35,7 +35,16 @@ function render(role = 'manager', showCode = false) {
       inventory_revision: 1,
       archived: false,
     });
+    if (kiosk)
+      devices.push({
+        id: '00000000-0000-4000-8000-000000000009',
+        name: 'Киоск у входа',
+        kind: 'kiosk',
+        status: 'active',
+        kiosk_pairing: { login: 'ipad-k7m2q9', expires_at: '2099-01-01T00:00:00Z' },
+      });
     const snapshot = {
+      kiosk_pairing_enabled: role === 'manager',
       branch_id: branch,
       role,
       devices,
@@ -61,6 +70,13 @@ function render(role = 'manager', showCode = false) {
         code: 'abcd-abcd-abcd-abcd-abcd-abcd-abcd-abcd',
         expires_at: '2099-01-01T00:00:00Z',
       };
+    if (kiosk)
+      model.kiosk = {
+        device_id: '00000000-0000-4000-8000-000000000009',
+        login: 'ipad-k7m2q9',
+        password: 'abcd2345efgh6789',
+        expires_at: '2099-01-01T00:00:00Z',
+      };
     const view = new DeviceAccessView(model);
     view.render(root);
   });
@@ -68,3 +84,4 @@ function render(role = 'manager', showCode = false) {
 export const Manager = { render: () => render() };
 export const Analyst = { render: () => render('analyst') };
 export const OneTimeCode = { render: () => render('manager', true) };
+export const KioskPairing = { render: () => render('manager', false, true) };

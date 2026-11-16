@@ -64,6 +64,11 @@ export const BackofficeErrorReasonSchema = z.enum([
   'SPLASH_HASH_MISMATCH',
   'SPLASH_NOT_MP4',
   'RANGE',
+  // «Подключить киоск» (kiosk-pairing in device-registry.ts, owner request 16.11.2026).
+  'KIOSK_PAIRING_DISABLED',
+  'KIOSK_BRANCH_NOT_SERVED',
+  'KIOSK_PAIRING_LIMIT',
+  'KIOSK_PAIRING_ALREADY_ISSUED',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
