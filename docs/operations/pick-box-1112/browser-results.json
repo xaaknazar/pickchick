@@ -1,0 +1,45 @@
+[
+  {
+    "viewport": [393, 852],
+    "reducedMotion": false,
+    "stacked": 8,
+    "pause": true,
+    "recordReload": true,
+    "threeMisses": true,
+    "retry": true,
+    "backgroundPause": true,
+    "pageErrors": []
+  },
+  {
+    "viewport": [320, 568],
+    "reducedMotion": true,
+    "stacked": 2,
+    "pause": true,
+    "recordReload": true,
+    "threeMisses": true,
+    "retry": true,
+    "backgroundPause": true,
+    "pageErrors": []
+  },
+  {
+    "viewport": [768, 1024],
+    "reducedMotion": false,
+    "stacked": 2,
+    "pause": true,
+    "recordReload": true,
+    "threeMisses": true,
+    "retry": true,
+    "backgroundPause": true,
+    "pageErrors": []
+  },
+  {
+    "locale": "kk",
+    "localizedStart": true,
+    "keyboardDrop": true
+  },
+  {
+    "locale": "en",
+    "localizedStart": true,
+    "keyboardDrop": true
+  }
+]

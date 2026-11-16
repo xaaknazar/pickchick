@@ -96,7 +96,13 @@ test('every route a customer opens over the app handles hardware Back', () => {
   const arcade = screens.filter(([, , options]) => options.includes('ARCADE_SCREEN_OPTIONS'));
   assert.deepEqual(
     arcade.map(([, name]) => name),
-    ['games/pick-blocks', 'games/pick-man', 'games/magic-sort', 'games/pick-farm'],
+    [
+      'games/pick-blocks',
+      'games/pick-man',
+      'games/magic-sort',
+      'games/pick-box',
+      'games/pick-farm',
+    ],
   );
   assert.match(read('games/route-options.ts'), /presentation: 'fullScreenModal'/);
   for (const [, name] of arcade) {

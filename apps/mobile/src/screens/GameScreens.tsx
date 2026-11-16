@@ -11,6 +11,7 @@ import { PickBlocksCard } from '../games/pick-blocks/visuals';
 import { PickFarmCard } from '../games/pick-farm/visuals';
 import { FARM_ENABLED } from '../games/pick-farm/api';
 import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
+import { PickBoxCard } from '../games/pick-box/PickBoxCard';
 import { PickManCard } from '../games/pick-man/visuals';
 import { AppHeader } from '../components/AppHeader';
 import { comboCardShown, upcomingFeaturesShown } from '../store-build';
@@ -63,6 +64,7 @@ export function Events(props: ScreenProps) {
         {published.gameEnabled('magic-sort') ? (
           <MagicSortCard override={published.poster('magic-sort')} />
         ) : null}
+        <PickBoxCard />
         {FARM_ENABLED ? <PickFarmCard /> : null}
         {published.gameEnabled('pick-blocks') ? (
           <PickBlocksCard override={published.poster('pick-blocks')} />

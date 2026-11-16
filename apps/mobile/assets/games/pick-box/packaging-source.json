@@ -1,0 +1,10 @@
+{
+  "source": "Owner-supplied box.pdf, 12 November 2026",
+  "sha256": "3a46d3e4f8cd9a963823258b46cc00d000266abf1c13030246ae5ef86ac4c405",
+  "referenceDimensionsCm": [23, 23, 10],
+  "regions": {
+    "lid.png": [0, [0.2125, 0.2125, 0.78875, 0.78875]],
+    "front.png": [1, [0.3075, 0.0575, 0.6925, 0.305625]]
+  },
+  "note": "Original PDF artwork. 2D orthographic body uses photo dimensions; no generated logo in gameplay."
+}

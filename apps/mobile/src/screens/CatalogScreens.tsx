@@ -449,6 +449,7 @@ export function Menu(props: ScreenProps) {
     backgroundColor:
       scrollY.value >= categoryTop - headerHeight ? colors.background : 'transparent',
   }));
+  // Owner 16.11.2026: menu categories keep their plain branded appearance.
   useEffect(() => {
     const layout = chipLayouts.current[category];
     if (layout)

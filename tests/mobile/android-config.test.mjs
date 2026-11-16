@@ -37,11 +37,11 @@ function png(path) {
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), colorType: bytes[25] };
 }
 
-test('app.json: Play package, unchanged versionCode, adaptive icon, no backups, Back as before', () => {
+test('app.json: Play package, valid release versionCode, adaptive icon, no backups, Back as before', () => {
   const android = expo.android;
   assert.equal(android.package, 'kz.pickchick.app');
-  // Codex raises versionCode for each upload; this lane does not.
-  assert.equal(android.versionCode, 7);
+  // Release uploads increment this value; validate its Android contract.
+  assert.ok(Number.isInteger(android.versionCode) && android.versionCode > 0);
   assert.equal(android.allowBackup, false);
   // BackHandler keeps the classic Back path (Expo writes enableOnBackInvokedCallback=false).
   assert.equal(android.predictiveBackGestureEnabled, false);

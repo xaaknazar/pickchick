@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-12",
+  "implementationCommit": "786c8d29e7009017b35dec72dd7196cb5820aa6e",
+  "followup": "State-aware native status bar contrast in final validation commit; gameplay unchanged.",
+  "native": {
+    "device": "iPhone 17 Pro simulator",
+    "os": "iOS 26.5",
+    "configuration": "Debug development build",
+    "observed": [
+      "Games card",
+      "start",
+      "drop",
+      "score 1",
+      "collapse result",
+      "retry",
+      "pause",
+      "resume",
+      "local record",
+      "dark status bar on bright playfield",
+      "light status bar on dark pause"
+    ]
+  },
+  "browser": "Actual React Native web export; screenshots taken after transitions settle; external API calls blocked.",
+  "notVerified": [
+    "Android native runtime",
+    "physical phones",
+    "large native text",
+    "owner acceptance",
+    "App Store or Google Play release"
+  ],
+  "files": {
+    "iphone-play.png": "12ee5580129063a5b246b1a1a3ca5cd665cff4b1430b66e3062009c323338bb2",
+    "iphone-pause.png": "7be84f443310103d9422d123546a2ccfff4806c92fbe634cd2bff4839723b255",
+    "start-393.png": "5d3befd9fac8b1c59dadc5b7badc3089e018c233d4b50bd61dd13027370f5ca2",
+    "tower-393.png": "f4564a3087f78cc5fc5f88d3c85717599e0de4bd9c4d2aa4db3fbf4d464856eb",
+    "over-320.png": "5c0f9f0aa501739930b1e2e7b6c59b4f995905d682394b9c208f529435b7f5ef",
+    "browser-results.json": "b856def205fc2f215c33c1f23103ad15f4f687cfc0f27b10f77dc234dd24cf08"
+  }
+}
