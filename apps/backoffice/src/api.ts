@@ -270,7 +270,7 @@ export function allowedPath(path: string): boolean {
   return (
     search === undefined &&
     new RegExp(
-      `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
+      `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|kiosk-pairing|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
   );
 }
@@ -680,6 +680,14 @@ const reasons: Record<string, string> = {
   SPLASH_UPLOAD_INCOMPLETE: 'Видео загрузилось не полностью. Загрузите файл заново.',
   SPLASH_HASH_MISMATCH: 'Видео повредилось при загрузке. Загрузите файл заново.',
   SPLASH_NOT_MP4: 'Это не видео MP4. Сохраните ролик в формате MP4 и загрузите снова.',
+  // «Подключить киоск» (owner request 16.11.2026).
+  KIOSK_PAIRING_DISABLED: 'Подключение киоска пока не включено на сервере. Сообщите владельцу.',
+  KIOSK_BRANCH_NOT_SERVED:
+    'Киоски сейчас обслуживаются только на одной точке, и это не она. Сообщите владельцу.',
+  KIOSK_PAIRING_LIMIT:
+    'Слишком много неиспользованных данных для iPad. Подождите 30 минут или используйте уже выданные.',
+  KIOSK_PAIRING_ALREADY_ISSUED:
+    'Эти данные уже выданы и больше не показываются. Нажмите «Подключить киоск» ещё раз.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

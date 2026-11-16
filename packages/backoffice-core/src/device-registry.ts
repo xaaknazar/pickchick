@@ -13,7 +13,14 @@ import {
   type DeviceAccessReceipt,
 } from '@pickchick/contracts';
 import { BackofficeError, parse } from './model.js';
+import {
+  issueKioskPairing,
+  kioskPairingAvailable,
+  kioskPairingStates,
+  type KioskPairingOptions,
+} from './kiosk-pairing.js';
 export { kioskPresence } from './device-presence.js';
+export { KIOSK_PAIRING_TTL_SECONDS, type KioskPairingOptions } from './kiosk-pairing.js';
 
 const request = z.strictObject({
   request_id: z.uuid(),
@@ -81,6 +88,8 @@ export class DeviceRegistry {
     private readonly pool: DatabasePool,
     private readonly enabled = false,
     private readonly centerEnabled = false,
+    /** «Подключить киоск»: null keeps kiosk registration offline-only (the previous behaviour). */
+    private readonly kioskPairing: KioskPairingOptions | null = null,
   ) {}
   private async scope(
     db: DatabaseClient,
@@ -135,10 +144,19 @@ export class DeviceRegistry {
           [branch, actor.organization_id],
         )
       ).rows;
+      const pairings = await kioskPairingStates(db, branch);
       for (const kiosk of kiosks) {
+        const pairing = pairings.get(kiosk.id);
+        // An iPad that never entered its one-time password is not a device of the point.
+        if (pairing?.state === 'expired') continue;
         const existing = devices.findIndex((d) => d.id === kiosk.id);
         const row = {
           ...kiosk,
+          ...(pairing ? { name: pairing.name } : {}),
+          kiosk_pairing:
+            pairing?.state === 'waiting'
+              ? { login: pairing.login, expires_at: pairing.expires_at }
+              : null,
           mode: null,
           generation: null,
           paired_at: null,
@@ -216,6 +234,10 @@ export class DeviceRegistry {
         as_of: new Date().toISOString(),
         pairing_enabled: this.enabled,
         inventory_enabled: this.centerEnabled,
+        kiosk_pairing_enabled:
+          !!this.kioskPairing &&
+          branch.toLowerCase() === this.kioskPairing.branchId.toLowerCase() &&
+          (await kioskPairingAvailable(db)),
       };
     });
   }
@@ -335,6 +357,15 @@ export class DeviceRegistry {
     const body = parse(request, input),
       code = randomBytes(16).toString('hex');
     return this.mutate(token, branch, 'pair', body, code);
+  }
+  /** «Подключить киоск»: a new kiosk device and its one-time ID/password for the iPad form. */
+  async issueKiosk(token: string, branch: string, input: unknown) {
+    return transaction(this.pool, async (db) => {
+      if (!this.kioskPairing)
+        throw new BackofficeError('SERVICE_UNAVAILABLE', 'KIOSK_PAIRING_DISABLED');
+      const actor = await this.scope(db, token, branch, true, false);
+      return issueKioskPairing(db, actor, branch, input, this.kioskPairing);
+    });
   }
   async revoke(token: string, branch: string, input: unknown) {
     return this.mutate(token, branch, 'revoke', parse(revoke, input));

@@ -17,6 +17,7 @@ with sync_playwright() as p:
         ("backoffice-devices--manager", "Устройства точки"),
         ("backoffice-devices--analyst", "Устройства точки"),
         ("backoffice-devices--one-time-code", "Устройства точки"),
+        ("backoffice-devices--kiosk-pairing", "Устройства точки"),
         ("kitchen-terminalpairing--kitchen", "Подключение кухни"),
         ("kitchen-terminalpairing--assembly", "Подключение сборки"),
         ("kitchen-terminalpairing--display", "Подключение табло"),
@@ -31,7 +32,14 @@ with sync_playwright() as p:
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (story, width)
             if "devices--" in story:
                 assert page.locator(".device-table-wrap").evaluate("e=>e.scrollWidth<=e.clientWidth+1"), (story,width,"internal overflow")
+            if "kiosk-pairing" in story:
+                expect(page.get_by_role("heading", name="Данные для iPad", exact=True)).to_be_visible()
+                expect(page.get_by_text("abcd2345efgh6789", exact=True)).to_be_visible()
+                expect(page.get_by_text("Ждём ввода на iPad", exact=True)).to_be_visible()
+                assert page.get_by_role("button", name="Подключить киоск", exact=True).count() == 1
+                page.screenshot(path=str(output / (story + "-" + str(width) + ".png")), full_page=True)
             if "analyst" in story:
+                assert page.get_by_role("button", name="Подключить киоск", exact=True).count() == 0
                 assert page.get_by_role("button", name="Восстановить пароль кухни", exact=True).count() == 0
                 assert page.get_by_role("button", name="Подключить экран", exact=True).count() == 0
             if "devices--manager" in story:
