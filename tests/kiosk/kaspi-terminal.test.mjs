@@ -319,3 +319,73 @@ test('a stored link is strictly checked; no link means no call', async () => {
   assert.equal(await h.session.call('status', { processId: 'P1' }), null);
   assert.equal(h.calls.length, 0);
 });
+
+// Owner 16.11.2026: no DHCP reservation is possible, so the terminal may get a new address.
+function movedFixture(newHost, { identity = { terminalId: 'T1', serialNum: 'S1' } } = {}) {
+  const h = { raw: JSON.stringify(link()), calls: [], now: Date.parse('2026-11-16T12:00:00Z') };
+  const port = async (host, method, params, options = {}) => {
+    h.calls.push({ host, method, timeoutMs: options.timeoutMs ?? null });
+    if (host !== newHost) return { kind: 'unreachable', reason: 'CONNECT' };
+    if (method === 'deviceinfo') return { kind: 'ok', data: identity };
+    if (method === 'payment') return { kind: 'ok', data: { processId: 'P9', status: 'wait' } };
+    return { kind: 'ok', data: { status: 'wait' } };
+  };
+  const store = {
+    read: async () => h.raw,
+    write: async (raw) => {
+      h.raw = raw;
+    },
+    remove: async () => {
+      h.raw = null;
+    },
+  };
+  h.session = new TerminalSession(store, port, () => h.now);
+  h.moved = [];
+  h.session.onRelocated = (l) => h.moved.push(l.host);
+  return h;
+}
+
+test('a silent address: the same terminal is found in the /24, kept and the call sent there once', async () => {
+  const h = movedFixture('192.168.1.145');
+  await h.session.load();
+  const answer = await h.session.call('payment', { amount: '4190' });
+  assert.equal(answer.kind, 'ok');
+  assert.equal(parseTerminalLink(h.raw).host, '192.168.1.145');
+  assert.deepEqual(h.moved, ['192.168.1.145']);
+  const payments = h.calls.filter((c) => c.method === 'payment');
+  assert.deepEqual(
+    payments.map((c) => c.host),
+    ['192.168.1.50', '192.168.1.145'],
+  );
+  const probes = h.calls.filter((c) => c.method === 'deviceinfo');
+  assert.ok(probes.every((c) => c.host.startsWith('192.168.1.') && c.host !== '192.168.1.50'));
+  assert.ok(probes.every((c) => c.timeoutMs === 1500));
+});
+
+test('another terminal at a new address is not taken; the search runs at most once a minute', async () => {
+  const h = movedFixture('192.168.1.145', { identity: { terminalId: 'T2', serialNum: 'S2' } });
+  await h.session.load();
+  const first = await h.session.call('status', { processId: 'P1' });
+  assert.equal(first.kind, 'unreachable');
+  assert.equal(parseTerminalLink(h.raw).host, '192.168.1.50');
+  assert.deepEqual(h.moved, []);
+  const count = h.calls.length;
+  await h.session.call('status', { processId: 'P1' });
+  assert.equal(h.calls.length, count + 1, 'no second search within a minute');
+  h.now += 61000;
+  await h.session.call('status', { processId: 'P1' });
+  assert.ok(h.calls.length > count + 2, 'searched again after a minute');
+});
+
+test('a lost answer never starts a search (the request may have reached the terminal)', async () => {
+  const h = sessionFixture(link(), {
+    payment: { kind: 'lost', reason: 'TIMEOUT' },
+  });
+  await h.session.load();
+  const answer = await h.session.call('payment', { amount: '4190' });
+  assert.equal(answer.kind, 'lost');
+  assert.deepEqual(
+    h.calls.map((c) => c.method),
+    ['payment'],
+  );
+});

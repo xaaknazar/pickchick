@@ -35,6 +35,15 @@ export interface TerminalLinkStore {
 export const TOKEN_RENEW_BEFORE_MS = 2 * 3600000;
 /** A failed renewal is tried again at most this often (the payment poll runs every second). */
 export const TOKEN_RENEW_RETRY_MS = 60000;
+/**
+ * Owner 16.11.2026: the router cannot get a DHCP reservation, so the terminal's address may
+ * change. When the stored address does not answer (nothing was sent), the kiosk looks for the
+ * same terminal (terminal ID and serial from /v2/deviceinfo) in the /24 of the old address, at
+ * most once a minute, keeps the new address and tells the cloud (PUT /terminal).
+ */
+export const RELOCATE_RETRY_MS = 60000;
+export const RELOCATE_PROBE_TIMEOUT_MS = 1500;
+export const RELOCATE_CONCURRENCY = 48;
 const TOKEN = /^[A-Za-z0-9_.:-]{1,512}$/;
 const NAME = /^pickchick-kiosk-[a-z0-9]{6}$/;
 const FIELD = /^[A-Za-z0-9_.:-]{1,64}$/;
@@ -118,6 +127,10 @@ const tokenRefused = (answer: KaspiCallResult) =>
 export class TerminalSession {
   private link: TerminalLink | null = null;
   private renewRetryAt = 0;
+  private relocateRetryAt = 0;
+  private relocating: Promise<boolean> | null = null;
+  /** Called after the link moved to a new address (the controller tells the cloud). */
+  onRelocated: ((link: TerminalLink) => void) | null = null;
   private readonly store: TerminalLinkStore;
   private readonly port: KaspiTerminalPort;
   private readonly now: () => number;
@@ -189,11 +202,67 @@ export class TerminalSession {
     await this.renew();
     const link = this.link;
     if (!link) return null;
-    const first = await this.safeCall(link, method, params, options);
+    let first = await this.safeCall(link, method, params, options);
+    // Nothing reached the terminal: it may have a new address. Found → the call is sent there
+    // once (safe for a payment too: `unreachable` means its pre-flight failed, nothing was sent).
+    if (first.kind === 'unreachable' && (await this.relocate()) && this.link)
+      first = await this.safeCall(this.link, method, params, options);
     if (!tokenRefused(first)) return first;
     const renewed = await this.renew(true);
     if (!renewed || method === 'payment' || !this.link) return first;
     return this.safeCall(this.link, method, params, options);
+  }
+  /** Finds the linked terminal at a new address of the same /24; true when the link moved. */
+  relocate(): Promise<boolean> {
+    if (this.relocating) return this.relocating;
+    const link = this.link;
+    if (!link || this.now() < this.relocateRetryAt) return Promise.resolve(false);
+    this.relocateRetryAt = this.now() + RELOCATE_RETRY_MS;
+    this.relocating = this.scan(link).finally(() => {
+      this.relocating = null;
+    });
+    return this.relocating;
+  }
+  private async scan(link: TerminalLink): Promise<boolean> {
+    const prefix = link.host.slice(0, link.host.lastIndexOf('.') + 1);
+    const candidates: string[] = [];
+    for (let i = 1; i < 255; i++) if (prefix + i !== link.host) candidates.push(prefix + i);
+    let found: string | null = null;
+    let next = 0;
+    const worker = async () => {
+      while (!found && next < candidates.length) {
+        const host = candidates[next++]!;
+        let answer: KaspiCallResult | null;
+        try {
+          answer = await this.port(
+            host,
+            'deviceinfo',
+            {},
+            { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS },
+          );
+        } catch {
+          answer = null;
+        }
+        const identity = terminalIdentity(answer);
+        if (identity?.terminalId === link.terminalId && identity.serial === link.serial)
+          found ??= host;
+      }
+    };
+    await Promise.all(Array.from({ length: RELOCATE_CONCURRENCY }, worker));
+    if (!found || this.link !== link) return false;
+    const moved = { ...link, host: found };
+    try {
+      await this.save(moved);
+    } catch {
+      return false;
+    }
+    this.relocateRetryAt = 0;
+    try {
+      this.onRelocated?.(moved);
+    } catch {
+      // Telling the cloud is best effort; the next staff check repeats it.
+    }
+    return true;
   }
   private async safeCall(
     link: TerminalLink,

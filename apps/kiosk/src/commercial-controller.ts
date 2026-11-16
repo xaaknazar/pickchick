@@ -813,8 +813,13 @@ export class CommercialKioskController {
   private io: CommercialKioskIO;
   constructor(io: CommercialKioskIO) {
     this.io = io;
-    if (io.terminal)
+    if (io.terminal) {
       this.terminalSession = new TerminalSession(io.terminal.store, io.terminal.call, io.now);
+      // The terminal got a new address (no DHCP reservation): the cloud learns the new host.
+      this.terminalSession.onRelocated = () => {
+        if (this.terminalSession) void this.putTerminal(this.terminalSession);
+      };
+    }
     this.current = this.empty();
     this.view = this.snapshot();
   }
@@ -2591,9 +2596,14 @@ export class CommercialKioskController {
   /** «Проверить связь»: the terminal answers with the same ID, the token is fresh, the cloud agrees. */
   checkTerminal = () =>
     this.setupAction(async (session) => {
-      const link = session.current();
+      let link = session.current();
       if (!link) return 'unreachable';
-      const identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+      let identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+      // Silent, or another device took the address: look for this terminal at a new address.
+      if ((!identity || identity.terminalId !== link.terminalId) && (await session.relocate())) {
+        link = session.current()!;
+        identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+      }
       if (!identity) return 'unreachable';
       if (identity.terminalId !== link.terminalId) return 'mismatch';
       await session.renew();
