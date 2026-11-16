@@ -7958,11 +7958,11 @@
         "@artifacts/kaspi-pos-1115",
         "@github/releases/kaspi-pos-kit-1115"
       ],
-      "status": "active",
-      "head": "b31e79f1a3006a5418b73f9d95fc1c8c7f547784",
-      "updatedAt": "2026-11-16T06:17:52.926Z",
-      "summary": "Exact35efd72c published without force. Foundation43761973367 PASS11/11 and Windows43761995773 PASS3/3 incl029 ledger pins. Kit delivered to ~/Claude/PickChick-exchange/kaspi-pos-kit-1115: 180142411 bytes SHA2564043e009d17a755ab00644c616145e6dddd7f12b78426313b75ee79b60fd3c40. Runtime, POS0.5.4, fullCIproofs, exact operators and COMMANDS verified. Predecessor remains placeholder. No cloud/feed/cashier changes. Docs b31e79f1 published.",
-      "nextAction": "Claude obtains installed028 sourceCommit from completed.json and fills only executable command copy outside immutable kit; follows COMMANDS backup028/DB029/backup029/runtime/POS/terminal stages. Physical acceptance and payment remain on the cashier with owner."
+      "status": "available",
+      "head": "cf99b46fff3a06f8bebfe1252623756010a6077e",
+      "updatedAt": "2026-11-16T07:17:24.007Z",
+      "summary": "Exact8290c87f published without force. Foundation43815847968 success11/11; Windows43815851233 success3/3. Public prerelease https://github.com/xaaknazar/pickchick/releases/tag/kaspi-pos-kit-1115-8290c87f contains kit180145417bytes SHA2563e61398d39563598b184e265f4a094a5d09bacbeef50ddb671550a434e4e2a4f and checksum asset. Full unauthenticated HTTP200 download and SHA PASS. Includes runtime029, POS0.5.4, fullCIproofs, exact operators and COMMANDS. Predecessor dec8b48cd899fe015baee17a3853affbe7eee774 confirmed by owner; terminal192.168.2.236 explicit HTTP probe/register. No cloud/feed/cashier changes. Protocol cf99b46f published.",
+      "nextAction": "Claude downloads and verifies kit/checksums, follows COMMANDS backup028/DB029/backup029/runtime/POS then probe and owner-approved register --transport http after physical terminal identity confirmation. Actual cashier installation/payment acceptance remain on site."
     }
   ],
   "approvedScopeTransfers": [
