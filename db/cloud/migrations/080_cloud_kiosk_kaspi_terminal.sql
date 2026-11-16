@@ -60,8 +60,9 @@ CREATE TABLE commerce_kiosk_terminal_attempts (
  process_id text COLLATE "C" CHECK(process_id ~ '^[A-Za-z0-9._:-]{1,64}$'),
  transaction_id text COLLATE "C" CHECK(transaction_id ~ '^[A-Za-z0-9._:-]{1,64}$'),
  incident text CHECK(incident IN ('result_unknown','result_overdue','result_mismatch')),
- created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
- expires_at timestamptz NOT NULL DEFAULT clock_timestamp()+interval '15 minutes',
+ -- One timestamp for both defaults: two clock_timestamp() calls could differ and break the 15-minute CHECK.
+ created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+ expires_at timestamptz NOT NULL DEFAULT statement_timestamp()+interval '15 minutes',
  resolved_at timestamptz,
  UNIQUE(order_id,request_id),
  FOREIGN KEY(attempt_id,order_id,account_id) REFERENCES commerce_payment_attempts(id,order_id,account_id),
