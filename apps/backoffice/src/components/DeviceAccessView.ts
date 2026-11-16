@@ -49,6 +49,10 @@ export class DeviceAccessView {
         actions.append(
           button('Подключить экран', () => this.pair(), 'button primary', 'device-add'),
         );
+      if (m.data.kiosk_pairing_enabled)
+        actions.append(
+          button('Подключить киоск', () => this.pairKiosk(), 'button', 'device-kiosk-add'),
+        );
       if (m.data.inventory_enabled)
         actions.append(
           button('Добавить телевизор', () => this.editInventory(), 'button', 'device-tv-add'),
@@ -137,6 +141,8 @@ export class DeviceAccessView {
       );
       panel.append(code);
     }
+    if (m.kiosk && Date.parse(m.kiosk.expires_at) <= m.now()) m.hideKiosk();
+    if (m.kiosk) panel.append(this.kioskCredentials());
     const controls = el('div', 'device-filters');
     const rows: { node: HTMLTableRowElement; device: DeviceRow }[] = [];
     const apply = () => {
@@ -303,7 +309,7 @@ export class DeviceAccessView {
     }
     if (d.kind === 'edge')
       buttons.append(el('span', 'muted', 'Перенос основной кассы выполняется отдельно.'));
-    if (d.kind === 'kiosk')
+    if (d.kind === 'kiosk' && !d.kiosk_pairing)
       buttons.append(el('span', 'muted', 'Действующая регистрация iPad сохранена.'));
     actions.append(buttons);
     for (const [cell, label] of [
@@ -552,6 +558,117 @@ export class DeviceAccessView {
         })(),
       'button primary',
       'device-issue',
+    );
+    d.append(
+      button('Отмена', () => d.close(), 'button'),
+      send,
+    );
+  }
+  /** Shown once after «Подключить киоск»; the server never returns these again. */
+  private kioskCredentials() {
+    const k = this.model.kiosk!;
+    const box = el('section', 'device-code device-kiosk-code');
+    box.setAttribute('aria-label', 'Данные для подключения iPad');
+    const pair = (label: string, value: string, testId: string) => {
+      const line = el('div', 'device-kiosk-line');
+      const code = el('code', '', value);
+      code.dataset['testid'] = testId;
+      const copy = button(
+        'Скопировать',
+        () =>
+          void navigator.clipboard
+            .writeText(value)
+            .then(() => {
+              copy.textContent = 'Скопировано';
+            })
+            .catch(() => {
+              copy.textContent = 'Выделите и скопируйте';
+            }),
+        'button subtle',
+      );
+      line.append(el('span', 'muted', label), code, copy);
+      return line;
+    };
+    const steps = el('ol', 'device-kiosk-steps');
+    for (const step of [
+      'Откройте PickChick Kiosk на iPad. Появится экран «Настройка киоска».',
+      'В поле «ID устройства» введите ID, в поле «Ключ устройства» - ключ. Только строчные буквы и цифры, без пробелов.',
+      'Нажмите «Подключить киоск». Откроется заставка с меню, а здесь киоск станет подключённым.',
+    ])
+      steps.append(el('li', '', step));
+    box.append(
+      el('h3', '', 'Данные для iPad'),
+      pair('ID устройства', k.login, 'kiosk-login'),
+      pair('Ключ устройства', k.password, 'kiosk-password'),
+      steps,
+      el(
+        'p',
+        'muted',
+        `Действуют до ${date(k.expires_at)} и показываются один раз. Не отправляйте их в чаты. Заказы этого iPad пойдут на кухню вашей точки.`,
+      ),
+      button(
+        'Скрыть данные',
+        () => {
+          this.model.hideKiosk();
+          box.remove();
+        },
+        'button subtle',
+      ),
+    );
+    return box;
+  }
+  private pairKiosk() {
+    const d = modal('Подключить киоск');
+    let name = '',
+      reason = '';
+    d.append(
+      el(
+        'p',
+        '',
+        'Сервер выдаст ID и ключ для iPad на 30 минут. Выдавайте их, когда iPad рядом с вами. Уже подключённый iPad сначала нужно переустановить: приложение хранит прежнюю привязку.',
+      ),
+      field(
+        'Название киоска',
+        name,
+        (v) => {
+          name = v;
+        },
+        { required: true, max: 120, id: 'kiosk-name', hint: 'Например: Киоск у входа' },
+      ),
+      field(
+        'Причина подключения',
+        '',
+        (v) => {
+          reason = v;
+        },
+        { required: true, max: 500, id: 'kiosk-reason' },
+      ),
+    );
+    const error = el('p', 'notice error');
+    error.setAttribute('role', 'alert');
+    d.append(error);
+    const send = button(
+      'Выдать ID и ключ',
+      () =>
+        void (async () => {
+          if (!name.trim() || reason.trim().length < 3) {
+            error.textContent = 'Заполните название и причину (не короче 3 символов).';
+            return;
+          }
+          send.disabled = true;
+          try {
+            if (await this.model.issueKiosk({ name: name.trim(), reason: reason.trim() }))
+              d.close();
+            else
+              error.textContent = this.model.uncertain
+                ? 'Ответ не получен. Обновите список: если киоск появился со статусом «Ждём ввода на iPad», а данных нет, выдайте новые.'
+                : message(this.model.error);
+          } finally {
+            send.disabled = false;
+          }
+        })(),
+      'button primary',
+      'kiosk-issue',
     );
     d.append(
       button('Отмена', () => d.close(), 'button'),

@@ -10,6 +10,8 @@ export type DeviceRow = {
     menu_version: number | null;
   } | null;
   edge_last_seen_at?: string | null;
+  /** A kiosk issued from «Подключить киоск» whose iPad has not entered its password yet. */
+  kiosk_pairing?: { login: string; expires_at: string } | null;
   edge_device_id?: string | null;
   location?: string;
   notes?: string;
@@ -32,6 +34,7 @@ export type DeviceRow = {
 export type DeviceList = {
   pairing_enabled?: boolean;
   inventory_enabled?: boolean;
+  kiosk_pairing_enabled?: boolean;
   branch_id: string;
   role: 'manager' | 'analyst';
   devices: DeviceRow[];
@@ -44,6 +47,13 @@ export type IssuedCode = {
   code: string;
   expires_at: string;
   purpose?: string;
+};
+/** ID and one-time password for the iPad form «Настройка киоска»; memory-only, shown once. */
+export type IssuedKiosk = {
+  device_id: string;
+  login: string;
+  password: string;
+  expires_at: string;
 };
 function list(raw: unknown, branch: string): DeviceList {
   const value = object(raw);
@@ -66,6 +76,7 @@ export class DevicesModel {
   branch = '';
   data: DeviceList | null = null;
   code: IssuedCode | null = null;
+  kiosk: IssuedKiosk | null = null;
   error: unknown = null;
   busy = false;
   uncertain = false;
@@ -88,6 +99,7 @@ export class DevicesModel {
     this.branch = '';
     this.data = null;
     this.code = null;
+    this.kiosk = null;
     this.error = null;
     this.pendingInventory = null;
     this.busy = false;
@@ -95,6 +107,9 @@ export class DevicesModel {
   }
   hideCode() {
     this.code = null;
+  }
+  hideKiosk() {
+    this.kiosk = null;
   }
   async load(actor: string, branch: string) {
     if (this.actor !== actor || this.branch !== branch) {
@@ -124,17 +139,30 @@ export class DevicesModel {
             ['used', 'expired', 'rejected'].includes(data.password_reset.state)))
       )
         this.code = null;
+      // The iPad has used the password (no longer waiting) or it has expired.
+      if (
+        this.kiosk &&
+        (Date.parse(this.kiosk.expires_at) <= Date.now() ||
+          !data.devices.some(
+            (d) => d.id === this.kiosk?.device_id && d.kiosk_pairing?.login === this.kiosk.login,
+          ))
+      )
+        this.kiosk = null;
     } catch (error) {
       if (epoch === this.epoch && sequence === this.loadSequence) {
         this.error = error;
         this.data = null;
         this.code = null;
+        this.kiosk = null;
       }
     }
     if (epoch === this.epoch) this.changed();
   }
   async issue(body: Data) {
     return this.send('pairing-codes', body);
+  }
+  async issueKiosk(body: Data) {
+    return this.send('kiosk-pairing', body);
   }
   async resetPassword(body: Data) {
     return this.send('kitchen-password-reset', body);
@@ -167,6 +195,7 @@ export class DevicesModel {
     this.error = null;
     this.uncertain = false;
     this.code = null;
+    this.kiosk = null;
     try {
       const raw = object(
         await this.api(`branches/${branch}/devices/${action}`, {
@@ -185,6 +214,23 @@ export class DevicesModel {
         )
           throw new ApiError('INVALID_RESPONSE');
         this.code = raw as IssuedCode;
+      }
+      if (action === 'kiosk-pairing') {
+        if (
+          typeof raw['device_id'] !== 'string' ||
+          typeof raw['login'] !== 'string' ||
+          !/^ipad-[a-z0-9]{6}$/.test(raw['login']) ||
+          typeof raw['password'] !== 'string' ||
+          !/^[a-z0-9]{16}$/.test(raw['password']) ||
+          typeof raw['expires_at'] !== 'string'
+        )
+          throw new ApiError('INVALID_RESPONSE');
+        this.kiosk = {
+          device_id: raw['device_id'],
+          login: raw['login'],
+          password: raw['password'],
+          expires_at: raw['expires_at'],
+        };
       }
       await this.load(actor, branch);
       return true;
@@ -287,6 +333,18 @@ export function deviceConnection(
           label: 'Нет связи с точкой',
           tone: 'warning',
           detail: 'Локальная работа неизвестна. Проверьте интернет и питание кассы.',
+        };
+  if (d.kind === 'kiosk' && d.kiosk_pairing)
+    return Date.parse(d.kiosk_pairing.expires_at) <= now
+      ? {
+          label: 'Данные для iPad истекли',
+          tone: 'warning',
+          detail: 'Нажмите «Подключить киоск» и выдайте новые ID и ключ.',
+        }
+      : {
+          label: 'Ждём ввода на iPad',
+          tone: 'neutral',
+          detail: `Введите ID ${d.kiosk_pairing.login} и ключ в PickChick Kiosk на iPad.`,
         };
   if (d.mode && !d.paired_at) {
     const failed =

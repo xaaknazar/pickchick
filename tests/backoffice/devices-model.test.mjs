@@ -213,3 +213,57 @@ test('edge key expiry warns 7 days ahead without any rotation flag', async () =>
   );
   for (const text of [soon.label, soon.detail]) assert.doesNotMatch(text, /[–—]/);
 });
+test('«Подключить киоск»: ID and key stay in memory, are checked, and leave once the iPad used them', async () => {
+  const branch = randomUUID(),
+    device = randomUUID(),
+    login = 'ipad-k7m2q9',
+    expires_at = new Date(Date.now() + 1_800_000).toISOString();
+  let waiting = true,
+    answer = { device_id: device, login, password: 'abcd2345efgh6789', expires_at };
+  const model = new DevicesModel(
+    async (path, req) =>
+      req
+        ? answer
+        : {
+            ...snapshot(branch),
+            kiosk_pairing_enabled: true,
+            devices: [
+              {
+                id: device,
+                name: 'Киоск у входа',
+                kind: 'kiosk',
+                status: 'active',
+                kiosk_pairing: waiting ? { login, expires_at } : null,
+              },
+            ],
+          },
+    () => {},
+  );
+  await model.load(randomUUID(), branch);
+  assert.equal(await model.issueKiosk({ name: 'Киоск у входа', reason: 'Новый iPad' }), true);
+  assert.deepEqual(model.kiosk, answer);
+  waiting = false;
+  await model.load(model.actor, branch);
+  assert.equal(model.kiosk, null, 'the iPad entered the key: the panel closes');
+  answer = { ...answer, password: 'short' };
+  assert.equal(await model.issueKiosk({ name: 'Киоск', reason: 'Новый iPad' }), false);
+  assert.equal(model.kiosk, null);
+  assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-pairing`), true);
+  assert.equal(allowedPath(`operations/branches/${branch}/devices/kiosk-pairing/x`), false);
+});
+test('a waiting kiosk says what to do on the iPad; an expired one asks for new data', async () => {
+  const { deviceConnection } = await import('../../apps/backoffice/dist/devices-model.js');
+  const d = {
+    id: randomUUID(),
+    name: 'Киоск',
+    kind: 'kiosk',
+    status: 'active',
+    kiosk_pairing: {
+      login: 'ipad-k7m2q9',
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    },
+  };
+  assert.equal(deviceConnection(d).label, 'Ждём ввода на iPad');
+  assert.match(deviceConnection(d).detail, /ipad-k7m2q9/);
+  assert.equal(deviceConnection(d, Date.now() + 120_000).label, 'Данные для iPad истекли');
+});

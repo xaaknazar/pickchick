@@ -189,7 +189,7 @@ with sync_playwright() as p:
     for counter in page.get_by_test_id('cart-recent-feedback').all():
         assert counter.evaluate('(e) => getComputedStyle(e).transform') in IDENTITY
     context.close()
-    # Last added items: up to three photos, newest first; adding again makes a product the newest.
+    # Last added item: one photo, the newest; adding again makes a product the newest.
     for width, height in [(393, 852), (320, 568)]:
         context = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion='reduce')
         signed_in(context)
@@ -208,7 +208,7 @@ with sync_playwright() as p:
             return [page.get_by_test_id(f'cart-recent-photo-{i}').get_attribute('id')
                     for i in range(page.locator('[data-testid^="cart-recent-photo-"]').count())]
 
-        limit = 1 if width < 360 else 3
+        limit = 1  # One photo, the newest (owner 16.11.2026, Drinkit's bar).
         for product in ['pick-combo', 'burger', 'wedges', 'coleslaw']:
             add(product)
         expect(page.get_by_test_id(f'cart-recent-photo-{limit - 1}')).to_be_visible()
