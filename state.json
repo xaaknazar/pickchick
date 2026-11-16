@@ -8005,9 +8005,11 @@
         "tests/mobile/test_ios_kiosk_release.py",
         "tests/kiosk/photo-release-disabled.test.mjs"
       ],
-      "status": "active",
-      "head": "9edd5c2467147b0f8e1c400594e9af4283ea52db",
-      "updatedAt": "2026-11-16T10:55:54.902Z"
+      "status": "available",
+      "head": "1bd8273f57998912143aa300d36a8c2b8c2c3934",
+      "updatedAt": "2026-11-16T10:56:00.703Z",
+      "summary": "Kiosk0.1.0(24) from3f04e86c installed over23 and launched10:51UTC. Foundation43842191618 11/11 and UI43842191638 PASS before install.287 kiosk+46 release tests; signed production archive, photo disabled by owner, same Keychain/device profile. Cloud same device/branch,active/issue none. Owner confirmed staff PIN and Kiosk status screen. PR387 and deployment/acceptance protocol published; no stores/orders/payments/binding reset. Borrowed scopes returned, iPad released.",
+      "nextAction": "Review and integrate stacked PR387 after PR383 with normal merge and required checks. Installed binary source CI is green; latest commits are reports only. Printing remains deferred and needs a future signed build with a confirmed HTTPS origin. Do not reinstall24 or upload to stores."
     }
   ],
   "approvedScopeTransfers": [
