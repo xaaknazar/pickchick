@@ -8033,11 +8033,11 @@
         "docs/operations/deployments/kiosk-terminal-1117",
         "docs/operations/kiosk-testflight25-1117"
       ],
-      "status": "active",
-      "head": "53eaf5dd51abf89cfd0c1af8e6460289d6b0a287",
-      "updatedAt": "2026-11-17T06:07:05.961Z",
-      "summary": "Cloud bf325a47 deployed 17.11: 079/080/081, test payment account, grants, API/gateway/backoffice. Existing binding/PIN/orders preserved. Fresh encrypted backups and isolated restores PASS. Native25/53eaf5dd exact Foundation still running.",
-      "nextAction": "Finish ten-minute monitoring, archive/export/upload kiosk25 only after full exact-SHA CI, verify internal TestFlight and publish evidence."
+      "status": "available",
+      "head": "378bd10f9d2a93afcdc489942faa1a7b4c7e4050",
+      "updatedAt": "2026-11-17T06:35:47.658Z",
+      "summary": "Cloud bf325a47 deployed: 079/080/081, temporary kaspi-pos account 7aad151c-a045-4172-a045-15da93081c9d, 70 ACL checks PASS, API/gateway/backoffice healthy. Encrypted 077 and 081 backups restored in isolation; 601-second monitoring PASS; 60 reservations, PIN and device binding preserved. Kiosk 0.1.0(25), source53eaf5dd, Foundation44021717582 11/11 PASS, delivered to PickChick Kiosk Internal(1), Apple build717f1685-4d56-49ca-8cd6-8105ba7957f2 Testing. PR396 includes final evidence and integration378bd10f; 625 Node +97 Python +7 roadmap PASS. All server/Apple/ios resource scopes released, no deployment lock.",
+      "nextAction": "Foundation44032050425 for final integration378bd10f still running. Review and merge PR396 into cutover only after green CI, without force. Owner updates iPad25, confirms current cashier link, pairs dedicated terminal and performs payment/kitchen acceptance. Online roadmap not updated; reconcile its current source before separate publication. No repeated cloud deployment or upload needed."
     }
   ],
   "approvedScopeTransfers": [
