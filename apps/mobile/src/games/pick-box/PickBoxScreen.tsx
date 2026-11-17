@@ -365,12 +365,22 @@ export function PickBoxScreen() {
       ? `${goalName} · ${boxCount(goal.remaining, locale)} ${copy.toGo}`
       : `${goalName} · ${copy.toGo} ${boxCount(goal.remaining, locale)}`;
   const coaching = !preferences.tutorialDone && hud.drops === 0;
+  // A tower that crept sideways needs boxes stacked back; a rocking one needs straight ones.
+  const warningText =
+    hud.leaning > 0
+      ? copy.leanRight
+      : hud.leaning < 0
+        ? copy.leanLeft
+        : hud.swaying
+          ? copy.swaying
+          : '';
+  // While the tower warns, the warning stays up; a landed box is still heard and counted.
+  const showsFeedback =
+    !!feedback && !(warningText && (feedback === 'land' || feedback === 'perfect'));
   const statusText = coaching
     ? copy.hint
     : hud.canDrop
-      ? hud.swaying
-        ? copy.swaying
-        : copy.ready
+      ? warningText || copy.ready
       : hud.settling
         ? copy.settling
         : game.isWaiting
@@ -478,12 +488,12 @@ export function PickBoxScreen() {
                 maxFontSizeMultiplier={1.4}
                 style={[s.stateText, darkSky && { color: '#FFF4D5' }]}
               >
-                {feedback
+                {showsFeedback
                   ? `${feedbackText}${hud.combo > 1 && feedback === 'perfect' ? ` · ${hud.combo} ${copy.combo}` : ''}`
                   : coaching
                     ? copy.drop
-                    : hud.swaying && hud.phase === 'playing'
-                      ? copy.swaying
+                    : hud.phase === 'playing'
+                      ? warningText
                       : ''}
               </Text>
             </View>
