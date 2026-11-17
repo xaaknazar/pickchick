@@ -7837,13 +7837,12 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/desktop-kitchen-045-1115",
       "scopes": [
-        "docs/operations/desktop-updates-published.json",
         "docs/operations/desktop-updates-publish-1115b.md"
       ],
       "status": "available",
       "head": "96ce5ee101df56aef88c90457a1d298cef41a532",
-      "updatedAt": "2026-11-15T11:31:47.263Z",
-      "summary": "Kitchen 0.4.5 published idle; POS 0.5.3 unchanged; exact-source Foundation 43704276810 11/11, Windows 43704275100 3/3, public feed check 43709114259 success; protocol and record published at 96ce5ee1; own VPS reservation released.",
+      "updatedAt": "2026-11-17T11:32:36.151Z",
+      "summary": "Kitchen 0.4.5 published idle; POS 0.5.3 unchanged; exact-source Foundation 43704276810 11/11, Windows 43704275100 3/3, public feed check 43709114259 success; protocol and record published at 96ce5ee1; own VPS reservation released. 17.11: own completed-task records continued by desktop-kitchen-046-1117 for the explicitly authorized Kitchen 0.4.6 publication; other scopes preserved.",
       "nextAction": "Owner: after download restart Kitchen, confirm 0.4.5 and full-screen button on login page. Integrate documentation through normal review; no further deployment required."
     },
     {
@@ -8041,15 +8040,13 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-build40-1117",
       "scopes": [
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "docs/operations/mobile-testflight40.md",
         "docs/operations/mobile-testflight40"
       ],
       "status": "available",
       "head": "2ce5a4f28bb6033c6a982ffbc75ba1d07d4cbabd",
-      "updatedAt": "2026-11-17T10:12:05.543Z",
-      "summary": "TestFlight 1.0.2 (40) тестируется в PickChick Internal (2) и Testing (11), 13 приглашений, автоуведомление. Бинарный 502743ce, Foundation 44041220661 11/11 до upload. Итоговый 2ce5a4f2, Foundation 44053759228 11/11 с первой попытки. PR397 обычным merge принят в codex/cutover-1119 как 5313849faaca0401f41000bef74a6b7020b2993a; деревья совпадают. Протокол docs/operations/mobile-testflight40.md. App Store, App Review, Google Play и серверы не менялись. Очередь iOS, TestFlight и файл номера сборки освобождены после завершённой доставки и принятия PR397.",
+      "updatedAt": "2026-11-17T11:32:36.160Z",
+      "summary": "TestFlight 1.0.2 (40) тестируется в PickChick Internal (2) и Testing (11), 13 приглашений, автоуведомление. Бинарный 502743ce, Foundation 44041220661 11/11 до upload. Итоговый 2ce5a4f2, Foundation 44053759228 11/11 с первой попытки. PR397 обычным merge принят в codex/cutover-1119 как 5313849faaca0401f41000bef74a6b7020b2993a; деревья совпадают. Протокол docs/operations/mobile-testflight40.md. App Store, App Review, Google Play и серверы не менялись. Очередь iOS, TestFlight и файл номера сборки освобождены после завершённой доставки и принятия PR397. 17.11: own completed-task records continued by desktop-kitchen-046-1117 for the explicitly authorized Kitchen 0.4.6 publication; other scopes preserved.",
       "nextAction": "Владелец проверяет крен, падение и возврат башни к середине на физическом iPhone в 40. Принятие физики отмечать отдельно. Онлайн-пульт не опубликован. Владелец выбрал базой интеграции codex/cutover-1119; shared-development не менялся."
     }
   ],
