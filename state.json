@@ -6510,12 +6510,11 @@
         "apps/kiosk/src/storage.ts",
         "apps/kiosk/src/screens/MenuScreen.tsx",
         ".github/workflows/kiosk-review.yml",
-        "apps/kiosk/src/screens/PaymentOrderScreens.tsx",
-        "apps/kiosk/app.json"
+        "apps/kiosk/src/screens/PaymentOrderScreens.tsx"
       ],
       "status": "available",
       "head": "b10885f15d87cd1e602dd712bfe424a1fa879bcc",
-      "updatedAt": "2026-11-16T10:55:54.901Z",
+      "updatedAt": "2026-11-17T05:04:18.072Z",
       "summary": "PR281: b10885f15d87cd1e602dd712bfe424a1fa879bcc published and clean. Apple review isolated demo with private local code, normal/staff demo preserved. Full Foundation CI40394938861 attempt2 success11/11; kiosk retry after Ubuntu package download timeout, no test weakening. Review isolation40394938953, UI library and photo invariants green. Local287 kiosk +47 release tests; browser review3 sizes/3 locales, normal/staff/QR/recovery checks. Xcode26.6 doctor, native project and existing signing inputs checked. No signed IPA: true private verifier and confirmed restaurant photo HTTPS origin missing. No Apple upload/submission/unlisted request, installs, server changes, flags, migrations or merge. Shared docs remain reserved; online roadmap unchanged. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: @release/ios. Остальные резервы сохранены.",
       "nextAction": "16.11: kiosk24 installed in place from3f04e86c, owner staff-PIN acceptance PASS; PR387/report records facts. Preserve this newer kiosk version and binding. Temporary scope returned. Continue on this exact branch/source after owner enters review-only code privately outside Git and confirms current printer HTTPS origin. Owner already authorized @release/ios only for local kiosk archive/export; no new approval needed for those. Preserve bundle/signature, verify native24 and IPA, record proof privately and public nonsecret evidence in PR/protocol. All upload/submission/unlisted/install/merge steps still require separate owner authorization. Do not finish reservation until merged."
     },
@@ -7995,14 +7994,11 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-build24-1116",
       "scopes": [
-        "docs/operations/kiosk-build24-1116.md",
-        "scripts/mobile/ios_release.py",
-        "tests/mobile/test_ios_kiosk_release.py",
-        "tests/kiosk/photo-release-disabled.test.mjs"
+        "docs/operations/kiosk-build24-1116.md"
       ],
       "status": "available",
       "head": "1bd8273f57998912143aa300d36a8c2b8c2c3934",
-      "updatedAt": "2026-11-16T10:56:00.703Z",
+      "updatedAt": "2026-11-17T05:04:18.072Z",
       "summary": "Kiosk0.1.0(24) from3f04e86c installed over23 and launched10:51UTC. Foundation43842191618 11/11 and UI43842191638 PASS before install.287 kiosk+46 release tests; signed production archive, photo disabled by owner, same Keychain/device profile. Cloud same device/branch,active/issue none. Owner confirmed staff PIN and Kiosk status screen. PR387 and deployment/acceptance protocol published; no stores/orders/payments/binding reset. Borrowed scopes returned, iPad released.",
       "nextAction": "Review and integrate stacked PR387 after PR383 with normal merge and required checks. Installed binary source CI is green; latest commits are reports only. Printing remains deferred and needs a future signed build with a confirmed HTTPS origin. Do not reinstall24 or upload to stores."
     },
@@ -8380,6 +8376,34 @@
       "from": "kiosk-build24-1116",
       "to": "mobile-build38-1116",
       "authorization": "Return owner-approved temporary scope after kiosk24 installation and explicit owner acceptance. Consumer app and stores unchanged."
+    },
+    {
+      "at": "2026-11-17T05:04:18.072Z",
+      "path": "apps/kiosk/app.json",
+      "from": "kiosk-apple-demo",
+      "to": "kiosk-terminal-release-1116",
+      "authorization": "Owner 17.11 explicitly requested next kiosk TestFlight preserving PR387 disabled printing and previous binding. Same-owner handed-off scopes continued for that release."
+    },
+    {
+      "at": "2026-11-17T05:04:18.072Z",
+      "path": "scripts/mobile/ios_release.py",
+      "from": "kiosk-build24-1116",
+      "to": "kiosk-terminal-release-1116",
+      "authorization": "Owner 17.11 explicitly requested next kiosk TestFlight preserving PR387 disabled printing and previous binding. Same-owner handed-off scopes continued for that release."
+    },
+    {
+      "at": "2026-11-17T05:04:18.072Z",
+      "path": "tests/mobile/test_ios_kiosk_release.py",
+      "from": "kiosk-build24-1116",
+      "to": "kiosk-terminal-release-1116",
+      "authorization": "Owner 17.11 explicitly requested next kiosk TestFlight preserving PR387 disabled printing and previous binding. Same-owner handed-off scopes continued for that release."
+    },
+    {
+      "at": "2026-11-17T05:04:18.072Z",
+      "path": "tests/kiosk/photo-release-disabled.test.mjs",
+      "from": "kiosk-build24-1116",
+      "to": "kiosk-terminal-release-1116",
+      "authorization": "Owner 17.11 explicitly requested next kiosk TestFlight preserving PR387 disabled printing and previous binding. Same-owner handed-off scopes continued for that release."
     }
   ]
 }
