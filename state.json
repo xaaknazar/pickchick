@@ -8035,6 +8035,23 @@
       "updatedAt": "2026-11-17T06:35:47.658Z",
       "summary": "Cloud bf325a47 deployed: 079/080/081, temporary kaspi-pos account 7aad151c-a045-4172-a045-15da93081c9d, 70 ACL checks PASS, API/gateway/backoffice healthy. Encrypted 077 and 081 backups restored in isolation; 601-second monitoring PASS; 60 reservations, PIN and device binding preserved. Kiosk 0.1.0(25), source53eaf5dd, Foundation44021717582 11/11 PASS, delivered to PickChick Kiosk Internal(1), Apple build717f1685-4d56-49ca-8cd6-8105ba7957f2 Testing. PR396 includes final evidence and integration378bd10f; 625 Node +97 Python +7 roadmap PASS. All server/Apple/ios resource scopes released, no deployment lock.",
       "nextAction": "Foundation44032050425 for final integration378bd10f still running. Review and merge PR396 into cutover only after green CI, without force. Owner updates iPad25, confirms current cashier link, pairs dedicated terminal and performs payment/kitchen acceptance. Online roadmap not updated; reconcile its current source before separate publication. No repeated cloud deployment or upload needed."
+    },
+    {
+      "id": "mobile-build40-1117",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-build40-1117",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-testflight40.md",
+        "docs/operations/mobile-testflight40",
+        "@release/ios",
+        "@apple/testflight"
+      ],
+      "status": "active",
+      "head": "9e216931d06e3e959215f120fbdf394d67d32f42",
+      "updatedAt": "2026-11-17T07:45:21.006Z"
     }
   ],
   "approvedScopeTransfers": [
