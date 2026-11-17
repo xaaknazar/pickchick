@@ -8058,13 +8058,12 @@
         "docs/operations/desktop-updates-publish-1117.md",
         "docs/operations/desktop-kitchen-046-1117",
         "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "@vps/desktop-updates"
+        "docs/roadmap/project.json"
       ],
       "status": "available",
       "head": "5105379365b8ef04bae3a4e586ae3a84dbd535b2",
-      "updatedAt": "2026-11-17T11:42:30.471Z",
-      "summary": "17.11 DEPLOYED kitchen-0.4.6-pos-0.5.3, idle. Kitchen build233ac764, source package4df05b79; Foundation11/11, Windows Kitchen3/3 and KitchenLAN guards PASS. ZIP, build log, installer and package SHA-256 verified. Dry-run PASS; tmux publish exit0; API/gateway unchanged, POS files byte-identical, lock absent. Desktop update feed check44075880152 PASS on record3ce83322; full installer reads/versions/hashes/no-store/refusals ok=true. Receipt docs/operations/desktop-updates-publish-1117.md. No code, device or store changes.",
+      "updatedAt": "2026-11-17T11:42:34.679Z",
+      "summary": "17.11 DEPLOYED kitchen-0.4.6-pos-0.5.3, idle. Kitchen build233ac764, source package4df05b79; Foundation11/11, Windows Kitchen3/3 and KitchenLAN guards PASS. ZIP, build log, installer and package SHA-256 verified. Dry-run PASS; tmux publish exit0; API/gateway unchanged, POS files byte-identical, lock absent. Desktop update feed check44075880152 PASS on record3ce83322; full installer reads/versions/hashes/no-store/refusals ok=true. Receipt docs/operations/desktop-updates-publish-1117.md. No code, device or store changes. Own @vps/desktop-updates reservation released after verified publication.",
       "nextAction": "Claude updates KitchenLAN on the cashier and enables keys on kitchen/cashier separately. Owner checks Kitchen0.4.6 after normal idle update; physical acceptance not claimed. Receipt branch published as requested, not merged. Old0.4.5 feed retained for guarded withdrawal; do not repeat publish. Online roadmap not published because scope permits only feed changes."
     }
   ],
