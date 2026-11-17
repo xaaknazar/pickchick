@@ -1,0 +1,177 @@
+{
+  "source_sha": "bf325a47fea53519906fe9bc86816698249796de",
+  "foundation": {
+    "id": 43916972979,
+    "html_url": "https://github.com/xaaknazar/pickchick/actions/runs/43916972979",
+    "head_sha": "bf325a47fea53519906fe9bc86816698249796de",
+    "conclusion": "success"
+  },
+  "migrations": [
+    {
+      "checksum": "b094b254bc4a8489b0e5b583b59d3da4c05fb81001382b41b14b3ed0c3bcd719",
+      "scope": "cloud",
+      "version": "079_cloud_kiosk_pairing.sql"
+    },
+    {
+      "checksum": "9819637cb90e8d9ead07a0814c0e5b8f0ee5b2d497ca917ce9bf0c94f0862b89",
+      "scope": "cloud",
+      "version": "080_cloud_kiosk_kaspi_terminal.sql"
+    },
+    {
+      "checksum": "f338c25073154e9b2a798f85721d0f33538f35016f7ad2f8356a4f402519f8f9",
+      "scope": "cloud",
+      "version": "081_cloud_kiosk_branch_settings.sql"
+    }
+  ],
+  "runtime": {
+    "api_compose_sha256": "2bfc26affb3eab6a23d6e342cfb11709fddace59d17eaf8116f84c0854436afc",
+    "api_image": "sha256:6b338110190dc9626aebfffd58c327ad97610c1e9caacb85b1e4dc685b025cae",
+    "caddy_validate": true,
+    "gateway_sha256": "61c284ca999b2f8d8826f214c83cd1d5fd6120b003363183bc6323bfd3f70d61",
+    "public_compose_sha256": "f5237dee772ca7e4a77392448c654415dbefd3e809e65899ffe61086e09774f2",
+    "runtime_changed": false,
+    "source_sha": "bf325a47fea53519906fe9bc86816698249796de",
+    "unchanged_other_web_files": 132,
+    "web_files": 218,
+    "web_manifest_sha256": "419e274bca3305f57216dc66a5340a0faa384cad5fcb148c96734938621160b0"
+  },
+  "smoke": {
+    "account_id": "7aad151c-a045-4172-a045-15da93081c9d",
+    "anonymous_session_closed": true,
+    "config": [
+      {
+        "host": "https://api.pickchick.kz",
+        "status": 200,
+        "terminal": null,
+        "terminal_enabled": true
+      },
+      {
+        "host": "https://pickchick.185.129.51.103.nip.io",
+        "status": 200,
+        "terminal": null,
+        "terminal_enabled": true
+      }
+    ],
+    "kiosk_branch": {
+      "enabled": true,
+      "payment_account": {
+        "enabled": true,
+        "id": "7aad151c-a045-4172-a045-15da93081c9d",
+        "reference": "kiosk-terminal-abay-peak-group-test-1116"
+      },
+      "primary": true,
+      "version": 0
+    },
+    "no_payment_created": true,
+    "permissions": {
+      "all_passed": true,
+      "checks": 70,
+      "function": {
+        "config": ["search_path=pg_catalog, public, pg_temp"],
+        "owner": "postgres",
+        "security_definer": true
+      }
+    },
+    "routes": [
+      {
+        "access_denied": true,
+        "host": "https://api.pickchick.kz",
+        "method": "PUT",
+        "status": 403,
+        "task_expected_status": 401
+      },
+      {
+        "access_denied": true,
+        "host": "https://api.pickchick.kz",
+        "method": "POST",
+        "status": 403,
+        "task_expected_status": 401
+      },
+      {
+        "access_denied": true,
+        "host": "https://pickchick.185.129.51.103.nip.io",
+        "method": "PUT",
+        "status": 403,
+        "task_expected_status": 401
+      },
+      {
+        "access_denied": true,
+        "host": "https://pickchick.185.129.51.103.nip.io",
+        "method": "POST",
+        "status": 403,
+        "task_expected_status": 401
+      }
+    ],
+    "status": "SMOKE_PASSED"
+  },
+  "portal": {
+    "source_sha": "bf325a47fea53519906fe9bc86816698249796de",
+    "previous_sha": "a728cd31855870ab3c792365ba8fbf70d33b083a",
+    "rollback_container": "pickchick-staff-login-backup-bf325a47fea5",
+    "url": "https://pickchick.kz/backoffice/",
+    "healthy": true,
+    "assets_verified": true,
+    "image": "sha256:4a85b190be4c3e27dc9ecb0e9e98571f7f1841ccfe7b48c61bc7ab63c2c753d8",
+    "private_backup_restore": "passed",
+    "unchanged_neighbor_count": 13,
+    "api_database_credentials_ingress_unchanged": true,
+    "existing_services_preserved": true
+  },
+  "monitor": {
+    "containers_unchanged": 26,
+    "first": "2026-11-17T05:57:41.748291+00:00",
+    "last": "2026-11-17T06:07:41.788644+00:00",
+    "orders_preserved": 60,
+    "payment_operations_created": 0,
+    "samples": 21,
+    "seconds": 601,
+    "status": "MONITOR_PASSED"
+  },
+  "operator_sha256": {
+    "base.py": "9ac1c49ebaff6c25af0a5e8523393376f1e6fb0222d3d89ab0afd1dc5b17464b",
+    "staff-guards.py": "8f167a261e45f46ae008443b18521afac4b06593e304067f75013919a549255a",
+    "prepare.py": "1c0f8120af25b3f1f5a122a4d04dd6d638ef913d918eedd819f7b603788330c2",
+    "resume-prepare.py": "ad63ef7a03d7635f5e589449d72397e4a5f4c2fb700d5c0426026d11e5889ae1",
+    "fresh-backup.py": "048ed0248d0e3f66eebd87d90716d33bc0daf54ecd41c7d8bc511fe381845b00",
+    "restore-check.py": "e58733f89ff8f8b44933efb686c0c1bc18a449274b4ab8e138c1c6a407ab3baf",
+    "dbtools.py": "cae307ab4226fec35a40b79b4fa9adc0d7c042a99f88102aca86141b2b14addf",
+    "rehearse.py": "5f95a10b3dd856d5fb13c2909a6375e493e73981692e4899b1e2ce53ed211850",
+    "release.py": "87444571229e2cfa42b898ffe76676e449c5c94cb854092b83a249aab5c033ae",
+    "runtime-only.py": "e46aab17fa00d93876ed570a37b830747f3ef09338a4a49f2839d50494d7dfbc",
+    "runtime-backup.py": "8bb23e3808a69d8c61a53c23c7f746bdff6209c40c880fb7642af7ee63b649d2",
+    "runtime-restore.py": "cb4bf1bb9a5ed8995cfc8cd07cfe294dbf725ed242012fe46eac375adfedef16",
+    "recover-known.py": "f1abc56b4c3844ac4febc1bc11213d0aae731cd07a40878ff5b1db466d391593",
+    "recover-label.py": "d0f685517583f7d1c6320d56efdaa82e1e691487b0c3f52741c7745063da6f67",
+    "smoke.py": "7653e94517df64d393e033ee38c42c30b96098463b8f40dd31529b8efd56424b",
+    "monitor.py": "cb109915413474b057da584c14db2cd7cf12b98cd1b1ad7f0dcad8090943ee1b",
+    "test_release.py": "3d79ba05cf2f6cd7d802ee6ecb7534c235d791a46b7baa7d04924e03ac42810a"
+  },
+  "work": {
+    "active_cloud_kitchen": 0,
+    "edge_active_total": 60,
+    "edge_created_on_or_after_cutoff": 6,
+    "edge_historical_fingerprint": "8145bacad336c843e73b20c522bf971d",
+    "edge_latest_order_created_at": "2026-11-16T14:47:37.798751+00:00",
+    "edge_set_fingerprint": "ea90064388743c0009e8fc791cbf882c",
+    "historical_cutoff": "2026-11-01T00:00:00+05:00",
+    "paid_created_on_or_after_cutoff": 0,
+    "paid_historical_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+    "paid_latest_order_created_at": null,
+    "paid_open_total": 0,
+    "paid_set_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+    "pending_payment_attempts": 0,
+    "pending_refunds": 0,
+    "unsettled_invoices": 0,
+    "unsettled_qr": 0
+  },
+  "existing_binding_and_pin_preserved": true,
+  "native_testflight": {
+    "version": "0.1.0",
+    "build": "25",
+    "build_id": "717f1685-4d56-49ca-8cd6-8105ba7957f2",
+    "state": "testing",
+    "group": "PickChick Kiosk Internal",
+    "testers": 1,
+    "source": "53eaf5dd51abf89cfd0c1af8e6460289d6b0a287"
+  }
+}

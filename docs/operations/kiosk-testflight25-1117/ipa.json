@@ -1,0 +1,15 @@
+{
+  "ipa": "/Users/xaknazar/Library/Caches/PickChick/releases/kiosk-terminal-20261117-25/export/PickChickKiosk.ipa",
+  "bytes": 70755095,
+  "sha256": "ca14ad23503f07ac8abe1dc75194401f25ddadd25c30ba63d8ca6808a8dca44f",
+  "version": "0.1.0",
+  "build": "25",
+  "bundle": "kz.pickchick.kiosk",
+  "extensions": 0,
+  "local_network_permission": true,
+  "source": "53eaf5dd51abf89cfd0c1af8e6460289d6b0a287",
+  "featureProfile": "kiosk-production",
+  "apiUrl": "https://api.pickchick.kz",
+  "commercial": "1",
+  "photoDisabled": true
+}

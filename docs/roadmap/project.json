@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-16",
+  "updatedAt": "2026-11-17",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -77,7 +77,9 @@
     "docs/operations/cabinet-entry.md",
     "docs/operations/mobile-combo-rewards.md",
     "docs/operations/mobile-l10n-push-2026-10-14.md",
-    "docs/operations/server-window-1105/README.md"
+    "docs/operations/server-window-1105/README.md",
+    "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md",
+    "docs/operations/kiosk-testflight25-1117.md"
   ],
   "workstreams": [
     {
@@ -2082,8 +2084,8 @@
       "id": "kiosk-terminal",
       "workstream": "kiosk",
       "title": "Связать киоск с выделенным терминалом",
-      "summary": "Совместимость выбранного устройства/SDK с iPadOS и схема суммы/заказа требуют подтверждения банка. Статический QR не заменяет это.",
-      "status": "blocked",
+      "summary": "ADR-0018/0019 реализованы и проверены в CI. 17.11 облако bf325a47: миграции 079/080/081, 70 проверок прав, отдельный тестовый аккаунт и маршруты на двух доменах. Привязка iPad и заказы сохранены. Физическая оплата и доставка на кухню владельцем ещё не приняты. Киоск 0.1.0 (25) из 53eaf5dd доступен внутренней группе TestFlight, Foundation 11/11 PASS.",
+      "status": "active",
       "owner": "joint",
       "phase": "integration",
       "dependsOn": ["payments-provider-approval", "kiosk-client"],
@@ -2095,19 +2097,27 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Протокол облачного выпуска 17.11",
+          "path": "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md"
+        },
+        {
+          "label": "Нативный TestFlight 25 и границы приёмки",
+          "path": "docs/operations/kiosk-testflight25-1117.md"
         }
       ],
       "acceptance": [
         "AC-22: терминал занят одним заказом, сумма и результат не переходят другому клиенту."
       ],
-      "nextAction": "Получить одобренную схему ресторанного киоска и реализовать адаптер.",
+      "nextAction": "Установить внутреннюю сборку киоска 25, подтвердить свежую связь кассы, привязать выделенный Smart POS и владельцу проверить оплату и появление заказа на кухне.",
       "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       },
-      "customerInput": "Модель терминала, ответ банка о поддержке киоска/iPadOS и тестовый доступ."
+      "customerInput": "Владелец подключает терминал и проводит контрольную оплату сам; реальные списания агент не выполняет."
     },
     {
       "id": "kiosk-privacy",
