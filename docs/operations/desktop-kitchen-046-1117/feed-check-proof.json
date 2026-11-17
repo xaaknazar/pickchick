@@ -1,0 +1,13 @@
+{
+  "runId": 44075880152,
+  "url": "https://github.com/xaaknazar/pickchick/actions/runs/44075880152",
+  "head": "3ce8332282dfcb45591f9ec111bd9b89a0a6de08",
+  "conclusion": "success",
+  "jobId": 134013637590,
+  "release": "kitchen-0.4.6-pos-0.5.3",
+  "fullInstallersRead": true,
+  "versionsSizesHashesMatch": true,
+  "manifestsNoStore": true,
+  "refusalsVerified": true,
+  "ok": true
+}

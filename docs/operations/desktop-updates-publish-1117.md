@@ -42,7 +42,7 @@ DEPLOYED: `kitchen-0.4.6-pos-0.5.3`, режим `idle` у обеих прогр�
   SHA-256 `56ebe751915275e744b25ca2daf9ef4a1ead0ffa770c24c937c19d78682f0aa1`;
   `latest.json` 209 байт, SHA-256
   `2b1795289e86a2d0aadb27797aaedaf9a101e10fb0d309cf6f1d117735de734b`.
-- Локальная проверка клиента каталога: 3/3 PASS.
+- Локальная проверка клиента каталога: 3/3 PASS, roadmap: 7/7 PASS.
   [CI и артефакты](desktop-kitchen-046-1117/build-proof.json),
   [inspect до](desktop-kitchen-046-1117/inspect-before.json),
   [inspect после](desktop-kitchen-046-1117/inspect-after.json),
@@ -69,7 +69,11 @@ DEPLOYED: `kitchen-0.4.6-pos-0.5.3`, режим `idle` у обеих прогр�
 
 ## Дальше
 
-- Desktop update feed check запускается отправкой записи выпуска; результат будет добавлен сюда.
+- [Desktop update feed check 44075880152](https://github.com/xaaknazar/pickchick/actions/runs/44075880152)
+  прошла на коммите записи `3ce8332282dfcb45591f9ec111bd9b89a0a6de08`.
+  GitHub целиком прочитал оба установщика частями: размеры, версии и SHA-256 совпали,
+  `latest.json` отвечает с `no-store`, запрещённые адреса отклонены, `ok=true`.
+  [Подтверждение внешней проверки](desktop-kitchen-046-1117/feed-check-proof.json).
 - После обычного обновления проверить 0.4.6 в заголовке кухни. Ключ KitchenLAN и
   пять файлов на кассовом моноблоке устанавливает Claude; это не часть публикации каталога.
 - Подтверждения установки 0.4.6 на физическом моноблоке пока нет.
