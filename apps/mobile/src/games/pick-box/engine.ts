@@ -19,6 +19,11 @@ export const INITIAL_LIVES = 3;
  *    counts in full for the first two boxes above it and then fades (`BEDDING`), so a
  *    crooked box stops mattering after five or six straight ones. The fade is steep
  *    enough that a straight box never makes the balance worse.
+ *  - Drift. Bedding in forgives one crooked box, not a tower that keeps creeping to one
+ *    side (owner, 17 November 2026: a tower that had walked a box and a half sideways
+ *    still stood). The whole weight above every box, however old the joint, must stay
+ *    over that box: past `COLUMN_FREE` of its half-width the column starts to lean on
+ *    it, and just past its edge (`COLUMN_LIMIT`) everything above tips off.
  *  - Lean. The column leans towards the heavy side, in proportion to the balance.
  *  - Sway. The column is a damped spring. A landing pushes it towards the side the box
  *    landed on, harder the further off centre it lands; it swings there first, then
@@ -30,12 +35,27 @@ export const INITIAL_LIVES = 3;
  *  - Shape. The whole column bends from its base and every box tilts with the bend, so
  *    boxes never slide across each other.
  *  - Collapse. When the overhang reaches the edge (balance 1) the boxes above the
- *    overloaded one tip off towards the lean; the base stays standing.
+ *    overloaded one tip off towards the lean; the boxes under it stay standing.
  */
 /** How much a joint still counts with 1, 2, 3... boxes above it. */
 export const BEDDING = [1, 1, 0.85, 0.72, 0.58, 0.4, 0.2] as const;
 /** Share of half a box the weight above may overhang before the top tips off. */
 export const SAFE_OVERHANG = 0.85;
+/**
+ * Share of half a box the whole weight above a box may sit off its middle for free: as far
+ * as one box can hang and still rest, so a single crooked box is forgotten as before.
+ */
+export const COLUMN_FREE = 0.76;
+/**
+ * Share of half a box at which the weight above tips off. A real stack goes at 1, the edge;
+ * the tenth on top is the game's margin, and it lets the tower fall just as its top
+ * reaches the edge of the screen.
+ */
+export const COLUMN_LIMIT = 1.1;
+/** Share of the way from free to falling at which the player is told to stack back. */
+export const LEAN_WARNING = 0.15;
+/** Boxes that visibly tip off in a collapse; the camera never shows more of the tower. */
+const TOPPLE_MAX = 12;
 /** Danger (0..1) from which the tower can no longer settle on its own. */
 export const SWAY_FROM = 0.4;
 /** The column's deflection grows with height to this power: between rocking and bending. */
@@ -87,6 +107,8 @@ export type Snapshot = {
   reason: 'lives' | 'collapse' | null;
   canDrop: boolean;
   swaying: boolean;
+  /** Side the tower has crept to and now leans on: stack back the other way. */
+  leaning: -1 | 0 | 1;
 };
 
 export const PEAK_THRESHOLDS = ASCENT_STEPS;
@@ -113,6 +135,16 @@ export class PickBoxEngine {
    */
   balance = 0;
   private balanceBreak = 0;
+  /**
+   * Worst overhang of a whole column of boxes over an old joint, 0 while it is within
+   * `COLUMN_FREE` and 1 at `COLUMN_LIMIT`, where it falls. Signed like `balance`.
+   */
+  drift = 0;
+  /**
+   * Midway between the leftmost and rightmost box of the tower: boxes stacked here hang
+   * least over either of them, so this is where a crept tower has to come back to.
+   */
+  private home = WORLD_WIDTH / 2;
   /** Top of the tower relative to rest, in world units: steady lean plus spring swing. */
   private leanNow = 0;
   private swingX = 0;
@@ -350,6 +382,22 @@ export class PickBoxEngine {
     return this.danger > SWAY_FROM && this.mast().flex > 0;
   }
 
+  /**
+   * The tower has crept to one side (1 right, -1 left): its weight is close to the edge of
+   * a box further down and its top is still out on that side. Stacking straight does not
+   * cure this; boxes must go back the other way until the top is over the tower's middle.
+   */
+  get leaning(): -1 | 0 | 1 {
+    if (Math.abs(this.drift) < LEAN_WARNING || this.mast().flex === 0) return 0;
+    // Fresh crooked boxes on top are the more urgent warning while they rock the tower.
+    if (this.drift !== this.balance && this.swaying) return 0;
+    const top = this.tower().at(-1)?.rest;
+    const out = top ? top.x - this.home : 0;
+    // Back over the middle, straight boxes are what brings the weight home.
+    if (Math.abs(out) <= BOX_WIDTH / 16 || out * this.drift <= 0) return 0;
+    return out > 0 ? 1 : -1;
+  }
+
   /** How far the top is from rest right now, and how wide it is swinging. */
   get sway() {
     return this.leanNow + this.swingX;
@@ -467,7 +515,7 @@ export class PickBoxEngine {
     box.rest = { x, y: body.position.y, angle: top?.rest?.angle ?? 0 };
     box.sway = top?.sway ?? 0;
     Body.setStatic(body, true);
-    const wasSwaying = this.swaying;
+    const wasWarned = this.swaying || this.leaning !== 0;
     const unrest = Math.min(1, Math.abs(this.balance));
     const { flex, omega } = this.mast();
     if (perfect) {
@@ -481,30 +529,43 @@ export class PickBoxEngine {
       this.swingV +=
         omega * (offset / (BOX_WIDTH / 2)) * LANDING_PUSH * flex ** 0.7 * (1 + 0.5 * unrest);
     this.measureBalance();
-    if (!wasSwaying && this.swaying) this.emit('wobble', body.position.x, body.bounds.min.y);
+    if (!wasWarned && (this.swaying || this.leaning !== 0))
+      this.emit('wobble', body.position.x, body.bounds.min.y);
   }
 
   /** Like a real stack: the boxes above each box must keep their weight over it. */
   private measureBalance() {
     const tower = this.tower();
+    const half = BOX_WIDTH / 2;
     this.balance = 0;
     this.balanceBreak = 0;
-    for (let above = 1; above <= BEDDING.length && above < tower.length; above++) {
+    this.drift = 0;
+    let weight = 0;
+    for (let above = 1; above < tower.length; above++) {
       const index = tower.length - 1 - above;
-      let centre = 0;
-      for (let i = index + 1; i < tower.length; i++) centre += tower[i]!.rest!.x;
-      const overhang = centre / above - tower[index]!.rest!.x;
-      const share = (overhang / ((BOX_WIDTH / 2) * SAFE_OVERHANG)) * BEDDING[above - 1]!;
+      weight += tower[index + 1]!.rest!.x;
+      const overhang = weight / above - tower[index]!.rest!.x;
+      // A fresh joint: counts in full at first and fades as it beds in.
+      const fresh = (overhang / (half * SAFE_OVERHANG)) * (BEDDING[above - 1] ?? 0);
+      // Any joint, however old: the whole weight above it has crept towards its edge.
+      const over = Math.abs(overhang) / half - COLUMN_FREE;
+      const column = over > 0 ? (Math.sign(overhang) * over) / (COLUMN_LIMIT - COLUMN_FREE) : 0;
+      if (Math.abs(column) > Math.abs(this.drift)) this.drift = column;
+      const share = Math.abs(column) > Math.abs(fresh) ? column : fresh;
       if (Math.abs(share) > Math.abs(this.balance)) {
         this.balance = share;
         this.balanceBreak = above;
       }
     }
+    const xs = tower.map((box) => box.rest!.x);
+    this.home = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : WORLD_WIDTH / 2;
   }
 
   /** The boxes above the overloaded one tip off towards the lean; the rest stays standing. */
   private topple(direction: number, reach: number) {
     const tower = this.tower();
+    // Deep under the camera nothing is seen; only the visible top is set loose.
+    reach = Math.min(reach, TOPPLE_MAX);
     tower.forEach((box, index) => {
       const depth = tower.length - 1 - index;
       if (depth >= reach) return;
@@ -615,6 +676,7 @@ export class PickBoxEngine {
       reason: this.reason,
       canDrop: this.canDrop,
       swaying: this.swaying,
+      leaning: this.leaning,
     };
   }
 
