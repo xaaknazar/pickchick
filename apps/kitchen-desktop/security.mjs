@@ -53,6 +53,7 @@ export function validateConfig(value) {
           'branchLabel',
           'edgeHost',
           'edgeCertificatePem',
+          'lanKey',
           'terminalId',
           'terminalMode',
         ].includes(key),

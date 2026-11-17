@@ -37,7 +37,7 @@ Assert-True ($update['Test-LanIPv4'] -ceq $installer['Test-LanIPv4']) 'Test-LanI
 Assert-True ($update['Assert-LanAcl'] -ceq $installer['Assert-LanAcl']) 'Assert-LanAcl is the installer one'
 foreach ($text in $kitchen.Values) { . ([scriptblock]::Create($text)) }
 foreach ($name in @('New-PosPrinter', 'New-PosClientConfig')) { . ([scriptblock]::Create($pos[$name])) }
-foreach ($name in @('Read-LanClients', 'ConvertTo-LanJsonString', 'New-LanGatewayConfig', 'Get-LanProfileCounts')) { . ([scriptblock]::Create($update[$name])) }
+foreach ($name in @('Read-LanClients', 'ConvertTo-LanJsonString', 'Test-LanKeyClients', 'New-LanGatewayConfig', 'Get-LanProfileCounts')) { . ([scriptblock]::Create($update[$name])) }
 
 $utf8 = [Text.UTF8Encoding]::new($false)
 $out = $env:LAN_TEST_OUT
@@ -106,6 +106,13 @@ Assert-Throws { Test-LanClientProfile $hostAddress $ports.display $sha 'kitchen'
 Assert-Throws { Test-LanClientProfile $hostAddress $ports.unlisted $sha 'kitchen' '127.0.0.1' 3 } 'LAN_CLIENT_NOT_LISTED' 'an unlisted IP'
 Assert-Throws { Invoke-LanProbe $hostAddress $ports.kitchen $other.Sha256 '/healthz' '127.0.0.1' } 'LAN_PROBE_CERTIFICATE_MISMATCH' 'another certificate pin'
 Assert-Throws { Invoke-LanProbe $hostAddress $ports.closed $sha '/healthz' '127.0.0.1' 2000 } 'LAN_PROBE_UNREACHABLE' 'nothing listens'
+# 17.11.2026: a monoblock known by its key, from an address the server does not list.
+$lanKey = $env:LAN_TEST_KEY
+$kk = Test-LanClientProfile $hostAddress $ports.keyed $sha 'kitchen' '127.0.0.1' 3 $lanKey
+Assert-True ($kk.Health -eq 200 -and $kk.Reached -eq 401 -and $kk.Blocked -eq 404) 'kitchen profile by key'
+Assert-Throws { Test-LanClientProfile $hostAddress $ports.keyed $sha 'kitchen' '127.0.0.1' 3 } 'LAN_CLIENT_NOT_LISTED' 'the same address without the key'
+Assert-Throws { Test-LanClientProfile $hostAddress $ports.keyed $sha 'kitchen' '127.0.0.1' 3 ('A' * 43) } 'LAN_CLIENT_NOT_LISTED' 'another key'
+Assert-Throws { Invoke-LanProbe $hostAddress $ports.keyed $sha '/healthz' '127.0.0.1' 2000 'short' } 'LAN_KEY_INVALID' 'a malformed key is never sent'
 
 # ---- Client list of the gateway ----
 $bind = '10.20.0.1'
@@ -137,7 +144,21 @@ foreach ($bad in @(
   Assert-Throws { Read-LanClients $utf8.GetBytes($bad) $bind } 'LAN_CLIENTS' "clients file $bad"
 }
 
-# ---- Gateway config text (the Node test runs the gateway --check on both files) ----
+$keySha = 'ab' * 32
+$keyed = @(Read-LanClients $utf8.GetBytes('[{"keySha256":"' + $keySha + '","profile":"kitchen","label":"Kitchen"},{"address":"10.20.0.21","profile":"pos"}]') $bind)
+Assert-True ($keyed.Count -eq 2 -and $keyed[0].keySha256 -ceq $keySha -and -not $keyed[0].Contains('address') -and $keyed[0].label -ceq 'Kitchen') 'a key client is read'
+Assert-True ((Test-LanKeyClients $keyed) -and -not (Test-LanKeyClients $list)) 'a key client makes the list a key list'
+Assert-Throws { Read-LanClients $utf8.GetBytes('[{"keySha256":"' + $keySha + '","profile":"kitchen"}]') $bind -Legacy } 'LAN_CLIENTS_LEGACY_NO_KEYS' 'legacy has no key clients'
+foreach ($bad in @(
+    ('[{"keySha256":"' + $keySha.ToUpperInvariant() + '","profile":"kitchen"}]'),
+    ('[{"keySha256":"' + $keySha.Substring(1) + '","profile":"kitchen"}]'),
+    ('[{"keySha256":"' + $keySha + '","address":"10.20.0.11","profile":"kitchen"}]'),
+    '[{"profile":"kitchen"}]', '[{"keySha256":1,"profile":"kitchen"}]',
+    ('[{"keySha256":"' + $keySha + '","profile":"kitchen"},{"keySha256":"' + $keySha + '","profile":"pos"}]'))) {
+  Assert-Throws { Read-LanClients $utf8.GetBytes($bad) $bind } 'LAN_CLIENTS_INVALID' "key clients file $bad"
+}
+
+# ---- Gateway config text (the Node test runs the gateway --check on these files) ----
 foreach ($text in @('plain', 'quote " and \ back', ("tab`tnew`n"), $label, ([string][char]0xD83C + [char]0xDF57))) {
   Assert-True ((ConvertFrom-Json -InputObject ('{"v":' + (ConvertTo-LanJsonString $text) + '}')).v -ceq $text) "JSON string round trip"
 }
@@ -152,6 +173,12 @@ $legacy = New-LanGatewayConfig $current $single -Legacy
 $parsed = ConvertFrom-Json -InputObject $legacy
 Assert-True ((@($parsed.PSObject.Properties.Name) -join ',') -ceq 'bindAddress,port,clientAddresses,edgePort,pfxPath,passphrase' -and @($parsed.clientAddresses).Count -eq 1) 'legacy gateway config'
 [IO.File]::WriteAllText((Join-Path $out 'gateway-legacy.json'), $legacy, $utf8)
+$keyedConfig = New-LanGatewayConfig $current $keyed
+$parsed = ConvertFrom-Json -InputObject $keyedConfig
+Assert-True ((@($parsed.PSObject.Properties.Name) -join ',') -ceq 'bindAddress,port,anyAddress,clients,maxConnections,edgePort,pfxPath,passphrase' -and $parsed.anyAddress -eq $true) 'a key client: the gateway listens on every address'
+Assert-True ($parsed.clients[0].keySha256 -ceq $keySha -and (@($parsed.clients[0].PSObject.Properties.Name) -join ',') -ceq 'keySha256,profile,label' -and $parsed.clients[1].address -ceq '10.20.0.21') 'the key client entry'
+[IO.File]::WriteAllText((Join-Path $out 'gateway-keys.json'), $keyedConfig, $utf8)
+Assert-True ((New-LanGatewayConfig $parsed $list) -cnotmatch 'anyAddress') 'addresses only again: bound to one address'
 $withExtra = ConvertFrom-Json -InputObject '{"bindAddress":"10.20.0.1","port":3443,"edgePort":3101,"pfxPath":"x","passphrase":"0123456789abcdef0123456789abcdef","owner":1}'
 Assert-Throws { New-LanGatewayConfig $withExtra $list } 'LAN_CONFIG_INVALID' 'unknown key in the installed config'
 $short = ConvertFrom-Json -InputObject '{"bindAddress":"10.20.0.1","port":3443,"edgePort":3101,"pfxPath":"x","passphrase":"short"}'
@@ -178,6 +205,21 @@ Assert-Throws { New-KitchenClientConfig $paired $publicRead 'staff' ([guid]$id) 
 Assert-Throws { New-KitchenClientConfig $null $publicRead 'staff' ([guid]::Empty) } 'KITCHEN_TERMINAL_REQUIRED' 'staff without terminal'
 Assert-Throws { New-KitchenClientConfig $null $publicRead 'prep' ([guid]$id) } 'KITCHEN_TERMINAL_UNUSED' 'paired with terminal'
 Assert-Throws { New-KitchenClientConfig (ConvertFrom-Json -InputObject '{"proxy":"x"}') $publicRead 'prep' ([guid]::Empty) } 'KITCHEN_CONFIG_INVALID' 'unknown key'
+$withKey = New-KitchenClientConfig $staffExisting $publicRead 'staff' ([guid]::Empty) -DeviceKey $lanKey
+Assert-True ($withKey.lanKey -ceq $lanKey -and $withKey.terminalId -ceq $id) 'the LAN key goes into the config'
+Save 'kitchen-key.json' $withKey
+$keyExisting = ConvertFrom-Json -InputObject ($withKey | ConvertTo-Json -Depth 5 -Compress)
+Assert-True (-not (New-KitchenClientConfig $keyExisting $publicRead 'staff' ([guid]::Empty)).Contains('lanKey')) 'a run without -LanKey removes the key'
+Assert-True ((New-KitchenClientConfig $keyExisting $publicRead 'staff' ([guid]::Empty) -DeviceKey $lanKey).lanKey -ceq $lanKey) 'a run with -LanKey keeps it'
+Assert-Throws { New-KitchenClientConfig $null $publicRead 'prep' ([guid]::Empty) -DeviceKey 'short' } 'KITCHEN_CONFIG_INVALID' 'a malformed key'
+$keyFile = Join-Path $out 'lan-key.json'
+Assert-Throws { Get-KitchenLanKey $keyFile } 'KITCHEN_LAN_KEY_MISSING' 'no key before -ShowLanKey'
+$made = Get-KitchenLanKey $keyFile -Create
+Assert-True ($made -cmatch '\A[A-Za-z0-9_-]{43}\z') 'a new key is 43 base64url characters'
+Assert-True ((Get-KitchenLanKey $keyFile -Create) -ceq $made -and (Get-KitchenLanKey $keyFile) -ceq $made) 'the key is made once and kept'
+[IO.File]::WriteAllText((Join-Path $out 'lan-key-sha.txt'), (Get-KitchenLanKeySha256 $made), $utf8)
+[IO.File]::WriteAllText((Join-Path $out 'bad-key.json'), '{"lanKey":"short"}', $utf8)
+Assert-Throws { Get-KitchenLanKey (Join-Path $out 'bad-key.json') } 'KITCHEN_LAN_KEY_INVALID' 'a damaged key file'
 
 # ---- POS client config (the Node test validates every file with pos-desktop) ----
 $posExisting = ConvertFrom-Json -InputObject ('{"edgePort":3101,"branchLabel":"' + $label + '","categories":{"' + $otherId + '":"Combo"},"terminalId":"' + $id + '","pinLength":4,"printer":{"mode":"windows-driver","deviceName":"Old queue"}}')

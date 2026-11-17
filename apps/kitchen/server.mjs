@@ -1,8 +1,10 @@
 import { terminalCookies, validTerminalCredential } from './terminal-cookie.mjs';
-import { createServer } from 'node:http';
+import { createServer, request as requestHttp } from 'node:http';
 import { request as requestHttps } from 'node:https';
 import { X509Certificate } from 'node:crypto';
 import { isIP } from 'node:net';
+import { networkInterfaces } from 'node:os';
+import { connect as connectTls } from 'node:tls';
 import { Readable } from 'node:stream';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -49,13 +51,23 @@ export function allowed(method, raw) {
   }
   return true;
 }
+/** Header and format of the monoblock's own LAN key (infra/windows/kitchen-lan-gateway.mjs). */
+export const LAN_KEY_HEADER = 'x-pickchick-lan-key';
+const LAN_KEY = /^[A-Za-z0-9_-]{43}$/;
+function privateIPv4(value) {
+  if (typeof value !== 'string' || isIP(value) !== 4) return false;
+  const [a, b] = value.split('.').map(Number);
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
 // Operator-owned trust configuration. It is never sent to the renderer.
-export function validateUpstream({ edgeHost, edgeCertificatePem } = {}) {
-  if (edgeHost === undefined && edgeCertificatePem === undefined) return {};
+// Without lanKey the certificate must name edgeHost (native IP SAN check, as before). With
+// lanKey (17.11.2026) the server may get another IPv4 from the router: the certificate is then
+// pinned by its SHA-256 and edgeHost is only the first address to try (createLanLink).
+export function validateUpstream({ edgeHost, edgeCertificatePem, lanKey } = {}) {
+  if (edgeHost === undefined && edgeCertificatePem === undefined && lanKey === undefined) return {};
   try {
-    if (typeof edgeHost !== 'string' || isIP(edgeHost) !== 4) throw new Error();
-    const [a, b] = edgeHost.split('.').map(Number);
-    if (!(a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)))
+    if (!privateIPv4(edgeHost)) throw new Error();
+    if (lanKey !== undefined && (typeof lanKey !== 'string' || !LAN_KEY.test(lanKey)))
       throw new Error();
     if (typeof edgeCertificatePem !== 'string' || edgeCertificatePem.length > 16384)
       throw new Error();
@@ -68,16 +80,42 @@ export function validateUpstream({ edgeHost, edgeCertificatePem } = {}) {
       throw new Error();
     const certificate = new X509Certificate(pem);
     if (
-      certificate.checkIP(edgeHost) !== edgeHost ||
+      (lanKey === undefined && certificate.checkIP(edgeHost) !== edgeHost) ||
       Date.parse(certificate.validFrom) > Date.now() ||
       Date.parse(certificate.validTo) <= Date.now()
     )
       throw new Error();
-    return { edgeHost, edgeCertificatePem: pem + '\n' };
+    return {
+      edgeHost,
+      edgeCertificatePem: pem + '\n',
+      ...(lanKey === undefined ? {} : { lanKey }),
+    };
   } catch {
     throw new Error('INVALID_KITCHEN_CONFIG');
   }
 }
+/** The upstream answer as a Response; redirects are refused. */
+const receive = (resolve, reject) => (response) => {
+  const status = response.statusCode ?? 502;
+  if (status >= 300 && status < 400) {
+    response.resume();
+    reject(new Error('UPSTREAM_REDIRECT'));
+    return;
+  }
+  try {
+    const headers = new globalThis.Headers();
+    for (const key of ['content-type', 'content-length', 'retry-after']) {
+      const value = response.headers[key];
+      if (typeof value === 'string') headers.set(key, value);
+    }
+    const noBody = status === 204 || status === 205;
+    if (noBody) response.resume();
+    resolve(new Response(noBody ? null : Readable.toWeb(response), { status, headers }));
+  } catch (error) {
+    response.destroy();
+    reject(error);
+  }
+};
 function secureRequest(config, path, options) {
   return new Promise((resolve, reject) => {
     // Explicit CA replaces system/public roots. Native TLS checks the IP SAN;
@@ -95,31 +133,182 @@ function secureRequest(config, path, options) {
         agent: false,
         signal: options.signal,
       },
-      (response) => {
-        const status = response.statusCode ?? 502;
-        if (status >= 300 && status < 400) {
-          response.resume();
-          reject(new Error('UPSTREAM_REDIRECT'));
-          return;
-        }
-        try {
-          const headers = new globalThis.Headers();
-          for (const key of ['content-type', 'content-length', 'retry-after']) {
-            const value = response.headers[key];
-            if (typeof value === 'string') headers.set(key, value);
-          }
-          const noBody = status === 204 || status === 205;
-          if (noBody) response.resume();
-          resolve(new Response(noBody ? null : Readable.toWeb(response), { status, headers }));
-        } catch (error) {
-          response.destroy();
-          reject(error);
-        }
-      },
+      receive(resolve, reject),
     );
     upstream.once('error', reject);
     upstream.end(options.body);
   });
+}
+const ipv4Number = (address) =>
+  address.split('.').reduce((value, part) => value * 256 + Number(part), 0);
+const ipv4Text = (value) =>
+  [Math.floor(value / 16777216), Math.floor(value / 65536) % 256, Math.floor(value / 256) % 256]
+    .concat(value % 256)
+    .join('.');
+/**
+ * Where to look for a server that is no longer at `preferred`: every address of this
+ * monoblock's private IPv4 subnets (at most the /22 around it), without its own addresses,
+ * nearest to `preferred` first (a router hands out neighbouring addresses).
+ */
+export function lanCandidates(preferred, interfaces, limit = 1024) {
+  const origin = ipv4Number(preferred);
+  const own = new Set();
+  const found = new Set();
+  for (const entries of Object.values(interfaces ?? {}))
+    for (const entry of entries ?? []) {
+      if (!entry || entry.internal || !['IPv4', 4].includes(entry.family)) continue;
+      if (!privateIPv4(entry.address)) continue;
+      const prefix = Number(String(entry.cidr ?? '').split('/')[1]);
+      if (!Number.isInteger(prefix) || prefix < 8 || prefix > 30) continue;
+      const address = ipv4Number(entry.address);
+      own.add(address);
+      const size = 2 ** (32 - Math.max(prefix, 22));
+      const network = address - (address % size);
+      for (let value = network + 1; value < network + size - 1; value++) found.add(value);
+    }
+  return [...found]
+    .filter((value) => value !== origin && !own.has(value))
+    .sort((a, b) => Math.abs(a - origin) - Math.abs(b - origin) || a - b)
+    .slice(0, limit)
+    .map(ipv4Text);
+}
+/**
+ * The server for a config with lanKey. Every connection must show the pinned certificate
+ * (SHA-256 of the configured PEM) before any request byte, the key included, is sent. When the
+ * current address does not answer so, one search of the local subnet runs at a time (all
+ * waiting requests share it, a failed search is not repeated for `retryAfterMs`) and a found
+ * address becomes the current one. Nothing is written to disk: a restart tries edgeHost first.
+ */
+export function createLanLink(
+  config,
+  {
+    interfaces = networkInterfaces,
+    route = (host) => ({ host, port: config.edgePort }),
+    connectTimeoutMs = 3000,
+    probeTimeoutMs = 1000,
+    concurrency = 128,
+    retryAfterMs = 30000,
+  } = {},
+) {
+  const pin = new X509Certificate(config.edgeCertificatePem).fingerprint256;
+  let current = config.edgeHost;
+  let search = null;
+  let failedAt = -Infinity;
+  const dial = (host, timeoutMs, signal) =>
+    new Promise((resolve, reject) => {
+      const target = route(host);
+      let settled = false;
+      const socket = connectTls({
+        host: target.host,
+        port: target.port,
+        ca: config.edgeCertificatePem,
+        rejectUnauthorized: true,
+        minVersion: 'TLSv1.2',
+        checkServerIdentity: (_name, certificate) =>
+          certificate?.fingerprint256 === pin ? undefined : new Error('LAN_CERTIFICATE_MISMATCH'),
+      });
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', aborted);
+        if (!error) {
+          resolve(socket);
+          return;
+        }
+        socket.destroy();
+        reject(error);
+      };
+      const aborted = () => finish(signal.reason ?? new Error('LAN_ABORTED'));
+      const timer = setTimeout(() => finish(new Error('LAN_CONNECT_TIMEOUT')), timeoutMs);
+      // Stays attached: a later socket error also reaches the HTTP request, never the process.
+      socket.on('error', finish);
+      socket.once('secureConnect', () => finish());
+      if (signal?.aborted) aborted();
+      else signal?.addEventListener('abort', aborted, { once: true });
+    });
+  const scan = async () => {
+    const list = lanCandidates(current, interfaces());
+    const stop = new AbortController();
+    let next = 0;
+    let found = null;
+    const worker = async () => {
+      while (!found && next < list.length) {
+        const host = list[next++];
+        try {
+          (await dial(host, probeTimeoutMs, stop.signal)).destroy();
+          if (!found) {
+            found = host;
+            stop.abort();
+          }
+        } catch {
+          // Nothing listens there, or another certificate: not this server.
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, list.length) }, worker));
+    return found;
+  };
+  const find = (signal) => {
+    if (!search) {
+      if (Date.now() - failedAt < retryAfterMs) return Promise.resolve(null);
+      search = scan()
+        .catch(() => null)
+        .then((found) => {
+          if (found) current = found;
+          else failedAt = Date.now();
+          return found;
+        })
+        .finally(() => {
+          search = null;
+        });
+    }
+    // A request that gives up does not stop the search; the next request uses its result.
+    const shared = search;
+    return new Promise((resolve, reject) => {
+      const aborted = () => reject(signal.reason ?? new Error('LAN_ABORTED'));
+      if (signal?.aborted) {
+        aborted();
+        return;
+      }
+      signal?.addEventListener('abort', aborted, { once: true });
+      shared.then(resolve, reject).finally(() => signal?.removeEventListener('abort', aborted));
+    });
+  };
+  return {
+    get host() {
+      return current;
+    },
+    async request(path, options) {
+      let host = current;
+      let socket;
+      try {
+        socket = await dial(host, connectTimeoutMs, options.signal);
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        const found = await find(options.signal);
+        if (!found) throw error;
+        host = found;
+        socket = await dial(host, connectTimeoutMs, options.signal);
+      }
+      return new Promise((resolve, reject) => {
+        const upstream = requestHttp(
+          {
+            host,
+            port: config.edgePort,
+            path,
+            method: options.method,
+            headers: { ...options.headers, [LAN_KEY_HEADER]: config.lanKey },
+            createConnection: () => socket,
+            signal: options.signal,
+          },
+          receive(resolve, reject),
+        );
+        upstream.once('error', reject);
+        upstream.end(options.body);
+      });
+    },
+  };
 }
 const security = {
   'Cache-Control': 'no-store',
@@ -167,12 +356,15 @@ export function createKitchenServer({
   timeoutMs = 10000,
   edgeHost,
   edgeCertificatePem,
+  lanKey,
+  lanSearch,
   terminalId,
   terminalAccess,
 } = {}) {
   if (!Number.isInteger(edgePort) || edgePort < 1 || edgePort > 65535)
     throw new Error('Invalid edge port');
-  const upstream = { edgePort, ...validateUpstream({ edgeHost, edgeCertificatePem }) };
+  const upstream = { edgePort, ...validateUpstream({ edgeHost, edgeCertificatePem, lanKey }) };
+  const link = upstream.lanKey ? createLanLink(upstream, lanSearch) : null;
   if (
     terminalId !== undefined &&
     (typeof terminalId !== 'string' || !new RegExp('^' + UUID + '$', 'i').test(terminalId))
@@ -321,9 +513,11 @@ export function createKitchenServer({
           signal: AbortSignal.timeout(timeoutMs),
           ...(body === undefined ? {} : { body }),
         };
-        const response = upstream.edgeHost
-          ? await secureRequest(upstream, path, options)
-          : await fetch(`http://127.0.0.1:${edgePort}${path}`, options);
+        const response = link
+          ? await link.request(path, options)
+          : upstream.edgeHost
+            ? await secureRequest(upstream, path, options)
+            : await fetch(`http://127.0.0.1:${edgePort}${path}`, options);
         if (logout && response.status === 204) {
           await response.body?.cancel();
           res.writeHead(204, security);

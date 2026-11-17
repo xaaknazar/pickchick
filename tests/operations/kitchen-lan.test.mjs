@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { request } from 'node:https';
+import { once } from 'node:events';
+import { createServer as createHttpsServer, request } from 'node:https';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { connect as connectTcp } from 'node:net';
 import { connect as connectTls } from 'node:tls';
 import {
@@ -16,7 +17,10 @@ import {
   privateIPv4,
   createKitchenLanGateway,
   clientProfiles,
+  lanKeySha256,
+  LAN_KEY_HEADER,
   MAX_CLIENTS,
+  MAX_CONNECTIONS_PER_ADDRESS,
 } from '../../infra/windows/kitchen-lan-gateway.mjs';
 import {
   PROFILES,
@@ -40,7 +44,13 @@ import {
   createProtocolHandler,
   desktopClientVersion,
 } from '../../apps/pos-desktop/protocol.mjs';
-import { allowed as kitchenAppAllowed } from '../../apps/kitchen/server.mjs';
+import {
+  allowed as kitchenAppAllowed,
+  createKitchenServer,
+  lanCandidates,
+  LAN_KEY_HEADER as KITCHEN_LAN_KEY_HEADER,
+  validateUpstream,
+} from '../../apps/kitchen/server.mjs';
 
 const id = '10000000-0000-4000-8000-000000000001';
 test('LAN gateway exposes only staff login and kitchen operations, never payment, owner, SQL or arbitrary proxy paths', () => {
@@ -1017,6 +1027,378 @@ test('one gateway port, three profiles by client IPv4 over real pinned TLS: the 
   }
 });
 
+// ---- 17.11.2026: the router gives the kitchen (and the server) new addresses -----------------
+// The kitchen monoblock got another DHCP address and the server, which knew it by IP, refused it.
+// A monoblock with a key is known by the key; with anyAddress the gateway follows the server's
+// own address; the kitchen finds a server that moved by its pinned certificate.
+
+const keySha = (n) => createHash('sha256').update(`synthetic-lan-key-${n}`).digest('hex');
+
+test('gateway config: clients by key SHA-256, anyAddress only with clients[], never the old server address', () => {
+  const bindAddress = '10.20.0.1';
+  const access = clientProfiles({
+    bindAddress,
+    anyAddress: true,
+    clients: [
+      { keySha256: keySha(1), profile: 'kitchen', label: 'Кухня' },
+      { keySha256: keySha(2), profile: 'display' },
+      { address: '10.20.0.21', profile: 'pos' },
+    ],
+  });
+  assert.equal(access.anyAddress, true);
+  assert.deepEqual(
+    [...access.keys],
+    [
+      [keySha(1), 'kitchen'],
+      [keySha(2), 'display'],
+    ],
+  );
+  assert.deepEqual(
+    [...access.profiles],
+    [['10.20.0.21', 'pos']],
+    'with anyAddress the old server address is nobody: after a DHCP change it may be a phone',
+  );
+  const keyed = clientProfiles({
+    bindAddress,
+    clients: [{ keySha256: keySha(1), profile: 'pos' }],
+  });
+  assert.equal(keyed.anyAddress, false);
+  assert.equal(keyed.profiles.get(bindAddress), 'kitchen', 'bound to one address as before');
+  assert.equal(keyed.keys.get(keySha(1)), 'pos');
+  assert.equal(clientProfiles({ bindAddress, clientAddresses: ['10.20.0.11'] }).keys.size, 0);
+  const one = [{ keySha256: keySha(1), profile: 'kitchen' }];
+  for (const bad of [
+    { anyAddress: false, clients: one },
+    { anyAddress: 'true', clients: one },
+    { anyAddress: true, clientAddresses: ['10.20.0.11'] },
+    { clients: [{ keySha256: keySha(1).toUpperCase(), profile: 'kitchen' }] },
+    { clients: [{ keySha256: keySha(1).slice(1), profile: 'kitchen' }] },
+    { clients: [{ keySha256: 1, profile: 'kitchen' }] },
+    { clients: [{ keySha256: keySha(1), address: '10.20.0.11', profile: 'kitchen' }] },
+    { clients: [{ profile: 'kitchen' }] },
+    { clients: [...one, { keySha256: keySha(1), profile: 'display' }] },
+    { clients: [{ keySha256: keySha(1), profile: 'owner' }] },
+    { clients: [{ keySha256: keySha(1), profile: 'kitchen', label: '' }] },
+    { anyAddress: true, clients: [{ address: bindAddress, profile: 'pos' }] },
+  ])
+    assert.throws(() => clientProfiles({ bindAddress, ...bad }), /INVALID_LAN_GATEWAY_CONFIG/);
+});
+
+test('the kitchen looks for a moved server in its own subnets only, nearest to the last address first', () => {
+  const wlan = (address, cidr) => ({ address, cidr, family: 'IPv4', internal: false });
+  const subnet23 = lanCandidates('10.30.0.66', { wlan: [wlan('10.30.1.67', '10.30.1.67/23')] });
+  assert.equal(subnet23.length, 510 - 2, 'every host of the /23 but this monoblock and the last');
+  assert.deepEqual(subnet23.slice(0, 4), ['10.30.0.65', '10.30.0.67', '10.30.0.64', '10.30.0.68']);
+  assert.ok(!subnet23.includes('10.30.1.67') && !subnet23.includes('10.30.0.66'));
+  assert.ok(!subnet23.includes('10.30.0.0') && !subnet23.includes('10.30.1.255'));
+  const wide = lanCandidates('10.40.9.9', {
+    eth: [wlan('10.40.200.7', '10.40.200.7/16')],
+    lo: [{ address: '127.0.0.1', cidr: '127.0.0.1/8', family: 'IPv4', internal: true }],
+    pub: [wlan('192.0.2.2', '192.0.2.2/24')],
+    v6: [{ address: 'fe80::1', cidr: 'fe80::1/64', family: 'IPv6', internal: false }],
+  });
+  assert.equal(wide.length, 1022 - 1, 'a large subnet: only the /22 around this monoblock');
+  assert.ok(wide.every((address) => /^10\.40\.(200|201|202|203)\./.test(address)));
+  assert.equal(
+    lanCandidates('10.30.0.66', { wlan: [wlan('10.30.1.67', '10.30.1.67/23')] }, 3).length,
+    3,
+  );
+  assert.deepEqual(lanCandidates('10.30.0.66', {}), []);
+});
+
+test('kitchen key over pinned TLS: any address of the subnet, the moved server found again, an impostor never sees a request', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-lan-moving-'));
+  const received = [];
+  const edge = createServer(async (req, res) => {
+    for await (const chunk of req) void chunk;
+    received.push({ path: req.url, headers: req.headers });
+    const unauthorized = req.url === '/edge/v1/session';
+    res.writeHead(unauthorized ? 401 : 200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(unauthorized ? { code: 'UNAUTHORIZED' } : { path: req.url }));
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const servers = [edge];
+  const sockets = [];
+  try {
+    const pki = await gatewayPki(directory, '10.30.0.66');
+    await mkdir(join(directory, 'impostor'));
+    const other = await gatewayPki(join(directory, 'impostor'), '10.30.0.66');
+    const kitchenKey = randomBytes(32).toString('base64url');
+    const boardKey = randomBytes(32).toString('base64url');
+    assert.equal(
+      KITCHEN_LAN_KEY_HEADER,
+      LAN_KEY_HEADER,
+      'the app sends the header the server reads',
+    );
+    const port = await freePort();
+    const settings = {
+      bindAddress: '10.30.0.66',
+      anyAddress: true,
+      port,
+      edgePort: edge.address().port,
+      pfx: pki.pfx,
+      passphrase: pki.passphrase,
+      timeoutMs: 2000,
+      clients: [
+        { keySha256: lanKeySha256(kitchenKey), profile: 'kitchen', label: 'Кухня' },
+        { keySha256: lanKeySha256(boardKey), profile: 'display' },
+        { address: '10.30.0.21', profile: 'pos' },
+      ],
+    };
+    // The addresses the router hands out: the server's own LAN address and the caller's.
+    const net = { server: '10.30.0.66', client: '10.30.1.67' };
+    const gateway = createKitchenLanGateway(settings);
+    gateway.on('secureConnection', (socket) => {
+      Object.defineProperty(socket, 'localAddress', { value: net.server, configurable: true });
+      Object.defineProperty(socket, 'remoteAddress', { value: net.client, configurable: true });
+    });
+    await new Promise((resolve) => gateway.listen(port, '127.0.0.1', resolve));
+    servers.push(gateway);
+    const lan = { port, host: '10.30.0.66', cert: pki.cert };
+    const key = (value) => ({ headers: { [LAN_KEY_HEADER]: value } });
+
+    // ---- The gateway: the key decides the profile, wherever the client is. ----
+    let answer = await lanCall(lan, '/edge/v1/fulfillment/config', key(kitchenKey));
+    assert.equal(answer.status, 200);
+    assert.equal(
+      received.at(-1).headers[LAN_KEY_HEADER],
+      undefined,
+      'the key never reaches the edge',
+    );
+    net.client = '10.30.0.234';
+    assert.equal((await lanCall(lan, '/edge/v1/session', key(kitchenKey))).status, 401);
+    assert.equal(
+      (await lanCall(lan, '/edge/v1/session', key(boardKey))).status,
+      404,
+      'the board key',
+    );
+    assert.equal((await lanCall(lan, '/edge/v1/fulfillment/display', key(boardKey))).status, 200);
+    const before = received.length;
+    for (const [extra, why] of [
+      [{}, 'no key from an unlisted address'],
+      [key(randomBytes(32).toString('base64url')), 'an unknown key'],
+      [key(kitchenKey.slice(1)), 'a malformed key'],
+      [{ headers: { [LAN_KEY_HEADER]: kitchenKey, Host: '10.30.0.99:' + port } }, 'another Host'],
+      [{ headers: { [LAN_KEY_HEADER]: kitchenKey, Origin: 'https://evil.invalid' } }, 'a browser'],
+    ])
+      assert.equal((await lanCall(lan, '/edge/v1/fulfillment/config', extra)).status, 403, why);
+    net.client = '10.30.0.21';
+    assert.equal(
+      (
+        await lanCall(
+          lan,
+          '/edge/v1/fulfillment/config',
+          key(randomBytes(32).toString('base64url')),
+        )
+      ).status,
+      403,
+      'an unknown key is refused even from a listed address',
+    );
+    assert.equal((await lanCall(lan, '/edge/v1/fulfillment/stations')).status, 404, 'pos by IP');
+    net.client = net.server;
+    assert.equal((await lanCall(lan, '/healthz')).status, 200, 'the server itself, no key');
+    assert.equal(received.length, before, 'nothing refused reached the edge');
+    net.client = '10.30.1.67';
+
+    // ---- The kitchen app: pinned by SHA-256, finds the server after it moves. ----
+    const closed = await freePort();
+    const impostorSeen = [];
+    const impostor = createHttpsServer(
+      { pfx: other.pfx, passphrase: other.passphrase },
+      (req, res) => {
+        impostorSeen.push(req.headers);
+        res.end('{}');
+      },
+    );
+    await new Promise((resolve) => impostor.listen(0, '127.0.0.1', resolve));
+    servers.push(impostor);
+    const routes = new Map([['10.30.0.66', port]]);
+    const dialed = [];
+    const lanSearch = {
+      interfaces: () => ({
+        wlan: [{ address: '10.30.1.67', cidr: '10.30.1.67/23', family: 'IPv4', internal: false }],
+      }),
+      route: (host) => {
+        dialed.push(host);
+        return { host: '127.0.0.1', port: routes.get(host) ?? closed };
+      },
+      connectTimeoutMs: 1500,
+      probeTimeoutMs: 1000,
+      concurrency: 16,
+      retryAfterMs: 60000,
+    };
+    const kitchenWith = async (lanKey) => {
+      const kitchen = createKitchenServer({
+        edgeHost: '10.30.0.66',
+        edgePort: port,
+        edgeCertificatePem: pki.cert,
+        lanKey,
+        lanSearch,
+        timeoutMs: 8000,
+      });
+      await new Promise((resolve) => kitchen.listen(0, '127.0.0.1', resolve));
+      servers.push(kitchen);
+      return (path) => fetch(`http://127.0.0.1:${kitchen.address().port}${path}`);
+    };
+    const call = await kitchenWith(kitchenKey);
+    answer = await call('/edge/v1/fulfillment/config');
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await answer.json(), { path: '/edge/v1/fulfillment/config' });
+    assert.deepEqual(dialed, ['10.30.0.66']);
+    assert.equal(received.at(-1).headers[LAN_KEY_HEADER], undefined);
+    assert.equal(
+      (
+        await (
+          await kitchenWith(randomBytes(32).toString('base64url'))
+        )('/edge/v1/fulfillment/config')
+      ).status,
+      403,
+      'a kitchen whose key the server does not know',
+    );
+
+    // The router gives the server another address; a stranger now has its old one, and another
+    // TLS server answers nearer the old address than the server does.
+    net.server = '10.30.0.70';
+    routes.clear();
+    routes.set('10.30.0.67', impostor.address().port);
+    routes.set('10.30.0.70', port);
+    dialed.length = 0;
+    answer = await call('/edge/v1/fulfillment/config');
+    assert.equal(answer.status, 200, 'found at its new address');
+    assert.equal(dialed[0], '10.30.0.66');
+    assert.ok(dialed.includes('10.30.0.67') && dialed.at(-1) === '10.30.0.70');
+    assert.deepEqual(impostorSeen, [], 'the impostor got no request and no key');
+    dialed.length = 0;
+    assert.equal((await call('/edge/v1/fulfillment/config')).status, 200);
+    assert.deepEqual(dialed, ['10.30.0.70'], 'the found address is used from then on');
+
+    // The server is off: one search, then no second search until retryAfterMs.
+    routes.clear();
+    dialed.length = 0;
+    assert.equal((await call('/edge/v1/fulfillment/config')).status, 504);
+    assert.ok(dialed.length > 500, 'the whole subnet was searched once');
+    dialed.length = 0;
+    assert.equal((await call('/edge/v1/fulfillment/config')).status, 504);
+    assert.deepEqual(dialed, ['10.30.0.70'], 'no new search right after a failed one');
+
+    // One address cannot take every connection of a gateway open to the whole subnet.
+    for (let i = 0; i < MAX_CONNECTIONS_PER_ADDRESS + 1; i++) {
+      const socket = connectTcp(port, '127.0.0.1');
+      sockets.push(socket);
+      await once(socket, 'connect');
+    }
+    const last = sockets.at(-1);
+    if (!last.destroyed) await once(last, 'close');
+    assert.ok(
+      sockets.slice(0, -1).every((socket) => !socket.destroyed),
+      'the first 24 stay open',
+    );
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    for (const server of servers) {
+      server.closeAllConnections?.();
+      await new Promise((resolve) => server.close(resolve));
+    }
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('kitchen config: lanKey makes the certificate pinned by SHA-256 instead of by the IP it names', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-lan-upstream-'));
+  try {
+    const pki = await gatewayPki(directory, '10.30.0.66');
+    const lanKey = randomBytes(32).toString('base64url');
+    const moved = { edgeHost: '10.30.0.70', edgeCertificatePem: pki.cert };
+    assert.throws(() => validateUpstream(moved), /INVALID_KITCHEN_CONFIG/, 'IP SAN without a key');
+    assert.deepEqual(validateUpstream({ ...moved, lanKey }), {
+      edgeHost: '10.30.0.70',
+      edgeCertificatePem: pki.cert.trim() + '\n',
+      lanKey,
+    });
+    assert.equal(validateUpstream({ ...moved, edgeHost: '10.30.0.66' }).lanKey, undefined);
+    for (const bad of [
+      lanKey.slice(1),
+      lanKey + 'A',
+      lanKey.slice(1) + '=',
+      lanKey.slice(1) + '+',
+      1,
+      null,
+    ])
+      assert.throws(() => validateUpstream({ ...moved, lanKey: bad }), /INVALID_KITCHEN_CONFIG/);
+    assert.throws(() => validateUpstream({ lanKey }), /INVALID_KITCHEN_CONFIG/);
+    assert.throws(
+      () => validateUpstream({ ...moved, edgeHost: '8.8.8.8', lanKey }),
+      /INVALID_KITCHEN_CONFIG/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('kitchen-lan-check --loopback: a gateway on every address passes the pinned check over 127.0.0.1', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-lan-loopback-'));
+  const edge = createServer((req, res) => {
+    const status = req.url === '/edge/v1/session' ? 401 : 404;
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: status === 401 ? 'UNAUTHORIZED' : 'NOT_FOUND' }));
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const port = await freePort();
+  let gateway;
+  try {
+    // The certificate names an address this machine does not have, as after a DHCP change.
+    const pki = await gatewayPki(directory, '10.30.0.66');
+    gateway = createKitchenLanGateway({
+      bindAddress: '10.30.0.66',
+      anyAddress: true,
+      port,
+      edgePort: edge.address().port,
+      pfx: pki.pfx,
+      passphrase: pki.passphrase,
+      clients: [{ keySha256: keySha(1), profile: 'kitchen' }],
+    });
+    await new Promise((resolve) => gateway.listen(port, '127.0.0.1', resolve));
+    const config = join(directory, 'public.json');
+    await writeFile(
+      config,
+      JSON.stringify({ edgeHost: '10.30.0.66', edgePort: port, edgeCertificatePem: pki.cert }),
+    );
+    const check = fileURLToPath(windowsFile('kitchen-lan-check.mjs'));
+    // Asynchronous: the gateway and the edge answer from this process while the check runs.
+    const run = (...extra) =>
+      promisify(execFile)(process.execPath, [check, config, ...extra], { timeout: 20000 }).then(
+        ({ stdout }) => ({ status: 0, stdout }),
+        (error) => ({ status: error.code, stdout: error.stdout, stderr: error.stderr }),
+      );
+    let result = await run('--loopback');
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      health: true,
+      passwordRequired: true,
+      ownerRouteBlocked: true,
+      certificatePinRequired: true,
+    });
+    await mkdir(join(directory, 'other'));
+    const other = await gatewayPki(join(directory, 'other'), '10.30.0.66');
+    await writeFile(
+      config,
+      JSON.stringify({ edgeHost: '10.30.0.66', edgePort: port, edgeCertificatePem: other.cert }),
+    );
+    result = await run('--loopback');
+    assert.equal(result.status, 1, 'another certificate fails the pin');
+    assert.equal((await run('--loopback', 'extra')).status, 1);
+    assert.equal((await run('--other')).status, 1);
+  } finally {
+    if (gateway) {
+      gateway.closeAllConnections();
+      await new Promise((resolve) => gateway.close(resolve));
+    }
+    edge.closeAllConnections();
+    await new Promise((resolve) => edge.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('the service validates a config and its PFX without listening (--check), and rejects unknown keys', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pickchick-lan-check-'));
   const gateway = fileURLToPath(
@@ -1053,9 +1435,27 @@ test('the service validates a config and its PFX without listening (--check), an
       check: 'LAN_GATEWAY_CONFIG_OK',
       format: 'clients',
       clients: { kitchen: 1, display: 1, pos: 2 },
+      anyAddress: false,
       maxConnections: 64,
     });
     assert.ok(!result.stdout.includes('10.20.0'), 'the summary names no address');
+    result = await run({
+      ...base,
+      anyAddress: true,
+      clients: [
+        { keySha256: keySha(1), profile: 'kitchen', label: 'Кухня' },
+        { address: '10.20.0.21', profile: 'pos' },
+      ],
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      check: 'LAN_GATEWAY_CONFIG_OK',
+      format: 'clients',
+      clients: { kitchen: 1, display: 0, pos: 1 },
+      anyAddress: true,
+      maxConnections: 64,
+    });
+    assert.ok(!result.stdout.includes(keySha(1)), 'the summary names no key');
     result = await run({ ...base, clientAddresses: ['10.20.0.11'] });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).format, 'clientAddresses');
@@ -1334,13 +1734,19 @@ test('PowerShell: the LAN script functions against synthetic gateways; their fil
       ],
     };
     const ports = { closed: await freePort() };
-    for (const [name, from] of [
-      ['kitchen', '10.20.0.11'],
-      ['display', '10.20.0.12'],
-      ['pos', '10.20.0.21'],
-      ['unlisted', '10.20.0.99'],
+    const lanKey = randomBytes(32).toString('base64url');
+    const keyed = {
+      ...settings,
+      clients: [...settings.clients, { keySha256: lanKeySha256(lanKey), profile: 'kitchen' }],
+    };
+    for (const [name, from, config] of [
+      ['kitchen', '10.20.0.11', settings],
+      ['display', '10.20.0.12', settings],
+      ['pos', '10.20.0.21', settings],
+      ['unlisted', '10.20.0.99', settings],
+      ['keyed', '10.20.0.98', keyed],
     ]) {
-      const lan = await profiledGateway(settings);
+      const lan = await profiledGateway(config);
       lan.state.from = from;
       servers.push(lan.gateway);
       ports[name] = lan.port;
@@ -1371,6 +1777,7 @@ test('PowerShell: the LAN script functions against synthetic gateways; their fil
           LAN_TEST_PORTS: JSON.stringify(ports),
           LAN_TEST_PFX: join(directory, 'server.pfx'),
           LAN_TEST_PASSPHRASE: pki.passphrase,
+          LAN_TEST_KEY: lanKey,
         },
       },
     );
@@ -1380,10 +1787,21 @@ test('PowerShell: the LAN script functions against synthetic gateways; their fil
     // The gateway accepts exactly the configs the update script writes.
     const gateway = fileURLToPath(windowsFile('kitchen-lan-gateway.mjs'));
     for (const [file, expected] of [
-      ['gateway-clients.json', { format: 'clients', clients: { kitchen: 1, display: 1, pos: 2 } }],
+      [
+        'gateway-clients.json',
+        { format: 'clients', clients: { kitchen: 1, display: 1, pos: 2 }, anyAddress: false },
+      ],
       [
         'gateway-legacy.json',
-        { format: 'clientAddresses', clients: { kitchen: 1, display: 0, pos: 0 } },
+        {
+          format: 'clientAddresses',
+          clients: { kitchen: 1, display: 0, pos: 0 },
+          anyAddress: false,
+        },
+      ],
+      [
+        'gateway-keys.json',
+        { format: 'clients', clients: { kitchen: 1, display: 0, pos: 1 }, anyAddress: true },
       ],
     ]) {
       const check = spawnSync(process.execPath, [gateway, '--check', join(out, file)], {
@@ -1394,7 +1812,15 @@ test('PowerShell: the LAN script functions against synthetic gateways; their fil
       const summary = JSON.parse(check.stdout);
       assert.equal(summary.format, expected.format);
       assert.deepEqual(summary.clients, expected.clients);
+      assert.equal(summary.anyAddress, expected.anyAddress, file);
     }
+    // The key the script makes is hashed the same way by the script and by the gateway.
+    const made = JSON.parse(await readFile(join(out, 'lan-key.json'), 'utf8'));
+    assert.deepEqual(Object.keys(made), ['lanKey']);
+    assert.equal(
+      lanKeySha256(made.lanKey),
+      (await readFile(join(out, 'lan-key-sha.txt'), 'utf8')).trim(),
+    );
     // pos-desktop starts with every config the POS installer writes.
     const { validateConfig: validatePos } = await import('../../apps/pos-desktop/protocol.mjs');
     const posConfigs = {};
@@ -1428,15 +1854,17 @@ test('PowerShell: the LAN script functions against synthetic gateways; their fil
     const { validateConfig: validateKitchen } = await import(
       pathToFileURL(join(desktop, 'security.mjs')).href
     );
-    for (const [file, mode] of [
+    for (const [file, mode, key] of [
       ['kitchen-prep.json', 'prep'],
       ['kitchen-display.json', 'display'],
       ['kitchen-staff.json', undefined],
+      ['kitchen-key.json', undefined, lanKey],
     ]) {
       const config = validateKitchen(JSON.parse(await readFile(join(out, file), 'utf8')));
       assert.equal(config.edgeHost, BIND, file);
       assert.equal(config.edgePort, 3443, file);
       assert.equal(config.terminalMode, mode, file);
+      assert.equal(config.lanKey, key, file);
     }
   } finally {
     for (const server of servers) {
