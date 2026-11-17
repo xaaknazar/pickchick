@@ -1,20 +1,33 @@
 import { request } from 'node:https';
+import { X509Certificate } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+// `<public config> [--loopback]`. --loopback (a gateway with anyAddress, whose server may have
+// another IPv4 than the certificate names): over 127.0.0.1, the certificate pinned by SHA-256.
 try {
-  if (process.argv.length !== 3) throw new Error();
+  const loopback = process.argv.length === 4 && process.argv[3] === '--loopback';
+  if (process.argv.length !== 3 && !loopback) throw new Error();
   const data = await readFile(process.argv[2]);
   if (data.length > 16384) throw new Error();
   const config = JSON.parse(data.toString('utf8'));
+  const pinned = new X509Certificate(config.edgeCertificatePem).fingerprint256;
   const probe = (path, trust = true) =>
     new Promise((resolve, reject) => {
       const req = request(
         {
-          hostname: config.edgeHost,
+          hostname: loopback ? '127.0.0.1' : config.edgeHost,
           port: config.edgePort,
           path,
           method: 'GET',
           ...(trust ? { ca: config.edgeCertificatePem } : {}),
+          ...(loopback
+            ? {
+                checkServerIdentity: (_host, certificate) =>
+                  certificate.fingerprint256 === pinned
+                    ? undefined
+                    : new Error('LAN_CERTIFICATE_MISMATCH'),
+              }
+            : {}),
           rejectUnauthorized: true,
           timeout: 3000,
         },

@@ -9,6 +9,11 @@ update-kitchen-lan-clients.ps1 has listed this monoblock on the server. The scri
 - probes the gateway from this monoblock with that pinned certificate: health, and that the
   server gave this IP the profile of -Mode (display for the board, kitchen for the rest);
 - writes %APPDATA%\PickChickKitchen\config.json (previous file kept as config.json.bak-<UTC>).
+A monoblock whose IPv4 the router may change (17.11.2026) is known by its own key instead:
+-ShowLanKey makes %APPDATA%\PickChickKitchen\lan-key.json once (32 random bytes) and prints
+only its SHA-256 for the clients file of update-kitchen-lan-clients.ps1; then -LanKey (Kitchen
+0.4.6 or later) probes with that key and writes it into config.json. The app then pins the
+gateway certificate by its SHA-256 and finds the server again when the server's address changes.
 Configuring never changes autostart (the app installer turns it on; -Autostart On|Off changes it), never
 touches iiko, its files, services, autostart, printers or firewall, and needs no elevation. #>
 [CmdletBinding(DefaultParameterSetName='Install')]
@@ -18,6 +23,8 @@ param(
     [Parameter(Mandatory=$true,ParameterSetName='Install')][ValidateSet('prep','assembly','display','staff')][string]$Mode,
     [Parameter(ParameterSetName='Install')][guid]$TerminalId=[guid]::Empty,
     [Parameter(ParameterSetName='Install')][switch]$Replace,
+    [Parameter(ParameterSetName='Install')][switch]$LanKey,
+    [Parameter(Mandatory=$true,ParameterSetName='ShowLanKey')][switch]$ShowLanKey,
     [Parameter(Mandatory=$true,ParameterSetName='Autostart')][ValidateSet('On','Off')][string]$Autostart,
     [string]$AppPath=(Join-Path $env:LOCALAPPDATA 'Programs\PickChickKitchen\PickChickKitchen.exe')
 )
@@ -103,10 +110,14 @@ function Assert-LanCertificate($Certificate,[string]$ExpectedSha256,[string]$Edg
     $utc=$Now.ToUniversalTime()
     if($Certificate.NotBefore -gt $utc -or $Certificate.NotAfter -le $utc) {throw 'LAN_CERTIFICATE_NOT_VALID_NOW: check the clock of this monoblock or renew the certificate.'}
 }
-function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Path,[string]$ConnectAddress='',[int]$TimeoutMs=5000) {
+function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Path,[string]$ConnectAddress='',[int]$TimeoutMs=5000,[string]$LanKey='') {
     # One GET over TLS 1.2 to the gateway. The certificate is compared with the pin before any
-    # request byte is sent; probes carry no credential. ConnectAddress is for tests only.
+    # request byte is sent; probes carry no credential but this monoblock's LAN key, when it has
+    # one (it names the client instead of its IP). ConnectAddress is for tests only.
     if(-not $ConnectAddress) {$ConnectAddress=$EdgeHost}
+    if($LanKey -and $LanKey -cnotmatch '\A[A-Za-z0-9_-]{43}\z') {throw 'LAN_KEY_INVALID'}
+    $keyLine=''
+    if($LanKey) {$keyLine="X-PickChick-Lan-Key: $LanKey`r`n"}
     $client=[Net.Sockets.TcpClient]::new()
     try {
         try {$connected=$client.ConnectAsync($ConnectAddress,$Port).Wait($TimeoutMs)} catch {$connected=$false}
@@ -120,7 +131,7 @@ function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[str
             $hash=[Security.Cryptography.SHA256]::Create()
             try {$seen=[BitConverter]::ToString($hash.ComputeHash($tls.RemoteCertificate.GetRawCertData())).Replace('-','').ToLowerInvariant()} finally {$hash.Dispose()}
             if($seen -cne $PinnedSha256.ToLowerInvariant()) {throw 'LAN_PROBE_CERTIFICATE_MISMATCH: the gateway presented another certificate.'}
-            $request=[Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: ${EdgeHost}:$Port`r`nAccept: application/json`r`nConnection: close`r`n`r`n")
+            $request=[Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: ${EdgeHost}:$Port`r`nAccept: application/json`r`n${keyLine}Connection: close`r`n`r`n")
             $tls.Write($request,0,$request.Length)
             $tls.Flush()
             $buffer=[byte[]]::new(8192)
@@ -145,11 +156,11 @@ function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[str
         } finally {$tls.Dispose()}
     } finally {$client.Dispose()}
 }
-function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Profile,[string]$ConnectAddress='',[int]$Attempts=20) {
+function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Profile,[string]$ConnectAddress='',[int]$Attempts=20,[string]$LanKey='') {
     # healthz, then a route this profile must reach (the edge answers) and one it must not
-    # (the gateway answers 404): proves the server gave this IP exactly this profile.
-    $health=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 '/healthz' $ConnectAddress
-    if($health.Status -eq 403) {throw 'LAN_CLIENT_NOT_LISTED: list this IP on the server with update-kitchen-lan-clients.ps1 first.'}
+    # (the gateway answers 404): proves the server gave this IP (or this key) exactly this profile.
+    $health=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 '/healthz' $ConnectAddress 5000 $LanKey
+    if($health.Status -eq 403) {throw 'LAN_CLIENT_NOT_LISTED: list this monoblock (its IP, or the keySha256 of -ShowLanKey) on the server with update-kitchen-lan-clients.ps1 first.'}
     if($health.Status -ne 200 -or $health.Body -cnotmatch '"service":"pickchick-kitchen-lan"') {throw 'LAN_HEALTH_FAILED: the gateway health check did not answer.'}
     if($Profile -ceq 'display') {$reach='/edge/v1/fulfillment/config';$reachStatus=200;$blocked='/edge/v1/session'}
     elseif($Profile -ceq 'pos') {$reach='/edge/v1/session';$reachStatus=401;$blocked='/edge/v1/fulfillment/stations'}
@@ -157,12 +168,12 @@ function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha25
     else {throw 'LAN_PROFILE_INVALID'}
     $answer=$null
     for($attempt=1;$attempt -le $Attempts;$attempt++) {
-        $answer=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $reach $ConnectAddress
+        $answer=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $reach $ConnectAddress 5000 $LanKey
         if($answer.Status -notin @(502,503,504)) {break}
         Start-Sleep -Milliseconds 500
     }
     if($answer.Status -ne $reachStatus) {throw "LAN_PROFILE_MISMATCH: $reach answered $($answer.Status); this IP does not have the $Profile profile or the server edge is not ready."}
-    $other=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $blocked $ConnectAddress
+    $other=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $blocked $ConnectAddress 5000 $LanKey
     if($other.Status -ne 404) {throw "LAN_PROFILE_MISMATCH: $blocked answered $($other.Status); this IP has a wider profile than $Profile."}
     return [pscustomobject]@{Profile=$Profile;Health=$health.Status;Reached=$answer.Status;Blocked=$other.Status}
 }
@@ -201,11 +212,34 @@ function Get-LanAutostart([string]$Name) {
 }
 # ---- End of shared LAN client helpers ----
 
-function New-KitchenClientConfig($Existing,$Public,[string]$Mode,[guid]$TerminalId,[switch]$Replace) {
+function Get-KitchenLanKey([string]$Path,[switch]$Create) {
+    # The monoblock's own LAN key: 32 random bytes, base64url without padding (43 characters).
+    # Made once and never replaced here; only its SHA-256 goes to the server.
+    if(-not [IO.File]::Exists($Path)) {
+        if(-not $Create) {throw 'KITCHEN_LAN_KEY_MISSING: run this script with -ShowLanKey first and list its keySha256 on the server.'}
+        $bytes=[byte[]]::new(32)
+        $rng=[Security.Cryptography.RandomNumberGenerator]::Create()
+        try {$rng.GetBytes($bytes)} finally {$rng.Dispose()}
+        $key=[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
+        [Array]::Clear($bytes,0,$bytes.Length)
+        Write-LanJsonFile $Path ('{"lanKey":"'+$key+'"}') ([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ'))
+    }
+    $value=ConvertFrom-LanJsonObject ([IO.File]::ReadAllBytes($Path)) 1024
+    if((@($value.PSObject.Properties.Name) -join ',') -cne 'lanKey' -or $value.lanKey -isnot [string] -or $value.lanKey -cnotmatch '\A[A-Za-z0-9_-]{43}\z') {throw "KITCHEN_LAN_KEY_INVALID: $Path"}
+    return $value.lanKey
+}
+function Get-KitchenLanKeySha256([string]$Key) {
+    # What update-kitchen-lan-clients.ps1 lists as keySha256 (kitchen-lan-gateway.mjs lanKeySha256).
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try {return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::ASCII.GetBytes($Key))).Replace('-','').ToLowerInvariant()} finally {$hash.Dispose()}
+}
+function New-KitchenClientConfig($Existing,$Public,[string]$Mode,[guid]$TerminalId,[switch]$Replace,[string]$DeviceKey='') {
     # Keys of apps/kitchen-desktop/security.mjs validateConfig. An existing terminal identity
     # (paired mode or staff-login terminal) changes only with -Replace: the screen must then be
-    # paired again in Devices.
-    $allowed=@('edgePort','branchLabel','edgeHost','edgeCertificatePem','terminalId','terminalMode')
+    # paired again in Devices. lanKey is written only with -LanKey (Kitchen 0.4.6 or later; an
+    # older app refuses the key), and a run without it removes the key: the config always says
+    # what this run has probed.
+    $allowed=@('edgePort','branchLabel','edgeHost','edgeCertificatePem','lanKey','terminalId','terminalMode')
     $config=[ordered]@{}
     if($null -ne $Existing) {
         foreach($property in $Existing.PSObject.Properties) {
@@ -235,6 +269,10 @@ function New-KitchenClientConfig($Existing,$Public,[string]$Mode,[guid]$Terminal
     $config.edgeHost=$Public.edgeHost
     $config.edgePort=$Public.edgePort
     $config.edgeCertificatePem=$Public.edgeCertificatePem
+    if($DeviceKey) {
+        if($DeviceKey -cnotmatch '\A[A-Za-z0-9_-]{43}\z') {throw 'KITCHEN_CONFIG_INVALID: lanKey.'}
+        $config.lanKey=$DeviceKey
+    } elseif($config.Contains('lanKey')) {$config.Remove('lanKey')}
     if(-not $config.Contains('branchLabel') -and $Public.Contains('branchLabel')) {$config.branchLabel=$Public.branchLabel}
     if($config.Contains('branchLabel') -and -not (Test-LanText $config.branchLabel 120)) {throw 'KITCHEN_CONFIG_INVALID: branchLabel.'}
     if($config.edgePort -eq 4178) {throw 'KITCHEN_CONFIG_INVALID: edgePort cannot be the local app port 4178.'}
@@ -245,31 +283,46 @@ if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $PSVersionTab
 $stamp=[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
 $profileDir=Join-Path $env:APPDATA 'PickChickKitchen'
 $configPath=Join-Path $profileDir 'config.json'
+$keyPath=Join-Path $profileDir 'lan-key.json'
 if($PSCmdlet.ParameterSetName -ceq 'Autostart') {
     Set-LanAutostart 'PickChickKitchen' $AppPath $Autostart
     Write-Output ('KITCHEN_AUTOSTART='+$Autostart.ToUpperInvariant()+' user='+[Environment]::UserName)
     return
 }
+if($PSCmdlet.ParameterSetName -ceq 'ShowLanKey') {
+    $sha=Get-KitchenLanKeySha256 (Get-KitchenLanKey $keyPath -Create)
+    Write-Output ('KITCHEN_LAN_KEY_SHA256='+$sha)
+    Write-Output ('On the server: {"keySha256":"'+$sha+'","profile":"kitchen"} in the clients file of update-kitchen-lan-clients.ps1. The key itself stays in '+$keyPath+'.')
+    return
+}
 $version=Get-LanAppVersion $AppPath
 if($version -lt [version]'0.4.0') {throw "KITCHEN_APP_TOO_OLD: PickChick Kitchen $version is installed; the KDS screens need 0.4.0 or later."}
+$deviceKey=''
+if($LanKey) {
+    if($version -lt [version]'0.4.6') {throw "KITCHEN_APP_TOO_OLD: -LanKey needs PickChick Kitchen 0.4.6 or later; $version is installed and would refuse the key."}
+    $deviceKey=Get-KitchenLanKey $keyPath
+}
 $public=Read-LanPublicConfig ([IO.File]::ReadAllBytes($PublicConfig))
 $certificate=Get-LanCertificate $public.edgeCertificatePem
 Assert-LanCertificate $certificate $CertificateSha256 $public.edgeHost (Get-Date)
 $expected='kitchen'
 if($Mode -ceq 'display') {$expected='display'}
-$probe=Test-LanClientProfile $public.edgeHost $public.edgePort $certificate.Sha256 $expected
+$probe=Test-LanClientProfile $public.edgeHost $public.edgePort $certificate.Sha256 $expected '' 20 $deviceKey
 $existing=$null
 if([IO.File]::Exists($configPath)) {$existing=ConvertFrom-LanJsonObject ([IO.File]::ReadAllBytes($configPath)) 64000}
-$config=New-KitchenClientConfig $existing $public $Mode $TerminalId -Replace:$Replace
+$config=New-KitchenClientConfig $existing $public $Mode $TerminalId -Replace:$Replace -DeviceKey $deviceKey
 Write-LanJsonFile $configPath ($config | ConvertTo-Json -Depth 5 -Compress) $stamp
 $written=ConvertFrom-LanJsonObject ([IO.File]::ReadAllBytes($configPath)) 64000
 if($written.edgeHost -cne $public.edgeHost -or $written.edgePort -ne $public.edgePort -or $written.edgeCertificatePem -cne $public.edgeCertificatePem) {throw 'KITCHEN_CONFIG_WRITE_FAILED'}
+$writtenKey=''
+if(@($written.PSObject.Properties.Name) -ccontains 'lanKey') {$writtenKey=[string]$written.lanKey}
+if($writtenKey -cne $deviceKey) {throw 'KITCHEN_CONFIG_WRITE_FAILED: lanKey.'}
 $listeners=@(Get-NetTCPConnection -State Listen -LocalPort 4178 -ErrorAction SilentlyContinue)
 foreach($listener in $listeners) {
     $owner=Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue
     if($null -eq $owner -or $owner.ProcessName -cne 'PickChickKitchen') {Write-Warning 'Local port 4178 is used by another program; PickChick Kitchen cannot start until it is free.'}
 }
 if(@(Get-Process -Name 'iiko*' -ErrorAction SilentlyContinue).Count) {Write-Output 'iiko is running on this monoblock; it was not changed.'}
-Write-Output ('KITCHEN_CLIENT_CONFIGURED mode='+$Mode+' profile='+$probe.Profile+' app='+$version+' certificateSha256='+$certificate.Sha256)
+Write-Output ('KITCHEN_CLIENT_CONFIGURED mode='+$Mode+' profile='+$probe.Profile+' app='+$version+' lanKey='+$(if($deviceKey){'on'}else{'off'})+' certificateSha256='+$certificate.Sha256)
 Write-Output ('Config: '+$configPath+'. Restart PickChick Kitchen to apply it.')
 Write-Output ('Autostart: '+$(if(Get-LanAutostart 'PickChickKitchen'){'ON'}else{'OFF'})+' (the app installer turns it on; -Autostart Off lasts until the next install).')

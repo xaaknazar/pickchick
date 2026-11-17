@@ -111,10 +111,14 @@ function Assert-LanCertificate($Certificate,[string]$ExpectedSha256,[string]$Edg
     $utc=$Now.ToUniversalTime()
     if($Certificate.NotBefore -gt $utc -or $Certificate.NotAfter -le $utc) {throw 'LAN_CERTIFICATE_NOT_VALID_NOW: check the clock of this monoblock or renew the certificate.'}
 }
-function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Path,[string]$ConnectAddress='',[int]$TimeoutMs=5000) {
+function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Path,[string]$ConnectAddress='',[int]$TimeoutMs=5000,[string]$LanKey='') {
     # One GET over TLS 1.2 to the gateway. The certificate is compared with the pin before any
-    # request byte is sent; probes carry no credential. ConnectAddress is for tests only.
+    # request byte is sent; probes carry no credential but this monoblock's LAN key, when it has
+    # one (it names the client instead of its IP). ConnectAddress is for tests only.
     if(-not $ConnectAddress) {$ConnectAddress=$EdgeHost}
+    if($LanKey -and $LanKey -cnotmatch '\A[A-Za-z0-9_-]{43}\z') {throw 'LAN_KEY_INVALID'}
+    $keyLine=''
+    if($LanKey) {$keyLine="X-PickChick-Lan-Key: $LanKey`r`n"}
     $client=[Net.Sockets.TcpClient]::new()
     try {
         try {$connected=$client.ConnectAsync($ConnectAddress,$Port).Wait($TimeoutMs)} catch {$connected=$false}
@@ -128,7 +132,7 @@ function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[str
             $hash=[Security.Cryptography.SHA256]::Create()
             try {$seen=[BitConverter]::ToString($hash.ComputeHash($tls.RemoteCertificate.GetRawCertData())).Replace('-','').ToLowerInvariant()} finally {$hash.Dispose()}
             if($seen -cne $PinnedSha256.ToLowerInvariant()) {throw 'LAN_PROBE_CERTIFICATE_MISMATCH: the gateway presented another certificate.'}
-            $request=[Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: ${EdgeHost}:$Port`r`nAccept: application/json`r`nConnection: close`r`n`r`n")
+            $request=[Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: ${EdgeHost}:$Port`r`nAccept: application/json`r`n${keyLine}Connection: close`r`n`r`n")
             $tls.Write($request,0,$request.Length)
             $tls.Flush()
             $buffer=[byte[]]::new(8192)
@@ -153,11 +157,11 @@ function Invoke-LanProbe([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[str
         } finally {$tls.Dispose()}
     } finally {$client.Dispose()}
 }
-function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Profile,[string]$ConnectAddress='',[int]$Attempts=20) {
+function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha256,[string]$Profile,[string]$ConnectAddress='',[int]$Attempts=20,[string]$LanKey='') {
     # healthz, then a route this profile must reach (the edge answers) and one it must not
-    # (the gateway answers 404): proves the server gave this IP exactly this profile.
-    $health=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 '/healthz' $ConnectAddress
-    if($health.Status -eq 403) {throw 'LAN_CLIENT_NOT_LISTED: list this IP on the server with update-kitchen-lan-clients.ps1 first.'}
+    # (the gateway answers 404): proves the server gave this IP (or this key) exactly this profile.
+    $health=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 '/healthz' $ConnectAddress 5000 $LanKey
+    if($health.Status -eq 403) {throw 'LAN_CLIENT_NOT_LISTED: list this monoblock (its IP, or the keySha256 of -ShowLanKey) on the server with update-kitchen-lan-clients.ps1 first.'}
     if($health.Status -ne 200 -or $health.Body -cnotmatch '"service":"pickchick-kitchen-lan"') {throw 'LAN_HEALTH_FAILED: the gateway health check did not answer.'}
     if($Profile -ceq 'display') {$reach='/edge/v1/fulfillment/config';$reachStatus=200;$blocked='/edge/v1/session'}
     elseif($Profile -ceq 'pos') {$reach='/edge/v1/session';$reachStatus=401;$blocked='/edge/v1/fulfillment/stations'}
@@ -165,12 +169,12 @@ function Test-LanClientProfile([string]$EdgeHost,[int]$Port,[string]$PinnedSha25
     else {throw 'LAN_PROFILE_INVALID'}
     $answer=$null
     for($attempt=1;$attempt -le $Attempts;$attempt++) {
-        $answer=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $reach $ConnectAddress
+        $answer=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $reach $ConnectAddress 5000 $LanKey
         if($answer.Status -notin @(502,503,504)) {break}
         Start-Sleep -Milliseconds 500
     }
     if($answer.Status -ne $reachStatus) {throw "LAN_PROFILE_MISMATCH: $reach answered $($answer.Status); this IP does not have the $Profile profile or the server edge is not ready."}
-    $other=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $blocked $ConnectAddress
+    $other=Invoke-LanProbe $EdgeHost $Port $PinnedSha256 $blocked $ConnectAddress 5000 $LanKey
     if($other.Status -ne 404) {throw "LAN_PROFILE_MISMATCH: $blocked answered $($other.Status); this IP has a wider profile than $Profile."}
     return [pscustomobject]@{Profile=$Profile;Health=$health.Status;Reached=$answer.Status;Blocked=$other.Status}
 }

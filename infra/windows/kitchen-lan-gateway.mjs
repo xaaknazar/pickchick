@@ -1,4 +1,5 @@
 import { createServer } from 'node:https';
+import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { TextDecoder } from 'node:util';
 import { readFile } from 'node:fs/promises';
@@ -23,6 +24,18 @@ export const MAX_CLIENTS = 32;
 export const MAX_LEGACY_CLIENTS = 20;
 const LEGACY_MAX_CONNECTIONS = 40;
 const DEFAULT_MAX_CONNECTIONS = 64;
+/**
+ * A monoblock that the router may give another IPv4 at any time (17.11.2026: the kitchen got a
+ * new DHCP address and lost the server) proves itself with its own key instead: 32 random bytes,
+ * base64url, sent in this header over the pinned TLS. The server keeps only the SHA-256 of each
+ * key (`keySha256` in clients[]); the header is never forwarded to the edge.
+ */
+export const LAN_KEY_HEADER = 'x-pickchick-lan-key';
+const LAN_KEY = /^[A-Za-z0-9_-]{43}$/;
+const KEY_SHA256 = /^[0-9a-f]{64}$/;
+/** With anyAddress the whole local subnet reaches the port: one address cannot take all slots. */
+export const MAX_CONNECTIONS_PER_ADDRESS = 24;
+export const lanKeySha256 = (key) => createHash('sha256').update(key, 'utf8').digest('hex');
 const label = (value) =>
   typeof value === 'string' &&
   value.length >= 1 &&
@@ -32,13 +45,26 @@ const label = (value) =>
 /**
  * Client address -> profile name. `clientAddresses` (the format installed before the cutover)
  * makes every address a `kitchen` client and keeps 40 connections; `clients[]` names a profile
- * per address. The server's own address is always a kitchen client, as before, so the
- * installer's check keeps working from the server.
+ * per address or per key (`keySha256`). The server's own address is always a kitchen client, as
+ * before, so the installer's check keeps working from the server.
+ *
+ * `anyAddress: true` (set by update-kitchen-lan-clients.ps1 when a client has a key): the
+ * gateway listens on every IPv4 of the server, so it keeps working when the router gives the
+ * server another address; the Host header must then name the address the connection came in
+ * on, and "the server itself" is a connection from that same address, not bindAddress.
  */
-export function clientProfiles({ bindAddress, clientAddresses, clients, maxConnections }) {
-  if (!privateIPv4(bindAddress)) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+export function clientProfiles({
+  bindAddress,
+  anyAddress,
+  clientAddresses,
+  clients,
+  maxConnections,
+}) {
+  if (!privateIPv4(bindAddress) || (anyAddress !== undefined && anyAddress !== true))
+    throw new Error('INVALID_LAN_GATEWAY_CONFIG');
   if (clientAddresses !== undefined) {
     if (
+      anyAddress !== undefined ||
       clients !== undefined ||
       maxConnections !== undefined ||
       !Array.isArray(clientAddresses) ||
@@ -51,6 +77,8 @@ export function clientProfiles({ bindAddress, clientAddresses, clients, maxConne
     return {
       format: 'clientAddresses',
       profiles: new Map([bindAddress, ...clientAddresses].map((address) => [address, 'kitchen'])),
+      keys: new Map(),
+      anyAddress: false,
       maxConnections: LEGACY_MAX_CONNECTIONS,
     };
   }
@@ -62,24 +90,38 @@ export function clientProfiles({ bindAddress, clientAddresses, clients, maxConne
       (!Number.isInteger(maxConnections) || maxConnections < 16 || maxConnections > 256))
   )
     throw new Error('INVALID_LAN_GATEWAY_CONFIG');
-  const profiles = new Map([[bindAddress, 'kitchen']]);
+  // With anyAddress the old bindAddress may belong to another device after a DHCP change.
+  const profiles = new Map(anyAddress ? [] : [[bindAddress, 'kitchen']]);
+  const keys = new Map();
   for (const client of clients) {
     if (
       !client ||
       typeof client !== 'object' ||
       Array.isArray(client) ||
-      Object.keys(client).some((key) => !['address', 'profile', 'label'].includes(key)) ||
-      !privateIPv4(client.address) ||
+      Object.keys(client).some(
+        (key) => !['address', 'keySha256', 'profile', 'label'].includes(key),
+      ) ||
+      (client.address === undefined) === (client.keySha256 === undefined) ||
+      (client.address !== undefined &&
+        (!privateIPv4(client.address) ||
+          client.address === bindAddress ||
+          profiles.has(client.address))) ||
+      (client.keySha256 !== undefined &&
+        (typeof client.keySha256 !== 'string' ||
+          !KEY_SHA256.test(client.keySha256) ||
+          keys.has(client.keySha256))) ||
       !PROFILE_NAMES.includes(client.profile) ||
-      (client.label !== undefined && !label(client.label)) ||
-      profiles.has(client.address)
+      (client.label !== undefined && !label(client.label))
     )
       throw new Error('INVALID_LAN_GATEWAY_CONFIG');
-    profiles.set(client.address, client.profile);
+    if (client.address !== undefined) profiles.set(client.address, client.profile);
+    else keys.set(client.keySha256, client.profile);
   }
   return {
     format: 'clients',
     profiles,
+    keys,
+    anyAddress: anyAddress === true,
     maxConnections: maxConnections ?? DEFAULT_MAX_CONNECTIONS,
   };
 }
@@ -100,9 +142,11 @@ async function readLimited(reader, limit) {
 }
 
 /** Dedicated LAN boundary. PostgreSQL, owner commands and cloud transport remain loopback-only.
- *  The profile of each request comes from the client IPv4 only (lan-route-profiles.mjs). */
+ *  The profile of each request comes from the client's key when it sends one, else from the
+ *  client IPv4 (lan-route-profiles.mjs). */
 export function createKitchenLanGateway({
   bindAddress,
+  anyAddress,
   port = 3443,
   clientAddresses,
   clients,
@@ -112,7 +156,13 @@ export function createKitchenLanGateway({
   passphrase,
   timeoutMs = 10000,
 }) {
-  const access = clientProfiles({ bindAddress, clientAddresses, clients, maxConnections });
+  const access = clientProfiles({
+    bindAddress,
+    anyAddress,
+    clientAddresses,
+    clients,
+    maxConnections,
+  });
   if (
     !Number.isInteger(port) ||
     port < 1024 ||
@@ -163,10 +213,22 @@ export function createKitchenLanGateway({
         });
         res.end(bytes);
       };
-      const profile = PROFILES[access.profiles.get(req.socket.remoteAddress)];
+      const { localAddress, remoteAddress } = req.socket;
+      const key = req.headers[LAN_KEY_HEADER];
+      // A key decides alone: an unknown key is refused even from a listed address.
+      const name =
+        key !== undefined
+          ? typeof key === 'string' && LAN_KEY.test(key)
+            ? access.keys.get(lanKeySha256(key))
+            : undefined
+          : access.anyAddress && remoteAddress === localAddress
+            ? 'kitchen'
+            : access.profiles.get(remoteAddress);
+      const profile = name === undefined ? undefined : PROFILES[name];
+      const host = `${access.anyAddress ? localAddress : bindAddress}:${port}`;
       if (
         !profile ||
-        req.headers.host !== `${bindAddress}:${port}` ||
+        req.headers.host !== host ||
         req.headers.origin ||
         req.headers['sec-fetch-site']
       ) {
@@ -301,12 +363,34 @@ export function createKitchenLanGateway({
     },
   );
   server.maxConnections = access.maxConnections;
+  if (access.anyAddress) {
+    const open = new Map();
+    server.on('connection', (socket) => {
+      const address = socket.remoteAddress;
+      const count = (open.get(address) ?? 0) + 1;
+      if (
+        !address ||
+        !(privateIPv4(address) || address === '127.0.0.1') ||
+        count > MAX_CONNECTIONS_PER_ADDRESS
+      ) {
+        socket.destroy();
+        return;
+      }
+      open.set(address, count);
+      socket.once('close', () => {
+        const left = open.get(address) - 1;
+        if (left > 0) open.set(address, left);
+        else open.delete(address);
+      });
+    });
+  }
   server.on('tlsClientError', () => {});
   return server;
 }
 
 const CONFIG_KEYS = [
   'bindAddress',
+  'anyAddress',
   'port',
   'clientAddresses',
   'clients',
@@ -318,7 +402,8 @@ const CONFIG_KEYS = [
 /**
  * Reads the private service config (written by install-kitchen-lan.ps1 in the old format or by
  * update-kitchen-lan-clients.ps1) and builds the gateway without listening. The summary holds
- * no address or secret: format, client count per profile and the connection limit.
+ * no address, key or secret: format, client count per profile (address and key clients),
+ * whether it listens on every address, and the connection limit.
  */
 export async function loadKitchenLanGateway(configPath) {
   const raw = await readFile(configPath);
@@ -334,10 +419,11 @@ export async function loadKitchenLanGateway(configPath) {
     throw new Error('INVALID_LAN_GATEWAY_CONFIG');
   const { pfxPath, ...settings } = config;
   const server = createKitchenLanGateway({ ...settings, pfx: await readFile(pfxPath) });
-  const { format, profiles, maxConnections } = clientProfiles(settings);
+  const { format, profiles, keys, anyAddress, maxConnections } = clientProfiles(settings);
   const clients = Object.fromEntries(PROFILE_NAMES.map((name) => [name, 0]));
   for (const [address, name] of profiles) if (address !== settings.bindAddress) clients[name]++;
-  return { server, settings, summary: { format, clients, maxConnections } };
+  for (const name of keys.values()) clients[name]++;
+  return { server, settings, summary: { format, clients, anyAddress, maxConnections } };
 }
 
 async function main() {
@@ -355,7 +441,7 @@ async function main() {
     process.exitCode = 1;
     server.close();
   });
-  server.listen(settings.port ?? 3443, settings.bindAddress, () =>
+  server.listen(settings.port ?? 3443, settings.anyAddress ? '0.0.0.0' : settings.bindAddress, () =>
     console.log('KITCHEN_LAN_READY'),
   );
   for (const signal of ['SIGTERM', 'SIGINT'])

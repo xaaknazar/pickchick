@@ -4,7 +4,12 @@
 
 -ClientsFile is a UTF-8 JSON array, one entry per monoblock:
   [{"address":"<private IPv4>","profile":"kitchen|display|pos","label":"<optional, 1..60>"}]
+or, for a monoblock whose address the router may change (17.11.2026), its key instead:
+  [{"keySha256":"<64 lowercase hex from install-kitchen-client.ps1 -ShowLanKey>","profile":...}]
 Up to 32 entries; the server's own address is never listed (it keeps the kitchen profile).
+With at least one key entry the gateway listens on every address of the server (anyAddress)
+and the firewall rule admits the local subnet: the key, not the address, then names the
+client, and both monoblocks may get other addresses from the router.
 
 Two modes:
 - default: installs the reviewed gateway, route profiles and check (SHA-256 pinned), validates
@@ -68,19 +73,28 @@ function Read-LanClients([byte[]]$Bytes,[string]$BindAddress,[switch]$Legacy) {
     foreach($item in $items) {
         if($item -isnot [Management.Automation.PSCustomObject]) {throw 'LAN_CLIENTS_INVALID: every entry must be an object.'}
         $names=@($item.PSObject.Properties.Name)
-        foreach($name in $names) {if($name -cnotin @('address','profile','label')) {throw "LAN_CLIENTS_INVALID: unexpected key $name."}}
-        if($names -cnotcontains 'address' -or $names -cnotcontains 'profile') {throw 'LAN_CLIENTS_INVALID: address and profile are required.'}
-        if($item.address -isnot [string] -or -not (Test-LanIPv4 $item.address)) {throw 'LAN_CLIENTS_INVALID: every address must be a private IPv4 in canonical form.'}
-        if($item.address -ceq $BindAddress) {throw 'LAN_CLIENTS_INVALID: the server address is not a client.'}
-        if($seen.ContainsKey($item.address)) {throw "LAN_CLIENTS_INVALID: $($item.address) is listed twice."}
+        foreach($name in $names) {if($name -cnotin @('address','keySha256','profile','label')) {throw "LAN_CLIENTS_INVALID: unexpected key $name."}}
+        $byKey=$names -ccontains 'keySha256'
+        if(($names -ccontains 'address') -eq $byKey -or $names -cnotcontains 'profile') {throw 'LAN_CLIENTS_INVALID: profile and exactly one of address or keySha256 are required.'}
+        if($byKey) {
+            if($Legacy) {throw 'LAN_CLIENTS_LEGACY_NO_KEYS: the installed gateway knows clients by address only; key clients come with the gateway update.'}
+            if($item.keySha256 -isnot [string] -or $item.keySha256 -cnotmatch '\A[0-9a-f]{64}\z') {throw 'LAN_CLIENTS_INVALID: keySha256 must be 64 lowercase hex characters.'}
+            $id='key:'+$item.keySha256
+            if($seen.ContainsKey($id)) {throw 'LAN_CLIENTS_INVALID: a key is listed twice.'}
+        } else {
+            if($item.address -isnot [string] -or -not (Test-LanIPv4 $item.address)) {throw 'LAN_CLIENTS_INVALID: every address must be a private IPv4 in canonical form.'}
+            if($item.address -ceq $BindAddress) {throw 'LAN_CLIENTS_INVALID: the server address is not a client.'}
+            $id=$item.address
+            if($seen.ContainsKey($id)) {throw "LAN_CLIENTS_INVALID: $($item.address) is listed twice."}
+        }
         if($item.profile -isnot [string] -or $item.profile -cnotin @('kitchen','display','pos')) {throw 'LAN_CLIENTS_INVALID: profile must be kitchen, display or pos.'}
         if($Legacy -and $item.profile -cne 'kitchen') {throw 'LAN_CLIENTS_LEGACY_KITCHEN_ONLY: the installed gateway has no profiles; list kitchen screens only, the board and cash desks come with the gateway update.'}
-        $entry=[ordered]@{address=$item.address;profile=$item.profile}
+        if($byKey) {$entry=[ordered]@{keySha256=$item.keySha256;profile=$item.profile}} else {$entry=[ordered]@{address=$item.address;profile=$item.profile}}
         if($names -ccontains 'label') {
             if(-not (Test-LanText $item.label 60)) {throw 'LAN_CLIENTS_INVALID: label must be 1..60 characters without control characters.'}
             $entry.label=$item.label
         }
-        $seen[$item.address]=$true
+        $seen[$id]=$true
         $result+=$entry
     }
     return $result
@@ -99,10 +113,15 @@ function ConvertTo-LanJsonString([string]$Value) {
     $null=$builder.Append('"')
     return $builder.ToString()
 }
+function Test-LanKeyClients($Clients) {
+    # A key client makes the gateway listen on every address (anyAddress) behind a subnet rule.
+    foreach($client in @($Clients)) {if($client.Contains('keySha256')) {return $true}}
+    return $false
+}
 function New-LanGatewayConfig($Current,$Clients,[switch]$Legacy) {
     # Keeps bindAddress, port, edgePort, pfxPath and passphrase of the installed config.
     $names=@($Current.PSObject.Properties.Name)
-    foreach($name in $names) {if($name -cnotin @('bindAddress','port','clientAddresses','clients','maxConnections','edgePort','pfxPath','passphrase')) {throw "LAN_CONFIG_INVALID: unexpected key $name in the installed config."}}
+    foreach($name in $names) {if($name -cnotin @('bindAddress','anyAddress','port','clientAddresses','clients','maxConnections','edgePort','pfxPath','passphrase')) {throw "LAN_CONFIG_INVALID: unexpected key $name in the installed config."}}
     foreach($name in @('bindAddress','port','edgePort','pfxPath','passphrase')) {if($names -cnotcontains $name) {throw "LAN_CONFIG_INVALID: $name is missing in the installed config."}}
     if(-not (Test-LanIPv4 $Current.bindAddress)) {throw 'LAN_CONFIG_INVALID: bindAddress.'}
     foreach($port in @($Current.port,$Current.edgePort)) {if(($port -isnot [int] -and $port -isnot [long]) -or $port -lt 1 -or $port -gt 65535) {throw 'LAN_CONFIG_INVALID: port.'}}
@@ -115,8 +134,11 @@ function New-LanGatewayConfig($Current,$Clients,[switch]$Legacy) {
     if($Legacy) {
         $parts+='"clientAddresses":['+((@($Clients) | ForEach-Object {ConvertTo-LanJsonString $_.address}) -join ',')+']'
     } else {
+        if(Test-LanKeyClients $Clients) {$parts+='"anyAddress":true'}
         $items=@(foreach($client in @($Clients)) {
-            $fields=@(('"address":'+(ConvertTo-LanJsonString $client.address)),('"profile":'+(ConvertTo-LanJsonString $client.profile)))
+            if($client.Contains('keySha256')) {$fields=@(('"keySha256":'+(ConvertTo-LanJsonString $client.keySha256)))}
+            else {$fields=@(('"address":'+(ConvertTo-LanJsonString $client.address)))}
+            $fields+='"profile":'+(ConvertTo-LanJsonString $client.profile)
             if($client.Contains('label')) {$fields+='"label":'+(ConvertTo-LanJsonString $client.label)}
             '{'+($fields -join ',')+'}'
         })
@@ -242,15 +264,19 @@ if($current.bindAddress -cne [string]$record.cashierAddress -or $current.pfxPath
 $bind=[string]$current.bindAddress
 $port=[int]$current.port
 $clients=@(Read-LanClients ([IO.File]::ReadAllBytes($ClientsFile)) $bind -Legacy:$Legacy)
-$addresses=@($clients | ForEach-Object {$_.address})
+$addresses=@($clients | Where-Object {$_.Contains('address')} | ForEach-Object {$_.address})
+$anyAddress=Test-LanKeyClients $clients
+$currentAny=(@($current.PSObject.Properties.Name) -ccontains 'anyAddress') -and $current.anyAddress -eq $true
 $counts=Get-LanProfileCounts $clients
 $newJson=New-LanGatewayConfig $current $clients -Legacy:$Legacy
 $rule=Get-NetFirewallRule -Name PickChickKitchenLAN
 $addressFilter=$rule | Get-NetFirewallAddressFilter
 $portFilter=$rule | Get-NetFirewallPortFilter
 $appFilter=$rule | Get-NetFirewallApplicationFilter
-if($rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or (@($addressFilter.LocalAddress) -join ',') -cne $bind -or $portFilter.Protocol -ne 'TCP' -or [string]$portFilter.LocalPort -cne [string]$port -or $appFilter.Program -ne $node) {throw 'The firewall rule PickChickKitchenLAN differs from the installation.'}
+$localNow=@($addressFilter.LocalAddress) -join ','
+if($rule.Direction -ne 'Inbound' -or $rule.Action -ne 'Allow' -or -not ($localNow -ceq $bind -or ($currentAny -and $localNow -ceq 'Any')) -or $portFilter.Protocol -ne 'TCP' -or [string]$portFilter.LocalPort -cne [string]$port -or $appFilter.Program -ne $node) {throw 'The firewall rule PickChickKitchenLAN differs from the installation.'}
 $previousRemote=@($addressFilter.RemoteAddress)
+$previousLocal=@($addressFilter.LocalAddress)
 $handles=[Collections.Generic.List[IDisposable]]::new()
 $newConfigPath="$configPath.new-$stamp"
 $backupRoot=Join-Path $privateRoot "backup-$stamp"
@@ -271,7 +297,8 @@ try {
         $checked=(& $node $GatewayScript --check $newConfigPath)
         if($LASTEXITCODE -ne 0) {throw 'The new gateway rejected the new config; nothing was changed.'}
         $summary=[string]$checked | ConvertFrom-Json
-        if($summary.check -cne 'LAN_GATEWAY_CONFIG_OK' -or $summary.format -cne 'clients' -or $summary.clients.kitchen -ne $counts.kitchen -or $summary.clients.display -ne $counts.display -or $summary.clients.pos -ne $counts.pos -or $summary.maxConnections -ne 64) {throw 'The new gateway read another client list than requested; nothing was changed.'}
+        $summaryAny=(@($summary.PSObject.Properties.Name) -ccontains 'anyAddress') -and $summary.anyAddress -eq $true
+        if($summary.check -cne 'LAN_GATEWAY_CONFIG_OK' -or $summary.format -cne 'clients' -or $summary.clients.kitchen -ne $counts.kitchen -or $summary.clients.display -ne $counts.display -or $summary.clients.pos -ne $counts.pos -or $summary.maxConnections -ne 64 -or $summaryAny -ne $anyAddress) {throw 'The new gateway read another client list than requested; nothing was changed.'}
     }
     New-ProtectedDirectory $backupRoot
     [IO.File]::Copy($configPath,(Join-Path $backupRoot 'gateway.json'),$false)
@@ -292,7 +319,8 @@ try {
         if((Get-LanFileSha256 $item[1]) -cne $item[2]) {throw 'An installed gateway file differs from its pin.'}
         Assert-LanAcl $item[1] 'ReadAndExecute'
     }
-    Set-NetFirewallRule -Name PickChickKitchenLAN -RemoteAddress $addresses
+    if($anyAddress) {Set-NetFirewallRule -Name PickChickKitchenLAN -LocalAddress Any -RemoteAddress LocalSubnet}
+    else {Set-NetFirewallRule -Name PickChickKitchenLAN -LocalAddress $bind -RemoteAddress $addresses}
     Start-Service PickChickKitchenLAN
     (Get-Service PickChickKitchenLAN).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
     $svc=Get-CimInstance Win32_Service -Filter "Name='PickChickKitchenLAN'"
@@ -301,13 +329,19 @@ try {
         $listeners=@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue)
         if(-not $listeners.Count) {Start-Sleep -Milliseconds 250}
     }
-    if($listeners.Count -ne 1 -or $listeners[0].LocalAddress -ne $bind) {throw 'The gateway listener binding differs.'}
+    $listenAddress=$(if($anyAddress){'0.0.0.0'}else{$bind})
+    if($listeners.Count -ne 1 -or $listeners[0].LocalAddress -ne $listenAddress) {throw 'The gateway listener binding differs.'}
     $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$($listeners[0].OwningProcess)"
     if($proc.ExecutablePath -cne $node -or $proc.ParentProcessId -ne $svc.ProcessId) {throw 'The gateway listener ownership differs.'}
-    & $node $checkTarget $publicPath
+    # On every address the check goes over 127.0.0.1 with the certificate pinned by SHA-256: the
+    # server may already have another IPv4 than the certificate names.
+    if($anyAddress) {& $node $checkTarget $publicPath --loopback} else {& $node $checkTarget $publicPath}
     if($LASTEXITCODE -ne 0) {throw 'The pinned TLS check of the gateway failed.'}
-    $remote=@((Get-NetFirewallRule -Name PickChickKitchenLAN | Get-NetFirewallAddressFilter).RemoteAddress | Sort-Object)
-    if(($remote -join ',') -cne (@($addresses | Sort-Object) -join ',')) {throw 'The firewall rule does not hold exactly the listed clients.'}
+    $filter=Get-NetFirewallRule -Name PickChickKitchenLAN | Get-NetFirewallAddressFilter
+    $remote=@($filter.RemoteAddress | Sort-Object)
+    if($anyAddress) {
+        if(($remote -join ',') -cne 'LocalSubnet' -or (@($filter.LocalAddress) -join ',') -cne 'Any') {throw 'The firewall rule does not admit exactly the local subnet.'}
+    } elseif(($remote -join ',') -cne (@($addresses | Sort-Object) -join ',')) {throw 'The firewall rule does not hold exactly the listed clients.'}
 } catch {
     $failure=$_
     if($stopped) {
@@ -320,7 +354,7 @@ try {
                 $saved=Join-Path $backupRoot ([IO.Path]::GetFileName($target))
                 if([IO.File]::Exists($saved)) {Set-LanFile $target ([IO.File]::ReadAllBytes($saved)) $stamp 'rollback'}
             }
-            Set-NetFirewallRule -Name PickChickKitchenLAN -RemoteAddress $previousRemote
+            Set-NetFirewallRule -Name PickChickKitchenLAN -LocalAddress $previousLocal -RemoteAddress $previousRemote
             Start-Service PickChickKitchenLAN
             (Get-Service PickChickKitchenLAN).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
             Write-Warning 'The previous client list is restored and the gateway runs again. Nothing else changed.'
@@ -337,8 +371,8 @@ try {
 }
 
 # ---- Records: installation.json v2 (v1/v2 kept in the backup) and the public client file. ----
-$entries=@($clients | ForEach-Object {[ordered]@{address=$_.address;profile=$_.profile}})
-$next=[ordered]@{format='pickchick-kitchen-lan-v2';completed=$true;cashierAddress=$bind;configFormat=$(if($Legacy){'clientAddresses'}else{'clients'});clients=$entries}
+$entries=@($clients | ForEach-Object {if($_.Contains('keySha256')) {[ordered]@{keySha256=$_.keySha256;profile=$_.profile}} else {[ordered]@{address=$_.address;profile=$_.profile}}})
+$next=[ordered]@{format='pickchick-kitchen-lan-v2';completed=$true;cashierAddress=$bind;configFormat=$(if($Legacy){'clientAddresses'}else{'clients'});anyAddress=$anyAddress;clients=$entries}
 foreach($name in @('terminalId','certificateSha256','certificateExpiresAt')) {if($recordNames -ccontains $name) {$next[$name]=[string]$record.$name}}
 $next.gatewaySha256=Get-LanFileSha256 $gatewayTarget
 $next.checkSha256=Get-LanFileSha256 $checkTarget
@@ -351,6 +385,6 @@ if($public.edgeHost -cne $bind) {throw 'The public kitchen config names another 
 $lanPublic=[ordered]@{edgeHost=$bind;edgePort=$port;edgeCertificatePem=[string]$public.edgeCertificatePem}
 if(@($public.PSObject.Properties.Name) -ccontains 'branchLabel') {$lanPublic.branchLabel=[string]$public.branchLabel}
 Set-LanFile $lanPublicPath ([Text.UTF8Encoding]::new($false).GetBytes(($lanPublic | ConvertTo-Json -Compress))) $stamp 'new'
-Write-Output ('LAN_CLIENTS_UPDATED format='+$next.configFormat+' kitchen='+$counts.kitchen+' display='+$counts.display+' pos='+$counts.pos+' certificateSha256='+$next.certificateSha256)
+Write-Output ('LAN_CLIENTS_UPDATED format='+$next.configFormat+' kitchen='+$counts.kitchen+' display='+$counts.display+' pos='+$counts.pos+' anyAddress='+$anyAddress.ToString().ToLowerInvariant()+' certificateSha256='+$next.certificateSha256)
 Write-Output ('Public client config: '+$lanPublicPath)
 Write-Output ('Previous files: '+$backupRoot)
