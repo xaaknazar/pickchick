@@ -31,6 +31,9 @@ The confirmed name is Pick Box, requested by the owner on 12 November 2026.
   leans and swings towards the side the boxes were placed on, a crooked box moves
   an unsettled tower more than a calm one, a taller tower sways wider and slower,
   straight boxes calm it, and a one-sided overhang tips the top off.
+  A tower that keeps creeping to one side (owner, 17 November 2026) leans that way,
+  tells the player to stack back towards its middle, and falls once the whole weight
+  above a box passes that box's edge.
 - Three lives; a missed release costs one life. A tower collapse can end the round.
   Stable placements increase the count; the camera rises and Almaty mountain
   scenery changes as the player advances.

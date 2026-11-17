@@ -8,6 +8,14 @@ the taller it is; straight boxes calm it; a one-sided overhang tips the top off.
 change: one status line under the score while the tower sways. HUD, cover and
 artwork are unchanged. Details: [balance report](../operations/pick-box-balance-1116.md).
 
+## Owner request - 17 November 2026: a tower that crept sideways
+
+On TestFlight 39 a tower of 88 boxes had walked more than a box width to the right and
+still stood. It now leans, warns and falls. Visual change: the same status line under the
+score reads "Крен вправо - ставь левее" (or left/right swapped; RU/KK/EN) while
+the top is out on the leaning side. Nothing else on screen changed. Pick Box has no frames
+in the app's Figma file, so there is nothing to update there.
+
 ## Owner correction - 14 November 2026
 
 Use a compact arcade HUD: score and record left, current peak and ascent progress
