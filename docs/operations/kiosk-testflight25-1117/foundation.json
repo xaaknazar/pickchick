@@ -1,0 +1,75 @@
+{
+  "sha": "53eaf5dd51abf89cfd0c1af8e6460289d6b0a287",
+  "run_id": 44021717582,
+  "conclusion": "success",
+  "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582",
+  "completed": "2026-11-17T06:16:21Z",
+  "jobs": [
+    {
+      "id": 133832494528,
+      "name": "iPad kiosk state, bundles and browser recovery",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494528"
+    },
+    {
+      "id": 133832494727,
+      "name": "Foundation POS and backoffice integration",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494727"
+    },
+    {
+      "id": 133832494803,
+      "name": "Foundation mobile bundles and checkout recovery",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494803"
+    },
+    {
+      "id": 133832494889,
+      "name": "Foundation simulator browser regressions",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494889"
+    },
+    {
+      "id": 133832494904,
+      "name": "Foundation static checks and transaction invariants",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494904"
+    },
+    {
+      "id": 133832494922,
+      "name": "Local kitchen UI and recovery",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494922"
+    },
+    {
+      "id": 133832494985,
+      "name": "Foundation server account and Kaspi fixtures",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832494985"
+    },
+    {
+      "id": 133832495003,
+      "name": "Cloud-edge fulfillment transport and recovery",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832495003"
+    },
+    {
+      "id": 133832495022,
+      "name": "Private staging image and restricted database role",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832495022"
+    },
+    {
+      "id": 133832495081,
+      "name": "Design screens and interaction smoke",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133832495081"
+    },
+    {
+      "id": 133859251738,
+      "name": "Build, contracts and PostgreSQL integration",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44021717582/job/133859251738"
+    }
+  ]
+}
