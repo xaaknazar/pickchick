@@ -84,7 +84,7 @@
   "app_store_connect_updated": false,
   "requested_build_48_verified": false,
   "blockers": [
-    "Apple sign-in verification failed twice in Codex; Chrome sign-in pending.",
+    "Apple sign-in failed in Codex and Chrome. Chrome UI: We cannot process your request, please try again later.",
     "Native captures and real prices from the chosen build pending.",
     "Kazakh caption approval and locale mapping pending."
   ],
@@ -93,6 +93,7 @@
     "checked_at_local": "2026-11-17 22:23 Asia/Almaty",
     "developer_status": "All services are operating normally",
     "consumer_status": "All services are operating normally",
-    "auth_failure_cause": "not established"
+    "auth_failure_cause": "not established",
+    "chrome_login_result": "failed; visible error confirmed"
   }
 }
