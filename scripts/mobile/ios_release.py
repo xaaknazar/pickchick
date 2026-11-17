@@ -66,6 +66,9 @@ KIOSK_API_URLS = {
     "kiosk-staging": "https://pickchick.185.129.51.103.nip.io",
 }
 KIOSK_PROFILES = tuple(KIOSK_API_URLS)
+# Explicitly deferred printing: a non-network URI rejected by approvedEndpoint.
+# The marker is embedded and verified like a real origin; it never erases SecureStore.
+KIOSK_PHOTO_DISABLED = "disabled:pickchick-photo-printing-v1"
 KIOSK_FLAG_KEYS = ("EXPO_PUBLIC_KIOSK_COMMERCIAL", "EXPO_PUBLIC_KIOSK_BUILD_PROFILE",
                    "EXPO_PUBLIC_KIOSK_API_URL", "EXPO_PUBLIC_KIOSK_PHOTO_URL",
                    "EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW", "EXPO_PUBLIC_KIOSK_RELEASE_ID")
@@ -92,18 +95,21 @@ def checked_photo_url(value):
     return f"https://{host}" + (f":{port}" if port else "")
 
 
-def kiosk_profile_flags(feature_profile, photo_url, release_id):
+def kiosk_profile_flags(feature_profile, photo_url, release_id, photo_disabled=False):
     """Exact public values of a kiosk archive (commercial controller, API, photo, release id)."""
     if feature_profile not in KIOSK_API_URLS:
         fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
     if not re.fullmatch(r"pk-[0-9a-f]{16}", release_id or ""):
         fail("Kiosk release id is invalid.")
+    if photo_disabled and photo_url is not None:
+        fail("Choose the printer HTTPS origin or explicitly disabled printing, not both.")
     return {
         "EXPO_PUBLIC_KIOSK_COMMERCIAL": "1",
         "EXPO_PUBLIC_KIOSK_BUILD_PROFILE":
             "production" if feature_profile == "kiosk-production" else "staging",
         "EXPO_PUBLIC_KIOSK_API_URL": KIOSK_API_URLS[feature_profile],
-        "EXPO_PUBLIC_KIOSK_PHOTO_URL": checked_photo_url(photo_url),
+        "EXPO_PUBLIC_KIOSK_PHOTO_URL": (KIOSK_PHOTO_DISABLED if photo_disabled
+                                       else checked_photo_url(photo_url)),
         "EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW": "0",
         "EXPO_PUBLIC_KIOSK_RELEASE_ID": release_id,
     }
@@ -115,7 +121,7 @@ def verify_kiosk_bundle(app, flags):
     required = {
         "commercial kiosk checkout API": b"/v1/kiosk-checkout",
         "release id (pinned values reached the bundle)": flags["EXPO_PUBLIC_KIOSK_RELEASE_ID"].encode(),
-        "photo printer origin": flags["EXPO_PUBLIC_KIOSK_PHOTO_URL"].encode(),
+        "photo printer origin or disabled marker": flags["EXPO_PUBLIC_KIOSK_PHOTO_URL"].encode(),
         "API origin": flags["EXPO_PUBLIC_KIOSK_API_URL"].encode(),
     }
     missing = [label for label, value in required.items() if value not in bundle]
@@ -576,8 +582,12 @@ def verify_feature_profile(metadata, requested):
         fail("The requested feature profile differs from the archived release.")
     if archived in KIOSK_PROFILES:
         embedded = metadata.get("embeddedPublicEnv") or {}
-        expected = kiosk_profile_flags(archived, embedded.get("EXPO_PUBLIC_KIOSK_PHOTO_URL"),
-                                       embedded.get("EXPO_PUBLIC_KIOSK_RELEASE_ID"))
+        disabled = metadata.get("kioskPhotoDisabled", False)
+        if not isinstance(disabled, bool):
+            fail("The archived kiosk printing mode is invalid.")
+        expected = kiosk_profile_flags(archived,
+                                       None if disabled else embedded.get("EXPO_PUBLIC_KIOSK_PHOTO_URL"),
+                                       embedded.get("EXPO_PUBLIC_KIOSK_RELEASE_ID"), disabled)
         if embedded != expected or metadata.get("kioskBundleVerified") is not True:
             fail(f"The archived {archived} kiosk values are missing, differ or were not verified.")
         return
@@ -652,6 +662,8 @@ def main():
                              "kiosk export/upload default to the archived profile")
     parser.add_argument("--kiosk-photo-url",
                         help="HTTPS origin of the restaurant photo printer service (kiosk archive)")
+    parser.add_argument("--kiosk-photo-disabled", action="store_true",
+                        help="Explicitly defer kiosk printing, retaining saved pairing data (kiosk archive)")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
@@ -666,7 +678,7 @@ def main():
     select_app(args.app)
     if args.feature_profile is None and args.app == "kiosk" and args.phase == "archive":
         fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging "
-             "and --kiosk-photo-url; the legacy shell environment is no longer accepted.")
+             "and --kiosk-photo-url or --kiosk-photo-disabled; the legacy shell environment is no longer accepted.")
     args.profile_from_default = args.feature_profile is None
     if args.feature_profile is None and args.app != "kiosk":
         args.feature_profile = default_feature_profile(args.app)
@@ -676,8 +688,10 @@ def main():
         fail("Kiosk feature profiles are available only for the kiosk app.")
     if args.app == "kiosk" and args.phase == "archive" and args.feature_profile not in KIOSK_PROFILES:
         fail("New kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
-    if args.kiosk_photo_url and not (args.app == "kiosk" and args.phase == "archive"):
-        fail("--kiosk-photo-url applies only to a kiosk archive.")
+    if args.kiosk_photo_disabled and args.kiosk_photo_url:
+        fail("Choose --kiosk-photo-url or --kiosk-photo-disabled, not both.")
+    if (args.kiosk_photo_url or args.kiosk_photo_disabled) and not (args.app == "kiosk" and args.phase == "archive"):
+        fail("Kiosk printing options apply only to a kiosk archive.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
@@ -716,7 +730,7 @@ def perform_phase(args, signing, artifacts):
 
     if args.phase == "archive":
         kiosk_flags = (kiosk_profile_flags(args.feature_profile, args.kiosk_photo_url,
-                                           "pk-" + secrets.token_hex(8))
+                                           "pk-" + secrets.token_hex(8), args.kiosk_photo_disabled)
                        if APP_DIRECTORY == "kiosk" else None)
         bundle_env = archive_environment(args.feature_profile, kiosk_flags=kiosk_flags)
         if bundle_env is None:
@@ -767,6 +781,8 @@ def perform_phase(args, signing, artifacts):
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),
                         "archiveStatus": "started", "signing": public_signing(signing)}
+            if kiosk_flags:
+                metadata["kioskPhotoDisabled"] = args.kiosk_photo_disabled
             write_private_json(metadata_path, metadata)
             run_xcode(archive_command(args, signing, archive, output / "DerivedData"),
                       output / "archive.log", env=bundle_env)
