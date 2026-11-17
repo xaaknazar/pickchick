@@ -8007,19 +8007,6 @@
       "nextAction": "Review and integrate stacked PR387 after PR383 with normal merge and required checks. Installed binary source CI is green; latest commits are reports only. Printing remains deferred and needs a future signed build with a confirmed HTTPS origin. Do not reinstall24 or upload to stores."
     },
     {
-      "id": "kiosk-terminal-release-1116",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-terminal-release-1116",
-      "scopes": [
-        "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md"
-      ],
-      "status": "available",
-      "head": "50ffad4e9d9b08509ece4d7f2b4dfba198c3d86d",
-      "updatedAt": "2026-11-16T16:58:23.705Z",
-      "summary": "PR388 merged at 1ef16b2d. Read-only cloud check 16:55UTC: PEAK GROUP absent, branch remains PICK CHICK ALA AP, kaspi-pos absent,080 absent. New owner instruction forbids substitution; clarification pending versus earlier temporary-test exception. Code requires provider legal entity equal branch/order; no guard bypass. Foundation43907180465 still in progress. Server/Apple unchanged. Report50ffad4e pushed, Prettier/diff PASS.",
-      "nextAction": "Get owner decision on actual PEAK GROUP versus previous temporary test. Actual separate legal entity needs name,12-digit tax ID and tested accounting design. Preserve installed kiosk24 production API/binding/PIN and disabled printer PR387; candidate has build23, next at least25 after Apple check. Recheck full exact-SHA CI, resources and fresh backup/restore before any live changes; payment only by owner."
-    },
-    {
       "id": "mobile-build39-1116",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-build39-1116",
@@ -8035,6 +8022,24 @@
       "updatedAt": "2026-11-16T18:10:57.436Z",
       "summary": "TestFlight 1.0.2 (39) available in PickChick Internal (2); Build ID e9e5f12c-c36d-43a9-a354-5a1ae2db450c. Binary 49e4cd38 Foundation 43902039185 11/11 PASS; integration d04897ea Foundation 43916150693 11/11 PASS. Final documentation merge c847c521 validated with unchanged mobile tree and 7 roadmap tests. PR393 merged into cutover as 7339b81f. IPA SHA-256 and screenshots in mobile-testflight39.md. Release/Apple scopes already released.",
       "nextAction": "After Apple approves external Beta App Review of 1.0.2 (38), claim only @apple/testflight and assign existing build 39 to Testing with automatic notification. Owner performs physical iPhone acceptance. Public App Store/App Review/Google Play unchanged. Online roadmap not published."
+    },
+    {
+      "id": "kiosk-terminal-release-1116",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-terminal-release-1116",
+      "scopes": [
+        "docs/operations/deployments/2026-11-16-kiosk-terminal-release.md",
+        "@vps/api",
+        "@vps/postgresql",
+        "@vps/public-https/gateway",
+        "@release/ios",
+        "@apple/testflight"
+      ],
+      "status": "active",
+      "head": "50ffad4e9d9b08509ece4d7f2b4dfba198c3d86d",
+      "updatedAt": "2026-11-17T04:58:12.228Z",
+      "summary": "PR388 merged at 1ef16b2d. Read-only cloud check 16:55UTC: PEAK GROUP absent, branch remains PICK CHICK ALA AP, kaspi-pos absent,080 absent. New owner instruction forbids substitution; clarification pending versus earlier temporary-test exception. Code requires provider legal entity equal branch/order; no guard bypass. Foundation43907180465 still in progress. Server/Apple unchanged. Report50ffad4e pushed, Prettier/diff PASS.",
+      "nextAction": "Get owner decision on actual PEAK GROUP versus previous temporary test. Actual separate legal entity needs name,12-digit tax ID and tested accounting design. Preserve installed kiosk24 production API/binding/PIN and disabled printer PR387; candidate has build23, next at least25 after Apple check. Recheck full exact-SHA CI, resources and fresh backup/restore before any live changes; payment only by owner."
     }
   ],
   "approvedScopeTransfers": [
