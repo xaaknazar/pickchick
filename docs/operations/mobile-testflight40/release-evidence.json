@@ -1,0 +1,197 @@
+{
+  "foundation": {
+    "sha": "502743ce48dd2e96449bc3db15f836895cbad2b0",
+    "runId": 44041220661,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/44041220661",
+    "conclusion": "success",
+    "attempt": 2,
+    "completedAt": "2026-11-17T08:59:27Z",
+    "jobs": [
+      {
+        "id": 133920463037,
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T08:59:17Z"
+      },
+      {
+        "id": 133920465474,
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T08:38:52Z"
+      },
+      {
+        "id": 133920466237,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:54:32Z"
+      },
+      {
+        "id": 133920466511,
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:55:43Z"
+      },
+      {
+        "id": 133920507440,
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:47:33Z"
+      },
+      {
+        "id": 133920509921,
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:48:49Z"
+      },
+      {
+        "id": 133920512275,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:52:39Z"
+      },
+      {
+        "id": 133920517636,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:58:24Z"
+      },
+      {
+        "id": 133920517698,
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T08:21:08Z"
+      },
+      {
+        "id": 133920540792,
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T07:49:57Z"
+      },
+      {
+        "id": 133929914082,
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success",
+        "completed_at": "2026-11-17T08:59:27Z"
+      }
+    ]
+  },
+  "localChecks": {
+    "sha": "502743ce48dd2e96449bc3db15f836895cbad2b0",
+    "checks": {
+      "mobileNode": 625,
+      "mobilePython": 96,
+      "typecheck": "pass",
+      "eslint": "pass",
+      "prettier": "pass",
+      "productionWebExport": "pass"
+    },
+    "additionalChecks": {
+      "browserLaunchResume": "ABCDEFGH PASS",
+      "browserLaunchResumeFailedScenarioRepeat": "B at 393 and 320 PASS",
+      "hapticsLinked": "link flag and binary module markers PASS"
+    }
+  },
+  "artifact": {
+    "sourceSha": "502743ce48dd2e96449bc3db15f836895cbad2b0",
+    "version": "1.0.2",
+    "build": "40",
+    "bundleIdentifier": "kz.pickchick.app",
+    "featureProfile": "production",
+    "apiUrl": "https://api.pickchick.kz",
+    "dirty": false,
+    "ipaPath": "/Users/xaknazar/Library/Caches/PickChick/releases/mobile-pick-box-20261117-40/export/PickChick.ipa",
+    "bytes": 134748264,
+    "sha256": "0dfa2a16d277d5f188d4f07c0b2ef5b59e2dcdd7e976614a8b47f048506e96f0",
+    "extensions": 0,
+    "signingSettingsRestored": true,
+    "backendEvents": {
+      "archive": {
+        "message": "Mobile JS bundle backend",
+        "feature_profile": "production",
+        "environment": "production",
+        "api_url": "https://api.pickchick.kz",
+        "profile_from_default": false
+      },
+      "export": {
+        "message": "Mobile JS bundle backend",
+        "feature_profile": "production",
+        "environment": "production",
+        "api_url": "https://api.pickchick.kz",
+        "profile_from_default": false
+      },
+      "upload": {
+        "message": "Mobile JS bundle backend",
+        "feature_profile": "production",
+        "environment": "production",
+        "api_url": "https://api.pickchick.kz",
+        "profile_from_default": false
+      }
+    },
+    "newGameHintsInHermesBundle": true,
+    "hapticsLinked": true,
+    "deliveryStatus": "submitted",
+    "uploadWarnings": {
+      "missingThirdPartyDsyms": [
+        "ExpoImage.framework",
+        "React.framework",
+        "ReactNativeDependencies.framework",
+        "SDWebImage.framework",
+        "SDWebImageAVIFCoder.framework",
+        "SDWebImageSVGCoder.framework",
+        "SDWebImageWebPCoder.framework",
+        "hermesvm.framework"
+      ],
+      "uploadAccepted": true
+    }
+  },
+  "initialCiFailure": {
+    "runId": 44041220661,
+    "jobId": 133896001371,
+    "sourceSha": "502743ce48dd2e96449bc3db15f836895cbad2b0",
+    "failure": {
+      "test": "tests/mobile/browser_launch_resume.py",
+      "scenario": "scenario_not_closed",
+      "assertion": "banner_geometry: above the cart bar",
+      "bannerBottom": 764,
+      "cartTop": 698
+    },
+    "localReproduction": {
+      "B_393_320": "pass",
+      "ABCDEFGH": "pass"
+    },
+    "baseRunId": 43996489050,
+    "baseResult": "success",
+    "codeChanged": false,
+    "assertionsChanged": false,
+    "targetedRetry": "PASS, attempt 2, full Foundation 11/11"
+  },
+  "testflight": {
+    "appId": "6809208492",
+    "buildId": "abae2dc0-8251-44f1-b739-5feb8ea4b59f",
+    "status": "testing",
+    "publicAppReviewChanged": false,
+    "visibleStatus": "Тестируется",
+    "groups": [
+      {
+        "name": "PickChick Internal",
+        "testers": 2
+      },
+      {
+        "name": "Testing",
+        "testers": 11
+      }
+    ],
+    "invitations": 13,
+    "autoNotify": true,
+    "whatToTestSaved": true,
+    "betaReviewSubmitted": true,
+    "physicalAcceptance": false,
+    "screenshot": "testflight-overview.jpg"
+  },
+  "documentationChecks": {
+    "roadmapTests": 7,
+    "result": "pass",
+    "prettier": "pass",
+    "applicationUnchangedFromBinarySource": true
+  }
+}

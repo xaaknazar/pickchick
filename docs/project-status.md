@@ -1,3 +1,16 @@
+## 17 ноября: Pick Box - TestFlight 1.0.2 (40) тестируется в обеих группах
+
+Исправление падения башни из PR395 доставлено в PickChick Internal (2) и Testing (11).
+Apple показывает «Тестируется» и 13 приглашений; примечания сохранены,
+автоматическое уведомление включено. Бинарный исходник `502743ce`, production,
+`api.pickchick.kz`, dirty=false. Foundation CI 44041220661 - 11/11 PASS до upload;
+625 Node, 96 Python, TypeScript, ESLint, Prettier и production web-export PASS.
+Первый сбой браузерного теста и успешный точечный повтор описаны в протоколе.
+Archive/export/upload PASS. Физическую приёмку крена и падения на iPhone выполняет
+владелец. Публичный App Store, App Review и Google Play не менялись.
+Онлайн-пульт не публиковался.
+[Протокол, IPA и подтверждение групп](operations/mobile-testflight40.md).
+
 ## 17 ноября: облако киоска с Kaspi Smart POS установлено
 
 API, шлюз и кабинет из bf325a47 (PR388/394) установлены после Foundation
