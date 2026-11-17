@@ -8029,11 +8029,17 @@
         "@vps/postgresql",
         "@vps/public-https/gateway",
         "@release/ios",
-        "@apple/testflight"
+        "@apple/testflight",
+        "docs/operations/kiosk-testflight25-1117.md",
+        "apps/kiosk/app.json",
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/test_ios_kiosk_release.py",
+        "tests/kiosk/photo-release-disabled.test.mjs",
+        "@vps/backoffice-login"
       ],
       "status": "active",
-      "head": "50ffad4e9d9b08509ece4d7f2b4dfba198c3d86d",
-      "updatedAt": "2026-11-17T04:58:12.228Z",
+      "head": "70223bec6a294de17ce64de9bcd4d4b5f074fbf5",
+      "updatedAt": "2026-11-17T05:04:23.167Z",
       "summary": "PR388 merged at 1ef16b2d. Read-only cloud check 16:55UTC: PEAK GROUP absent, branch remains PICK CHICK ALA AP, kaspi-pos absent,080 absent. New owner instruction forbids substitution; clarification pending versus earlier temporary-test exception. Code requires provider legal entity equal branch/order; no guard bypass. Foundation43907180465 still in progress. Server/Apple unchanged. Report50ffad4e pushed, Prettier/diff PASS.",
       "nextAction": "Get owner decision on actual PEAK GROUP versus previous temporary test. Actual separate legal entity needs name,12-digit tax ID and tested accounting design. Preserve installed kiosk24 production API/binding/PIN and disabled printer PR387; candidate has build23, next at least25 after Apple check. Recheck full exact-SHA CI, resources and fresh backup/restore before any live changes; payment only by owner."
     }
