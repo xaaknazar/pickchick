@@ -8007,7 +8007,6 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-build39-1116",
       "scopes": [
-        "apps/mobile/app.json",
         "docs/operations/mobile-testflight39.md",
         "docs/operations/mobile-testflight39"
       ],
@@ -8028,8 +8027,6 @@
         "scripts/mobile/ios_release.py",
         "tests/mobile/test_ios_kiosk_release.py",
         "tests/kiosk/photo-release-disabled.test.mjs",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "docs/operations/deployments/kiosk-terminal-1117",
         "docs/operations/kiosk-testflight25-1117"
       ],
