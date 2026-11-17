@@ -8049,9 +8049,11 @@
         "@release/ios",
         "@apple/testflight"
       ],
-      "status": "active",
-      "head": "9e216931d06e3e959215f120fbdf394d67d32f42",
-      "updatedAt": "2026-11-17T07:45:21.006Z"
+      "status": "available",
+      "head": "2ce5a4f28bb6033c6a982ffbc75ba1d07d4cbabd",
+      "updatedAt": "2026-11-17T10:12:00.853Z",
+      "summary": "TestFlight 1.0.2 (40) тестируется в PickChick Internal (2) и Testing (11), 13 приглашений, автоуведомление. Бинарный 502743ce, Foundation 44041220661 11/11 до upload. Итоговый 2ce5a4f2, Foundation 44053759228 11/11 с первой попытки. PR397 обычным merge принят в codex/cutover-1119 как 5313849faaca0401f41000bef74a6b7020b2993a; деревья совпадают. Протокол docs/operations/mobile-testflight40.md. App Store, App Review, Google Play и серверы не менялись.",
+      "nextAction": "Владелец проверяет крен, падение и возврат башни к середине на физическом iPhone в 40. Принятие физики отмечать отдельно. Онлайн-пульт не опубликован. Владелец выбрал базой интеграции codex/cutover-1119; shared-development не менялся."
     }
   ],
   "approvedScopeTransfers": [
