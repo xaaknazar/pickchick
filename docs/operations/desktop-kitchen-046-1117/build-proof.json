@@ -1,0 +1,110 @@
+{
+  "packageSource": "4df05b795226408ad1c81d5801425f3c2b9814d4",
+  "buildSource": "233ac7641e943a1b1288dfec294103b8953dbfd0",
+  "sameTree": "c652e0aaeecb8aeab741a5dc54a1ced0f32a84a8",
+  "packageSha256": "7a96fcc9c2e71d09a56579aa1ff9d56267b95e43a1b5685793ab67bce23873b4",
+  "ci": [
+    {
+      "id": 44062935653,
+      "name": "Windows Kitchen package",
+      "sha": "233ac7641e943a1b1288dfec294103b8953dbfd0",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44062935653"
+    },
+    {
+      "id": 44062935874,
+      "name": "Foundation CI",
+      "sha": "233ac7641e943a1b1288dfec294103b8953dbfd0",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44062935874"
+    },
+    {
+      "id": 44063414860,
+      "name": "Windows KitchenLAN guards",
+      "sha": "233ac7641e943a1b1288dfec294103b8953dbfd0",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44063414860"
+    },
+    {
+      "id": 44062445263,
+      "name": "Foundation CI",
+      "sha": "5313849faaca0401f41000bef74a6b7020b2993a",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44062445263"
+    }
+  ],
+  "foundationJobs": [
+    {
+      "name": "iPad kiosk state, bundles and browser recovery",
+      "conclusion": "success"
+    },
+    {
+      "name": "Foundation static checks and transaction invariants",
+      "conclusion": "success"
+    },
+    {
+      "name": "Foundation mobile bundles and checkout recovery",
+      "conclusion": "success"
+    },
+    {
+      "name": "Local kitchen UI and recovery",
+      "conclusion": "success"
+    },
+    {
+      "name": "Foundation server account and Kaspi fixtures",
+      "conclusion": "success"
+    },
+    {
+      "name": "Foundation POS and backoffice integration",
+      "conclusion": "success"
+    },
+    {
+      "name": "Foundation simulator browser regressions",
+      "conclusion": "success"
+    },
+    {
+      "name": "Private staging image and restricted database role",
+      "conclusion": "success"
+    },
+    {
+      "name": "Design screens and interaction smoke",
+      "conclusion": "success"
+    },
+    {
+      "name": "Cloud-edge fulfillment transport and recovery",
+      "conclusion": "success"
+    },
+    {
+      "name": "Build, contracts and PostgreSQL integration",
+      "conclusion": "success"
+    }
+  ],
+  "windowsJobs": [
+    {
+      "name": "Package and launch Windows x64 Kitchen",
+      "conclusion": "success"
+    },
+    {
+      "name": "Installed Kitchen updates itself from a feed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Where the POS installer puts PickChickPOS.exe",
+      "conclusion": "success"
+    }
+  ],
+  "artifact": {
+    "id": 14318528140,
+    "zipBytes": 120914183,
+    "zipSha256": "6ae6417682cb9952c3598a995c9b44ad0976cc1472d2206743f819e614385541",
+    "installerBytes": 120902430,
+    "installerSha256": "2cf3fe86fe337d0d85f2d64d7a50c7115d821ea8eb63edd94a1306fe35a18bbd",
+    "buildLogHashMatches": true,
+    "apply": "idle"
+  },
+  "localFeedTests": {
+    "passed": 3,
+    "failed": 0
+  },
+  "deviceAcceptance": false
+}
