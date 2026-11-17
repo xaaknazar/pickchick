@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { usePop, useStagger } from './motion';
 import type { KioskPaymentMethod } from '../model';
 import { fixedText } from './Body';
+import { terminalCopy } from '../terminalCopy';
 /**
  * v3 payment choice: white 28-pt card with a method tile (orange QR, blue phone
  * invoice, soft card), title and explanation. Selected = orange ring + check pop.
@@ -17,6 +18,7 @@ export function PaymentMethodCard({
   locale,
   onSelect,
   position = 0,
+  terminal = false,
 }: {
   method: KioskPaymentMethod;
   selected: boolean;
@@ -25,26 +27,33 @@ export function PaymentMethodCard({
   locale: Locale;
   onSelect: () => void;
   position?: number;
+  /** ADR-0018: Kaspi is paid on the kiosk's own terminal (card or Kaspi QR there). */
+  terminal?: boolean;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
   const rise = useStagger(position + 2);
   const pop = usePop(selected);
   const invoice = method === 'kaspi_invoice';
-  const title = invoice
-    ? t.invoiceTitle
-    : method === 'kaspi'
-      ? commercial
-        ? t.payQR
-        : t.payQR
-      : t.card;
-  const description = commercial
-    ? invoice
-      ? t.invoiceDescription
-      : t.qrDescription
-    : method === 'kaspi'
-      ? t.testKaspiDescription
-      : t.testCardDescription;
+  const onTerminal = terminal && commercial && method === 'kaspi';
+  const title = onTerminal
+    ? terminalCopy(locale).method
+    : invoice
+      ? t.invoiceTitle
+      : method === 'kaspi'
+        ? commercial
+          ? t.payQR
+          : t.payQR
+        : t.card;
+  const description = onTerminal
+    ? terminalCopy(locale).pointer
+    : commercial
+      ? invoice
+        ? t.invoiceDescription
+        : t.qrDescription
+      : method === 'kaspi'
+        ? t.testKaspiDescription
+        : t.testCardDescription;
   const tile = Math.max(56, v(72));
   const check = Math.max(30, v(36));
   return (

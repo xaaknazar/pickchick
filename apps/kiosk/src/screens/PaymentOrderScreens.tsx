@@ -30,6 +30,9 @@ import { QrTimer } from '../components/QrTimer';
 import { QrStepTiles } from '../components/QrStepTiles';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { paymentCopy } from '../paymentCopy';
+import { TerminalPayment } from '../components/TerminalPayment';
+/** A failed terminal payment returns to the start screen after this long without a choice. */
+export const TERMINAL_FAILED_HOLD_MS = 90000;
 export function PaymentScreen({
   model,
   context,
@@ -41,6 +44,49 @@ export function PaymentScreen({
   onStartOver?: () => void;
 }) {
   const t = copy(context.locale);
+  // ADR-0018: a failed terminal payment the guest walked away from frees the kiosk.
+  const terminalPhase = model.terminalPayment?.phase;
+  const newGuest = model.newGuest;
+  useEffect(() => {
+    if (terminalPhase !== 'failed' && terminalPhase !== 'cancelled') return;
+    const timer = setTimeout(() => void newGuest(), TERMINAL_FAILED_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [terminalPhase, newGuest]);
+  // ADR-0018: the kiosk's own Kaspi terminal takes the payment (card or Kaspi QR there).
+  if (model.terminalPayment) {
+    const pc = paymentCopy(context.locale);
+    const number =
+      model.order?.number && model.order.number !== '-'
+        ? pc.orderNo.replace('{n}', kioskTicketNumber(model.order.number))
+        : null;
+    const mode = model.mode ? (model.mode === 'dine_in' ? pc.dineIn : pc.takeaway) : null;
+    return (
+      <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
+        <RadialBackdrop />
+        <PaymentHeader
+          locale={context.locale}
+          setLocale={context.setLocale}
+          title={pc.title}
+          subtitle={[number, mode].filter(Boolean).join(' · ') || undefined}
+          onHelp={context.onHelp}
+        />
+        <StepPills current="payment" locale={context.locale} />
+        <ScrollArea testID="kiosk-payment-scroll" fill>
+          <Wrapper flex={1} paddingX={40} paddingY={24} align="center" justify="center">
+            <TerminalPayment
+              view={model.terminalPayment}
+              total={model.order?.snapshot.total_minor ?? model.cartTotalMinor}
+              locale={context.locale}
+              busy={model.busy}
+              onRetry={model.retryTerminal ? () => void model.retryTerminal?.() : undefined}
+              onLeave={model.leaveTerminal ? () => void model.leaveTerminal?.() : undefined}
+              onStaff={model.staffResetAvailable ? context.onStaffHold : undefined}
+            />
+          </Wrapper>
+        </ScrollArea>
+      </ScreenSurface>
+    );
+  }
   const unknown =
     model.order?.payment_state === 'simulated_unknown' ||
     model.order?.payment_state === 'unknown' ||

@@ -125,6 +125,19 @@
 .device-code .button {
   margin: 0 8px 0 0;
 }
+/* «Киоски на этой точке» (ADR-0019): state, payment account, one switch. */
+.device-kiosk-branch {
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.device-kiosk-branch h3 {
+  margin: 0 0 8px;
+}
+.device-kiosk-branch p {
+  margin: 0 0 8px;
+}
 /* «Подключить киоск»: ID and key on their own lines, each with its copy button. */
 .device-kiosk-line {
   display: grid;

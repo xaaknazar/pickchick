@@ -51,3 +51,17 @@ End session сохраняет marker до ответа, удаляет гост
 Это не банковская операция и не приёмка iPad. Перед включением нужны
 подтверждённый QR-адаптер, server provisioning, контрактная E2E-проверка,
 native сканирование QR, restore/privacy/keyboard и физическая установка.
+
+## Терминал Kaspi Smart POS киоска (ADR-0018)
+
+Если `GET /config` отвечает `kaspi_terminal.enabled` и на iPad привязан тот же терминал
+(`terminal_id` совпадает), оплата идёт на терминале: `POST orders/:id/payment
+{method: kaspi_terminal, request_id}` → `/v2/payment` по LAN (`http://<частный IPv4>:8080`) →
+`terminal-events started` → `/v2/status` раз в секунду → `terminal-events result`. Попытка
+(`flow.terminal`) пишется до каждого шага; `/v2/payment` никогда не повторяется после отправки,
+неизвестный итог читается `/v2/actualize` не чаще раза в 10 с, после перезапуска итог
+дочитывается и сообщается. Иначе остаётся прежний QR на экране. Привязка - в действиях
+сотрудника («Терминал Kaspi»), токен терминала только в SecureStore.
+Код: `src/kaspi-terminal.ts`, `src/kaspi-terminal-link.ts`, `src/commercial-controller.ts`.
+Проверки: `node --test tests/kiosk/kaspi-terminal.test.mjs tests/kiosk/terminal-payment.test.mjs`.
+Инструкция для сотрудника: `docs/operations/kiosk-kaspi-terminal-ipad.md`.

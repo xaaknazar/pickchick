@@ -270,7 +270,7 @@ export function allowedPath(path: string): boolean {
   return (
     search === undefined &&
     new RegExp(
-      `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|kiosk-pairing|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
+      `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|kiosk-pairing|kiosk-branch|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
   );
 }
@@ -683,11 +683,16 @@ const reasons: Record<string, string> = {
   // «Подключить киоск» (owner request 16.11.2026).
   KIOSK_PAIRING_DISABLED: 'Подключение киоска пока не включено на сервере. Сообщите владельцу.',
   KIOSK_BRANCH_NOT_SERVED:
-    'Киоски сейчас обслуживаются только на одной точке, и это не она. Сообщите владельцу.',
+    'Киоски на этой точке не обслуживаются. Включите «Киоски на этой точке» или сообщите владельцу.',
   KIOSK_PAIRING_LIMIT:
     'Слишком много неиспользованных данных для iPad. Подождите 30 минут или используйте уже выданные.',
   KIOSK_PAIRING_ALREADY_ISSUED:
     'Эти данные уже выданы и больше не показываются. Нажмите «Подключить киоск» ещё раз.',
+  // «Киоски на этой точке» (ADR-0019, owner request 16.11.2026).
+  KIOSK_MULTI_BRANCH_DISABLED:
+    'Киоски на нескольких точках пока не включены на сервере. Сообщите владельцу.',
+  KIOSK_BRANCH_PRIMARY: 'На основной точке киоски включены всегда.',
+  KIOSK_BRANCH_VERSION: 'Настройку уже изменили. Список обновлён - проверьте и повторите.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

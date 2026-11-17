@@ -241,7 +241,7 @@ export function PickBoxScreen() {
   }, [game, updatePreferences]);
   const cue = useCallback(
     (event: Cue) => {
-      play(event.kind, game.combo);
+      play(event.kind === 'meteor' ? 'impact' : event.kind, game.combo);
       if (event.kind === 'peak') {
         setMilestone(game.snapshot().peak);
         if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
@@ -250,6 +250,12 @@ export function PickBoxScreen() {
       }
       if (event.kind === 'impact' && preferencesRef.current.haptics && Platform.OS !== 'web') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+      if (event.kind === 'meteor' && preferencesRef.current.haptics && Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      }
+      if (event.kind === 'wobble' && preferencesRef.current.haptics && Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
       }
       if (['land', 'perfect', 'miss', 'collapse'].includes(event.kind)) {
         setFeedback(event.kind);
@@ -362,7 +368,9 @@ export function PickBoxScreen() {
   const statusText = coaching
     ? copy.hint
     : hud.canDrop
-      ? copy.ready
+      ? hud.swaying
+        ? copy.swaying
+        : copy.ready
       : hud.settling
         ? copy.settling
         : game.isWaiting
@@ -474,7 +482,9 @@ export function PickBoxScreen() {
                   ? `${feedbackText}${hud.combo > 1 && feedback === 'perfect' ? ` · ${hud.combo} ${copy.combo}` : ''}`
                   : coaching
                     ? copy.drop
-                    : ''}
+                    : hud.swaying && hud.phase === 'playing'
+                      ? copy.swaying
+                      : ''}
               </Text>
             </View>
           </View>
@@ -548,29 +558,25 @@ export function PickBoxScreen() {
                   accessibilityRole="header"
                   style={s.overlayTitle}
                 >
-                  {resultVisible ? (newBest ? copy.newBest : copy.over) : copy.pause}
+                  {resultVisible
+                    ? newBest
+                      ? copy.newBest
+                      : hud.reason === 'collapse'
+                        ? copy.collapse
+                        : copy.missed
+                    : copy.pause}
                 </Text>
                 <Text style={s.resultScore}>{hud.score}</Text>
-                <Text style={s.resultLabel}>
-                  {boxCount(hud.score, locale)} · {copy.peaks[hud.peak]}
-                </Text>
-                <Text style={s.resultBest}>
-                  {copy.best}: {best}
-                </Text>
-                {resultVisible ? (
-                  <View style={s.resultDetails}>
-                    <Text style={s.resultLabel}>
-                      {hud.reason === 'collapse' ? copy.collapse : copy.missed}
-                    </Text>
-                    <Text style={s.resultLabel}>
-                      {copy.bestCombo}: {hud.bestCombo}
-                    </Text>
-                    <Text style={s.goalLight}>{goalText}</Text>
-                    <Text style={s.resultTip}>
-                      {hud.reason === 'collapse' ? copy.collapseTip : copy.missTip}
-                    </Text>
-                  </View>
-                ) : null}
+                {resultVisible ? null : (
+                  <Text style={s.resultLabel}>
+                    {boxCount(hud.score, locale)} · {copy.peaks[hud.peak]}
+                  </Text>
+                )}
+                {resultVisible && newBest ? null : (
+                  <Text style={s.resultBest}>
+                    {copy.best}: {best}
+                  </Text>
+                )}
                 <View style={s.overlayActions}>
                   <Action
                     testID={resultVisible ? 'pick-box-retry' : 'pick-box-resume'}
@@ -581,9 +587,11 @@ export function PickBoxScreen() {
                   <Action secondary testID="pick-box-menu" onPress={exit}>
                     {copy.exit}
                   </Action>
-                  {settings}
+                  {resultVisible ? null : settings}
                 </View>
-                <Text style={s.overlayNote}>{saveError ? copy.storage : copy.local}</Text>
+                {resultVisible && !saveError ? null : (
+                  <Text style={s.overlayNote}>{saveError ? copy.storage : copy.local}</Text>
+                )}
               </ScrollView>
             </View>
           </Modal>
@@ -618,21 +626,6 @@ const s = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#FF842F', borderRadius: 3 },
   feedbackSlot: { minHeight: 36, paddingTop: 4, paddingRight: 4 },
   stateText: { color: INK, fontFamily: font.bold, fontSize: 11, lineHeight: 16, textAlign: 'left' },
-  resultDetails: { gap: 10, marginTop: 16, maxWidth: 340 },
-  goalLight: {
-    color: '#FFE28A',
-    fontFamily: font.medium,
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
-  resultTip: {
-    color: '#C7DDFB',
-    fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
   countdown: {
     ...StyleSheet.absoluteFill,
     zIndex: 5,

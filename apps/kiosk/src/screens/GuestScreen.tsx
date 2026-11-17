@@ -13,6 +13,8 @@ import { Notice } from '../components/Notice';
 import { DemoBadge } from '../components/DemoBadge';
 import { StaffPinField } from '../components/StaffPinField';
 import { KioskHealthList } from '../components/KioskHealthList';
+import { TerminalSetupPanel } from '../components/TerminalSetupPanel';
+import { terminalCopy } from '../terminalCopy';
 import { kioskHealthLines, type KioskHealthFacts } from '../kiosk-health';
 import { guestErrorText } from '../guestError';
 import { paymentCopy } from '../paymentCopy';
@@ -50,6 +52,8 @@ export function GuestScreen() {
   const [pin, setPin] = useState('');
   // Stage 2: the kiosk health line shown in the staff dialog after the staff code.
   const [health, setHealth] = useState<KioskHealthFacts | null>(null);
+  // ADR-0018: the terminal IP typed in the staff terminal setup.
+  const [terminalHost, setTerminalHost] = useState('');
   useEffect(() => {
     if (!demoAsk) setHealth(null);
   }, [demoAsk]);
@@ -133,12 +137,16 @@ export function GuestScreen() {
   };
   const closeCancel = () => setCancel(false);
   const clearStaffError = model.clearStaffError;
+  const closeTerminalSetup = model.closeTerminalSetup;
   const closeStaff = () => {
     setDemoAsk(false);
     setPin('');
     setHealth(null);
+    setTerminalHost('');
     clearStaffError?.();
+    closeTerminalSetup?.();
   };
+  const terminalSetup = model.terminalSetup;
   const closeRestart = () => {
     setRestartAsk(false);
     setPin('');
@@ -148,6 +156,14 @@ export function GuestScreen() {
   const canDemo =
     !!model.setDemo && model.step === 'start' && !model.order && !model.recoveryRequired;
   const canReset = !!model.staffReset && !!model.staffResetAvailable;
+  // The terminal link changes only on the idle start screen (never under a payment).
+  const canTerminal =
+    !!model.openTerminalSetup &&
+    !!terminalSetup &&
+    !model.demo &&
+    model.step === 'start' &&
+    !model.order &&
+    !model.recoveryRequired;
   const pinReady = !model.staffPinRequired || pin.length >= 4;
   const paying = model.step === 'payment';
   const demoCancelPayment =
@@ -284,6 +300,17 @@ export function GuestScreen() {
               }}
             />
           </>
+        ) : terminalSetup?.open ? (
+          <TerminalSetupPanel
+            view={terminalSetup}
+            host={terminalHost}
+            onHostChange={setTerminalHost}
+            locale={locale}
+            busy={model.busy}
+            onLink={() => void model.linkTerminal?.(terminalHost)}
+            onCheck={() => void model.checkTerminal?.()}
+            onUnlink={() => void model.unlinkTerminal?.()}
+          />
         ) : health ? (
           <>
             <Heading size="title">{t.healthTitle}</Heading>
@@ -296,7 +323,13 @@ export function GuestScreen() {
               {model.staffPinRequired ? t.staffTitle : t.demoEnterTitle}
             </Heading>
             <Body>{model.staffPinRequired ? t.staffBody : t.demoEnterBody}</Body>
-            {canReset ? <Body tone="muted">{t.staffResetBody}</Body> : null}
+            {canReset ? (
+              <Body tone="muted">
+                {model.terminalPayment && ['lost', 'checking'].includes(model.terminalPayment.phase)
+                  ? terminalCopy(locale).staffResetBody
+                  : t.staffResetBody}
+              </Body>
+            ) : null}
             {model.staffPinRequired ? (
               <StaffPinField
                 value={pin}
@@ -335,6 +368,19 @@ export function GuestScreen() {
                 }
               />
             ) : null}
+            {canTerminal ? (
+              <Button
+                label={terminalCopy(locale).setupOpen}
+                tone="secondary"
+                testID="kiosk-staff-terminal"
+                busy={model.busy}
+                disabled={!pinReady}
+                onPress={() =>
+                  // The code is never kept, whatever the answer.
+                  void model.openTerminalSetup?.(pin).then(() => setPin(''))
+                }
+              />
+            ) : null}
             {model.staffHealth ? (
               <Button
                 label={t.staffHealth}
@@ -354,7 +400,7 @@ export function GuestScreen() {
           </>
         )}
         <Button
-          label={health && !model.demo ? t.close : t.demoCancel}
+          label={(health || terminalSetup?.open) && !model.demo ? t.close : t.demoCancel}
           tone="secondary"
           testID="kiosk-demo-dismiss"
           onPress={closeStaff}

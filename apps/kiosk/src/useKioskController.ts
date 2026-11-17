@@ -8,7 +8,7 @@ import * as Crypto from 'expo-crypto';
 import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
 import { startKioskPolling } from './polling';
 import { KioskController } from './controller';
-import { CommercialKioskController } from './commercial-controller';
+import { CommercialKioskController, TERMINAL_POLL_MS } from './commercial-controller';
 import { commercialKioskEnabled } from './commercial-api';
 import { createCommercialKioskIO, createKioskIO } from './storage';
 import { createDemoKiosk, demoIdleExpired, DEMO_IDLE_CHECK_MS, type DemoKiosk } from './demo';
@@ -152,6 +152,14 @@ export default function useKioskController(): KioskModel {
     };
   }, [state.catalog]);
   useEffect(() => {
+    // ADR-0018: the terminal payment reads /v2/status about once a second while it runs.
+    if (!(live instanceof CommercialKioskController)) return;
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void live.pollTerminal();
+    }, TERMINAL_POLL_MS);
+    return () => clearInterval(timer);
+  }, [live]);
+  useEffect(() => {
     // The live kiosk keeps its own polling while the demo is shown (menu reads only).
     const stop = startKioskPolling(live, () => AppState.currentState === 'active');
     const active = AppState.addEventListener('change', (status) => {
@@ -192,6 +200,20 @@ export default function useKioskController(): KioskModel {
     cancelPayment: demo?.cancelPayment,
     startOver: controller instanceof CommercialKioskController ? controller.startOver : undefined,
     staffReset: controller instanceof CommercialKioskController ? controller.staffReset : undefined,
+    retryTerminal:
+      controller instanceof CommercialKioskController ? controller.retryTerminal : undefined,
+    leaveTerminal:
+      controller instanceof CommercialKioskController ? controller.leaveTerminal : undefined,
+    // Staff terminal setup: the live kiosk only, never inside the demo.
+    ...(!demo && live instanceof CommercialKioskController
+      ? {
+          openTerminalSetup: live.openTerminalSetup,
+          closeTerminalSetup: live.closeTerminalSetup,
+          linkTerminal: live.linkTerminal,
+          checkTerminal: live.checkTerminal,
+          unlinkTerminal: live.unlinkTerminal,
+        }
+      : {}),
     clearStaffError:
       controller instanceof CommercialKioskController ? controller.clearStaff : undefined,
     // Not in the demo: its staff dialog only leaves the demo.

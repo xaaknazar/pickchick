@@ -247,6 +247,13 @@ export const ErrorSchema = z.strictObject({
     // courier marks. Only kitchen clients with the KDS layout send marks; cloud routes never
     // answer it.
     'HANDOVER_MARKS_REQUIRED',
+    // Kiosk Kaspi Smart POS terminal routes only (ADR-0018, 409): terminal linked to another
+    // kiosk, not linked, switched off, amount not in whole tenge. Installed kiosk builds never
+    // call those routes, so they never see these codes.
+    'KIOSK_TERMINAL_TAKEN',
+    'KIOSK_TERMINAL_NOT_LINKED',
+    'KIOSK_TERMINAL_DISABLED',
+    'KIOSK_TERMINAL_WHOLE_TENGE',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
     'NOT_READY',

@@ -24,8 +24,13 @@ The confirmed name is Pick Box, requested by the owner on 12 November 2026.
 
 ## Capabilities and constraints
 
-- Tap to release the hanging box. Rigid-body collisions, rotation and balance
-  determine whether it settles, misses or collapses the tower.
+- Tap to release the hanging box. Rigid-body collisions and rotation decide whether
+  it settles or misses. Settled boxes are held by the tower, which behaves like a
+  flexible column (owner, 16 November 2026): the weight above every box must stay
+  over it, and a crooked joint beds in over five or six straight boxes. The column
+  leans and swings towards the side the boxes were placed on, a crooked box moves
+  an unsettled tower more than a calm one, a taller tower sways wider and slower,
+  straight boxes calm it, and a one-sided overhang tips the top off.
 - Three lives; a missed release costs one life. A tower collapse can end the round.
   Stable placements increase the count; the camera rises and Almaty mountain
   scenery changes as the player advances.

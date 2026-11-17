@@ -52,6 +52,51 @@ export type KioskCatalog = Omit<
   TestCompleteCatalog,
   'catalog_version' | 'branch_id' | 'synthetic' | 'namespace' | 'products'
 > & { catalog_version: string; branch_id: string; products: KioskProduct[] };
+/**
+ * ADR-0018: what the guest sees of a payment on the kiosk's Kaspi Smart POS.
+ * starting - the payment is being sent to the terminal; waiting - pay on the terminal;
+ * checking - the terminal does not know the result yet; paid - paid, passing the order on;
+ * failed / cancelled - the terminal declined, or the guest cancelled on it; not_started - the
+ * terminal did not start it (busy with a previous operation, unreachable...): nothing was paid;
+ * lost - sent without an answer: staff checks the terminal, the guest must not pay again.
+ */
+export interface TerminalPaymentView {
+  phase:
+    'starting' | 'waiting' | 'checking' | 'paid' | 'failed' | 'cancelled' | 'not_started' | 'lost';
+  /** Why it did not start (not_started). */
+  reason: 'busy' | 'blocked' | 'token' | 'unreachable' | 'refused' | null;
+  /** The last status read did not reach the terminal or the server; it is retried. */
+  offline: boolean;
+  /** The terminal's subStatus (WaitUser, ProcessingCard...), for staff. */
+  subStatus: string | null;
+}
+/** Outcome of the last staff action in the terminal setup. */
+export type TerminalSetupResult =
+  | 'linked'
+  | 'ok'
+  | 'unlinked'
+  | 'host'
+  | 'unreachable'
+  | 'denied'
+  | 'pending'
+  | 'taken'
+  | 'cloud'
+  | 'mismatch'
+  | 'busy';
+/** Staff terminal setup (ADR-0018), opened after the staff code. */
+export interface TerminalSetupView {
+  /** The staff code was accepted and the setup is open. */
+  open: boolean;
+  /** register was sent: the terminal shows «Разрешить». */
+  confirming: boolean;
+  result: TerminalSetupResult | null;
+  /** The terminal linked on this iPad, if any. */
+  link: { terminalId: string; serial: string; host: string } | null;
+  /** The cloud knows this same terminal for this kiosk. */
+  cloudLinked: boolean;
+  /** The cloud allows payments on the terminal (KIOSK_KASPI_TERMINAL_ENABLED). */
+  enabled: boolean;
+}
 /** Why a staff code was not accepted (audit 19.10); shown under the code field. */
 export type StaffPinError = 'wrong' | 'locked' | 'unavailable' | 'network';
 /** Guest-facing error kinds; the screen shows them in the guest's language (i18n `err*`). */
@@ -70,7 +115,9 @@ export type KioskErrorCode =
   | 'CONNECTION'
   | 'OFFLINE'
   /** The kiosk cannot start a new guest without staff (finding 3.1, neutral text). */
-  | 'STAFF';
+  | 'STAFF'
+  /** ADR-0019: this point pays on the Kaspi terminal only, and none is linked on this iPad. */
+  | 'TERMINAL';
 export interface KioskState {
   commercial?: boolean;
   /**
@@ -101,6 +148,12 @@ export interface KioskState {
     qrPayload: string | null;
     expiresAt: string | null;
   } | null;
+  /** ADR-0018: the current payment runs on the kiosk's Kaspi terminal. */
+  terminalPayment?: TerminalPaymentView | null;
+  /** New payments use the kiosk's Kaspi terminal instead of the QR on screen. */
+  terminalPaymentAvailable?: boolean;
+  /** Staff terminal setup; absent where the kiosk cannot reach a terminal. */
+  terminalSetup?: TerminalSetupView | null;
   invoicePhone?: string;
   phoneValid?: boolean;
   paymentPhase?: string;
@@ -175,6 +228,16 @@ export interface KioskModel extends KioskState {
   startOver?(pin?: string): Promise<boolean>;
   /** Service reset of a stuck kiosk (see `staffResetAvailable`), after the staff code. */
   staffReset?(pin: string): Promise<boolean>;
+  /** Terminal payment: send it again (not started) or start a new attempt (failed). */
+  retryTerminal?(): Promise<boolean>;
+  /** Terminal payment that failed or did not start: back to the cart to choose again. */
+  leaveTerminal?(): Promise<boolean>;
+  /** Staff terminal setup (ADR-0018), each behind the server-checked staff code. */
+  openTerminalSetup?(pin: string): Promise<boolean>;
+  closeTerminalSetup?(): void;
+  linkTerminal?(host: string): Promise<boolean>;
+  checkTerminal?(): Promise<boolean>;
+  unlinkTerminal?(): Promise<boolean>;
   /** Clears the last staff code error (the dialog closed). */
   clearStaffError?(): void;
   /**

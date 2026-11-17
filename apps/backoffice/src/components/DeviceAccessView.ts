@@ -1,6 +1,12 @@
 import { element as el, button, field, select } from '../dom.js';
 import { message } from '../api.js';
-import { DevicesModel, deviceStatus, deviceConnection, type DeviceRow } from '../devices-model.js';
+import {
+  DevicesModel,
+  deviceStatus,
+  deviceConnection,
+  type DeviceRow,
+  type KioskBranch,
+} from '../devices-model.js';
 const modes = [
   { value: 'prep', label: 'Кухня - приготовление' },
   { value: 'assembly', label: 'Кухня - сборка' },
@@ -96,6 +102,7 @@ export class DeviceAccessView {
           'Список устройств доступен. Подключение новых экранов кухни требует завершения настройки кассы. Действующие привязки сохранены.',
         ),
       );
+    if (m.data.kiosk_branch) panel.append(this.kioskBranch(m.data.kiosk_branch));
     if (m.code && Date.parse(m.code.expires_at) <= m.now()) m.hideCode();
     if (m.code) {
       const code = el('section', 'device-code');
@@ -616,6 +623,88 @@ export class DeviceAccessView {
       ),
     );
     return box;
+  }
+  /** ADR-0019 «Киоски на этой точке»: state, the payment account, and the switch for a manager. */
+  private kioskBranch(k: KioskBranch) {
+    const box = el('section', 'device-kiosk-branch');
+    box.setAttribute('aria-label', 'Киоски на этой точке');
+    const account = k.payment_account
+      ? `Оплата на терминале Kaspi: учётная запись ${k.payment_account.reference}` +
+        (k.payment_account.enabled ? '.' : ' (выключена - оплата не пройдёт, сообщите владельцу).')
+      : 'Учётная запись оплаты на терминале Kaspi появится при включении.';
+    box.append(
+      el('h3', '', 'Киоски на этой точке'),
+      el(
+        'p',
+        k.enabled ? '' : 'muted',
+        k.primary
+          ? 'Основная точка: киоски включены всегда, оплата - как настроено на сервере.'
+          : k.enabled
+            ? 'Включены. Заказы с киосков этой точки идут на её кухню, оплата только на терминале Kaspi у киоска.'
+            : 'Выключены. Включите, чтобы подключить iPad-киоск к этой точке.',
+      ),
+      el('p', 'muted', account),
+    );
+    if (!k.primary && this.model.data?.role === 'manager')
+      box.append(
+        button(
+          k.enabled ? 'Выключить киоски' : 'Включить киоски',
+          () => this.switchKioskBranch(!k.enabled),
+          k.enabled ? 'button' : 'button primary',
+          'device-kiosk-branch-toggle',
+        ),
+      );
+    return box;
+  }
+  private switchKioskBranch(enabled: boolean) {
+    const d = modal(enabled ? 'Включить киоски на точке' : 'Выключить киоски на точке');
+    let reason = '';
+    d.append(
+      el(
+        'p',
+        '',
+        enabled
+          ? 'Киоски этой точки начнут принимать заказы с оплатой на своём терминале Kaspi. Затем нажмите «Подключить киоск» и настройте терминал в служебном меню iPad.'
+          : 'Киоски этой точки перестанут принимать новые заказы. Уже оплаченные заказы останутся на кухне.',
+      ),
+      field(
+        'Причина',
+        '',
+        (v) => {
+          reason = v;
+        },
+        { required: true, max: 500, id: 'kiosk-branch-reason' },
+      ),
+    );
+    const error = el('p', 'notice error');
+    error.setAttribute('role', 'alert');
+    d.append(error);
+    const send = button(
+      enabled ? 'Включить' : 'Выключить',
+      () =>
+        void (async () => {
+          if (reason.trim().length < 3) {
+            error.textContent = 'Укажите причину (не короче 3 символов).';
+            return;
+          }
+          send.disabled = true;
+          try {
+            if (await this.model.setKioskBranch(enabled, reason.trim())) d.close();
+            else
+              error.textContent = this.model.uncertain
+                ? 'Ответ не получен. Обновите список и проверьте состояние перед повтором.'
+                : message(this.model.error);
+          } finally {
+            send.disabled = false;
+          }
+        })(),
+      'button primary',
+      'kiosk-branch-save',
+    );
+    d.append(
+      button('Отмена', () => d.close(), 'button'),
+      send,
+    );
   }
   private pairKiosk() {
     const d = modal('Подключить киоск');
