@@ -1,0 +1,98 @@
+{
+  "date": "2026-11-17",
+  "research": {
+    "storefront": "Kazakhstan",
+    "chart": "iPhone Food & Drink Top Free",
+    "chart_entries": 10,
+    "additional_restaurant_references": 6,
+    "screenshots_visually_reviewed": 16
+  },
+  "metadata": {
+    "format": "valid JSON",
+    "length_checks": {
+      "ru": {
+        "name": {
+          "characters": 10,
+          "limit": 30
+        },
+        "subtitle": {
+          "characters": 24,
+          "limit": 30
+        },
+        "promotional_text": {
+          "characters": 125,
+          "limit": 170
+        },
+        "description": {
+          "characters": 1014,
+          "limit": 4000
+        },
+        "keywords": {
+          "utf8_bytes": 89,
+          "conservative_limit": 100
+        }
+      },
+      "en-GB": {
+        "name": {
+          "characters": 10,
+          "limit": 30
+        },
+        "subtitle": {
+          "characters": 28,
+          "limit": 30
+        },
+        "promotional_text": {
+          "characters": 130,
+          "limit": 170
+        },
+        "description": {
+          "characters": 1082,
+          "limit": 4000
+        },
+        "keywords": {
+          "utf8_bytes": 60,
+          "conservative_limit": 100
+        }
+      },
+      "kk-copy-draft": {
+        "name": {
+          "characters": 10,
+          "limit": 30
+        },
+        "subtitle": {
+          "characters": 28,
+          "limit": 30
+        },
+        "promotional_text": {
+          "characters": 127,
+          "limit": 170
+        },
+        "description": {
+          "characters": 1203,
+          "limit": 4000
+        },
+        "keywords": {
+          "utf8_bytes": 91,
+          "conservative_limit": 100
+        }
+      }
+    },
+    "nonstandard_dashes": 0
+  },
+  "actual_app_screenshots_captured": false,
+  "screenshot_assets_generated": false,
+  "app_store_connect_updated": false,
+  "requested_build_48_verified": false,
+  "blockers": [
+    "Apple sign-in verification failed twice in Codex; Chrome sign-in pending.",
+    "Native captures and real prices from the chosen build pending.",
+    "Kazakh caption approval and locale mapping pending."
+  ],
+  "production_changes": [],
+  "apple_status": {
+    "checked_at_local": "2026-11-17 22:23 Asia/Almaty",
+    "developer_status": "All services are operating normally",
+    "consumer_status": "All services are operating normally",
+    "auth_failure_cause": "not established"
+  }
+}
