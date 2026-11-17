@@ -8035,11 +8035,13 @@
         "tests/kiosk/photo-release-disabled.test.mjs",
         "@vps/backoffice-login",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "docs/operations/deployments/kiosk-terminal-1117",
+        "docs/operations/kiosk-testflight25-1117"
       ],
       "status": "active",
-      "head": "70223bec6a294de17ce64de9bcd4d4b5f074fbf5",
-      "updatedAt": "2026-11-17T05:04:23.167Z",
+      "head": "53eaf5dd51abf89cfd0c1af8e6460289d6b0a287",
+      "updatedAt": "2026-11-17T06:07:05.961Z",
       "summary": "Cloud bf325a47 deployed 17.11: 079/080/081, test payment account, grants, API/gateway/backoffice. Existing binding/PIN/orders preserved. Fresh encrypted backups and isolated restores PASS. Native25/53eaf5dd exact Foundation still running.",
       "nextAction": "Finish ten-minute monitoring, archive/export/upload kiosk25 only after full exact-SHA CI, verify internal TestFlight and publish evidence."
     }
