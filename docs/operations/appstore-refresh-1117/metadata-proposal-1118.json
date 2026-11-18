@@ -1,0 +1,46 @@
+{
+  "status": "proposal-awaiting-owner-approval",
+  "checked_on": "2026-11-18",
+  "app_id": "6809208492",
+  "version": "1.0.2",
+  "build": "40",
+  "apple_changes_this_task": false,
+  "localizations": {
+    "ru": {
+      "name": "Pick Chick",
+      "subtitle": "Курица, комбо и заказ с собой",
+      "promotional_text": "Комбо на ваш вкус, оплата через Kaspi.kz и статус заказа в приложении. Заказывайте с собой или в зале, а в свободную минуту играйте в Pick Box.",
+      "keywords": "фингерс,бургер,Алматы,ресторан,самовывоз,соус",
+      "description": "Хрустящая курица, бургеры и комбо для себя и друзей. Заказывайте в Pick Chick с собой или в зале, оплачивайте через Kaspi.kz и следите за готовностью заказа.\n\nКомбо на ваш вкус\nВыбирайте фингерсы, бургеры, картофель и напитки. В комбо можно заменить доступные напитки и соусы, а к заказу добавить любимые блюда.\n\nВсё о заказе - в приложении\nСмотрите состав и фотографии, проверяйте сумму в корзине перед оплатой и следите за статусом приготовления.\n\nПоиграем?\nСтройте башню в Pick Box, сортируйте цвета в Magic Sort, собирайте ряды в Pick Blocks и проходите лабиринты в Pick Man.\n\nЖдём вас в Алматы\nАдрес, часы работы и маршрут в 2ГИС доступны в приложении.\n\nВыбирайте казахский, русский или английский язык. Для заказа нужен вход по номеру телефона с кодом из Telegram.",
+      "whats_new": "Обновили Pick Box: башня реагирует на крен, а подсказки помогают удержать равновесие. Улучшили панель быстрого заказа.",
+      "support_url": "https://pickchick.kz/support/",
+      "privacy_policy_url": "https://pickchick.kz/legal/privacy",
+      "character_counts": {
+        "name": 10,
+        "subtitle": 29,
+        "promotional_text": 143,
+        "keywords": 45,
+        "description": 770,
+        "whats_new": 118
+      }
+    },
+    "en-GB": {
+      "name": "Pick Chick",
+      "subtitle": "Chicken, combos & takeaway",
+      "promotional_text": "Make your combo your own, pay with Kaspi.kz and follow your order in the app. Choose dine-in or takeaway, then take a break with Pick Box.",
+      "keywords": "fingers,burger,Almaty,restaurant,order,sauce",
+      "description": "Crispy chicken, burgers and combos for you and your friends. Order from Pick Chick for dine-in or takeaway, pay with Kaspi.kz and follow your order as it is prepared.\n\nMake it yours\nChoose chicken fingers, burgers, potatoes and drinks. Swap the available drinks and sauces in your combo, and add your favourite dishes.\n\nYour order in one place\nSee photos and ingredients, check the total in your basket before paying and follow the preparation status.\n\nTime for a game?\nBuild a tower in Pick Box, sort colours in Magic Sort, fill rows in Pick Blocks and explore mazes in Pick Man.\n\nFind us in Almaty\nCheck the address and opening hours, then open directions in 2GIS.\n\nChoose Kazakh, Russian or English. To order, sign in with your phone number and a code sent through Telegram.",
+      "whats_new": "Updated Pick Box: the tower responds to leaning, and hints help you keep it balanced. Improved the quick-order bar.",
+      "support_url": "https://pickchick.kz/support/en.html",
+      "privacy_policy_url": "https://pickchick.kz/legal/privacy",
+      "character_counts": {
+        "name": 10,
+        "subtitle": 26,
+        "promotional_text": 138,
+        "keywords": 44,
+        "description": 777,
+        "whats_new": 115
+      }
+    }
+  }
+}
