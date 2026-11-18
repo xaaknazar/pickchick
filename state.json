@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "361de22a452014c2b1406d5ba47016371ed1a5be",
-      "updatedAt": "2026-11-18T11:45:09.491Z",
-      "summary": "361de22a: live KZ food/drink top-ten review and 14-point owner approval list published. Exact RU/en-GB copy validated for field limits and ordinary hyphens. Live Apple draft 1.0.2 build40 and metadata verified; no Apple writes. Four prior screenshots remain. Order example and en-GB image inheritance explicitly documented.",
-      "nextAction": "Await owner approval of approval-1118.md before applying metadata or cover; replace order example with authentic build40 capture before App Review."
+      "status": "available",
+      "head": "aa1e2c54520d27ec822962f6e39c8a0d768929ae",
+      "updatedAt": "2026-11-18T11:51:13.723Z",
+      "summary": "aa1e2c54: owner-approved concise RU copy and equivalent en-GB applied to App Store Connect draft 1.0.2 build40. Both subtitles, promo, description, whats-new and keywords persisted after reload and exact comparison. Names remain Pick Chick. Public before/after evidence published; field limits, formatting and secret-pattern review PASS. Screenshots/cover/build unchanged; manual release; no App Review submission.",
+      "nextAction": "Current text request complete. Continue only on owner instruction for remaining store actions; prior screenshot order-demo and language notes remain documented."
     }
   ],
   "approvedScopeTransfers": [
