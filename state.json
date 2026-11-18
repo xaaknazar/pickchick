@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "1cc800d9055faf895ddb3cf6440d82a334b51914",
-      "updatedAt": "2026-11-18T07:52:02.035Z",
-      "summary": "All 18 stickers fully visible in a row above each phone, foreground layer; no clipping or text/UI overlap. Six exports 1320x2868 verified, independent visual review PASS, published without App Store changes.",
-      "nextAction": "Owner reviews latest composition. Capture native build40 screens with verified prices before final App Store upload."
+      "status": "available",
+      "head": "9bba44de3ef9c1fc53044ef5c766c42846dc100a",
+      "updatedAt": "2026-11-18T08:02:36.506Z",
+      "summary": "Published asymmetric scattered sticker layout. Four individual1254x1254 generated motifs, portrait941x1672 background, refreshed wide cover. Actual native dimensions documented, no native4K claim. Six1320x2868 exports and cover3840x1646 checked, 18 stickers fully visible, independent visual review PASS. App Store unchanged.",
+      "nextAction": "Owner reviews composition. Full-size preview archive /private/tmp/Pick-Chick-screenshots-HD-preview-1118.zip. Before final upload replace archival UI with native build40 captures and verify prices."
     }
   ],
   "approvedScopeTransfers": [
