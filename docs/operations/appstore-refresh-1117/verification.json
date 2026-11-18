@@ -344,6 +344,8 @@
     "current": true,
     "order_source_replaced": true,
     "phones_centered": true,
-    "decorative_fingers_replaced_by": "original-brand Friends Box visualization"
+    "stickers_removed": true,
+    "phone_width_percent": 80,
+    "phone_top_percent": 18
   }
 }

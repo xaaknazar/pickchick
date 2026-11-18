@@ -1,126 +1,42 @@
 [
   {
+    "canvas": [1320, 2868],
+    "center_error_px": 0,
+    "draft_gap_px": 35.3203125,
+    "heading_gap_px": 64.7265625,
     "id": "01-menu",
-    "caption": "Сүйікті дәмің осында",
-    "image": {
-      "loaded": true,
-      "natural": [1320, 2868],
-      "src": "sources/01-menu.png"
-    },
-    "phoneCenterOffset": 0.0078125,
-    "size": [1320, 2868],
-    "stickers": [
-      {
-        "class": "motif friends-box",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif alex",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif flame",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      }
-    ]
+    "images_loaded": true,
+    "phone": [132, 516.234375, 1056, 2230.2265625],
+    "stickers": 0
   },
   {
+    "canvas": [1320, 2868],
+    "center_error_px": 0,
+    "draft_gap_px": 35.3203125,
+    "heading_gap_px": 64.7265625,
     "id": "02-duo",
-    "caption": "Достармен бірге дәмдірек",
-    "image": {
-      "loaded": true,
-      "natural": [1320, 2868],
-      "src": "sources/02-duo.png"
-    },
-    "phoneCenterOffset": 0.0078125,
-    "size": [1320, 2868],
-    "stickers": [
-      {
-        "class": "motif friends-box",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif heart",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif alex",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      }
-    ]
+    "images_loaded": true,
+    "phone": [132, 516.234375, 1056, 2230.2265625],
+    "stickers": 0
   },
   {
+    "canvas": [1320, 2868],
+    "center_error_px": 0,
+    "draft_gap_px": 35.3203125,
+    "heading_gap_px": 64.7265625,
     "id": "03-games",
-    "caption": "Ойна. Рекорд жаңарт.",
-    "image": {
-      "loaded": true,
-      "natural": [1320, 2868],
-      "src": "sources/03-games.png"
-    },
-    "phoneCenterOffset": 0.0078125,
-    "size": [1320, 2868],
-    "stickers": [
-      {
-        "class": "motif food-burger",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif alex",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif flame",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      }
-    ]
+    "images_loaded": true,
+    "phone": [132, 516.234375, 1056, 2230.2265625],
+    "stickers": 0
   },
   {
+    "canvas": [1320, 2868],
+    "center_error_px": 0,
+    "draft_gap_px": 35.3203125,
+    "heading_gap_px": 64.7265625,
     "id": "04-order",
-    "caption": "Тапсырысың көз алдыңда",
-    "image": {
-      "loaded": true,
-      "natural": [440, 956],
-      "src": "sources/04-order-current.jpg"
-    },
-    "phoneCenterOffset": 0.0078125,
-    "size": [1320, 2868],
-    "stickers": [
-      {
-        "class": "motif heart",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif alex",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      },
-      {
-        "class": "motif food-burger",
-        "headingOverlap": false,
-        "inside": true,
-        "phoneOverlap": false
-      }
-    ]
+    "images_loaded": true,
+    "phone": [132, 516.234375, 1056, 2230.2265625],
+    "stickers": 0
   }
 ]

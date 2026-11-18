@@ -19,33 +19,11 @@
       "note": "Новый снимок главного меню от владельца, сохранён без изменений.",
       "preview_caveat": "Новый снимок владельца",
       "background_position": "64%",
-      "motifs": [
-        {
-          "name": "friends-box",
-          "left": 69,
-          "top": 16.5,
-          "width": 23,
-          "rotation": -8
-        },
-        {
-          "name": "alex",
-          "left": 2,
-          "top": 43,
-          "width": 12,
-          "rotation": -8
-        },
-        {
-          "name": "flame",
-          "left": 86,
-          "top": 77,
-          "width": 12,
-          "rotation": 8
-        }
-      ],
+      "motifs": [],
       "phone": {
-        "left": 16,
-        "top": 28.5,
-        "width": 68
+        "left": 10,
+        "top": 18,
+        "width": 80
       },
       "source_type": "owner-supplied-screenshot",
       "source_build_verified": false
@@ -61,33 +39,11 @@
       "note": "Новый снимок «Микс Дуо» от владельца. Цена 7 490 тенге и состав сохранены как на снимке.",
       "preview_caveat": "Новый снимок владельца",
       "background_position": "36%",
-      "motifs": [
-        {
-          "name": "friends-box",
-          "left": 7,
-          "top": 16.5,
-          "width": 23,
-          "rotation": 8
-        },
-        {
-          "name": "heart",
-          "left": 86,
-          "top": 48,
-          "width": 12,
-          "rotation": 8
-        },
-        {
-          "name": "alex",
-          "left": 2,
-          "top": 78,
-          "width": 12,
-          "rotation": -8
-        }
-      ],
+      "motifs": [],
       "phone": {
-        "left": 16,
-        "top": 28.5,
-        "width": 68
+        "left": 10,
+        "top": 18,
+        "width": 80
       },
       "source_type": "owner-supplied-screenshot",
       "source_build_verified": false
@@ -103,33 +59,11 @@
       "note": "Новый снимок раздела игр от владельца. Содержимое экрана сохранено без изменений.",
       "preview_caveat": "Новый снимок владельца",
       "background_position": "80%",
-      "motifs": [
-        {
-          "name": "food-burger",
-          "left": 67,
-          "top": 16.5,
-          "width": 24,
-          "rotation": 6
-        },
-        {
-          "name": "alex",
-          "left": 86,
-          "top": 50,
-          "width": 12,
-          "rotation": 8
-        },
-        {
-          "name": "flame",
-          "left": 2,
-          "top": 81,
-          "width": 12,
-          "rotation": -8
-        }
-      ],
+      "motifs": [],
       "phone": {
-        "left": 16,
-        "top": 28.5,
-        "width": 68
+        "left": 10,
+        "top": 18,
+        "width": 80
       },
       "source_type": "owner-supplied-screenshot",
       "source_build_verified": false
@@ -145,33 +79,11 @@
       "note": "Актуальный дизайн статуса из приложения: Алекс, готовность, этапы и состав. Веб-пример, не снимок реального заказа на iPhone.",
       "preview_caveat": "Экран приложения - пример заказа",
       "background_position": "25%",
-      "motifs": [
-        {
-          "name": "heart",
-          "left": 70,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
-        },
-        {
-          "name": "alex",
-          "left": 2,
-          "top": 44,
-          "width": 12,
-          "rotation": -8
-        },
-        {
-          "name": "food-burger",
-          "left": 86,
-          "top": 76,
-          "width": 12,
-          "rotation": -5
-        }
-      ],
+      "motifs": [],
       "phone": {
-        "left": 16,
-        "top": 28.5,
-        "width": 68
+        "left": 10,
+        "top": 18,
+        "width": 80
       },
       "source_type": "actual-app-order-status-web-preview",
       "source_build_verified": false,
@@ -196,26 +108,20 @@
     "source": "../screenshots-preview-1118/art/background-portrait-hd.png",
     "matching_header": "../assets/header-iridescent-hd-3840x1646.jpg",
     "source_interface_modified": false,
-    "food_assets": ["../screenshots-preview-1118/art/food-burger.png"],
-    "packaging_motifs_displayed": true,
+    "food_assets": [],
+    "packaging_motifs_displayed": false,
     "cover_source": "../screenshots-preview-1118/art/background-cover-hd.png",
-    "stickers": {
-      "alex": "../screenshots-preview-1118/art/sticker-alex-hd.png",
-      "flame": "../screenshots-preview-1118/art/sticker-flame-hd.png",
-      "cup": "../screenshots-preview-1118/art/sticker-cup-hd.png",
-      "heart": "../screenshots-preview-1118/art/sticker-heart-hd.png",
-      "friends-box": "art/friends-box.png"
-    }
+    "stickers": {}
   },
   "sticker_layout": {
-    "placement": "centered phones, asymmetric fully visible stickers",
-    "layer": "foreground above phone",
-    "count_per_screen": 3,
+    "placement": "no decorative stickers; larger centered phones raised closer to headlines",
+    "layer": "none",
+    "count_per_screen": 0,
     "clipped": false,
-    "phone_width_percent": 68,
-    "phone_top_percent": 28.5,
+    "phone_width_percent": 80,
+    "phone_top_percent": 18,
     "row_rejected_by_owner": true,
-    "phone_left_percent": 16
+    "phone_left_percent": 10
   },
   "selection": {
     "count": 4,
@@ -225,5 +131,6 @@
     "removed_from_current_set": ["customisation", "takeaway cart"],
     "previous_set": "../screenshots-preview-1118/manifest.json",
     "order_design": "actual app OrderStatusView replaces rejected archival status"
-  }
+  },
+  "revision": "owner-request-1118-no-stickers-larger-higher-phones"
 }

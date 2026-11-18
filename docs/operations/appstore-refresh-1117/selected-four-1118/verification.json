@@ -40,22 +40,22 @@
     {
       "path": "01-menu.jpg",
       "size": [1320, 2868],
-      "sha256": "1d5eea2e841fbd2868348b8c3b91a1cc4834950cbbee5d9db21f25045aa63463"
+      "sha256": "61a7683ccdbea87438dd6ae2902c8d11964b040925c66b3f78126987de73e173"
     },
     {
       "path": "02-duo.jpg",
       "size": [1320, 2868],
-      "sha256": "6c6f03c2390df880ab2e9f79667407c233d011af43b6a768200fcc5629e1f54e"
+      "sha256": "055532ffdd964d9fd6ccbf0ead3548b29c81bb89ec2e360df9e39cde99d4c8c6"
     },
     {
       "path": "03-games.jpg",
       "size": [1320, 2868],
-      "sha256": "14d0903dabef4bc2fac109eab94417cf0e2d48992c7c64d5cb96f6f60f6537b4"
+      "sha256": "93477f12a3dcacf318e5a221149726aff670a49324de40e3349958786d8bb08f"
     },
     {
       "path": "04-order.jpg",
       "size": [1320, 2868],
-      "sha256": "c64ae38f6d05146dc807a4584e6466696fd914ddac8904f124dfa5d97ed81c4a"
+      "sha256": "712134ea604e0b34dc07782d26ec05d73c0c9f4f7bbacf04a0bdd7a61363a3a5"
     }
   ],
   "strips": [
@@ -72,16 +72,19 @@
   ],
   "captions_match_approved_subset": true,
   "sources_unchanged": true,
-  "stickers_checked": 12,
+  "stickers_checked": 0,
   "clipped_stickers": 0,
   "heading_intersections": 0,
-  "visual_review": "Four horizontally centered phones. Both strips inspected; no clipped or overlapping stickers. New box references original brand artwork. Fourth uses complete actual app design-gallery view with explicit sample notice; not a native build40 capture.",
+  "visual_review": "Both final strips visually inspected: no external decorative stickers; all phones centered, enlarged from68% to80% and raised from28.5% to18%; no clipped frames or headline/draft overlap. Sources and captions unchanged. Fourth remains app design-gallery sample.",
   "app_build_verified": false,
   "prices_independently_verified": false,
   "app_store_uploaded": false,
   "layout_evidence": "layout-check.json",
   "phones_centered": true,
-  "max_phone_center_error_px": 0.0078125,
+  "max_phone_center_error_px": 0,
   "phone_intersections": 0,
-  "order_source_replaced": true
+  "order_source_replaced": true,
+  "stickers_removed": true,
+  "phone_width_percent": 80,
+  "phone_top_percent": 18
 }

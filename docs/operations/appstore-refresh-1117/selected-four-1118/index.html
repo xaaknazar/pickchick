@@ -125,9 +125,9 @@
       .phone {
         position: absolute;
         z-index: 2;
-        width: var(--phone-width, 68%);
-        left: var(--phone-left, 16%);
-        top: var(--phone-top, 28.5%);
+        width: var(--phone-width, 80%);
+        left: var(--phone-left, 10%);
+        top: var(--phone-top, 18%);
         padding: 1.05cqw;
         border-radius: 8.1cqw;
         background: linear-gradient(110deg, #a8b0be, #eef1f6 27%, #aab4c3 60%, #dde3ed);
@@ -144,37 +144,6 @@
         width: 100%;
         height: auto;
         image-rendering: auto;
-      }
-      .motif {
-        position: absolute;
-        z-index: 4;
-        aspect-ratio: 1;
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        pointer-events: none;
-      }
-      .motif.alex {
-        background-image: url('../screenshots-preview-1118/art/sticker-alex-hd.png');
-      }
-      .motif.flame {
-        background-image: url('../screenshots-preview-1118/art/sticker-flame-hd.png');
-      }
-      .motif.friends-box {
-        background-image: url('art/friends-box.png');
-        background-position: center;
-        background-size: contain;
-      }
-      .motif.cup {
-        background-image: url('../screenshots-preview-1118/art/sticker-cup-hd.png');
-      }
-      .motif.heart {
-        background-image: url('../screenshots-preview-1118/art/sticker-heart-hd.png');
-      }
-      .motif.food-burger {
-        background-image: url('../screenshots-preview-1118/art/food-burger.png');
-        background-position: center;
-        background-size: contain;
       }
       body.cover-only main {
         padding: 0;
@@ -354,18 +323,6 @@
           canvas.style.setProperty('--phone-left', s.phone.left + '%');
           canvas.style.setProperty('--phone-top', s.phone.top + '%');
           canvas.style.setProperty('--phone-width', s.phone.width + '%');
-          for (const item of s.motifs) {
-            const motif = document.createElement('div');
-            motif.className = 'motif ' + item.name;
-            motif.setAttribute('aria-hidden', 'true');
-            Object.assign(motif.style, {
-              left: item.left + '%',
-              top: item.top + '%',
-              width: item.width + '%',
-              transform: 'rotate(' + item.rotation + 'deg)',
-            });
-            canvas.append(motif);
-          }
           const h = document.createElement('h2');
           h.lang = 'kk';
           h.textContent = s.headline;
