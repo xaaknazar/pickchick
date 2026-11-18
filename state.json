@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "0e289486eedb9ae7998108297070665e0427180b",
-      "updatedAt": "2026-11-18T07:42:51.255Z",
+      "updatedAt": "2026-11-18T07:43:36.261Z",
       "summary": "Preview 0e289486 published: replaced 3 box motifs with existing fingers and 2 box stacks with burger; sources byte-identical, six exports 1320x2868, both strips visually checked. App Store unchanged.",
       "nextAction": "Owner reviews food version. Before upload capture native build40 screens, verify current prices, replace archival UI and approve final images."
     }
