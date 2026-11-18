@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpException,
   Inject,
+  Ip,
   type OnModuleDestroy,
   type OnModuleInit,
   Param,
@@ -34,6 +35,8 @@ import {
   customerCheckoutOptions,
   comboProgramOptions,
   pollAvailability,
+  TipTopPayTestCheckout,
+  tipTopPayTestOptions,
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
 import { checkoutRepresentation } from './customer-checkout-response.js';
@@ -42,6 +45,8 @@ import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/
 @Controller('v1/customer-checkout')
 export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy {
   private readonly checkout: CustomerCheckout;
+  /** TipTopPay TEST checkout (card / Apple Pay / Google Pay sandbox); null-safe when off. */
+  private readonly testPayments: TipTopPayTestCheckout;
   private unpaidSweep: ReturnType<typeof setInterval> | undefined;
   private sweeping = false;
   private readonly pool: Resources['pool'];
@@ -104,6 +109,10 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     @Inject(CatalogPublicationListener) private readonly publications: CatalogPublicationListener,
   ) {
     this.pool = resources.pool;
+    this.testPayments = new TipTopPayTestCheckout(
+      resources.pool,
+      tipTopPayTestOptions(process.env),
+    );
     this.checkout = new CustomerCheckout(
       resources.pool,
       customerCheckoutOptions(process.env),
@@ -269,9 +278,45 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     @Headers('authorization') auth?: string,
     @Headers('accept') accept?: string,
   ) {
-    return this.execute(auth, async (id) =>
-      checkoutRepresentation(await this.checkout.config(id), accept),
-    );
+    return this.execute(auth, async (id) => {
+      const config = await this.checkout.config(id);
+      const test = this.testPayments.methods;
+      // Builds with the wallets profile learn which methods pay and in which environment.
+      return checkoutRepresentation(
+        test
+          ? {
+              ...config,
+              paymentMethods: ['kaspi', ...test],
+              paymentEnvironment: 'test',
+              tipTopPayPublicId: this.testPayments.publicConfig!.publicId,
+            }
+          : { ...config, paymentMethods: ['kaspi'], paymentEnvironment: 'live' },
+        accept,
+      );
+    });
+  }
+  /**
+   * TEST charge of a quote with a card cryptogram or an Apple Pay / Google Pay token: never an
+   * order, capture, receipt or kitchen job. The packet is opaque to us and is not stored.
+   */
+  @Post('test-payments') @HttpCode(200) createTestPayment(
+    @Body() body: unknown,
+    @Ip() ip: string,
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.testPayments.charge(id, body, ip), accept, true);
+  }
+  @Get('test-payments/:paymentId') readTestPayment(
+    @Param('paymentId') paymentId: string,
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (id) => this.testPayments.read(id, paymentId), accept);
   }
   @Post('quotes') @HttpCode(200) quote(
     @Body() body: unknown,
