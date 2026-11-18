@@ -1,0 +1,60 @@
+{
+  "tool": "built-in image_gen",
+  "requested_quality": "HD assets; actual dimensions recorded separately, requested dimensions not guaranteed",
+  "assets": [
+    {
+      "name": "background-portrait-hd",
+      "prompt": "Use case: precise-object-edit. Input image is the EXISTING abstract blue satin background, style and palette reference. Recreate the same premium cobalt / sapphire iridescent liquid-silk material as a VERY HIGH RESOLUTION PORTRAIT background, 2160 x 3840 pixels requested, maximum available quality. Smooth flowing enamel-satin folds, fine clean edge definition and smooth gradients without blur, banding or grain. Strong luminous cyan and electric blue reflections, subtle violet-blue, rich dark royal blue. Composition must be designed for a tall App Store screenshot, not a landscape zoom: calm dark cobalt top 22 percent for a white headline; large flowing S-shaped waves along right middle and lower left, readable dark central area for a phone. Attractive reflective high gloss, broad dimensional folds. Full bleed. No text, no logos, no objects, no food, no mascot, no phones, no stars, no glitter, no border. Preserve exact brand palette and satin character of the reference; improve resolution and vertical composition.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/iridescent-blue.png"
+      ],
+      "transparent": false,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-e27bba8b-efbf-47c1-8b00-b122cf907c96.png"
+    },
+    {
+      "name": "sticker-alex-hd",
+      "prompt": "Use case: identity-preserve. Input is a sticker reference sheet. Extract and recreate ONLY the rooster head mascot at TOP LEFT as one large high definition standalone decorative cutout on REAL alpha transparent background. Preserve Alex's identity exactly: white pearl feathers, red comb and wattles, smiling yellow beak, glossy black sunglasses with blue studio reflections. No body, no other objects from the sheet. Premium detailed 3D ceramic-vinyl mascot with crisp individual feather forms, glossy highlights, sharp clean contours. Centered complete head, generous 12 percent transparent margin on every side, square 2048x2048 requested, highest quality. Object fully opaque except anti-aliased contour pixels. Empty canvas alpha zero, no glow, no background, no ground shadow, no opaque rectangle. No letters, no text, no extra decorations.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/brand-figures.png"
+      ],
+      "transparent": true,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-59746068-04f1-4823-ae0b-5f8d88e50c6b.png"
+    },
+    {
+      "name": "sticker-flame-hd",
+      "prompt": "Use case: precise-object-edit. Input is a reference sticker sheet. Recreate ONLY the single rounded orange flame charm at TOP MIDDLE as one standalone high definition 3D cutout, square 2048x2048 requested, maximum quality. Preserve existing sculpted three-lobe silhouette, clear amber-orange enamel, yellow warm center, pearly specular reflections. Luxurious solid glossy enamel, sculptural and tactile, no fuzzy aura. Complete flame centered with 15 percent transparent margin. Real transparent alpha background, empty canvas alpha zero. Object opaque and crisp, anti-alias only along silhouette. No other objects, no letters, no checkerboard, no ground shadow, no rectangle, no external glow.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/brand-figures.png"
+      ],
+      "transparent": true,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-5be911e5-4ef0-489b-ad3f-b154ff630c0c.png"
+    },
+    {
+      "name": "sticker-cup-hd",
+      "prompt": "Use case: precise-object-edit. Input is the existing Pick Chick sticker sheet. Recreate ONLY the cobalt takeaway drink cup at BOTTOM LEFT, as ONE much larger crisp high-definition standalone sticker. Preserve its exact design: royal cobalt tapered cup, white lid, orange straw, small orange rooster-head emblem, white diagonal lower stripe and orange base. No lettering. Premium glossy molded vinyl, physically clear edges and clean specular reflections. Entire cup including straw fully visible, three-quarter angle, centered on square 2048x2048 requested with at least 12 percent empty margin. Real alpha transparent empty canvas. Solid opaque object, antialias only at edge. No background, no shadow outside silhouette, no glow, no rectangle, no other objects.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/brand-figures.png"
+      ],
+      "transparent": true,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-62b691cd-a24b-4d47-bc63-180c8a1e17ac.png"
+    },
+    {
+      "name": "sticker-heart-hd",
+      "prompt": "Use case: precise-object-edit. Input is the existing Pick Chick decorative sticker sheet. Extract and recreate ONLY the orange heart charm at BOTTOM MIDDLE as ONE premium high-definition standalone cutout. Preserve its rounded plump asymmetrical heart shape, bright orange enamel, amber translucency represented by highlights INSIDE an opaque surface, pearly reflection on edges, glossy polished tactile finish. Square 2048x2048 requested, centered, complete silhouette, 15 percent empty margin all sides. Real alpha transparent background with empty pixels alpha zero; object itself opaque and crisp. No sheet/grid, no other items, no text, no logo, no glow, no ground shadow, no rectangular backdrop.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/brand-figures.png"
+      ],
+      "transparent": true,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-cadd39ae-1875-4e78-9f75-7a589e0eb7d2.png"
+    },
+    {
+      "name": "background-cover-hd",
+      "prompt": "Use case: precise-object-edit. Input existing Pick Chick iridescent blue background is exact style and palette reference. Create a sharper, highly polished high-definition rendition for the wide App Store cover, panoramic 3840x1646 requested at highest available resolution. Smooth luxurious broad folds of cobalt liquid silk/enamel, strong clean cyan/electric azure/sapphire reflections, tiny violet-blue transitions, crisp sweeping curved boundaries, dark cobalt left and middle, highlights along right edge and lower left. Preserve mood and composition of reference. Smooth rich tonal gradients with NO grain, no JPEG smear, no blur, no banding. Full bleed abstract background only. No text, food, objects, figures, phone, glitter, stars, logos, borders or watermark.",
+      "refs": [
+        "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/art/iridescent-blue.png"
+      ],
+      "transparent": false,
+      "output": "/Users/xaknazar/.codex/generated_images/01a12c0a-d82c-72e2-a966-741480ecf596/exec-a9fa3f70-59bf-4379-965b-9f2dab4b15ac.png"
+    }
+  ]
+}

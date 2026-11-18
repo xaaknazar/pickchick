@@ -167,55 +167,60 @@
       {
         "path": "screenshots-preview-1118/01-combo.jpg",
         "size": [1320, 2868],
-        "sha256": "c72c41351ba42c848f750ddd617cd8803f2004fce4005a463ef3cf055afbae8e"
+        "sha256": "0f1b3e0c648eee26b46da21e7943d4e97d0667a5a3eb10b837fa2898b88cbe8c"
       },
       {
         "path": "screenshots-preview-1118/02-friends.jpg",
         "size": [1320, 2868],
-        "sha256": "a57919ec75022283273ee1ddb7fcee8ec37fc36114509279b9f91a63c8cf244e"
+        "sha256": "ee18e2eb8c6bdf9f517a1aa38d16128f50a9a1b4c8f9ddb72041ad1929ff3b89"
       },
       {
         "path": "screenshots-preview-1118/03-customise.jpg",
         "size": [1320, 2868],
-        "sha256": "c2731244d8777b1422819900f0539de5ab3a2c12a596eb023ecbbf82f4549740"
+        "sha256": "a4a2cc1d7418eaf8b76dbddc3c22b5f7638c8ec80010a1adf92532a0c1ff03e3"
       },
       {
         "path": "screenshots-preview-1118/04-takeaway.jpg",
         "size": [1320, 2868],
-        "sha256": "1f8b367bc44d77087eeb28fe25c7f686f6f4675a41abb1736ddeed9091f938d7"
+        "sha256": "1c26ab6ff2925ed335ca3674f6984a5f0e2cbdc9fe5c0742a49e81a7617e83a2"
       },
       {
         "path": "screenshots-preview-1118/05-order.jpg",
         "size": [1320, 2868],
-        "sha256": "83d98e61fbd611896580fbe7ae5bd8ee0ddba59c19c92f173d2f0b365b1a5a83"
+        "sha256": "fddbe4dec040c18d91cd81c4640f9f8543c7d8c20033864c4a26424384568db7"
       },
       {
         "path": "screenshots-preview-1118/06-games.jpg",
         "size": [1320, 2868],
-        "sha256": "39490144b46c0bff4f9703894060ccc95821df8627e79a63e95fe87486ae61cd"
+        "sha256": "0b06f6007d819aa7a12486e2b76a709079ab9729ecffc4a2259135a8e3d646b6"
       }
     ],
     "strips": [
       {
         "path": "screenshots-preview-1118/preview-01-03.jpg",
-        "sha256": "4848a8aadcbd494e1b3f4a597f8e12b80e5aebe79f8bd3a99965d0279ce61698"
+        "sha256": "531d5c55c70d81103e14da2d6f800fbc68a4489ffeed35c092c2cbcba1060268"
       },
       {
         "path": "screenshots-preview-1118/preview-04-06.jpg",
-        "sha256": "4d463949621aec2fcbd6fe236c7fbcae3afd25b5881da0d23dc2c9ac3a7e3113"
+        "sha256": "5e2c02d5380074d0645de4d7ed50ef36b2a6e467b7532b76d0b83ad68315b30d"
       }
     ],
     "background": {
       "type": "generated iridescent sapphire satin",
-      "source": "art/iridescent-blue.png",
-      "matching_header": "../assets/header-iridescent-3840x1646.jpg",
-      "sprites": "art/brand-figures.png",
-      "sprite_grid": [3, 2],
+      "source": "art/background-portrait-hd.png",
+      "matching_header": "../assets/header-iridescent-hd-3840x1646.jpg",
       "source_interface_modified": false,
       "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
-      "packaging_motifs_displayed": false
+      "packaging_motifs_displayed": false,
+      "cover_source": "art/background-cover-hd.png",
+      "stickers": {
+        "alex": "art/sticker-alex-hd.png",
+        "flame": "art/sticker-flame-hd.png",
+        "cup": "art/sticker-cup-hd.png",
+        "heart": "art/sticker-heart-hd.png"
+      }
     },
-    "composition": "White headlines, a full row of three unobscured foreground stickers, phone width 70%, top 28%. All 18 rotated bounds inside canvas; no headline or phone intersections.",
+    "composition": "Asymmetric alternating offset phones with three foreground stickers at varied heights, sizes and rotations. All 18 fully inside canvas; no headline overlap; transparent element bounds may touch phone rim, visual UI remains unobscured.",
     "visual_check": "Both final 3-card strips checked visually; top overlay keeps white headings readable. No current numeric contrast claim for generated artwork.",
     "food_replacement": {
       "single_boxes_to_fingers": 3,
@@ -226,18 +231,59 @@
       "box_motifs_remaining": 0
     },
     "sticker_layout": {
-      "placement": "fully visible row between headline and phone",
+      "placement": "asymmetric scattered composition around alternating offset phones",
       "layer": "foreground above phone",
       "count_per_screen": 3,
       "clipped": false,
-      "phone_width_percent": 70,
-      "phone_top_percent": 28,
+      "phone_width_percent": 68,
+      "phone_top_percent": 28.5,
+      "row_rejected_by_owner": true,
       "checked_count": 18,
       "clipped_count": 0,
-      "phone_intersections": 0,
       "heading_intersections": 0,
       "evidence": "screenshots-preview-1118/sticker-layout-check.json",
-      "layout_detector_findings": 0
+      "visual_ui_obstruction": false
+    },
+    "hd_sources": {
+      "date": "2026-11-18",
+      "method": "built-in image_gen, individual reference-preserving edits",
+      "assets": [
+        {
+          "path": "background-portrait-hd.png",
+          "size": [941, 1672],
+          "sha256": "98ecfb678bdedf37b7048ef5b2694a3dd276d91b0e44f6e6adb30c892a55cda5"
+        },
+        {
+          "path": "sticker-alex-hd.png",
+          "size": [1254, 1254],
+          "sha256": "c8d0040b6263b68a1a32dbdae7fe284703301583ce23d3842ecb124957e2497d"
+        },
+        {
+          "path": "sticker-flame-hd.png",
+          "size": [1254, 1254],
+          "sha256": "8f49dcbc11ebb4bd99bc594adfae0e84dff0460b886cf5e91a41126df7659dc1"
+        },
+        {
+          "path": "sticker-cup-hd.png",
+          "size": [1254, 1254],
+          "sha256": "97726a1cb0052a0ebb861bba2993f6bcdafe1d5a2ce27e62f1f506ce2ab49695"
+        },
+        {
+          "path": "sticker-heart-hd.png",
+          "size": [1254, 1254],
+          "sha256": "6bd13ffa0e84d994b2bea33d0372fae81b6977a85a88ceaa10144319cfa0f3de"
+        },
+        {
+          "path": "background-cover-hd.png",
+          "size": [1915, 821],
+          "sha256": "ce1a6c23d8cf60282521367feef1be2876e372a6ce94502696e3137d9f00af05"
+        }
+      ],
+      "requested_dimensions_not_guaranteed": true,
+      "food_sources_unchanged": true,
+      "layout": "asymmetric scattered foreground",
+      "actual_native_4k": false,
+      "quality_note": "Each motif now 1254 square instead of a 512 square atlas cell. Portrait artwork height 1672 instead of scaling a landscape crop of height 821. Export size does not imply native source size."
     }
   },
   "header_gradient_preview": {
@@ -274,6 +320,16 @@
     "size": [3840, 1646],
     "sha256": "7f901a0f53f6b45c06bf48dbb5e96a7fc45048c1c89ea9892466f5fb5e05d9de",
     "uploaded": false,
-    "mode": "New owner-requested iridescent direction; replaces mild gradient in previews only."
+    "mode": "New owner-requested iridescent direction; replaces mild gradient in previews only.",
+    "superseded_by": "header_iridescent_hd_preview"
+  },
+  "header_iridescent_hd_preview": {
+    "path": "assets/header-iridescent-hd-3840x1646.jpg",
+    "source": "screenshots-preview-1118/art/background-cover-hd.png",
+    "size": [3840, 1646],
+    "source_size": [1915, 821],
+    "sha256": "065c77db697459c268755be8f14b8d612821096090e817fcabd955df2cf724fb",
+    "uploaded": false,
+    "native_4k": false
   }
 }

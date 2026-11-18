@@ -22,26 +22,31 @@
       "motifs": [
         {
           "name": "alex",
-          "left": 7,
-          "top": 17,
-          "width": 22,
-          "rotation": -8
+          "left": 71,
+          "top": 16.8,
+          "width": 24,
+          "rotation": 10
         },
         {
           "name": "flame",
-          "left": 39.5,
-          "top": 17.4,
-          "width": 21,
-          "rotation": 8
+          "left": 4,
+          "top": 69,
+          "width": 17,
+          "rotation": -14
         },
         {
           "name": "food-fingers",
-          "left": 71,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
+          "left": 3,
+          "top": 39,
+          "width": 20,
+          "rotation": -15
         }
-      ]
+      ],
+      "phone": {
+        "left": 24,
+        "top": 28.5,
+        "width": 68
+      }
     },
     {
       "id": "02-friends",
@@ -57,26 +62,31 @@
       "motifs": [
         {
           "name": "heart",
-          "left": 7,
-          "top": 17,
-          "width": 22,
-          "rotation": -8
+          "left": 8,
+          "top": 17.5,
+          "width": 23,
+          "rotation": -12
         },
         {
           "name": "food-fingers",
-          "left": 39.5,
-          "top": 17.4,
-          "width": 21,
-          "rotation": 8
+          "left": 76,
+          "top": 45,
+          "width": 20,
+          "rotation": 15
         },
         {
           "name": "alex",
-          "left": 71,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
+          "left": 77,
+          "top": 78,
+          "width": 19,
+          "rotation": -8
         }
-      ]
+      ],
+      "phone": {
+        "left": 8,
+        "top": 28.5,
+        "width": 68
+      }
     },
     {
       "id": "03-customise",
@@ -92,26 +102,31 @@
       "motifs": [
         {
           "name": "cup",
-          "left": 7,
+          "left": 70,
           "top": 17,
-          "width": 22,
-          "rotation": -8
+          "width": 23,
+          "rotation": 11
         },
         {
           "name": "flame",
-          "left": 39.5,
-          "top": 17.4,
-          "width": 21,
-          "rotation": 8
+          "left": 4,
+          "top": 48,
+          "width": 17,
+          "rotation": -10
         },
         {
           "name": "heart",
-          "left": 71,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
+          "left": 3,
+          "top": 79,
+          "width": 19,
+          "rotation": -12
         }
-      ]
+      ],
+      "phone": {
+        "left": 24,
+        "top": 28.5,
+        "width": 68
+      }
     },
     {
       "id": "04-takeaway",
@@ -129,24 +144,29 @@
           "name": "food-fingers",
           "left": 7,
           "top": 17,
-          "width": 22,
-          "rotation": -8
+          "width": 27,
+          "rotation": -12
         },
         {
           "name": "cup",
-          "left": 39.5,
-          "top": 17.4,
+          "left": 76,
+          "top": 52,
           "width": 21,
-          "rotation": 8
+          "rotation": 10
         },
         {
           "name": "heart",
-          "left": 71,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
+          "left": 77,
+          "top": 81,
+          "width": 20,
+          "rotation": -10
         }
-      ]
+      ],
+      "phone": {
+        "left": 8,
+        "top": 28.5,
+        "width": 68
+      }
     },
     {
       "id": "05-order",
@@ -162,26 +182,31 @@
       "motifs": [
         {
           "name": "alex",
-          "left": 7,
-          "top": 17,
-          "width": 22,
-          "rotation": -8
+          "left": 4,
+          "top": 39,
+          "width": 20,
+          "rotation": -12
         },
         {
           "name": "heart",
-          "left": 39.5,
-          "top": 17.4,
-          "width": 21,
-          "rotation": 8
-        },
-        {
-          "name": "food-burger",
           "left": 71,
           "top": 17,
           "width": 22,
           "rotation": 10
+        },
+        {
+          "name": "food-burger",
+          "left": 6,
+          "top": 82.5,
+          "width": 28,
+          "rotation": -7
         }
-      ]
+      ],
+      "phone": {
+        "left": 24,
+        "top": 28.5,
+        "width": 68
+      }
     },
     {
       "id": "06-games",
@@ -197,44 +222,55 @@
       "motifs": [
         {
           "name": "food-burger",
-          "left": 7,
+          "left": 67,
           "top": 17,
-          "width": 22,
-          "rotation": -8
-        },
-        {
-          "name": "alex",
-          "left": 39.5,
-          "top": 17.4,
-          "width": 21,
+          "width": 28,
           "rotation": 8
         },
         {
+          "name": "alex",
+          "left": 77,
+          "top": 51,
+          "width": 20,
+          "rotation": 12
+        },
+        {
           "name": "flame",
-          "left": 71,
-          "top": 17,
-          "width": 22,
-          "rotation": 10
+          "left": 77,
+          "top": 81,
+          "width": 20,
+          "rotation": -12
         }
-      ]
+      ],
+      "phone": {
+        "left": 8,
+        "top": 28.5,
+        "width": 68
+      }
     }
   ],
   "background": {
     "type": "generated iridescent sapphire satin",
-    "source": "art/iridescent-blue.png",
-    "matching_header": "../assets/header-iridescent-3840x1646.jpg",
-    "sprites": "art/brand-figures.png",
-    "sprite_grid": [3, 2],
+    "source": "art/background-portrait-hd.png",
+    "matching_header": "../assets/header-iridescent-hd-3840x1646.jpg",
     "source_interface_modified": false,
     "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
-    "packaging_motifs_displayed": false
+    "packaging_motifs_displayed": false,
+    "cover_source": "art/background-cover-hd.png",
+    "stickers": {
+      "alex": "art/sticker-alex-hd.png",
+      "flame": "art/sticker-flame-hd.png",
+      "cup": "art/sticker-cup-hd.png",
+      "heart": "art/sticker-heart-hd.png"
+    }
   },
   "sticker_layout": {
-    "placement": "fully visible row between headline and phone",
+    "placement": "asymmetric scattered composition around alternating offset phones",
     "layer": "foreground above phone",
     "count_per_screen": 3,
     "clipped": false,
-    "phone_width_percent": 70,
-    "phone_top_percent": 28
+    "phone_width_percent": 68,
+    "phone_top_percent": 28.5,
+    "row_rejected_by_owner": true
   }
 }

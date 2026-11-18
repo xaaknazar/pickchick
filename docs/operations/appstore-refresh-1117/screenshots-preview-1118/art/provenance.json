@@ -43,5 +43,46 @@
       }
     ],
     "not_new_product_photography": true
+  },
+  "hd_refresh": {
+    "date": "2026-11-18",
+    "method": "built-in image_gen, individual reference-preserving edits",
+    "assets": [
+      {
+        "path": "background-portrait-hd.png",
+        "size": [941, 1672],
+        "sha256": "98ecfb678bdedf37b7048ef5b2694a3dd276d91b0e44f6e6adb30c892a55cda5"
+      },
+      {
+        "path": "sticker-alex-hd.png",
+        "size": [1254, 1254],
+        "sha256": "c8d0040b6263b68a1a32dbdae7fe284703301583ce23d3842ecb124957e2497d"
+      },
+      {
+        "path": "sticker-flame-hd.png",
+        "size": [1254, 1254],
+        "sha256": "8f49dcbc11ebb4bd99bc594adfae0e84dff0460b886cf5e91a41126df7659dc1"
+      },
+      {
+        "path": "sticker-cup-hd.png",
+        "size": [1254, 1254],
+        "sha256": "97726a1cb0052a0ebb861bba2993f6bcdafe1d5a2ce27e62f1f506ce2ab49695"
+      },
+      {
+        "path": "sticker-heart-hd.png",
+        "size": [1254, 1254],
+        "sha256": "6bd13ffa0e84d994b2bea33d0372fae81b6977a85a88ceaa10144319cfa0f3de"
+      },
+      {
+        "path": "background-cover-hd.png",
+        "size": [1915, 821],
+        "sha256": "ce1a6c23d8cf60282521367feef1be2876e372a6ce94502696e3137d9f00af05"
+      }
+    ],
+    "requested_dimensions_not_guaranteed": true,
+    "food_sources_unchanged": true,
+    "layout": "asymmetric scattered foreground",
+    "actual_native_4k": false,
+    "quality_note": "Each motif now 1254 square instead of a 512 square atlas cell. Portrait artwork height 1672 instead of scaling a landscape crop of height 821. Export size does not imply native source size."
   }
 }

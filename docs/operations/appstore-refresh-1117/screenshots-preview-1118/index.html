@@ -73,7 +73,7 @@
       .cover-preview .cover-art {
         width: 100%;
         aspect-ratio: 3840 / 1646;
-        background: #0638ba url('art/iridescent-blue.png') center / cover no-repeat;
+        background: #0638ba url('art/background-cover-hd.png') center / cover no-repeat;
       }
       .cover-preview figcaption {
         padding-top: 10px;
@@ -98,7 +98,8 @@
         isolation: isolate;
         background-color: #0434b5;
         background-image:
-          linear-gradient(180deg, #0321769c 0%, #03217600 28%), url('art/iridescent-blue.png');
+          linear-gradient(180deg, #0321769c 0%, #03217600 28%),
+          url('art/background-portrait-hd.png');
         background-size:
           cover,
           auto 100%;
@@ -123,9 +124,9 @@
       .phone {
         position: absolute;
         z-index: 2;
-        width: 70%;
-        left: 15%;
-        top: 28%;
+        width: var(--phone-width, 68%);
+        left: var(--phone-left, 16%);
+        top: var(--phone-top, 28.5%);
         padding: 1.05cqw;
         border-radius: 8.1cqw;
         background: linear-gradient(110deg, #a8b0be, #eef1f6 27%, #aab4c3 60%, #dde3ed);
@@ -147,16 +148,16 @@
         position: absolute;
         z-index: 4;
         aspect-ratio: 1;
-        background-image: url('art/brand-figures.png');
-        background-size: 300% 200%;
+        background-size: contain;
+        background-position: center;
         background-repeat: no-repeat;
         pointer-events: none;
       }
       .motif.alex {
-        background-position: 0 0;
+        background-image: url('art/sticker-alex-hd.png');
       }
       .motif.flame {
-        background-position: 50% 0;
+        background-image: url('art/sticker-flame-hd.png');
       }
       .motif.food-fingers {
         background-image: url('art/food-fingers.png');
@@ -164,10 +165,10 @@
         background-size: contain;
       }
       .motif.cup {
-        background-position: 0 100%;
+        background-image: url('art/sticker-cup-hd.png');
       }
       .motif.heart {
-        background-position: 50% 100%;
+        background-image: url('art/sticker-heart-hd.png');
       }
       .motif.food-burger {
         background-image: url('art/food-burger.png');
@@ -349,6 +350,9 @@
           canvas.className = 'canvas' + (s.id === '05-order' ? ' order' : '');
           canvas.dataset.id = s.id;
           canvas.style.setProperty('--bg-x', s.background_position);
+          canvas.style.setProperty('--phone-left', s.phone.left + '%');
+          canvas.style.setProperty('--phone-top', s.phone.top + '%');
+          canvas.style.setProperty('--phone-width', s.phone.width + '%');
           for (const item of s.motifs) {
             const motif = document.createElement('div');
             motif.className = 'motif ' + item.name;

@@ -3,6 +3,7 @@
     "headline": "Сүйікті дәмің осында",
     "id": "01-combo",
     "imagesReady": true,
+    "phoneLeft": 24,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -10,21 +11,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif alex",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 1.42,
+        "topPercent": 16
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif flame",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 0,
+        "topPercent": 68
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif food-fingers",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 5.09,
+        "topPercent": 38
       }
     ]
   },
@@ -32,6 +36,7 @@
     "headline": "Достармен бірге дәмдірек",
     "id": "02-friends",
     "imagesReady": true,
+    "phoneLeft": 8,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -39,21 +44,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif heart",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 4.19,
+        "topPercent": 17
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif food-fingers",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 9.17,
+        "topPercent": 44
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif alex",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 1.07,
+        "topPercent": 77
       }
     ]
   },
@@ -61,6 +69,7 @@
     "headline": "Дәл өзің қалағандай",
     "id": "03-customise",
     "imagesReady": true,
+    "phoneLeft": 24,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -68,21 +77,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif cup",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 0,
+        "topPercent": 16
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif flame",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 0,
+        "topPercent": 47
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif heart",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 0,
+        "topPercent": 78
       }
     ]
   },
@@ -90,6 +102,7 @@
     "headline": "Тапсырыс бер де, ала кет",
     "id": "04-takeaway",
     "imagesReady": true,
+    "phoneLeft": 8,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -97,21 +110,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif food-fingers",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 12.58,
+        "topPercent": 16
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif cup",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 6.84,
+        "topPercent": 51
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif heart",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 2.52,
+        "topPercent": 80
       }
     ]
   },
@@ -119,6 +135,7 @@
     "headline": "Тапсырысың көз алдыңда",
     "id": "05-order",
     "imagesReady": true,
+    "phoneLeft": 24,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -126,21 +143,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif alex",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 7.84,
+        "topPercent": 38
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif heart",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 0,
+        "topPercent": 16
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif food-burger",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 2.1,
+        "topPercent": 82
       }
     ]
   },
@@ -148,6 +168,7 @@
     "headline": "Ойна. Рекорд жаңарт.",
     "id": "06-games",
     "imagesReady": true,
+    "phoneLeft": 8,
     "size": [1320, 2868],
     "stickers": [
       {
@@ -155,21 +176,24 @@
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif food-burger",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 5.22,
+        "topPercent": 16
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif alex",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 3.62,
+        "topPercent": 50
       },
       {
         "abovePhone": true,
         "fullyInside": true,
         "headingOverlap": false,
         "name": "motif flame",
-        "phoneOverlap": false
+        "phoneBoundingBoxOverlapPercent": 3.62,
+        "topPercent": 80
       }
     ]
   }
