@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3873c64f6a048159a08106c3a91c8bc7da4013a2",
-      "updatedAt": "2026-11-18T06:11:54.549Z",
+      "updatedAt": "2026-11-18T06:14:07.365Z",
       "summary": "18.11: owner-requested softer gradient applied to all six screenshot previews and new 3840x1646 header. Stops #1B66D9/#074DBB/#073585, minimum white contrast 5.32:1. Six 1320x2868 exports and original source hashes verified. Published 3873c64f. No App Store upload this turn.",
       "nextAction": "Owner reviews updated preview; then capture fresh native build40 screens and verified prices before final screenshot upload. New gradient header is prepared locally; prior Apple header is unchanged."
     }
