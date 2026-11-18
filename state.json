@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "0e289486eedb9ae7998108297070665e0427180b",
-      "updatedAt": "2026-11-18T07:43:36.261Z",
-      "summary": "Preview 0e289486 published: replaced 3 box motifs with existing fingers and 2 box stacks with burger; sources byte-identical, six exports 1320x2868, both strips visually checked. App Store unchanged.",
-      "nextAction": "Owner reviews food version. Before upload capture native build40 screens, verify current prices, replace archival UI and approve final images."
+      "status": "available",
+      "head": "1cc800d9055faf895ddb3cf6440d82a334b51914",
+      "updatedAt": "2026-11-18T07:46:56.087Z",
+      "summary": "All 18 stickers fully visible in a row above each phone, foreground layer; no clipping or text/UI overlap. Six exports 1320x2868 verified, independent visual review PASS, published without App Store changes.",
+      "nextAction": "Owner reviews latest composition. Capture native build40 screens with verified prices before final App Store upload."
     }
   ],
   "approvedScopeTransfers": [
