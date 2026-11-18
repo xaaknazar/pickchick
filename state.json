@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "361de22a452014c2b1406d5ba47016371ed1a5be",
-      "updatedAt": "2026-11-18T11:34:24.183Z",
+      "updatedAt": "2026-11-18T11:45:09.491Z",
       "summary": "361de22a: live KZ food/drink top-ten review and 14-point owner approval list published. Exact RU/en-GB copy validated for field limits and ordinary hyphens. Live Apple draft 1.0.2 build40 and metadata verified; no Apple writes. Four prior screenshots remain. Order example and en-GB image inheritance explicitly documented.",
       "nextAction": "Await owner approval of approval-1118.md before applying metadata or cover; replace order example with authentic build40 capture before App Review."
     }
