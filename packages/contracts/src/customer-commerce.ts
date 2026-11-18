@@ -12,6 +12,15 @@ export const CustomerTestPaymentSchema = z.strictObject({
   threeDsUrl: z.url().optional(),
   message: z.string().max(200).optional(),
 });
+export const CustomerTestPaymentSetupSchema = z.strictObject({
+  publicId: z.string().regex(/^(pk_|test_api_)[a-zA-Z0-9]+$/),
+  publicKey: z.strictObject({ pem: z.string().max(4096), version: z.int().nonnegative() }),
+  googlePay: z
+    .strictObject({ gateway: z.string().max(60), gatewayMerchantId: z.string().max(100) })
+    .nullable(),
+  environment: z.literal('test'),
+});
+export type CustomerTestPaymentSetup = z.infer<typeof CustomerTestPaymentSetupSchema>;
 export type CustomerTestPayment = z.infer<typeof CustomerTestPaymentSchema>;
 export const CustomerCheckoutConfigSchema = z.strictObject({
   enabled: z.boolean(),

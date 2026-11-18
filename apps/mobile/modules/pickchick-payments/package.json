@@ -1,0 +1,7 @@
+{
+  "name": "pickchick-payments",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native card cryptogram, Apple Pay and Google Pay for the TipTopPay checkout",
+  "main": "index.ts"
+}

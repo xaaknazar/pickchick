@@ -8,6 +8,7 @@ import {
   CommerceRepository,
   TipTopPayTestCheckout,
   tipTopPayTestOptions,
+  findGooglePayGateway,
   digest,
 } from '../dist/index.js';
 
@@ -357,7 +358,7 @@ test('TEST charge of a card cryptogram: once per quote, 3-D Secure, declines and
     }
   }));
 
-test('TEST configuration is explicit, keeps Apple Pay off without the domain and rejects LIVE', () => {
+test('TEST configuration is explicit, keeps Apple Pay off without the certificate and rejects LIVE', () => {
   const env = {
     TIPTOPPAY_TEST_CHECKOUT_ENABLED: 'true',
     TIPTOPPAY_TEST_WEBHOOKS_ENABLED: 'true',
@@ -382,7 +383,7 @@ test('TEST configuration is explicit, keeps Apple Pay off without the domain and
     tipTopPayTestOptions({
       ...env,
       TIPTOPPAY_TEST_CHECKOUT_METHODS: 'card,apple_pay,google_pay',
-      TIPTOPPAY_APPLE_PAY_DOMAIN_VERIFIED: 'true',
+      TIPTOPPAY_APPLE_PAY_CERTIFICATE_READY: 'true',
     }).methods,
     ['card', 'apple_pay', 'google_pay'],
   );
@@ -393,5 +394,55 @@ test('TEST configuration is explicit, keeps Apple Pay off without the domain and
   assert.throws(() => tipTopPayTestOptions({ ...env, TIPTOPPAY_TEST_WEBHOOKS_ENABLED: 'false' }));
   assert.throws(() =>
     tipTopPayTestOptions({ ...env, TIPTOPPAY_CHECKOUT_ORIGIN: 'http://checkout.example' }),
+  );
+});
+
+test('setup reads the public key and the Google Pay gateway once and caches them', async () => {
+  const urls = [];
+  const answers = {
+    '/payments/publickey': {
+      Pem: '-----BEGIN PUBLIC KEY-----\nMIIB\n-----END PUBLIC KEY-----',
+      Version: 4,
+    },
+    '/merchant/configuration?terminalPublicId=pk_sandbox': {
+      Model: { ExternalPaymentMethods: [{ Type: 6, Enabled: true, GPayGatewayName: 'tiptoppay' }] },
+    },
+  };
+  const request = async (url) => {
+    const path = url.replace('https://api.tiptoppay.kz', '');
+    urls.push(path);
+    return new Response(JSON.stringify(answers[path]), { status: 200 });
+  };
+  const options = {
+    organizationId: randomUUID(),
+    branchId: randomUUID(),
+    maxMinor: '100000',
+    publicId: 'pk_sandbox',
+    apiSecret: 'synthetic-sandbox-secret',
+    origin: 'https://checkout.example',
+    methods: ['card', 'google_pay'],
+    routingVerified: false,
+  };
+  const sandbox = new TipTopPayTestCheckout(null, options, Date.now, request);
+  const setup = await sandbox.setup();
+  assert.deepEqual(setup, {
+    publicId: 'pk_sandbox',
+    publicKey: { pem: answers['/payments/publickey'].Pem, version: 4 },
+    googlePay: { gateway: 'tiptoppay', gatewayMerchantId: 'pk_sandbox' },
+    environment: 'test',
+  });
+  await sandbox.setup();
+  assert.equal(urls.length, 2);
+  const manual = new TipTopPayTestCheckout(
+    null,
+    { ...options, googlePayGateway: 'manual' },
+    Date.now,
+    request,
+  );
+  assert.equal((await manual.setup()).googlePay.gateway, 'manual');
+  assert.equal(findGooglePayGateway({ a: [{ gPayGatewayName: 'x y' }] }), null);
+  assert.equal(
+    await new TipTopPayTestCheckout(null, null).setup().catch((e) => e.code),
+    'NOT_READY',
   );
 });

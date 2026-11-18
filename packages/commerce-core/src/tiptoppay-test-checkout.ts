@@ -31,6 +31,8 @@ export interface TipTopPayTestOptions {
   origin: string;
   methods: TipTopPayMethod[];
   routingVerified: boolean;
+  /** Google Pay gateway name from the TipTopPay manager; read from the terminal if absent. */
+  googlePayGateway?: string;
 }
 export function tipTopPayTestOptions(env: NodeJS.ProcessEnv): TipTopPayTestOptions | null {
   if (env.TIPTOPPAY_TEST_CHECKOUT_ENABLED !== 'true') return null;
@@ -59,8 +61,9 @@ export function tipTopPayTestOptions(env: NodeJS.ProcessEnv): TipTopPayTestOptio
     .max(3)
     .parse((env.TIPTOPPAY_TEST_CHECKOUT_METHODS ?? 'card').split(',').map((m) => m.trim()));
   if (new Set(methods).size !== methods.length) throw new CommerceError('INVALID');
-  // Apple Pay on the web needs the domain association file of TipTopPay on this origin.
-  if (methods.includes('apple_pay') && env.TIPTOPPAY_APPLE_PAY_DOMAIN_VERIFIED !== 'true')
+  // Native Apple Pay needs the Payment Processing Certificate (TipTopPay CSR) uploaded to Apple
+  // and TipTopPay for this terminal; until then the app does not offer Apple Pay.
+  if (methods.includes('apple_pay') && env.TIPTOPPAY_APPLE_PAY_CERTIFICATE_READY !== 'true')
     throw new CommerceError('NOT_READY');
   return {
     organizationId: parse(UUIDSchema, env.CUSTOMER_KASPI_ORGANIZATION_ID),
@@ -76,6 +79,14 @@ export function tipTopPayTestOptions(env: NodeJS.ProcessEnv): TipTopPayTestOptio
     // Opening the widget on one method needs a setting by the TipTopPay manager. Without it the
     // widget shows its general form (card plus the wallets switched on in the cabinet).
     routingVerified: env.TIPTOPPAY_METHOD_ROUTING_VERIFIED === 'true',
+    ...(env.TIPTOPPAY_GOOGLE_PAY_GATEWAY
+      ? {
+          googlePayGateway: z
+            .string()
+            .regex(/^[a-z0-9_-]{2,60}$/i)
+            .parse(env.TIPTOPPAY_GOOGLE_PAY_GATEWAY),
+        }
+      : {}),
   };
 }
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -149,6 +160,27 @@ const operationId = (value: unknown) =>
 const holderMessage = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : null;
 
+export type TipTopPaySetup = {
+  publicId: string;
+  publicKey: { pem: string; version: number };
+  googlePay: { gateway: string; gatewayMerchantId: string } | null;
+  environment: 'test';
+};
+/** gPayGatewayName of the terminal's Google Pay method, wherever the configuration nests it. */
+export function findGooglePayGateway(value: unknown, depth = 0): string | null {
+  if (!value || typeof value !== 'object' || depth > 6) return null;
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (
+      /^gpaygatewayname$/i.test(key) &&
+      typeof item === 'string' &&
+      /^[a-z0-9_-]{2,60}$/i.test(item)
+    )
+      return item;
+    const nested = findGooglePayGateway(item, depth + 1);
+    if (nested) return nested;
+  }
+  return null;
+}
 export type TestChargeResult = ReturnType<typeof view> & {
   /** Present while the card waits for 3-D Secure: open it in the in-app browser. */
   threeDsUrl?: string;
@@ -178,6 +210,52 @@ export class TipTopPayTestCheckout {
   /** What the app needs to build a cryptogram or a wallet request (never the API secret). */
   get publicConfig() {
     return this.options ? { publicId: this.options.publicId } : null;
+  }
+  private setupCache: { at: number; value: TipTopPaySetup } | null = null;
+  /**
+   * Public key for the card cryptogram and the Google Pay gateway of this terminal, read from
+   * TipTopPay (payments/publickey, merchant/configuration) and cached for 10 minutes.
+   */
+  async setup(): Promise<TipTopPaySetup> {
+    if (!this.options) throw new CommerceError('NOT_READY');
+    if (this.setupCache && this.now() - this.setupCache.at < 600_000) return this.setupCache.value;
+    const read = async (path: string) => {
+      const response = await this.request(TIPTOPPAY_API + path, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(10000),
+      });
+      const text = await response.text();
+      if (!response.ok || text.length > 65536) throw new CommerceError('NOT_READY');
+      return JSON.parse(text) as unknown;
+    };
+    const key = (await read('/payments/publickey')) as { Pem?: unknown; Version?: unknown };
+    if (
+      typeof key.Pem !== 'string' ||
+      !key.Pem.includes('BEGIN PUBLIC KEY') ||
+      key.Pem.length > 4096 ||
+      !Number.isSafeInteger(key.Version)
+    )
+      throw new CommerceError('NOT_READY');
+    let gateway = this.options.googlePayGateway ?? null;
+    if (!gateway && this.options.methods.includes('google_pay')) {
+      try {
+        gateway = findGooglePayGateway(
+          await read(
+            `/merchant/configuration?terminalPublicId=${encodeURIComponent(this.options.publicId)}`,
+          ),
+        );
+      } catch {
+        gateway = null;
+      }
+    }
+    const value: TipTopPaySetup = {
+      publicId: this.options.publicId,
+      publicKey: { pem: key.Pem, version: key.Version as number },
+      googlePay: gateway ? { gateway, gatewayMerchantId: this.options.publicId } : null,
+      environment: 'test',
+    };
+    this.setupCache = { at: this.now(), value };
+    return value;
   }
   /**
    * Charges the quote once. A second call for the same quote never charges again: it reports

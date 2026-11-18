@@ -309,6 +309,15 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     response.setHeader('Cache-Control', 'no-store');
     return this.execute(auth, (id) => this.testPayments.charge(id, body, ip), accept, true);
   }
+  /** Public key and wallet gateway for the native card / Google Pay request. */
+  @Get('test-payments-setup') testPaymentSetup(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, () => this.testPayments.setup(), accept);
+  }
   @Get('test-payments/:paymentId') readTestPayment(
     @Param('paymentId') paymentId: string,
     @Res({ passthrough: true }) response: ServerResponse,

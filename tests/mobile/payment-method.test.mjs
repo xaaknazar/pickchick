@@ -361,8 +361,12 @@ test('a method without its own payment flow stops with a message, nothing is sen
   const submit = screen.slice(screen.indexOf('const submit = async () => {'));
   const stop = submit.indexOf("if (payment.method !== 'kaspi') {");
   assert.ok(stop > 0);
-  const guard = submit.slice(stop, submit.indexOf('}', stop) + 1);
+  const guard = submit.slice(stop, submit.indexOf('setMethodStop(false);\n    lock.current', stop));
   assert.ok(guard.includes('setMethodStop(true);') && guard.includes('return;'), guard);
+  // TipTopPay (18.11.2026): only a method this cart may offer now opens its own flow (card form,
+  // Apple Pay, Google Pay); it never reaches the Kaspi order or invoice below.
+  assert.ok(guard.includes('connectedMethodsStore.methods().includes(payment.method)'), guard);
+  assert.ok(guard.indexOf('tipTopPay.start(') < guard.indexOf('setMethodStop(true);'), guard);
   for (const step of ['lock.current = true', 'props.authorizeLegal(', "'/quotes'", 'recover('])
     assert.ok(submit.indexOf(step) > stop, step);
   assert.ok(screen.includes('testID="cart-pay-method-stop"'));

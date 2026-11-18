@@ -4270,13 +4270,17 @@
         {
           "label": "TipTopPay: код, DNS и проверка доступа без списания - 28 сентября",
           "path": "docs/operations/payment-domain-pilot.md"
+        },
+        {
+          "label": "TipTopPay в приложении: карта, Apple Pay, Google Pay, тест - 18 ноября",
+          "path": "docs/operations/tiptoppay-native-test-1118.md"
         }
       ],
       "acceptance": [
         "Подписанный Pay сохраняется один раз при повторах, неверная сумма/аккаунт/TEST отклоняются.",
         "Публичный webhook проходит проверку после guarded выпуска; checkout включается отдельным этапом."
       ],
-      "nextAction": "Проверить общую CI, выпустить HTTPS/gateway по runbook; затем checkout, кошельки, сверка и Webkassa.",
+      "nextAction": "18.11: нативный TEST checkout (карта, Apple Pay, Google Pay) готов в коде; установить на сервер, Merchant ID и TestFlight по заданию Codex, затем боевой checkout, сверка и Webkassa.",
       "checks": {
         "implemented": true,
         "verified": true,
