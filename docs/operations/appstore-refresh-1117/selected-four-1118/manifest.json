@@ -21,29 +21,29 @@
       "background_position": "64%",
       "motifs": [
         {
+          "name": "friends-box",
+          "left": 69,
+          "top": 16.5,
+          "width": 23,
+          "rotation": -8
+        },
+        {
           "name": "alex",
-          "left": 71,
-          "top": 16.8,
-          "width": 24,
-          "rotation": 10
+          "left": 2,
+          "top": 43,
+          "width": 12,
+          "rotation": -8
         },
         {
           "name": "flame",
-          "left": 4,
-          "top": 69,
-          "width": 17,
-          "rotation": -14
-        },
-        {
-          "name": "food-fingers",
-          "left": 3,
-          "top": 39,
-          "width": 20,
-          "rotation": -15
+          "left": 86,
+          "top": 77,
+          "width": 12,
+          "rotation": 8
         }
       ],
       "phone": {
-        "left": 24,
+        "left": 16,
         "top": 28.5,
         "width": 68
       },
@@ -63,29 +63,29 @@
       "background_position": "36%",
       "motifs": [
         {
-          "name": "heart",
-          "left": 8,
-          "top": 17.5,
+          "name": "friends-box",
+          "left": 7,
+          "top": 16.5,
           "width": 23,
-          "rotation": -12
+          "rotation": 8
         },
         {
-          "name": "food-fingers",
-          "left": 76,
-          "top": 45,
-          "width": 20,
-          "rotation": 15
+          "name": "heart",
+          "left": 86,
+          "top": 48,
+          "width": 12,
+          "rotation": 8
         },
         {
           "name": "alex",
-          "left": 77,
+          "left": 2,
           "top": 78,
-          "width": 19,
+          "width": 12,
           "rotation": -8
         }
       ],
       "phone": {
-        "left": 8,
+        "left": 16,
         "top": 28.5,
         "width": 68
       },
@@ -107,27 +107,27 @@
         {
           "name": "food-burger",
           "left": 67,
-          "top": 17,
-          "width": 28,
-          "rotation": 8
+          "top": 16.5,
+          "width": 24,
+          "rotation": 6
         },
         {
           "name": "alex",
-          "left": 77,
-          "top": 51,
-          "width": 20,
-          "rotation": 12
+          "left": 86,
+          "top": 50,
+          "width": 12,
+          "rotation": 8
         },
         {
           "name": "flame",
-          "left": 77,
+          "left": 2,
           "top": 81,
-          "width": 20,
-          "rotation": -12
+          "width": 12,
+          "rotation": -8
         }
       ],
       "phone": {
-        "left": 8,
+        "left": 16,
         "top": 28.5,
         "width": 68
       },
@@ -139,42 +139,56 @@
       "headline": "Тапсырысың көз алдыңда",
       "meaning": "Твой заказ перед глазами",
       "label": "Готовность заказа",
-      "source": "sources/04-order.png",
-      "source_origin": "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/sources/05-order.png",
-      "sha256": "fea2a8de9e23bf7ed011ce7df4dc932238ce47cd2394b05500dce83086e60e2d",
-      "note": "Прежний экран статуса заказа оставлен четвёртым по просьбе владельца. Это архивный пример, не новый снимок.",
-      "preview_caveat": "Прежний архивный статус заказа",
+      "source": "sources/04-order-current.jpg",
+      "source_origin": "Local app design gallery /order-status?id=M18&preview=1, complete viewport",
+      "sha256": "b6da9e0651da7544710bdacd8f4f0ea744e9cc35e2b700f6064341ea8fa9f4d9",
+      "note": "Актуальный дизайн статуса из приложения: Алекс, готовность, этапы и состав. Веб-пример, не снимок реального заказа на iPhone.",
+      "preview_caveat": "Экран приложения - пример заказа",
       "background_position": "25%",
       "motifs": [
         {
-          "name": "alex",
-          "left": 4,
-          "top": 39,
-          "width": 20,
-          "rotation": -12
-        },
-        {
           "name": "heart",
-          "left": 71,
+          "left": 70,
           "top": 17,
           "width": 22,
           "rotation": 10
         },
         {
+          "name": "alex",
+          "left": 2,
+          "top": 44,
+          "width": 12,
+          "rotation": -8
+        },
+        {
           "name": "food-burger",
-          "left": 6,
-          "top": 82.5,
-          "width": 28,
-          "rotation": -7
+          "left": 86,
+          "top": 76,
+          "width": 12,
+          "rotation": -5
         }
       ],
       "phone": {
-        "left": 24,
+        "left": 16,
         "top": 28.5,
         "width": 68
       },
-      "source_type": "previous-archival-order-preview",
-      "source_build_verified": false
+      "source_type": "actual-app-order-status-web-preview",
+      "source_build_verified": false,
+      "source_capture": {
+        "route": "http://127.0.0.1:8879/order-status?id=M18&preview=1",
+        "viewport": [440, 956],
+        "cropped": false,
+        "ui_modified": false,
+        "native_build40_capture": false,
+        "mode": "Existing local mobile32 web export, designPreview enabled only in local response; gallery UI notice retained.",
+        "components_unchanged_between": ["e4eb91b5", "502743ce"],
+        "components": [
+          "apps/mobile/src/screens/OrderStatusScreen.tsx",
+          "apps/mobile/src/components/OrderChef.tsx"
+        ],
+        "caveat": "OrderSheet host changed since32; this is design reference, not exact native40 capture."
+      }
     }
   ],
   "background": {
@@ -182,34 +196,34 @@
     "source": "../screenshots-preview-1118/art/background-portrait-hd.png",
     "matching_header": "../assets/header-iridescent-hd-3840x1646.jpg",
     "source_interface_modified": false,
-    "food_assets": [
-      "../screenshots-preview-1118/art/food-fingers.png",
-      "../screenshots-preview-1118/art/food-burger.png"
-    ],
-    "packaging_motifs_displayed": false,
+    "food_assets": ["../screenshots-preview-1118/art/food-burger.png"],
+    "packaging_motifs_displayed": true,
     "cover_source": "../screenshots-preview-1118/art/background-cover-hd.png",
     "stickers": {
       "alex": "../screenshots-preview-1118/art/sticker-alex-hd.png",
       "flame": "../screenshots-preview-1118/art/sticker-flame-hd.png",
       "cup": "../screenshots-preview-1118/art/sticker-cup-hd.png",
-      "heart": "../screenshots-preview-1118/art/sticker-heart-hd.png"
+      "heart": "../screenshots-preview-1118/art/sticker-heart-hd.png",
+      "friends-box": "art/friends-box.png"
     }
   },
   "sticker_layout": {
-    "placement": "asymmetric scattered composition around alternating offset phones",
+    "placement": "centered phones, asymmetric fully visible stickers",
     "layer": "foreground above phone",
     "count_per_screen": 3,
     "clipped": false,
     "phone_width_percent": 68,
     "phone_top_percent": 28.5,
-    "row_rejected_by_owner": true
+    "row_rejected_by_owner": true,
+    "phone_left_percent": 16
   },
   "selection": {
     "count": 4,
     "owner_selected": true,
     "owner_supplied_screens": 3,
-    "previous_order_status_retained": true,
+    "previous_order_status_retained": false,
     "removed_from_current_set": ["customisation", "takeaway cart"],
-    "previous_set": "../screenshots-preview-1118/manifest.json"
+    "previous_set": "../screenshots-preview-1118/manifest.json",
+    "order_design": "actual app OrderStatusView replaces rejected archival status"
   }
 }

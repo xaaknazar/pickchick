@@ -83,9 +83,7 @@
   "screenshot_assets_generated": false,
   "app_store_connect_updated": true,
   "requested_build_48_verified": false,
-  "blockers": [
-    "Final four-card artwork review, selected-build correspondence and archived order source acceptance pending."
-  ],
+  "blockers": ["Final artwork approval and native capture of chosen-build order status pending."],
   "production_changes": ["App Store metadata draft only"],
   "apple_status": {
     "checked_at_local": "2026-11-18 Asia/Almaty",
@@ -339,10 +337,13 @@
     "path": "selected-four-1118/verification.json",
     "count": 4,
     "owner_supplied_screens": 3,
-    "previous_order_status_retained": true,
+    "previous_order_status_retained": false,
     "sources_unchanged": true,
     "app_store_uploaded": false,
     "app_build_verified": false,
-    "current": true
+    "current": true,
+    "order_source_replaced": true,
+    "phones_centered": true,
+    "decorative_fingers_replaced_by": "original-brand Friends Box visualization"
   }
 }

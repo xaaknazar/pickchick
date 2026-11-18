@@ -7,22 +7,26 @@
       "natural": [1320, 2868],
       "src": "sources/01-menu.png"
     },
+    "phoneCenterOffset": 0.0078125,
     "size": [1320, 2868],
     "stickers": [
       {
+        "class": "motif friends-box",
+        "headingOverlap": false,
+        "inside": true,
+        "phoneOverlap": false
+      },
+      {
         "class": "motif alex",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       },
       {
         "class": "motif flame",
         "headingOverlap": false,
-        "inside": true
-      },
-      {
-        "class": "motif food-fingers",
-        "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       }
     ]
   },
@@ -34,22 +38,26 @@
       "natural": [1320, 2868],
       "src": "sources/02-duo.png"
     },
+    "phoneCenterOffset": 0.0078125,
     "size": [1320, 2868],
     "stickers": [
       {
-        "class": "motif heart",
+        "class": "motif friends-box",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       },
       {
-        "class": "motif food-fingers",
+        "class": "motif heart",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       },
       {
         "class": "motif alex",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       }
     ]
   },
@@ -61,22 +69,26 @@
       "natural": [1320, 2868],
       "src": "sources/03-games.png"
     },
+    "phoneCenterOffset": 0.0078125,
     "size": [1320, 2868],
     "stickers": [
       {
         "class": "motif food-burger",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       },
       {
         "class": "motif alex",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       },
       {
         "class": "motif flame",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       }
     ]
   },
@@ -85,25 +97,29 @@
     "caption": "Тапсырысың көз алдыңда",
     "image": {
       "loaded": true,
-      "natural": [320, 568],
-      "src": "sources/04-order.png"
+      "natural": [440, 956],
+      "src": "sources/04-order-current.jpg"
     },
+    "phoneCenterOffset": 0.0078125,
     "size": [1320, 2868],
     "stickers": [
       {
-        "class": "motif alex",
-        "headingOverlap": false,
-        "inside": true
-      },
-      {
         "class": "motif heart",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
+      },
+      {
+        "class": "motif alex",
+        "headingOverlap": false,
+        "inside": true,
+        "phoneOverlap": false
       },
       {
         "class": "motif food-burger",
         "headingOverlap": false,
-        "inside": true
+        "inside": true,
+        "phoneOverlap": false
       }
     ]
   }

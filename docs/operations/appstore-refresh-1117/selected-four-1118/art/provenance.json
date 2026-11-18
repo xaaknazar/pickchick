@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-18",
+  "tool": "built-in image_gen",
+  "asset": "friends-box.png",
+  "native_size": [1254, 1254],
+  "alpha": true,
+  "sha256": "4c728157a570bd64a8cb5fef008dfa9a294144e128468ec000e8656d9431946f",
+  "prompt": "generation-prompt.txt",
+  "references": [
+    {
+      "path": "apps/mobile/assets/games/pick-box/lid.png",
+      "sha256": "4aa9c45bcd0474f7b24bc07e566051be486bcc066cae8e13389dd828619b5a2d"
+    },
+    {
+      "path": "apps/mobile/assets/games/pick-box/front.png",
+      "sha256": "af0bc1128e5a0eca6f7825d6fa1adcf099e36f21841b009e11048e99352c9de5"
+    }
+  ],
+  "note": "Generated decorative 3D packaging illustration. Original art references retained in repository. Requested2048 output returned1254; no native2K claim."
+}

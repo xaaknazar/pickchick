@@ -8,62 +8,66 @@
       "path": "sources/01-menu.png",
       "size": [1320, 2868],
       "sha256": "d85dd13b5ebfa92f48bf57dfaae03e43b3c11110b455caa33ff1e2e5f0a34e9b",
-      "identical_to_supplied_source": true
+      "type": "owner-supplied-screenshot",
+      "source_ui_modified": false
     },
     {
       "id": "02-duo",
       "path": "sources/02-duo.png",
       "size": [1320, 2868],
       "sha256": "f4250d1cddc7e208ff0f9e3da430d7b617dff5cdde3a28ad2cba2f233572cee6",
-      "identical_to_supplied_source": true
+      "type": "owner-supplied-screenshot",
+      "source_ui_modified": false
     },
     {
       "id": "03-games",
       "path": "sources/03-games.png",
       "size": [1320, 2868],
       "sha256": "11c7763dee0a8bc2a55af189037fc63892c2e473f39441529a112794d181d9ee",
-      "identical_to_supplied_source": true
+      "type": "owner-supplied-screenshot",
+      "source_ui_modified": false
     },
     {
       "id": "04-order",
-      "path": "sources/04-order.png",
-      "size": [320, 568],
-      "sha256": "fea2a8de9e23bf7ed011ce7df4dc932238ce47cd2394b05500dce83086e60e2d",
-      "identical_to_supplied_source": true
+      "path": "sources/04-order-current.jpg",
+      "size": [440, 956],
+      "sha256": "b6da9e0651da7544710bdacd8f4f0ea744e9cc35e2b700f6064341ea8fa9f4d9",
+      "type": "actual-app-order-status-web-preview",
+      "source_ui_modified": false
     }
   ],
   "exports": [
     {
       "path": "01-menu.jpg",
       "size": [1320, 2868],
-      "sha256": "7842c66f984ad746f7668ff81ec27e1fbdb65eb8d0d11477f8e97ace9e0c5a86"
+      "sha256": "1d5eea2e841fbd2868348b8c3b91a1cc4834950cbbee5d9db21f25045aa63463"
     },
     {
       "path": "02-duo.jpg",
       "size": [1320, 2868],
-      "sha256": "f282ee026f08325a94a0d36ce2b37727c444115954d4e4081cd1791b152411bd"
+      "sha256": "6c6f03c2390df880ab2e9f79667407c233d011af43b6a768200fcc5629e1f54e"
     },
     {
       "path": "03-games.jpg",
       "size": [1320, 2868],
-      "sha256": "78f2cc3dcc92070f90135eb510ef2a0f6c45d83f0cba05620ae92a95e225dca0"
+      "sha256": "14d0903dabef4bc2fac109eab94417cf0e2d48992c7c64d5cb96f6f60f6537b4"
     },
     {
       "path": "04-order.jpg",
       "size": [1320, 2868],
-      "sha256": "4e17ccdc92e15389fa644b3a9f648070de9b0bdfdb4b281777e670654e27ebd5"
+      "sha256": "c64ae38f6d05146dc807a4584e6466696fd914ddac8904f124dfa5d97ed81c4a"
     }
   ],
   "strips": [
     {
       "path": "preview-01-02.jpg",
       "size": [1280, 1555],
-      "sha256": "ffcfe606f3bd9c1fab0abbee1d05981ee8a1051c510f1a4f8b97055363ea827e"
+      "sha256": "8587652abfee4597d7bd11be6e411724d058173b603dce43c2b97240c4844a6b"
     },
     {
       "path": "preview-03-04.jpg",
       "size": [1280, 1555],
-      "sha256": "525671a288a6fa9a9dcfc1ac945db0d8bdc30f8faa66de2d9f0e5479b330de48"
+      "sha256": "d031dce3feef62401958e243511b178e1ce5ac1eaaaefb6f99bd895dd9275406"
     }
   ],
   "captions_match_approved_subset": true,
@@ -71,9 +75,13 @@
   "stickers_checked": 12,
   "clipped_stickers": 0,
   "heading_intersections": 0,
-  "visual_review": "Both two-card overviews checked. All four interfaces are legible and unobscured. Archived order screenshot remains lower-resolution.",
+  "visual_review": "Four horizontally centered phones. Both strips inspected; no clipped or overlapping stickers. New box references original brand artwork. Fourth uses complete actual app design-gallery view with explicit sample notice; not a native build40 capture.",
   "app_build_verified": false,
   "prices_independently_verified": false,
   "app_store_uploaded": false,
-  "layout_evidence": "layout-check.json"
+  "layout_evidence": "layout-check.json",
+  "phones_centered": true,
+  "max_phone_center_error_px": 0.0078125,
+  "phone_intersections": 0,
+  "order_source_replaced": true
 }
