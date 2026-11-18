@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "1735f2da24df58b29b4d0a718c8b0c2567311c1a",
-      "updatedAt": "2026-11-18T08:27:31.769Z",
+      "updatedAt": "2026-11-18T08:30:18.804Z",
       "summary": "Published 1735f2da: owner-selected four-card App Store preview. New byte-identical menu, Mix Duo and games sources1320x2868; previous archived order320x568 fourth. Four exports1320x2868, 12 stickers fully visible, no heading overlap, both strips reviewed. App Store unchanged.",
       "nextAction": "Owner reviews four-card preview in selected-four-1118. Archive /private/tmp/Pick-Chick-four-screenshots-preview-1118.zip. Before upload confirm selected-build correspondence and final archived order source; no App Review submission."
     }
