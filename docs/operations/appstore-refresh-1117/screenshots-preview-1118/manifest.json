@@ -74,5 +74,23 @@
       "note": "Архивный web-снимок Pick Box от 12.11. Для финала заменить нативной игрой или страницей игр сборки 40.",
       "preview_caveat": "Архивный Pick Box - финал из сборки 40"
     }
-  ]
+  ],
+  "background": {
+    "direction": "top-to-bottom",
+    "stops": [
+      {
+        "offset": 0,
+        "color": "#1B66D9"
+      },
+      {
+        "offset": 0.52,
+        "color": "#074DBB"
+      },
+      {
+        "offset": 1,
+        "color": "#073585"
+      }
+    ],
+    "matching_header": "../assets/header-gradient-3840x1646.png"
+  }
 }

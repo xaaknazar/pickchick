@@ -167,43 +167,89 @@
       {
         "path": "screenshots-preview-1118/01-combo.jpg",
         "size": [1320, 2868],
-        "sha256": "1ec2cb6dccd19a9c5394a1d4f1ecc85389ac7e7e040d0d9f4ae46d0abb20e32b"
+        "sha256": "8dc2cef12e4d03573ed92af4d90a36363542e96734bf0505255acfc66facb49e"
       },
       {
         "path": "screenshots-preview-1118/02-friends.jpg",
         "size": [1320, 2868],
-        "sha256": "b3bf032824731d2d2ba9a3f098ec5b63ce2ef703410d1420b94282e0c5c42892"
+        "sha256": "582a6ec5b726080610dfa3822eb5705e950dce3068b5729f5f23b4b6132e2656"
       },
       {
         "path": "screenshots-preview-1118/03-customise.jpg",
         "size": [1320, 2868],
-        "sha256": "c44906572aa2430dc09ddf425068aa204cb412616baec5cceb7483358e9356ff"
+        "sha256": "9acca49929db1cc8911d3512c916e8a9baf416b9f8b6896d866c676a8c484070"
       },
       {
         "path": "screenshots-preview-1118/04-takeaway.jpg",
         "size": [1320, 2868],
-        "sha256": "9901633278c09d19173b890d1f67e9498bbc001514b849076cb637d210baac87"
+        "sha256": "373c077e07a3240e96a7996e7257381e1b1e0857afe93ff0807e76626a756beb"
       },
       {
         "path": "screenshots-preview-1118/05-order.jpg",
         "size": [1320, 2868],
-        "sha256": "7438df09340020904675ab625129a4b03a0dd9f058d90fbc5c34ed25c86efb2d"
+        "sha256": "359a4d586dd53ad8c150270fbd4f1a7aa844a2e0540bcba951888f15dc6b6fb6"
       },
       {
         "path": "screenshots-preview-1118/06-games.jpg",
         "size": [1320, 2868],
-        "sha256": "d884e43cd25df4f954d3ab0c203c0e3cfd463d700a237ad88321570be09532ed"
+        "sha256": "b763023ee0e782aa41aebf198e05e78c09e8c39518e9ea3305bdd285698bf4e2"
       }
     ],
     "strips": [
       {
         "path": "screenshots-preview-1118/preview-01-03.jpg",
-        "sha256": "b60d9d22ee47134afbf1794fe04b2d5191792377683677ac323a40d5659a9a8a"
+        "sha256": "6b6e1abc5a7967d4802110470ca776cdc86b5b77e5ca7b72ff0802d5e3dc58bf"
       },
       {
         "path": "screenshots-preview-1118/preview-04-06.jpg",
-        "sha256": "51f6bee0c813ef4d4c794b40ca5b61de8bc2dd14a6f9a1a84984e46290cedbb2"
+        "sha256": "0d14cdd07dda6e4ff5c709c0b8ed2de45fc7db08e3afa7d729d4794d5dc17401"
       }
-    ]
+    ],
+    "background": {
+      "direction": "top-to-bottom",
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#1B66D9"
+        },
+        {
+          "offset": 0.52,
+          "color": "#074DBB"
+        },
+        {
+          "offset": 1,
+          "color": "#073585"
+        }
+      ],
+      "matching_header": "../assets/header-gradient-3840x1646.png"
+    },
+    "minimum_white_contrast": 5.32
+  },
+  "header_gradient_preview": {
+    "path": "assets/header-gradient-3840x1646.png",
+    "source": "assets/header-gradient-3840x1646.svg",
+    "size": [3840, 1646],
+    "sha256": "a95578d06edd403d9c8974eea7bf97ab6db7f4c653b494fad213a2966b5218f0",
+    "color_mode": "RGB 8-bit sRGB",
+    "alpha": false,
+    "uploaded": false,
+    "background": {
+      "direction": "top-to-bottom",
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#1B66D9"
+        },
+        {
+          "offset": 0.52,
+          "color": "#074DBB"
+        },
+        {
+          "offset": 1,
+          "color": "#073585"
+        }
+      ],
+      "matching_header": "../assets/header-gradient-3840x1646.png"
+    }
   }
 }

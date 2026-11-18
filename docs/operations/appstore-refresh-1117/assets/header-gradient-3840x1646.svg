@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="1646" viewBox="0 0 3840 1646">
+  <defs>
+    <linearGradient id="brand-blue-soft" x1="0" y1="0" x2="0" y2="1" color-interpolation="sRGB">
+      <stop offset="0" stop-color="#1B66D9" />
+      <stop offset="0.52" stop-color="#074DBB" />
+      <stop offset="1" stop-color="#073585" />
+    </linearGradient>
+  </defs>
+  <path fill="url(#brand-blue-soft)" d="M0 0h3840v1646H0z" />
+</svg>
