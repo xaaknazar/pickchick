@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "54773994faa4a98532f96ff5738ad63e186bece7",
-      "updatedAt": "2026-11-18T06:04:33.194Z",
+      "updatedAt": "2026-11-18T06:08:22.584Z",
       "summary": "18.11: six approved Kazakh screenshot layout previews, HTML gallery, source hashes and full 1320x2868 exports published at 54773994. Fresh review corrected clipping and explicit archive caveats. Original UI sources unchanged; no Apple changes this turn.",
       "nextAction": "Owner review of preview composition, then fresh native build40 captures with verified prices, sharing menu, takeaway cart and current order status. Do not upload archival previews. Header and existing App Store draft remain unchanged."
     }
