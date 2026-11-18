@@ -8,7 +8,7 @@
     "Release mode remains manual. Nothing submitted for App Review.",
     "RU and en-GB name, subtitle, description, promotional text, keywords and support URLs saved.",
     "Privacy URL changed to official domain in both existing localizations; data declarations unchanged.",
-    "KK copy and screenshot captions are drafts. Prior short captions rejected; two alternatives prepared."
+    "Owner approved expressive screenshot caption set 2 on 18 November. KK listing description remains a draft."
   ],
   "localizations": {
     "ru": {
@@ -42,5 +42,6 @@
     "support_en": "https://pickchick.kz/support/en.html",
     "privacy": "https://pickchick.kz/legal/privacy",
     "http_status": 200
-  }
+  },
+  "screenshot_captions_approved": "captions-1118.md: variant 2"
 }

@@ -85,7 +85,6 @@
   "requested_build_48_verified": false,
   "blockers": [
     "Native captures and real prices from build 40 pending.",
-    "Previous screenshot captions rejected. Two replacement variants prepared for owner selection.",
     "Header is a visual preview at 1914 x 822; accepted App Store export must be 3840 x 1646 or 5244 x 2950. Not uploaded."
   ],
   "production_changes": ["App Store metadata draft only"],
@@ -123,5 +122,11 @@
   "browser_proof": {
     "path": "assets/app-store-draft-1118.jpg",
     "sha256": "6b1526710dedc8587d94155281274cf3064e398c77ce4e3164fd2dd8be972ba7"
+  },
+  "screenshot_captions": {
+    "approved": true,
+    "variant": 2,
+    "language": "kk",
+    "date": "2026-11-18"
   }
 }
