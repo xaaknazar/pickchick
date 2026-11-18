@@ -22,24 +22,24 @@
       "motifs": [
         {
           "name": "alex",
-          "left": 66,
-          "top": 16,
-          "width": 30,
-          "rotation": 12
+          "left": 7,
+          "top": 17,
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "flame",
-          "left": -13,
-          "top": 43,
-          "width": 32,
-          "rotation": -18
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "food-fingers",
-          "left": 2,
-          "top": 16,
-          "width": 32,
-          "rotation": -12
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
         }
       ]
     },
@@ -57,24 +57,24 @@
       "motifs": [
         {
           "name": "heart",
-          "left": -4,
+          "left": 7,
           "top": 17,
-          "width": 28,
-          "rotation": -17
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "food-fingers",
-          "left": 67,
-          "top": 16,
-          "width": 32,
-          "rotation": -12
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "alex",
-          "left": -13,
-          "top": 77,
-          "width": 33,
-          "rotation": -8
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
         }
       ]
     },
@@ -92,23 +92,23 @@
       "motifs": [
         {
           "name": "cup",
-          "left": 69,
-          "top": 16,
-          "width": 30,
-          "rotation": 14
+          "left": 7,
+          "top": 17,
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "flame",
-          "left": -12,
-          "top": 51,
-          "width": 31,
-          "rotation": -20
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "heart",
-          "left": 83,
-          "top": 80,
-          "width": 29,
+          "left": 71,
+          "top": 17,
+          "width": 22,
           "rotation": 10
         }
       ]
@@ -127,24 +127,24 @@
       "motifs": [
         {
           "name": "food-fingers",
-          "left": 0,
-          "top": 16,
-          "width": 30,
-          "rotation": -12
+          "left": 7,
+          "top": 17,
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "cup",
-          "left": 82,
-          "top": 55,
-          "width": 33,
-          "rotation": 15
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "heart",
-          "left": -14,
-          "top": 79,
-          "width": 31,
-          "rotation": -11
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
         }
       ]
     },
@@ -162,24 +162,24 @@
       "motifs": [
         {
           "name": "alex",
-          "left": 66,
-          "top": 16,
-          "width": 31,
-          "rotation": 10
+          "left": 7,
+          "top": 17,
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "heart",
-          "left": -12,
-          "top": 45,
-          "width": 30,
-          "rotation": -18
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "food-burger",
-          "left": 69,
-          "top": 82,
-          "width": 30,
-          "rotation": 12
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
         }
       ]
     },
@@ -197,24 +197,24 @@
       "motifs": [
         {
           "name": "food-burger",
-          "left": 0,
+          "left": 7,
           "top": 17,
-          "width": 31,
-          "rotation": -13
+          "width": 22,
+          "rotation": -8
         },
         {
           "name": "alex",
-          "left": 82,
-          "top": 49,
-          "width": 35,
-          "rotation": 14
+          "left": 39.5,
+          "top": 17.4,
+          "width": 21,
+          "rotation": 8
         },
         {
           "name": "flame",
-          "left": -13,
-          "top": 81,
-          "width": 32,
-          "rotation": -18
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
         }
       ]
     }
@@ -228,5 +228,13 @@
     "source_interface_modified": false,
     "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
     "packaging_motifs_displayed": false
+  },
+  "sticker_layout": {
+    "placement": "fully visible row between headline and phone",
+    "layer": "foreground above phone",
+    "count_per_screen": 3,
+    "clipped": false,
+    "phone_width_percent": 70,
+    "phone_top_percent": 28
   }
 }

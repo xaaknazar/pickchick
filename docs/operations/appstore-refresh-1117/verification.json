@@ -167,42 +167,42 @@
       {
         "path": "screenshots-preview-1118/01-combo.jpg",
         "size": [1320, 2868],
-        "sha256": "0a1ed555f3e8e9be13708d217bda35f0a7b36c70efc43b32396bcd5e684ca7a9"
+        "sha256": "c72c41351ba42c848f750ddd617cd8803f2004fce4005a463ef3cf055afbae8e"
       },
       {
         "path": "screenshots-preview-1118/02-friends.jpg",
         "size": [1320, 2868],
-        "sha256": "7b28f6d23c2074f4b01f873f4901cc9aaa463ab9e2eefef3c5a251d776a640b7"
+        "sha256": "a57919ec75022283273ee1ddb7fcee8ec37fc36114509279b9f91a63c8cf244e"
       },
       {
         "path": "screenshots-preview-1118/03-customise.jpg",
         "size": [1320, 2868],
-        "sha256": "35248c757dfa6378b49f231310feafdf531bacb831f8d8af47043e7627519e2f"
+        "sha256": "c2731244d8777b1422819900f0539de5ab3a2c12a596eb023ecbbf82f4549740"
       },
       {
         "path": "screenshots-preview-1118/04-takeaway.jpg",
         "size": [1320, 2868],
-        "sha256": "d55f5ffba895791e6e923fefa5bdf698b71c748380b593de0998cb10850bf14b"
+        "sha256": "1f8b367bc44d77087eeb28fe25c7f686f6f4675a41abb1736ddeed9091f938d7"
       },
       {
         "path": "screenshots-preview-1118/05-order.jpg",
         "size": [1320, 2868],
-        "sha256": "759b35ccb9748d80e1d666775c1650a1d4ff477aaf57373c6f767907e6cb7e2d"
+        "sha256": "83d98e61fbd611896580fbe7ae5bd8ee0ddba59c19c92f173d2f0b365b1a5a83"
       },
       {
         "path": "screenshots-preview-1118/06-games.jpg",
         "size": [1320, 2868],
-        "sha256": "aebc547aaa79626dac6062f11ba275cc3d1ad3285e39b3f0ae87b8a8caac36d6"
+        "sha256": "39490144b46c0bff4f9703894060ccc95821df8627e79a63e95fe87486ae61cd"
       }
     ],
     "strips": [
       {
         "path": "screenshots-preview-1118/preview-01-03.jpg",
-        "sha256": "2160e5c7f602fae4a6b42e000455748dc08d735e92b6c1679b65683fb000a7a4"
+        "sha256": "4848a8aadcbd494e1b3f4a597f8e12b80e5aebe79f8bd3a99965d0279ce61698"
       },
       {
         "path": "screenshots-preview-1118/preview-04-06.jpg",
-        "sha256": "809e0446b3e84af50e00b69d2634c81f2212fb3ef98a364e386ef4806afe39ab"
+        "sha256": "4d463949621aec2fcbd6fe236c7fbcae3afd25b5881da0d23dc2c9ac3a7e3113"
       }
     ],
     "background": {
@@ -215,7 +215,7 @@
       "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
       "packaging_motifs_displayed": false
     },
-    "composition": "White headlines above phones, 3 background motifs per card, all background artwork behind unmodified UI sources; 6 headings clear of phone bounds.",
+    "composition": "White headlines, a full row of three unobscured foreground stickers, phone width 70%, top 28%. All 18 rotated bounds inside canvas; no headline or phone intersections.",
     "visual_check": "Both final 3-card strips checked visually; top overlay keeps white headings readable. No current numeric contrast claim for generated artwork.",
     "food_replacement": {
       "single_boxes_to_fingers": 3,
@@ -224,6 +224,20 @@
       "new_photography": false,
       "both_strips_visually_checked": true,
       "box_motifs_remaining": 0
+    },
+    "sticker_layout": {
+      "placement": "fully visible row between headline and phone",
+      "layer": "foreground above phone",
+      "count_per_screen": 3,
+      "clipped": false,
+      "phone_width_percent": 70,
+      "phone_top_percent": 28,
+      "checked_count": 18,
+      "clipped_count": 0,
+      "phone_intersections": 0,
+      "heading_intersections": 0,
+      "evidence": "screenshots-preview-1118/sticker-layout-check.json",
+      "layout_detector_findings": 0
     }
   },
   "header_gradient_preview": {

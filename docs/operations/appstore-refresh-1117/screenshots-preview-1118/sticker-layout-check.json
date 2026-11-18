@@ -1,0 +1,176 @@
+[
+  {
+    "headline": "Сүйікті дәмің осында",
+    "id": "01-combo",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif alex",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif flame",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif food-fingers",
+        "phoneOverlap": false
+      }
+    ]
+  },
+  {
+    "headline": "Достармен бірге дәмдірек",
+    "id": "02-friends",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif heart",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif food-fingers",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif alex",
+        "phoneOverlap": false
+      }
+    ]
+  },
+  {
+    "headline": "Дәл өзің қалағандай",
+    "id": "03-customise",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif cup",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif flame",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif heart",
+        "phoneOverlap": false
+      }
+    ]
+  },
+  {
+    "headline": "Тапсырыс бер де, ала кет",
+    "id": "04-takeaway",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif food-fingers",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif cup",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif heart",
+        "phoneOverlap": false
+      }
+    ]
+  },
+  {
+    "headline": "Тапсырысың көз алдыңда",
+    "id": "05-order",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif alex",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif heart",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif food-burger",
+        "phoneOverlap": false
+      }
+    ]
+  },
+  {
+    "headline": "Ойна. Рекорд жаңарт.",
+    "id": "06-games",
+    "imagesReady": true,
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif food-burger",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif alex",
+        "phoneOverlap": false
+      },
+      {
+        "abovePhone": true,
+        "fullyInside": true,
+        "headingOverlap": false,
+        "name": "motif flame",
+        "phoneOverlap": false
+      }
+    ]
+  }
+]
