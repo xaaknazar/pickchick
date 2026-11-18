@@ -7782,13 +7782,12 @@
       "scopes": [
         "@vps/roadmap",
         "@release/android",
-        "@apple/appstore",
         "@google-play/pickchick",
         "@android/emulator"
       ],
       "status": "available",
       "head": "a4e98d257550da6f2280a7ecad7b6cbb2184d217",
-      "updatedAt": "2026-11-15T21:22:05.369Z",
+      "updatedAt": "2026-11-18T04:43:14.440Z",
       "summary": "Утверждённый HUD Pick Box выпущен в тестовые 37/11. iOS 37 Testing в PickChick Internal и Testing; Android 11 - единственное изменение закрытого Alpha на рассмотрении Google. Оба пакета из чистого 95ad8add, полный Foundation CI 11/11, 610 Node + 96 Python, exports PASS. Нативный iPhone Simulator: прямой вход, счёт 2, пауза/продолжение, выход и рекорд PASS. Резерв симулятора возвращён mobile-feedback-1029. Итог и доказательства a4e98d25 опубликованы, PR #368 обновлён; финальные 7 roadmap + 22 infra tests PASS. Публичного выпуска нет, обложка прежняя.",
       "nextAction": "Проверить решение Google по Alpha 11 и физически принять игру на iPhone/Android. Большой шрифт, экранный диктор, длинная сессия, вычитка KK и общая интеграция PR #368 остаются открытыми. Онлайн-пульт не перезаписывать старым операционным срезом этой ветки."
     },
@@ -8069,13 +8068,14 @@
     {
       "id": "appstore-refresh-1117",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/appstore-refresh-1117",
+      "branch": "codex/appstore-refresh-1118",
       "scopes": [
-        "docs/operations/appstore-refresh-1117"
+        "docs/operations/appstore-refresh-1117",
+        "@apple/appstore"
       ],
       "status": "available",
       "head": "02f2a0f536193b392e8503d1822a37d5db9f244c",
-      "updatedAt": "2026-11-17T17:26:08.622Z",
+      "updatedAt": "2026-11-18T04:43:14.440Z",
       "summary": "02f2a0f5 опубликован и удалённый SHA сверен: исследование 10+6 карточек, RU/EN/KK тексты и план 6 кадров. Формат, длины полей и дефисы PASS. Вход Apple не работает в Codex и Chrome, ошибка Chrome подтверждена на экране. Магазин не изменён.",
       "nextAction": "После восстановления входа проверить 48 и статус версии; согласовать подписи/локализацию, получить настоящие снимки и обновить карточку. Общие статус и пульт пока не менялись."
     }
