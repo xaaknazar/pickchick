@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "3873c64f6a048159a08106c3a91c8bc7da4013a2",
-      "updatedAt": "2026-11-18T06:14:07.365Z",
-      "summary": "18.11: owner-requested softer gradient applied to all six screenshot previews and new 3840x1646 header. Stops #1B66D9/#074DBB/#073585, minimum white contrast 5.32:1. Six 1320x2868 exports and original source hashes verified. Published 3873c64f. No App Store upload this turn.",
-      "nextAction": "Owner reviews updated preview; then capture fresh native build40 screens and verified prices before final screenshot upload. New gradient header is prepared locally; prior Apple header is unchanged."
+      "status": "available",
+      "head": "e0c0e3b1432281be20ab1088f207535910808c63",
+      "updatedAt": "2026-11-18T06:23:25.630Z",
+      "summary": "18.11: replaced mild gradient with generated iridescent blue satin plus six Pick Chick 3D motifs inspired by floating-object placement in Drinkit. 3 motifs per card; real archival interface sources unchanged. Six 1320x2868 exports, header3840x1646, two strips, prompt/provenance and source hashes published at e0c0e3b1. No App Store changes.",
+      "nextAction": "Owner preview of bold direction. Still need fresh native build40 screens and verified prices before final screenshot upload. Current preview uses archival sources; new header is local only."
     }
   ],
   "approvedScopeTransfers": [
