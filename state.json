@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "1735f2da24df58b29b4d0a718c8b0c2567311c1a",
-      "updatedAt": "2026-11-18T08:30:18.804Z",
-      "summary": "Published 1735f2da: owner-selected four-card App Store preview. New byte-identical menu, Mix Duo and games sources1320x2868; previous archived order320x568 fourth. Four exports1320x2868, 12 stickers fully visible, no heading overlap, both strips reviewed. App Store unchanged.",
-      "nextAction": "Owner reviews four-card preview in selected-four-1118. Archive /private/tmp/Pick-Chick-four-screenshots-preview-1118.zip. Before upload confirm selected-build correspondence and final archived order source; no App Review submission."
+      "status": "available",
+      "head": "aeb2572f03bd1f10b0c5c8b82560f88c83ea77e3",
+      "updatedAt": "2026-11-18T08:50:29.714Z",
+      "summary": "aeb2572f: четыре макета 1320x2868; телефоны по центру; фингерс заменён фирменной FRIENDS BOX; четвёртый кадр с текущим дизайном статуса из локальной галереи приложения. Геометрия, видимость стикеров, отсутствие наложений и архив проверены. Ветка опубликована, удалённый SHA сверён.",
+      "nextAction": "Показать владельцу четыре макета. До загрузки в App Store заменить пример статуса финальным нативным снимком; публикацию карточки выполнять отдельным шагом."
     }
   ],
   "approvedScopeTransfers": [
