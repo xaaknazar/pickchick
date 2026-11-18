@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-17",
+  "date": "2026-11-18",
   "research": {
     "storefront": "Kazakhstan",
     "chart": "iPhone Food & Drink Top Free",
@@ -81,19 +81,47 @@
   },
   "actual_app_screenshots_captured": false,
   "screenshot_assets_generated": false,
-  "app_store_connect_updated": false,
+  "app_store_connect_updated": true,
   "requested_build_48_verified": false,
   "blockers": [
-    "Apple sign-in failed in Codex and Chrome. Chrome UI: We cannot process your request, please try again later.",
-    "Native captures and real prices from the chosen build pending.",
-    "Kazakh caption approval and locale mapping pending."
+    "Native captures and real prices from build 40 pending.",
+    "Previous screenshot captions rejected. Two replacement variants prepared for owner selection.",
+    "Header is a visual preview at 1914 x 822; accepted App Store export must be 3840 x 1646 or 5244 x 2950. Not uploaded."
   ],
-  "production_changes": [],
+  "production_changes": ["App Store metadata draft only"],
   "apple_status": {
-    "checked_at_local": "2026-11-17 22:23 Asia/Almaty",
-    "developer_status": "All services are operating normally",
-    "consumer_status": "All services are operating normally",
-    "auth_failure_cause": "not established",
-    "chrome_login_result": "failed; visible error confirmed"
+    "checked_at_local": "2026-11-18 Asia/Almaty",
+    "sign_in": "restored by owner",
+    "live_version": "1.0 ready for distribution",
+    "draft_version": "1.0.2 prepare for submission",
+    "selected_build": "40",
+    "build_id": "abae2dc0-8251-44f1-b739-5feb8ea4b59f",
+    "manual_release": true,
+    "app_review_submitted": false
+  },
+  "owner_selected_build_40": true,
+  "saved_localizations": ["ru", "en-GB"],
+  "saved_fields": [
+    "name",
+    "subtitle",
+    "promotional_text",
+    "description",
+    "keywords",
+    "whats_new",
+    "support_url",
+    "privacy_policy_url"
+  ],
+  "header_preview": {
+    "path": "assets/header-preview-1118.png",
+    "size": [1914, 822],
+    "sha256": "a93923944215c5fb268a2b5c61e336861334788490ce0ac8a908342d34d0623c",
+    "source_food": "apps/mobile/assets/catalog-hd/master-combo.png",
+    "type": "generated brand artwork using menu photo reference",
+    "uploaded": false,
+    "approved_by_owner": false
+  },
+  "browser_proof": {
+    "path": "assets/app-store-draft-1118.jpg",
+    "sha256": "6b1526710dedc8587d94155281274cf3064e398c77ce4e3164fd2dd8be972ba7"
   }
 }
