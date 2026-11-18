@@ -1,0 +1,78 @@
+{
+  "status": "layout-preview-not-for-upload",
+  "date": "2026-11-18",
+  "approved_caption_variant": 2,
+  "canvas": [1320, 2868],
+  "frame": "Neutral silver rounded frame, not a certified device mockup",
+  "sources_modified": false,
+  "prices_verified": false,
+  "native_build40": false,
+  "screens": [
+    {
+      "id": "01-combo",
+      "headline": "Сүйікті дәмің осында",
+      "meaning": "Любимый вкус здесь",
+      "label": "Карточка комбо",
+      "source": "sources/01-combo.png",
+      "source_origin": "/Users/xaknazar/.codex/worktrees/mobile-fixes-1028/PickChick/.local/cart-page/product-glass-393.png",
+      "sha256": "d8dcb80b7d9d626d870e89304e89799cf392de898be734d79b9699aaf45eb358",
+      "note": "Архивный web-снимок. Для финала заменить нативным экраном сборки 40.",
+      "preview_caveat": "Архивный экран - финал из сборки 40"
+    },
+    {
+      "id": "02-friends",
+      "headline": "Достармен бірге дәмдірек",
+      "meaning": "С друзьями вкуснее",
+      "label": "Комбо для друзей",
+      "source": "sources/02-friends.png",
+      "source_origin": "/Users/xaknazar/Documents/ChatGPT/PickChick/.local/complete-catalog/catalog-390.png",
+      "sha256": "72e09494d73d6a81548d23cc550af005afc0441046fcede89e00c7ee95ef87c8",
+      "note": "Временный экран меню. Для финала снять раздел больших комбо сборки 40.",
+      "preview_caveat": "Временно меню на одного - финал с большими комбо"
+    },
+    {
+      "id": "03-customise",
+      "headline": "Дәл өзің қалағандай",
+      "meaning": "Именно так, как ты хочешь",
+      "label": "Настройка комбо",
+      "source": "sources/03-customise.png",
+      "source_origin": "/Users/xaknazar/Documents/ChatGPT/PickChick/.local/complete-catalog/combo-390.png",
+      "sha256": "c3f35ae8429efb7e5dceebcc5e1e6c12e530986a4dc575c1e1c44e6f41b21940",
+      "note": "Архивный web-снимок. Для финала заменить выбором напитка или соуса в сборке 40.",
+      "preview_caveat": "Архивная настройка комбо - финал из сборки 40"
+    },
+    {
+      "id": "04-takeaway",
+      "headline": "Тапсырыс бер де, ала кет",
+      "meaning": "Закажи и забери с собой",
+      "label": "Корзина",
+      "source": "sources/04-takeaway.png",
+      "source_origin": "/Users/xaknazar/.codex/worktrees/mobile-fixes-1028/PickChick/.local/cart-page/cart-1-item-393.png",
+      "sha256": "3d0bdbc50c3363b365d5198b45f370037df612f2531d27ce18a6f64c0ce8fbbe",
+      "note": "Архивный web-снимок. Для финала снять корзину сборки 40 с выбранным режимом «С собой».",
+      "preview_caveat": "Сейчас «В зале» - финал с режимом «С собой»"
+    },
+    {
+      "id": "05-order",
+      "headline": "Тапсырысың көз алдыңда",
+      "meaning": "Твой заказ перед глазами",
+      "label": "Готовность заказа",
+      "source": "sources/05-order.png",
+      "source_origin": "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/images/mobile-orders/details-320.png",
+      "sha256": "fea2a8de9e23bf7ed011ce7df4dc932238ce47cd2394b05500dce83086e60e2d",
+      "note": "Архивный демонстрационный экран. Для финала нужен согласованный пример готовности из сборки 40.",
+      "preview_caveat": "Старая короткая форма - финал с новым статусом заказа"
+    },
+    {
+      "id": "06-games",
+      "headline": "Ойна. Рекорд жаңарт.",
+      "meaning": "Играй. Ставь рекорды.",
+      "label": "Pick Box",
+      "source": "sources/06-games.png",
+      "source_origin": "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/pick-box-1112/polish-game-393.png",
+      "sha256": "c7840a78ad0c519ac182c6ac6cc3fb8c68076b4e38f585408eef8878f0a88a01",
+      "note": "Архивный web-снимок Pick Box от 12.11. Для финала заменить нативной игрой или страницей игр сборки 40.",
+      "preview_caveat": "Архивный Pick Box - финал из сборки 40"
+    }
+  ]
+}

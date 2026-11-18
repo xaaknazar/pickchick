@@ -152,5 +152,58 @@
     ],
     "persisted_after_reload": true,
     "save_behavior": "Asset auto-saved; page Save stayed disabled."
+  },
+  "screenshot_preview": {
+    "status": "layout preview only - not for upload",
+    "captions_match_approved": true,
+    "sources_unchanged": true,
+    "native_build40": false,
+    "prices_verified": false,
+    "app_store_uploaded": false,
+    "font": "Arial Bold; entire Kazakh phrases; required Kazakh glyphs verified",
+    "review": "Fresh reviewer found clipped exports and insufficient caveats. Corrected with full-page capture and per-image caveats. Parent visually checked both final strips; all six exports are 1320x2868.",
+    "detector": "Arial retained for complete Kazakh glyph support; blue phone shadow changed to neutral black.",
+    "exports": [
+      {
+        "path": "screenshots-preview-1118/01-combo.jpg",
+        "size": [1320, 2868],
+        "sha256": "1ec2cb6dccd19a9c5394a1d4f1ecc85389ac7e7e040d0d9f4ae46d0abb20e32b"
+      },
+      {
+        "path": "screenshots-preview-1118/02-friends.jpg",
+        "size": [1320, 2868],
+        "sha256": "b3bf032824731d2d2ba9a3f098ec5b63ce2ef703410d1420b94282e0c5c42892"
+      },
+      {
+        "path": "screenshots-preview-1118/03-customise.jpg",
+        "size": [1320, 2868],
+        "sha256": "c44906572aa2430dc09ddf425068aa204cb412616baec5cceb7483358e9356ff"
+      },
+      {
+        "path": "screenshots-preview-1118/04-takeaway.jpg",
+        "size": [1320, 2868],
+        "sha256": "9901633278c09d19173b890d1f67e9498bbc001514b849076cb637d210baac87"
+      },
+      {
+        "path": "screenshots-preview-1118/05-order.jpg",
+        "size": [1320, 2868],
+        "sha256": "7438df09340020904675ab625129a4b03a0dd9f058d90fbc5c34ed25c86efb2d"
+      },
+      {
+        "path": "screenshots-preview-1118/06-games.jpg",
+        "size": [1320, 2868],
+        "sha256": "d884e43cd25df4f954d3ab0c203c0e3cfd463d700a237ad88321570be09532ed"
+      }
+    ],
+    "strips": [
+      {
+        "path": "screenshots-preview-1118/preview-01-03.jpg",
+        "sha256": "b60d9d22ee47134afbf1794fe04b2d5191792377683677ac323a40d5659a9a8a"
+      },
+      {
+        "path": "screenshots-preview-1118/preview-04-06.jpg",
+        "sha256": "51f6bee0c813ef4d4c794b40ca5b61de8bc2dd14a6f9a1a84984e46290cedbb2"
+      }
+    ]
   }
 }
