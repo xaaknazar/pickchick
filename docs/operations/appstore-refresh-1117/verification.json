@@ -167,63 +167,54 @@
       {
         "path": "screenshots-preview-1118/01-combo.jpg",
         "size": [1320, 2868],
-        "sha256": "8dc2cef12e4d03573ed92af4d90a36363542e96734bf0505255acfc66facb49e"
+        "sha256": "8194a00ab5fec111361e175a999797e28c13bf54eff34917c17f9ff3e1e4a82c"
       },
       {
         "path": "screenshots-preview-1118/02-friends.jpg",
         "size": [1320, 2868],
-        "sha256": "582a6ec5b726080610dfa3822eb5705e950dce3068b5729f5f23b4b6132e2656"
+        "sha256": "e25a30264dae6a4515bffa61f82860ec881459a0128663e165f40a1d05d02340"
       },
       {
         "path": "screenshots-preview-1118/03-customise.jpg",
         "size": [1320, 2868],
-        "sha256": "9acca49929db1cc8911d3512c916e8a9baf416b9f8b6896d866c676a8c484070"
+        "sha256": "35248c757dfa6378b49f231310feafdf531bacb831f8d8af47043e7627519e2f"
       },
       {
         "path": "screenshots-preview-1118/04-takeaway.jpg",
         "size": [1320, 2868],
-        "sha256": "373c077e07a3240e96a7996e7257381e1b1e0857afe93ff0807e76626a756beb"
+        "sha256": "f6e650f2812fc9636dcdcd1d520de54af44a253065e9a4fb8e4fd8184dddc8c1"
       },
       {
         "path": "screenshots-preview-1118/05-order.jpg",
         "size": [1320, 2868],
-        "sha256": "359a4d586dd53ad8c150270fbd4f1a7aa844a2e0540bcba951888f15dc6b6fb6"
+        "sha256": "e816e49abf33b6b45ad23971092309cef4553d2b77039c0047f41dfc12b73a68"
       },
       {
         "path": "screenshots-preview-1118/06-games.jpg",
         "size": [1320, 2868],
-        "sha256": "b763023ee0e782aa41aebf198e05e78c09e8c39518e9ea3305bdd285698bf4e2"
+        "sha256": "456953477dc32024262fcb5ddabb8ad873f2cebcb1e1819df2016def6d62e853"
       }
     ],
     "strips": [
       {
         "path": "screenshots-preview-1118/preview-01-03.jpg",
-        "sha256": "6b6e1abc5a7967d4802110470ca776cdc86b5b77e5ca7b72ff0802d5e3dc58bf"
+        "sha256": "60ffc3b9328fd580f9ee964e04da9850e242822d08f45895234d9f4fdfaace70"
       },
       {
         "path": "screenshots-preview-1118/preview-04-06.jpg",
-        "sha256": "0d14cdd07dda6e4ff5c709c0b8ed2de45fc7db08e3afa7d729d4794d5dc17401"
+        "sha256": "1628a218202c7ccaeda97fde4520ae31fcc026de48f0385603d793108a5a1fd9"
       }
     ],
     "background": {
-      "direction": "top-to-bottom",
-      "stops": [
-        {
-          "offset": 0,
-          "color": "#1B66D9"
-        },
-        {
-          "offset": 0.52,
-          "color": "#074DBB"
-        },
-        {
-          "offset": 1,
-          "color": "#073585"
-        }
-      ],
-      "matching_header": "../assets/header-gradient-3840x1646.png"
+      "type": "generated iridescent sapphire satin",
+      "source": "art/iridescent-blue.png",
+      "matching_header": "../assets/header-iridescent-3840x1646.jpg",
+      "sprites": "art/brand-figures.png",
+      "sprite_grid": [3, 2],
+      "source_interface_modified": false
     },
-    "minimum_white_contrast": 5.32
+    "composition": "White headlines above phones, 3 background motifs per card, all background artwork behind unmodified UI sources; 6 headings clear of phone bounds.",
+    "visual_check": "Both final 3-card strips checked visually; top overlay keeps white headings readable. No current numeric contrast claim for generated artwork."
   },
   "header_gradient_preview": {
     "path": "assets/header-gradient-3840x1646.png",
@@ -250,6 +241,15 @@
         }
       ],
       "matching_header": "../assets/header-gradient-3840x1646.png"
-    }
+    },
+    "superseded_by": "header_iridescent_preview"
+  },
+  "header_iridescent_preview": {
+    "path": "assets/header-iridescent-3840x1646.jpg",
+    "source": "screenshots-preview-1118/art/iridescent-blue.png",
+    "size": [3840, 1646],
+    "sha256": "7f901a0f53f6b45c06bf48dbb5e96a7fc45048c1c89ea9892466f5fb5e05d9de",
+    "uploaded": false,
+    "mode": "New owner-requested iridescent direction; replaces mild gradient in previews only."
   }
 }

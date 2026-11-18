@@ -73,12 +73,7 @@
       .cover-preview .cover-art {
         width: 100%;
         aspect-ratio: 3840 / 1646;
-        background: linear-gradient(
-          180deg,
-          var(--gradient-top) 0%,
-          var(--gradient-middle) 52%,
-          var(--gradient-bottom) 100%
-        );
+        background: #0638ba url('art/iridescent-blue.png') center / cover no-repeat;
       }
       .cover-preview figcaption {
         padding-top: 10px;
@@ -100,17 +95,22 @@
         position: relative;
         container-type: inline-size;
         aspect-ratio: 1320/2868;
-        background: linear-gradient(
-          180deg,
-          var(--gradient-top) 0%,
-          var(--gradient-middle) 52%,
-          var(--gradient-bottom) 100%
-        );
+        isolation: isolate;
+        background-color: #0434b5;
+        background-image:
+          linear-gradient(180deg, #0321769c 0%, #03217600 28%), url('art/iridescent-blue.png');
+        background-size:
+          cover,
+          auto 100%;
+        background-position:
+          center,
+          var(--bg-x, 65%) center;
         overflow: hidden;
         color: white;
       }
       h2 {
         position: absolute;
+        z-index: 3;
         inset: 6.1% 7% auto;
         margin: 0;
         font:
@@ -122,9 +122,10 @@
       }
       .phone {
         position: absolute;
-        width: 78%;
-        left: 11%;
-        top: 19.5%;
+        z-index: 2;
+        width: 72%;
+        left: 14%;
+        top: 25%;
         padding: 1.05cqw;
         border-radius: 8.1cqw;
         background: linear-gradient(110deg, #a8b0be, #eef1f6 27%, #aab4c3 60%, #dde3ed);
@@ -142,11 +143,55 @@
         height: auto;
         image-rendering: auto;
       }
-      .order .phone {
-        top: 24%;
+      .motif {
+        position: absolute;
+        z-index: 1;
+        aspect-ratio: 1;
+        background-image: url('art/brand-figures.png');
+        background-size: 300% 200%;
+        background-repeat: no-repeat;
+        pointer-events: none;
+      }
+      .motif.alex {
+        background-position: 0 0;
+      }
+      .motif.flame {
+        background-position: 50% 0;
+      }
+      .motif.box {
+        background-position: 100% 0;
+      }
+      .motif.cup {
+        background-position: 0 100%;
+      }
+      .motif.heart {
+        background-position: 50% 100%;
+      }
+      .motif.blocks {
+        background-position: 100% 100%;
+      }
+      body.cover-only main {
+        padding: 0;
+        max-width: none;
+      }
+      body.cover-only header,
+      body.cover-only .grid,
+      body.cover-only footer,
+      body.cover-only figcaption {
+        display: none;
+      }
+      body.cover-only .cover-preview {
+        margin: 0;
+      }
+      body.cover-only .cover-art {
+        width: 100vw;
       }
       .draft {
         position: absolute;
+        z-index: 3;
+        background: #061c54b3;
+        border-radius: 0.7cqw;
+        padding: 0.45cqw;
         bottom: 1.35%;
         left: 7%;
         right: 7%;
@@ -262,11 +307,11 @@
         <div
           class="cover-art"
           role="img"
-          aria-label="Обложка Pick Chick с мягким синим градиентом"
+          aria-label="Обложка Pick Chick с яркими синими переливами"
         ></div>
         <figcaption>
-          Новая обложка - тот же мягкий градиент, что и на скриншотах. Предпросмотр, в App Store ещё
-          не загружена.
+          Новая обложка - насыщенные синие переливы, как на скриншотах. Предпросмотр, в App Store
+          ещё не загружена.
         </figcaption>
       </figure>
       <section class="grid" aria-label="Макеты скриншотов"></section>
@@ -282,7 +327,10 @@
         let items = data.screens;
         const page = params.get('page');
         const single = params.get('screen');
-        if (single) {
+        if (params.has('cover')) {
+          document.body.classList.add('cover-only');
+          items = [];
+        } else if (single) {
           document.body.classList.add('single');
           items = items.filter((s) => s.id === single);
         } else if (page) {
@@ -296,6 +344,19 @@
           const canvas = document.createElement('div');
           canvas.className = 'canvas' + (s.id === '05-order' ? ' order' : '');
           canvas.dataset.id = s.id;
+          canvas.style.setProperty('--bg-x', s.background_position);
+          for (const item of s.motifs) {
+            const motif = document.createElement('div');
+            motif.className = 'motif ' + item.name;
+            motif.setAttribute('aria-hidden', 'true');
+            Object.assign(motif.style, {
+              left: item.left + '%',
+              top: item.top + '%',
+              width: item.width + '%',
+              transform: 'rotate(' + item.rotation + 'deg)',
+            });
+            canvas.append(motif);
+          }
           const h = document.createElement('h2');
           h.lang = 'kk';
           h.textContent = s.headline;

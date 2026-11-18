@@ -1,0 +1,28 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-11-18",
+  "status": "owner preview, not uploaded",
+  "reference": "https://apps.apple.com/kz/app/drinkit-order-your-coffee/id1495622004",
+  "reference_use": "Floating decorative objects around app screens; original Pick Chick assets, no Drinkit figures copied",
+  "identity_references": [
+    "apps/mobile/assets/profile/alex-avatar.png",
+    "design/prototype/assets/brand-logo.png"
+  ],
+  "assets": [
+    {
+      "path": "iridescent-blue.png",
+      "sha256": "653f48f8499e58e9c5e12eb8e9b03ae566e65b78d6164c091f3062a7fda5138f"
+    },
+    {
+      "path": "brand-figures.png",
+      "sha256": "f72efbb8848b60c57ba51c5bc517ff3e133198e5fa19fa307e33826df0520066"
+    }
+  ],
+  "interface_sources_modified": false,
+  "brand_figures_alpha": {
+    "transparent_pixels": 902451,
+    "partial_pixels": 670413,
+    "opaque_pixels": 0,
+    "corner_rgba": [0, 0, 0, 0]
+  }
+}
