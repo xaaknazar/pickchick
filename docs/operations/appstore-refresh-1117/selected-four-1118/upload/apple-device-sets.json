@@ -1,0 +1,96 @@
+[
+  {
+    "index": 0,
+    "inherited": false,
+    "label": "Medium required",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 1,
+    "inherited": false,
+    "label": "Icons/iPhone 67iPhone с Dynamic Island(большой дисплей)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 2,
+    "inherited": true,
+    "label": "Icons/iPhone 65iPhone с Face ID(большой дисплей)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 3,
+    "inherited": false,
+    "label": "Icons/iPhone DuoiPhone Duo",
+    "screens": []
+  },
+  {
+    "index": 4,
+    "inherited": true,
+    "label": "Icons/iPhone 65iPhone с Face ID(средний дисплей)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 5,
+    "inherited": true,
+    "label": "Icons/iPhone 55iPhone с кнопкой «Домой»(большой дисплей)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 6,
+    "inherited": true,
+    "label": "Icons/iPhone 55iPhone с кнопкой «Домой»(средний дисплей)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 7,
+    "inherited": true,
+    "label": "Icons/iPhone 55iPhone с кнопкой «Домой»(дисплей 4 дюйма)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  },
+  {
+    "index": 8,
+    "inherited": true,
+    "label": "Icons/iPhone 55iPhone с кнопкой «Домой»(дисплей 3,5 дюйма)",
+    "screens": [
+      "Снимок экрана приложения «01-menu.jpg»",
+      "Снимок экрана приложения «02-duo.jpg»",
+      "Снимок экрана приложения «03-games.jpg»",
+      "Снимок экрана приложения «04-order.jpg»"
+    ]
+  }
+]

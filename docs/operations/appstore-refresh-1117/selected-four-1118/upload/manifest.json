@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-18",
+  "status": "uploaded-to-app-store-connect-draft",
+  "app_id": "6809208492",
+  "version": "1.0.2",
+  "localization": "ru",
+  "inherited_localizations": ["en-GB"],
+  "order": ["01-menu.jpg", "02-duo.jpg", "03-games.jpg", "04-order.jpg"],
+  "sizes": [
+    [1320, 2868],
+    [1206, 2622]
+  ],
+  "files": [
+    {
+      "path": "01-menu.jpg",
+      "bytes": 302196,
+      "size": [1320, 2868],
+      "sha256": "903ed22ac882bd574964fe156b6e726a7f57f4e19586888a72a99655e2ffcc9c"
+    },
+    {
+      "path": "02-duo.jpg",
+      "bytes": 342618,
+      "size": [1320, 2868],
+      "sha256": "35845b4ac12ef93d3307aabd62dbeb9546aa8e812bbd48d144f6a7b2e8918244"
+    },
+    {
+      "path": "03-games.jpg",
+      "bytes": 374212,
+      "size": [1320, 2868],
+      "sha256": "6830d2f875a5721434522e9f461c506a86f7e6f446117be4aa53d0b5d05aba44"
+    },
+    {
+      "path": "04-order.jpg",
+      "bytes": 247465,
+      "size": [1320, 2868],
+      "sha256": "f078fceb77022c453cfaaf4ed555ed9b9474bfef26408345bddc06eb014b7588"
+    },
+    {
+      "path": "medium/01-menu.jpg",
+      "bytes": 265696,
+      "size": [1206, 2622],
+      "sha256": "514b8f896724bbd6839286c0de04ddab41c48de668e1daac8e903db6dd879e51"
+    },
+    {
+      "path": "medium/02-duo.jpg",
+      "bytes": 299441,
+      "size": [1206, 2622],
+      "sha256": "698669e038d93ffe3c424a61a5aa5c108a8165570b5698e7ec696350a73ad9fd"
+    },
+    {
+      "path": "medium/03-games.jpg",
+      "bytes": 326205,
+      "size": [1206, 2622],
+      "sha256": "83e4dcceb7d3c951c6b83f5517837d042d32cfe3a292f3545d098bc07e4297ee"
+    },
+    {
+      "path": "medium/04-order.jpg",
+      "bytes": 215145,
+      "size": [1206, 2622],
+      "sha256": "3a3637f22deb997d7bfa294aaadfed6da176a0a1c6f090d36a6e55b80fbc272c"
+    }
+  ],
+  "persisted_after_reload": true,
+  "old_assets_remain_in_asset_library": true,
+  "app_review_submitted": false,
+  "native_order_capture": false,
+  "order_sample_notice_retained": true,
+  "external_draft_labels_removed": true
+}

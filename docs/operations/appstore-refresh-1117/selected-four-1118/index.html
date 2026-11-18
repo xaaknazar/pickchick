@@ -176,6 +176,12 @@
         letter-spacing: 0.06em;
         color: #c4d7ff;
       }
+      body.upload .draft {
+        display: none;
+      }
+      body.medium .canvas {
+        aspect-ratio: 1206/2622;
+      }
       figcaption {
         font-size: 14px;
         line-height: 1.5;
@@ -299,6 +305,8 @@
       (async () => {
         const data = await fetch('manifest.json').then((r) => r.json());
         const params = new URLSearchParams(location.search);
+        if (params.has('upload')) document.body.classList.add('upload');
+        if (params.get('format') === 'medium') document.body.classList.add('medium');
         let items = data.screens;
         const page = params.get('page');
         const single = params.get('screen');

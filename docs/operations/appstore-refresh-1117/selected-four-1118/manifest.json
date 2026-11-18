@@ -1,5 +1,5 @@
 {
-  "status": "layout-preview-not-for-upload",
+  "status": "owner-approved-layout-with-separate-upload-exports",
   "date": "2026-11-18",
   "approved_caption_variant": 2,
   "canvas": [1320, 2868],
@@ -132,5 +132,6 @@
     "previous_set": "../screenshots-preview-1118/manifest.json",
     "order_design": "actual app OrderStatusView replaces rejected archival status"
   },
-  "revision": "owner-request-1118-no-stickers-larger-higher-phones"
+  "revision": "owner-request-1118-no-stickers-larger-higher-phones",
+  "upload_manifest": "upload/manifest.json"
 }

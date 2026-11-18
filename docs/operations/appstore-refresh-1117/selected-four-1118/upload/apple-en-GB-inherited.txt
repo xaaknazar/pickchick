@@ -1,0 +1,139 @@
+- banner "App Store Connect":
+  - heading "App Store Connect" [level=1]:
+    - link "App Store Connect":
+      - /url: /
+  - navigation "Везде":
+    - list:
+      - link "Приложения":
+        - /url: /apps
+      - link "Xcode Cloud":
+        - /url: /teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/xcode-cloud
+      - link "Тренды":
+        - /url: /trends
+      - link "Отчеты":
+        - /url: /itc/payments_and_financial_reports
+      - link "Бизнес":
+        - /url: /business
+  - button "Aknazar Kuanysh Aknazar Kuanysh Account name menu":
+    - generic: Aknazar Kuanysh
+    - generic: Aknazar Kuanysh
+- button "Меню приложений, Pick Chick, выбрано":
+  - generic "Pick Chick":
+    - img "Pick Chick"
+  - generic: Pick Chick
+- navigation "Приложения":
+  - list:
+    - link "Распространение":
+      - /url: /apps/6809208492/distribution
+    - link "Аналитика":
+      - /url: /apps/6809208492/analytics
+    - link "TestFlight":
+      - /url: /teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight
+- main:
+  - text: Приложение для iOS 1.0.2
+  - heading "Медиаменеджер" [level=2]
+  - navigation:
+    - link "iPhone":
+      - /url: /apps/6809208492/distribution/ios/version/inflight/media-manager/iphone
+    - link "iPad":
+      - /url: /apps/6809208492/distribution/ios/version/inflight/media-manager/ipad
+    - link "Apple Watch":
+      - /url: /apps/6809208492/distribution/ios/version/inflight/media-manager/apple-watch
+    - link "Приложение для iMessage":
+      - /url: /apps/6809208492/distribution/ios/version/inflight/media-manager/imessage
+  - button "английский (Великобритания)":
+    - text: английский (Великобритания)
+  - button "?"
+  - paragraph:
+    - text: Используйте предпросмотры приложения и снимки экрана, чтобы визуально показать пользовательский интерфейс вашего приложения. Снимки экрана будут автоматически масштабироваться для устройств с меньшим размером экрана, если вы не добавите отдельные предпросмотры приложения и снимки экрана для других размеров устройств и локализаций. Снимки экрана должны показывать ваше приложение в процессе использования или в первую очередь отражать пользовательский интерфейс приложения.
+    - link "Подробнее…":
+      - /url: https://developer.apple.com/app-store/asset-best-practices/#screenshots
+  - heading "Обязательно" [level=3]
+  - paragraph: Предпросмотры приложения и снимки экрана необходимы, чтобы точно представить ваше приложение на этих устройствах.
+  - button "DropZone"
+  - generic: iPhone с Dynamic Island
+  - generic: (средний дисплей)
+  - region:
+    - tabpanel:
+      - list:
+        - button "Снимок экрана приложения «01-menu.jpg»":
+        - button "Снимок экрана приложения «02-duo.jpg»":
+        - button "Снимок экрана приложения «03-games.jpg»":
+        - button "Снимок экрана приложения «04-order.jpg»":
+      - paragraph: Использование существующих материалов
+      - button "Подробные сведения": "?"
+    - paragraph: Видео для предпросмотра приложения (0 из 3)
+    - paragraph: Снимки экрана приложения (0 из 10)
+    - button "Поиск материалов"
+    - button "Загрузить"
+    - button "Удалить все" [disabled]
+    - paragraph: "Перетащите материалы для дисплеев iPhone с диагональю 6,1 или 6,3 дюйма или выберите их из своей Библиотеки материалов. Поддерживаемые размеры: для предпросмотров приложения — 1920 × 886px и 886 × 1920px, для снимков экрана — 2556 × 1179px, 1179 × 2556px, 2622 × 1206px и 1206 × 2622px."
+  - heading "Необязательно" [level=3]
+  - paragraph: Можно добавить предпросмотры приложения и снимки экрана, чтобы лучше представить ваше приложение на этих устройствах.
+  - button "DropZone"
+  - button "iPhone с Dynamic Island (большой дисплей)" [expanded] [active]:
+    - generic: iPhone с Dynamic Island
+    - generic: (большой дисплей)
+  - region "iPhone с Dynamic Island (большой дисплей)":
+    - tabpanel:
+      - list:
+        - button "Снимок экрана приложения «01-menu.jpg»":
+        - button "Снимок экрана приложения «02-duo.jpg»":
+        - button "Снимок экрана приложения «03-games.jpg»":
+        - button "Снимок экрана приложения «04-order.jpg»":
+      - paragraph: Использование существующих материалов
+      - button "Подробные сведения": "?"
+    - paragraph: Видео для предпросмотра приложения (0 из 3)
+    - paragraph: Снимки экрана приложения (0 из 10)
+    - button "Поиск материалов"
+    - button "Загрузить"
+    - button "Удалить все" [disabled]
+    - paragraph: "Перетащите материалы для дисплеев iPhone с диагональю 6,5, 6,7 или 6,9 дюйма или выберите их из своей Библиотеки материалов. Поддерживаемые размеры: для предпросмотров приложения — 1920 × 886px и 886 × 1920px, для снимков экрана — 2796 × 1290px, 1290 × 2796px, 2868 × 1320px, 1320 × 2868px, 2736 × 1260px и 1260 × 2736px."
+  - button "DropZone"
+  - button "iPhone с Face ID (большой дисплей)":
+    - generic: iPhone с Face ID
+    - generic: (большой дисплей)
+  - region "iPhone с Face ID (большой дисплей)"
+  - button "DropZone"
+  - button "iPhone Duo":
+    - generic: iPhone Duo
+  - region "iPhone Duo"
+  - button "DropZone"
+  - button "iPhone с Face ID (средний дисплей)":
+    - generic: iPhone с Face ID
+    - generic: (средний дисплей)
+  - region "iPhone с Face ID (средний дисплей)"
+  - button "DropZone"
+  - button "iPhone с кнопкой «Домой» (большой дисплей)":
+    - generic: iPhone с кнопкой «Домой»
+    - generic: (большой дисплей)
+  - region "iPhone с кнопкой «Домой» (большой дисплей)"
+  - button "DropZone"
+  - button "iPhone с кнопкой «Домой» (средний дисплей)":
+    - generic: iPhone с кнопкой «Домой»
+    - generic: (средний дисплей)
+  - region "iPhone с кнопкой «Домой» (средний дисплей)"
+  - button "DropZone"
+  - button "iPhone с кнопкой «Домой» (дисплей 4 дюйма)":
+    - generic: iPhone с кнопкой «Домой»
+    - generic: (дисплей 4 дюйма)
+  - region "iPhone с кнопкой «Домой» (дисплей 4 дюйма)"
+  - button "DropZone"
+  - button "iPhone с кнопкой «Домой» (дисплей 3,5 дюйма)":
+    - generic: iPhone с кнопкой «Домой»
+    - generic: (дисплей 3,5 дюйма)
+  - region "iPhone с кнопкой «Домой» (дисплей 3,5 дюйма)"
+- contentinfo:
+  - list:
+    - link "App Store Connect":
+      - /url: /apps
+  - list:
+    - listitem: Copyright © 2026 Apple Inc. Все права защищены. |
+    - link "Условия обслуживания":
+      - /url: /WebObjects/iTunesConnect.woa/wa/termsOfService
+    - text: "|"
+    - link "Политика конфиденциальности":
+      - /url: https://www.apple.com/legal/privacy
+    - text: "|"
+    - link "Контакты":
+      - /url: /contact-us
