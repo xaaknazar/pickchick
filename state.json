@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "1b5dfeca4126564b70726132ea5cc4637bf55d0b",
-      "updatedAt": "2026-11-18T11:25:41.544Z",
-      "summary": "1b5dfeca: owner-approved four screenshots uploaded to App Store Connect draft iOS1.0.2, ru, large1320x2868 and required medium1206x2622. Four per group and correct order persisted after reload; en-GB and ordinary smaller sizes inherit. Old refs removed, assets retained in library. Only external draft labels removed; approved app-gallery order notice retained. Upload proof and file hashes published.",
-      "nextAction": "Screenshot upload complete. App Review submission not performed; wait for owner instruction on next store action. Current cover unchanged."
+      "status": "available",
+      "head": "361de22a452014c2b1406d5ba47016371ed1a5be",
+      "updatedAt": "2026-11-18T11:34:24.183Z",
+      "summary": "361de22a: live KZ food/drink top-ten review and 14-point owner approval list published. Exact RU/en-GB copy validated for field limits and ordinary hyphens. Live Apple draft 1.0.2 build40 and metadata verified; no Apple writes. Four prior screenshots remain. Order example and en-GB image inheritance explicitly documented.",
+      "nextAction": "Await owner approval of approval-1118.md before applying metadata or cover; replace order example with authentic build40 capture before App Review."
     }
   ],
   "approvedScopeTransfers": [
