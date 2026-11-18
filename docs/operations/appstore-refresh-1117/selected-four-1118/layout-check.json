@@ -1,0 +1,110 @@
+[
+  {
+    "id": "01-menu",
+    "caption": "Сүйікті дәмің осында",
+    "image": {
+      "loaded": true,
+      "natural": [1320, 2868],
+      "src": "sources/01-menu.png"
+    },
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "class": "motif alex",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif flame",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif food-fingers",
+        "headingOverlap": false,
+        "inside": true
+      }
+    ]
+  },
+  {
+    "id": "02-duo",
+    "caption": "Достармен бірге дәмдірек",
+    "image": {
+      "loaded": true,
+      "natural": [1320, 2868],
+      "src": "sources/02-duo.png"
+    },
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "class": "motif heart",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif food-fingers",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif alex",
+        "headingOverlap": false,
+        "inside": true
+      }
+    ]
+  },
+  {
+    "id": "03-games",
+    "caption": "Ойна. Рекорд жаңарт.",
+    "image": {
+      "loaded": true,
+      "natural": [1320, 2868],
+      "src": "sources/03-games.png"
+    },
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "class": "motif food-burger",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif alex",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif flame",
+        "headingOverlap": false,
+        "inside": true
+      }
+    ]
+  },
+  {
+    "id": "04-order",
+    "caption": "Тапсырысың көз алдыңда",
+    "image": {
+      "loaded": true,
+      "natural": [320, 568],
+      "src": "sources/04-order.png"
+    },
+    "size": [1320, 2868],
+    "stickers": [
+      {
+        "class": "motif alex",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif heart",
+        "headingOverlap": false,
+        "inside": true
+      },
+      {
+        "class": "motif food-burger",
+        "headingOverlap": false,
+        "inside": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,215 @@
+{
+  "status": "layout-preview-not-for-upload",
+  "date": "2026-11-18",
+  "approved_caption_variant": 2,
+  "canvas": [1320, 2868],
+  "frame": "Neutral silver rounded frame, not a certified device mockup",
+  "sources_modified": false,
+  "prices_verified": false,
+  "native_build40": false,
+  "screens": [
+    {
+      "id": "01-menu",
+      "headline": "Сүйікті дәмің осында",
+      "meaning": "Любимый вкус здесь",
+      "label": "Главное меню",
+      "source": "sources/01-menu.png",
+      "source_origin": "/private/var/folders/d9/6fmt1sb95jzdfvsqfdrz_0wm0000gn/T/codex-clipboard-dd6c4954-8dbd-4644-848e-608634c76c41.png",
+      "sha256": "d85dd13b5ebfa92f48bf57dfaae03e43b3c11110b455caa33ff1e2e5f0a34e9b",
+      "note": "Новый снимок главного меню от владельца, сохранён без изменений.",
+      "preview_caveat": "Новый снимок владельца",
+      "background_position": "64%",
+      "motifs": [
+        {
+          "name": "alex",
+          "left": 71,
+          "top": 16.8,
+          "width": 24,
+          "rotation": 10
+        },
+        {
+          "name": "flame",
+          "left": 4,
+          "top": 69,
+          "width": 17,
+          "rotation": -14
+        },
+        {
+          "name": "food-fingers",
+          "left": 3,
+          "top": 39,
+          "width": 20,
+          "rotation": -15
+        }
+      ],
+      "phone": {
+        "left": 24,
+        "top": 28.5,
+        "width": 68
+      },
+      "source_type": "owner-supplied-screenshot",
+      "source_build_verified": false
+    },
+    {
+      "id": "02-duo",
+      "headline": "Достармен бірге дәмдірек",
+      "meaning": "С друзьями вкуснее",
+      "label": "Микс Дуо - комбо для двоих",
+      "source": "sources/02-duo.png",
+      "source_origin": "/private/var/folders/d9/6fmt1sb95jzdfvsqfdrz_0wm0000gn/T/codex-clipboard-a903fe72-4ac5-44a9-9c27-5dd389f74fd3.png",
+      "sha256": "f4250d1cddc7e208ff0f9e3da430d7b617dff5cdde3a28ad2cba2f233572cee6",
+      "note": "Новый снимок «Микс Дуо» от владельца. Цена 7 490 тенге и состав сохранены как на снимке.",
+      "preview_caveat": "Новый снимок владельца",
+      "background_position": "36%",
+      "motifs": [
+        {
+          "name": "heart",
+          "left": 8,
+          "top": 17.5,
+          "width": 23,
+          "rotation": -12
+        },
+        {
+          "name": "food-fingers",
+          "left": 76,
+          "top": 45,
+          "width": 20,
+          "rotation": 15
+        },
+        {
+          "name": "alex",
+          "left": 77,
+          "top": 78,
+          "width": 19,
+          "rotation": -8
+        }
+      ],
+      "phone": {
+        "left": 8,
+        "top": 28.5,
+        "width": 68
+      },
+      "source_type": "owner-supplied-screenshot",
+      "source_build_verified": false
+    },
+    {
+      "id": "03-games",
+      "headline": "Ойна. Рекорд жаңарт.",
+      "meaning": "Играй. Ставь рекорды.",
+      "label": "Раздел игр",
+      "source": "sources/03-games.png",
+      "source_origin": "/private/var/folders/d9/6fmt1sb95jzdfvsqfdrz_0wm0000gn/T/codex-clipboard-137cd1a5-1276-4ba6-abb2-efd48b7efb8c.png",
+      "sha256": "11c7763dee0a8bc2a55af189037fc63892c2e473f39441529a112794d181d9ee",
+      "note": "Новый снимок раздела игр от владельца. Содержимое экрана сохранено без изменений.",
+      "preview_caveat": "Новый снимок владельца",
+      "background_position": "80%",
+      "motifs": [
+        {
+          "name": "food-burger",
+          "left": 67,
+          "top": 17,
+          "width": 28,
+          "rotation": 8
+        },
+        {
+          "name": "alex",
+          "left": 77,
+          "top": 51,
+          "width": 20,
+          "rotation": 12
+        },
+        {
+          "name": "flame",
+          "left": 77,
+          "top": 81,
+          "width": 20,
+          "rotation": -12
+        }
+      ],
+      "phone": {
+        "left": 8,
+        "top": 28.5,
+        "width": 68
+      },
+      "source_type": "owner-supplied-screenshot",
+      "source_build_verified": false
+    },
+    {
+      "id": "04-order",
+      "headline": "Тапсырысың көз алдыңда",
+      "meaning": "Твой заказ перед глазами",
+      "label": "Готовность заказа",
+      "source": "sources/04-order.png",
+      "source_origin": "/private/tmp/pickchick-appstore-refresh-1118/docs/operations/appstore-refresh-1117/screenshots-preview-1118/sources/05-order.png",
+      "sha256": "fea2a8de9e23bf7ed011ce7df4dc932238ce47cd2394b05500dce83086e60e2d",
+      "note": "Прежний экран статуса заказа оставлен четвёртым по просьбе владельца. Это архивный пример, не новый снимок.",
+      "preview_caveat": "Прежний архивный статус заказа",
+      "background_position": "25%",
+      "motifs": [
+        {
+          "name": "alex",
+          "left": 4,
+          "top": 39,
+          "width": 20,
+          "rotation": -12
+        },
+        {
+          "name": "heart",
+          "left": 71,
+          "top": 17,
+          "width": 22,
+          "rotation": 10
+        },
+        {
+          "name": "food-burger",
+          "left": 6,
+          "top": 82.5,
+          "width": 28,
+          "rotation": -7
+        }
+      ],
+      "phone": {
+        "left": 24,
+        "top": 28.5,
+        "width": 68
+      },
+      "source_type": "previous-archival-order-preview",
+      "source_build_verified": false
+    }
+  ],
+  "background": {
+    "type": "generated iridescent sapphire satin",
+    "source": "../screenshots-preview-1118/art/background-portrait-hd.png",
+    "matching_header": "../assets/header-iridescent-hd-3840x1646.jpg",
+    "source_interface_modified": false,
+    "food_assets": [
+      "../screenshots-preview-1118/art/food-fingers.png",
+      "../screenshots-preview-1118/art/food-burger.png"
+    ],
+    "packaging_motifs_displayed": false,
+    "cover_source": "../screenshots-preview-1118/art/background-cover-hd.png",
+    "stickers": {
+      "alex": "../screenshots-preview-1118/art/sticker-alex-hd.png",
+      "flame": "../screenshots-preview-1118/art/sticker-flame-hd.png",
+      "cup": "../screenshots-preview-1118/art/sticker-cup-hd.png",
+      "heart": "../screenshots-preview-1118/art/sticker-heart-hd.png"
+    }
+  },
+  "sticker_layout": {
+    "placement": "asymmetric scattered composition around alternating offset phones",
+    "layer": "foreground above phone",
+    "count_per_screen": 3,
+    "clipped": false,
+    "phone_width_percent": 68,
+    "phone_top_percent": 28.5,
+    "row_rejected_by_owner": true
+  },
+  "selection": {
+    "count": 4,
+    "owner_selected": true,
+    "owner_supplied_screens": 3,
+    "previous_order_status_retained": true,
+    "removed_from_current_set": ["customisation", "takeaway cart"],
+    "previous_set": "../screenshots-preview-1118/manifest.json"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-18",
+  "status": "preview-not-for-upload",
+  "count": 4,
+  "sources": [
+    {
+      "id": "01-menu",
+      "path": "sources/01-menu.png",
+      "size": [1320, 2868],
+      "sha256": "d85dd13b5ebfa92f48bf57dfaae03e43b3c11110b455caa33ff1e2e5f0a34e9b",
+      "identical_to_supplied_source": true
+    },
+    {
+      "id": "02-duo",
+      "path": "sources/02-duo.png",
+      "size": [1320, 2868],
+      "sha256": "f4250d1cddc7e208ff0f9e3da430d7b617dff5cdde3a28ad2cba2f233572cee6",
+      "identical_to_supplied_source": true
+    },
+    {
+      "id": "03-games",
+      "path": "sources/03-games.png",
+      "size": [1320, 2868],
+      "sha256": "11c7763dee0a8bc2a55af189037fc63892c2e473f39441529a112794d181d9ee",
+      "identical_to_supplied_source": true
+    },
+    {
+      "id": "04-order",
+      "path": "sources/04-order.png",
+      "size": [320, 568],
+      "sha256": "fea2a8de9e23bf7ed011ce7df4dc932238ce47cd2394b05500dce83086e60e2d",
+      "identical_to_supplied_source": true
+    }
+  ],
+  "exports": [
+    {
+      "path": "01-menu.jpg",
+      "size": [1320, 2868],
+      "sha256": "7842c66f984ad746f7668ff81ec27e1fbdb65eb8d0d11477f8e97ace9e0c5a86"
+    },
+    {
+      "path": "02-duo.jpg",
+      "size": [1320, 2868],
+      "sha256": "f282ee026f08325a94a0d36ce2b37727c444115954d4e4081cd1791b152411bd"
+    },
+    {
+      "path": "03-games.jpg",
+      "size": [1320, 2868],
+      "sha256": "78f2cc3dcc92070f90135eb510ef2a0f6c45d83f0cba05620ae92a95e225dca0"
+    },
+    {
+      "path": "04-order.jpg",
+      "size": [1320, 2868],
+      "sha256": "4e17ccdc92e15389fa644b3a9f648070de9b0bdfdb4b281777e670654e27ebd5"
+    }
+  ],
+  "strips": [
+    {
+      "path": "preview-01-02.jpg",
+      "size": [1280, 1555],
+      "sha256": "ffcfe606f3bd9c1fab0abbee1d05981ee8a1051c510f1a4f8b97055363ea827e"
+    },
+    {
+      "path": "preview-03-04.jpg",
+      "size": [1280, 1555],
+      "sha256": "525671a288a6fa9a9dcfc1ac945db0d8bdc30f8faa66de2d9f0e5479b330de48"
+    }
+  ],
+  "captions_match_approved_subset": true,
+  "sources_unchanged": true,
+  "stickers_checked": 12,
+  "clipped_stickers": 0,
+  "heading_intersections": 0,
+  "visual_review": "Both two-card overviews checked. All four interfaces are legible and unobscured. Archived order screenshot remains lower-resolution.",
+  "app_build_verified": false,
+  "prices_independently_verified": false,
+  "app_store_uploaded": false,
+  "layout_evidence": "layout-check.json"
+}

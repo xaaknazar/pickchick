@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pick Chick - макеты скриншотов</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --blue: #0047bb;
+        --gradient-top: #1b66d9;
+        --gradient-middle: #074dbb;
+        --gradient-bottom: #073585;
+        --ink: #04143a;
+        --paper: #f2f5fb;
+        --white: #fff;
+        --orange: #ff6900;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Arial, sans-serif;
+      }
+      ::selection {
+        background: var(--blue);
+        color: var(--white);
+      }
+      main {
+        max-width: 1480px;
+        margin: auto;
+        padding: 40px;
+      }
+      header {
+        display: flex;
+        gap: 32px;
+        align-items: end;
+        justify-content: space-between;
+        margin: 0 0 28px;
+      }
+      h1 {
+        font-size: 34px;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+        margin: 0 0 10px;
+      }
+      header p {
+        margin: 0;
+        max-width: 850px;
+        font-size: 16px;
+        line-height: 1.5;
+        color: #415676;
+      }
+      nav {
+        display: flex;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      a {
+        color: var(--blue);
+        text-underline-offset: 4px;
+      }
+      a:focus-visible {
+        outline: 3px solid var(--orange);
+        outline-offset: 5px;
+      }
+      .cover-preview {
+        margin: 0 0 32px;
+      }
+      .cover-preview .cover-art {
+        width: 100%;
+        aspect-ratio: 3840 / 1646;
+        background: #0638ba url('../screenshots-preview-1118/art/background-cover-hd.png') center /
+          cover no-repeat;
+      }
+      .cover-preview figcaption {
+        padding-top: 10px;
+      }
+      body.strip .cover-preview,
+      body.single .cover-preview {
+        display: none;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px 24px;
+      }
+      .shot {
+        margin: 0;
+        min-width: 0;
+      }
+      .canvas {
+        position: relative;
+        container-type: inline-size;
+        aspect-ratio: 1320/2868;
+        isolation: isolate;
+        background-color: #0434b5;
+        background-image:
+          linear-gradient(180deg, #0321769c 0%, #03217600 28%),
+          url('../screenshots-preview-1118/art/background-portrait-hd.png');
+        background-size:
+          cover,
+          auto 100%;
+        background-position:
+          center,
+          var(--bg-x, 65%) center;
+        overflow: hidden;
+        color: white;
+      }
+      h2 {
+        position: absolute;
+        z-index: 3;
+        inset: 6.1% 7% auto;
+        margin: 0;
+        font:
+          700 9.7cqw/1.08 Arial,
+          sans-serif;
+        letter-spacing: -0.025em;
+        text-align: left;
+        text-wrap: balance;
+      }
+      .phone {
+        position: absolute;
+        z-index: 2;
+        width: var(--phone-width, 68%);
+        left: var(--phone-left, 16%);
+        top: var(--phone-top, 28.5%);
+        padding: 1.05cqw;
+        border-radius: 8.1cqw;
+        background: linear-gradient(110deg, #a8b0be, #eef1f6 27%, #aab4c3 60%, #dde3ed);
+        box-shadow: 0 4cqw 6cqw #00000040;
+      }
+      .display {
+        overflow: hidden;
+        border: 1.05cqw solid #10131a;
+        border-radius: 6.7cqw;
+        background: #061437;
+      }
+      .display img {
+        display: block;
+        width: 100%;
+        height: auto;
+        image-rendering: auto;
+      }
+      .motif {
+        position: absolute;
+        z-index: 4;
+        aspect-ratio: 1;
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        pointer-events: none;
+      }
+      .motif.alex {
+        background-image: url('../screenshots-preview-1118/art/sticker-alex-hd.png');
+      }
+      .motif.flame {
+        background-image: url('../screenshots-preview-1118/art/sticker-flame-hd.png');
+      }
+      .motif.food-fingers {
+        background-image: url('../screenshots-preview-1118/art/food-fingers.png');
+        background-position: center;
+        background-size: contain;
+      }
+      .motif.cup {
+        background-image: url('../screenshots-preview-1118/art/sticker-cup-hd.png');
+      }
+      .motif.heart {
+        background-image: url('../screenshots-preview-1118/art/sticker-heart-hd.png');
+      }
+      .motif.food-burger {
+        background-image: url('../screenshots-preview-1118/art/food-burger.png');
+        background-position: center;
+        background-size: contain;
+      }
+      body.cover-only main {
+        padding: 0;
+        max-width: none;
+      }
+      body.cover-only header,
+      body.cover-only .grid,
+      body.cover-only footer,
+      body.cover-only figcaption {
+        display: none;
+      }
+      body.cover-only .cover-preview {
+        margin: 0;
+      }
+      body.cover-only .cover-art {
+        width: 100vw;
+      }
+      .draft {
+        position: absolute;
+        z-index: 3;
+        background: #061c54b3;
+        border-radius: 0.7cqw;
+        padding: 0.45cqw;
+        bottom: 1.35%;
+        left: 7%;
+        right: 7%;
+        text-align: center;
+        font-size: 2cqw;
+        line-height: 1.35;
+        letter-spacing: 0.06em;
+        color: #c4d7ff;
+      }
+      figcaption {
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 14px 2px 0;
+        color: #415676;
+      }
+      figcaption strong {
+        display: block;
+        font-size: 16px;
+        color: var(--ink);
+        margin-bottom: 3px;
+      }
+      figcaption a {
+        display: inline-block;
+        margin-top: 8px;
+      }
+      footer {
+        margin-top: 28px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #415676;
+      }
+      body.strip main {
+        padding: 24px;
+        max-width: none;
+      }
+      body.strip header {
+        margin-bottom: 20px;
+      }
+      body.strip h1 {
+        font-size: 28px;
+      }
+      body.strip header p {
+        font-size: 15px;
+      }
+      body.strip nav,
+      body.strip footer,
+      body.strip figcaption a {
+        display: none;
+      }
+      body.strip .grid {
+        gap: 18px;
+      }
+      body.single {
+        background: var(--blue);
+      }
+      body.single main {
+        padding: 0;
+        max-width: none;
+      }
+      body.single header,
+      body.single footer,
+      body.single figcaption {
+        display: none;
+      }
+      body.single .grid {
+        display: block;
+      }
+      body.single .canvas {
+        width: 100vw;
+      }
+      @media (max-width: 700px) {
+        main {
+          padding: 24px 16px;
+        }
+        header {
+          display: block;
+        }
+        h1 {
+          font-size: 28px;
+        }
+        nav {
+          margin-top: 18px;
+        }
+        .grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 24px 14px;
+        }
+        header p {
+          font-size: 14px;
+        }
+        figcaption {
+          font-size: 12px;
+        }
+        figcaption strong {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Pick Chick. Четыре скриншота</h1>
+          <p>
+            Главное меню, комбо для двоих, игры и статус заказа. Первые три - ваши новые снимки,
+            четвёртый - прежний экран заказа. Предпросмотр перед загрузкой в App Store.
+          </p>
+        </div>
+        <nav><a href="?page=1">1-2</a><a href="?page=2">3-4</a><a href="?">Все</a></nav>
+      </header>
+      <figure class="cover-preview">
+        <div
+          class="cover-art"
+          role="img"
+          aria-label="Обложка Pick Chick с яркими синими переливами"
+        ></div>
+        <figcaption>
+          Новая обложка - насыщенные синие переливы, как на скриншотах. Предпросмотр, в App Store
+          ещё не загружена.
+        </figcaption>
+      </figure>
+      <section class="grid" aria-label="Макеты скриншотов"></section>
+      <footer>
+        Синий фон продолжает обложку карточки. Внутренние экраны, цены и кнопки не перерисованы. Эти
+        макеты не загружены в App Store.
+      </footer>
+    </main>
+    <script>
+      (async () => {
+        const data = await fetch('manifest.json').then((r) => r.json());
+        const params = new URLSearchParams(location.search);
+        let items = data.screens;
+        const page = params.get('page');
+        const single = params.get('screen');
+        if (params.has('cover')) {
+          document.body.classList.add('cover-only');
+          items = [];
+        } else if (single) {
+          document.body.classList.add('single');
+          items = items.filter((s) => s.id === single);
+        } else if (page) {
+          document.body.classList.add('strip');
+          items = items.slice((+page - 1) * 2, +page * 2);
+        }
+        const grid = document.querySelector('.grid');
+        for (const s of items) {
+          const f = document.createElement('figure');
+          f.className = 'shot';
+          const canvas = document.createElement('div');
+          canvas.className = 'canvas' + (s.id === '04-order' ? ' order' : '');
+          canvas.dataset.id = s.id;
+          canvas.style.setProperty('--bg-x', s.background_position);
+          canvas.style.setProperty('--phone-left', s.phone.left + '%');
+          canvas.style.setProperty('--phone-top', s.phone.top + '%');
+          canvas.style.setProperty('--phone-width', s.phone.width + '%');
+          for (const item of s.motifs) {
+            const motif = document.createElement('div');
+            motif.className = 'motif ' + item.name;
+            motif.setAttribute('aria-hidden', 'true');
+            Object.assign(motif.style, {
+              left: item.left + '%',
+              top: item.top + '%',
+              width: item.width + '%',
+              transform: 'rotate(' + item.rotation + 'deg)',
+            });
+            canvas.append(motif);
+          }
+          const h = document.createElement('h2');
+          h.lang = 'kk';
+          h.textContent = s.headline;
+          const phone = document.createElement('div');
+          phone.className = 'phone';
+          const display = document.createElement('div');
+          display.className = 'display';
+          const image = document.createElement('img');
+          image.src = s.source;
+          image.alt = s.label + ' - ' + s.preview_caveat;
+          display.append(image);
+          phone.append(display);
+          const draft = document.createElement('div');
+          draft.className = 'draft';
+          draft.textContent = 'МАКЕТ • ' + s.preview_caveat;
+          canvas.append(h, phone, draft);
+          const caption = document.createElement('figcaption');
+          const strong = document.createElement('strong');
+          strong.textContent = s.meaning;
+          const note = document.createElement('span');
+          note.textContent = s.note;
+          const link = document.createElement('a');
+          link.href = '?screen=' + s.id;
+          link.textContent = 'Открыть крупно';
+          caption.append(strong, note, document.createElement('br'), link);
+          f.append(canvas, caption);
+          grid.append(f);
+        }
+        await Promise.all(Array.from(document.images).map((i) => i.decode()));
+        document.body.dataset.ready = 'true';
+      })();
+    </script>
+  </body>
+</html>

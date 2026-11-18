@@ -83,7 +83,9 @@
   "screenshot_assets_generated": false,
   "app_store_connect_updated": true,
   "requested_build_48_verified": false,
-  "blockers": ["Native captures and real prices from build 40 pending."],
+  "blockers": [
+    "Final four-card artwork review, selected-build correspondence and archived order source acceptance pending."
+  ],
   "production_changes": ["App Store metadata draft only"],
   "apple_status": {
     "checked_at_local": "2026-11-18 Asia/Almaty",
@@ -284,7 +286,8 @@
       "layout": "asymmetric scattered foreground",
       "actual_native_4k": false,
       "quality_note": "Each motif now 1254 square instead of a 512 square atlas cell. Portrait artwork height 1672 instead of scaling a landscape crop of height 821. Export size does not imply native source size."
-    }
+    },
+    "superseded_by": "selected_four_preview"
   },
   "header_gradient_preview": {
     "path": "assets/header-gradient-3840x1646.png",
@@ -331,5 +334,15 @@
     "sha256": "065c77db697459c268755be8f14b8d612821096090e817fcabd955df2cf724fb",
     "uploaded": false,
     "native_4k": false
+  },
+  "selected_four_preview": {
+    "path": "selected-four-1118/verification.json",
+    "count": 4,
+    "owner_supplied_screens": 3,
+    "previous_order_status_retained": true,
+    "sources_unchanged": true,
+    "app_store_uploaded": false,
+    "app_build_verified": false,
+    "current": true
   }
 }
