@@ -83,10 +83,7 @@
   "screenshot_assets_generated": false,
   "app_store_connect_updated": true,
   "requested_build_48_verified": false,
-  "blockers": [
-    "Native captures and real prices from build 40 pending.",
-    "Header is a visual preview at 1914 x 822; accepted App Store export must be 3840 x 1646 or 5244 x 2950. Not uploaded."
-  ],
+  "blockers": ["Native captures and real prices from build 40 pending."],
   "production_changes": ["App Store metadata draft only"],
   "apple_status": {
     "checked_at_local": "2026-11-18 Asia/Almaty",
@@ -117,7 +114,8 @@
     "source_food": "apps/mobile/assets/catalog-hd/master-combo.png",
     "type": "generated brand artwork using menu photo reference",
     "uploaded": false,
-    "approved_by_owner": false
+    "approved_by_owner": false,
+    "superseded_by": "header_blue"
   },
   "browser_proof": {
     "path": "assets/app-store-draft-1118.jpg",
@@ -128,5 +126,31 @@
     "variant": 2,
     "language": "kk",
     "date": "2026-11-18"
+  },
+  "header_blue": {
+    "path": "assets/header-blue-3840x1646.png",
+    "source": "assets/header-blue-3840x1646.svg",
+    "size": [3840, 1646],
+    "color_mode": "RGB 8-bit sRGB",
+    "alpha": false,
+    "sha256": "7dece69bd796e7146f1f018aa754d1ef597c182669b9ed3fd4f8b681846cce43",
+    "owner_approved_direction": true,
+    "uploaded": true,
+    "localization": "ru",
+    "inherited_localizations": ["en-GB"],
+    "app_store_asset_count": 1,
+    "preview_checked": ["ru iPhone", "en-GB iPhone"],
+    "proofs": [
+      {
+        "path": "assets/header-blue-preview-ru-1118.jpg",
+        "sha256": "a780214dd4e2e71191139a9bcd658079f4c92960192384be51b7f1492b5ff498"
+      },
+      {
+        "path": "assets/header-blue-preview-en-1118.jpg",
+        "sha256": "f6c4a9f44dc24bfc2cd7c6aed1c5423a5ac667e01587f0ffd2ee5d5c6d971880"
+      }
+    ],
+    "persisted_after_reload": true,
+    "save_behavior": "Asset auto-saved; page Save stayed disabled."
   }
 }
