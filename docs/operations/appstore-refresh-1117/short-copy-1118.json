@@ -1,0 +1,23 @@
+{
+  "status": "saved-in-app-store-connect-draft",
+  "approved_on": "2026-11-18",
+  "verified_at": "2026-11-18T11:49:24.916Z",
+  "localizations": {
+    "ru": {
+      "name": "Pick Chick",
+      "subtitle": "Курица, комбо и заказ с собой",
+      "promotional_text": "Любимые блюда и комбо на ваш вкус. Заказывайте с собой или в зале, а в свободную минуту открывайте игры Pick Chick.",
+      "description": "Pick Chick - хрустящая курица, бургеры и комбо на ваш вкус.\n\nВыбирайте блюда, настраивайте комбо и заказывайте с собой или в зале. Оплачивайте в приложении и следите за готовностью заказа.\n\nА для хорошего настроения - игры Pick Chick.",
+      "whats_new": "Улучшили игровой раздел и панель быстрого заказа.",
+      "keywords": "фингерс,бургер,ресторан,самовывоз,напитки,соус"
+    },
+    "en-GB": {
+      "name": "Pick Chick",
+      "subtitle": "Chicken, combos & takeaway",
+      "promotional_text": "Your favourite food and combos your way. Order for dine-in or takeaway, and enjoy Pick Chick games in your free time.",
+      "description": "Pick Chick - crispy chicken, burgers and combos your way.\n\nChoose your food, customise your combo and order for dine-in or takeaway. Pay in the app and follow your order as it is prepared.\n\nFor a little extra fun, explore Pick Chick games.",
+      "whats_new": "Improved the games section and quick-order bar.",
+      "keywords": "fingers,burger,restaurant,takeaway,drinks,sauce"
+    }
+  }
+}

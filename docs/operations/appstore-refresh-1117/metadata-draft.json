@@ -8,24 +8,26 @@
     "Release mode remains manual. Nothing submitted for App Review.",
     "RU and en-GB name, subtitle, description, promotional text, keywords and support URLs saved.",
     "Privacy URL changed to official domain in both existing localizations; data declarations unchanged.",
-    "Owner approved expressive screenshot caption set 2 on 18 November. KK listing description remains a draft."
+    "Owner approved expressive screenshot caption set 2 on 18 November. KK listing description remains a draft.",
+    "18 November: owner approved concise copy without city, named payment provider, or individual game names. Exact RU and equivalent en-GB saved and independently verified after reload. See short-copy-1118.json and verification.",
+    "Historical kk-copy-draft is superseded by the concise meaning and must not be applied without revision. No separate kk App Store localization is available in the observed menu."
   ],
   "localizations": {
     "ru": {
       "name": "Pick Chick",
-      "subtitle": "Комбо, заказ и мини-игры",
-      "promotional_text": "Выбирайте комбо, меняйте напитки и соусы, заказывайте с собой или в зале. Следите за готовностью заказа и играйте в Pick Box.",
-      "keywords": "курица,фингерс,бургер,Алматы,ресторан,самовывоз",
-      "description": "Pick Chick - курица, комбо и заказ с собой или в зале в Алматы.\n\nВыбирайте своё комбо\nХрустящие куриные фингерсы, бургеры, картофель, напитки и соусы. Смотрите фотографии и состав, выбирайте комбо для себя или друзей.\n\nСобирайте по своему вкусу\nВыбирайте доступные напитки и соусы, добавляйте блюда и меняйте количество. Итоговая сумма видна в корзине до оплаты.\n\nЗаказывайте в приложении\nВыберите ресторан и способ получения: в зале или с собой. Оплатите через Kaspi.kz и следите за готовностью заказа в приложении.\n\nОткройте игры\nСтройте башню в Pick Box, сортируйте цвета в Magic Sort, заполняйте ряды в Pick Blocks и проходите лабиринт в Pick Man. Личные рекорды сохраняются на этом устройстве.\n\nНайдите ресторан\nПосмотрите адрес и время работы, откройте маршрут в 2ГИС.\n\nПриложение доступно на казахском, русском и английском. Для заказа войдите по номеру телефона с кодом из Telegram.\n\nЗаказы доступны в ресторане Pick Chick в Алматы. Актуальные цены, наличие блюд и возможность заказа показаны в приложении.",
-      "whats_new": "Обновили Pick Box: высокая башня качается и падает при сильном крене, а подсказки помогают вернуть равновесие. Улучшили панель быстрого заказа."
+      "subtitle": "Курица, комбо и заказ с собой",
+      "promotional_text": "Любимые блюда и комбо на ваш вкус. Заказывайте с собой или в зале, а в свободную минуту открывайте игры Pick Chick.",
+      "keywords": "фингерс,бургер,ресторан,самовывоз,напитки,соус",
+      "description": "Pick Chick - хрустящая курица, бургеры и комбо на ваш вкус.\n\nВыбирайте блюда, настраивайте комбо и заказывайте с собой или в зале. Оплачивайте в приложении и следите за готовностью заказа.\n\nА для хорошего настроения - игры Pick Chick.",
+      "whats_new": "Улучшили игровой раздел и панель быстрого заказа."
     },
     "en-GB": {
       "name": "Pick Chick",
-      "subtitle": "Chicken, combos & mini-games",
-      "promotional_text": "Choose your combo, customise drinks and sauces, and order for dine-in or takeaway. Follow your order and enjoy a game of Pick Box.",
-      "keywords": "chicken,fingers,burger,Almaty,restaurant,takeaway,food,order",
-      "description": "Pick Chick brings chicken, combos and dine-in or takeaway ordering together in one app in Almaty.\n\nChoose your combo\nExplore crispy chicken fingers, burgers, potatoes, drinks and sauces. See photos and ingredients, and choose a combo for yourself or your friends.\n\nMake it yours\nChoose from the available drinks and sauces, add dishes and adjust quantities. Check the total in your basket before paying.\n\nOrder in the app\nSelect your restaurant and choose dine-in or takeaway. Pay with Kaspi.kz and follow your order as it is prepared.\n\nTake a break with a game\nBuild a tower in Pick Box, sort colours in Magic Sort, fill rows in Pick Blocks and explore the maze in Pick Man. Your personal best scores are saved on this device.\n\nFind the restaurant\nCheck the address and opening hours, then open directions in 2GIS.\n\nThe app supports Kazakh, Russian and English. To order, sign in with your phone number and a code sent through Telegram.\n\nOrdering is available at the Pick Chick restaurant in Almaty. Current prices, item availability and ordering availability are shown in the app.",
-      "whats_new": "Updated Pick Box: tall towers sway and fall when they lean too far, and hints help you restore balance. Improved the quick-order bar."
+      "subtitle": "Chicken, combos & takeaway",
+      "promotional_text": "Your favourite food and combos your way. Order for dine-in or takeaway, and enjoy Pick Chick games in your free time.",
+      "keywords": "fingers,burger,restaurant,takeaway,drinks,sauce",
+      "description": "Pick Chick - crispy chicken, burgers and combos your way.\n\nChoose your food, customise your combo and order for dine-in or takeaway. Pay in the app and follow your order as it is prepared.\n\nFor a little extra fun, explore Pick Chick games.",
+      "whats_new": "Improved the games section and quick-order bar."
     },
     "kk-copy-draft": {
       "name": "Pick Chick",
