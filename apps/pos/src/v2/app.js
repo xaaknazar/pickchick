@@ -2,7 +2,7 @@ import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
-import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
+import { OpsView, ordersDay, paidDayStats, receiptRow } from './ops-view.js';
 import {
   PAID_TEXTS,
   awaitingValues,
@@ -82,7 +82,8 @@ let lastRender = '',
   commentPurpose = 'order',
   errorShown = '',
   menuNoticeShown = 0,
-  filterDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
+  // Days from today on the «Заказы» screen; 0 stays today after midnight too (ordersDay).
+  dayOffset = 0;
 // 4 by default; 6 once the operator re-enrolled every PIN of the branch (6.5).
 const pinLength = config.pinLength === 6 ? 6 : 4;
 reference.setState({ pinLength });
@@ -498,7 +499,7 @@ function draw() {
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
-    dayDateLabel: date(filterDate + 'T12:00:00+05:00'),
+    dayDateLabel: date(ordersDay(dayOffset) + 'T12:00:00+05:00'),
     dayPrevious: () => changeDay(-1),
     dayNext: () => changeDay(1),
     pinKeys: pinKeys('pin'),
@@ -1113,18 +1114,16 @@ function draw() {
 }
 /** Orders of the day chosen in "ЗАКАЗЫ" (this desk's; a shift manager's are the branch's). */
 function dayOrders() {
-  const s = reference.state;
+  const s = reference.state,
+    day = ordersDay(dayOffset);
   return model.state.orders.filter(
     (o) =>
       (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
-      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) ===
-        filterDate,
+      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) === day,
   );
 }
 function changeDay(days) {
-  const d = new Date(filterDate + 'T12:00:00+05:00');
-  d.setUTCDate(d.getUTCDate() + days);
-  filterDate = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
+  dayOffset += days;
   schedule();
 }
 function showReason() {

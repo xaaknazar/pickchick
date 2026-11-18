@@ -25,7 +25,7 @@ import {
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
 import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
-import { receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
+import { ordersDay, receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   DESK_MODE_KEY,
   DESK_NUMBER_KEY,
@@ -2042,6 +2042,19 @@ test('journal keeps only well-formed paid commands; damaged ones block every POS
   }
 });
 
+test('the «Заказы» screen day follows today: a POS running since yesterday shows today', () => {
+  // 18.11 test point: the POS started 17.11 13:01 and kept running; the day was fixed at start,
+  // so the screen showed 17.11 with no orders. Offset 0 is today at every draw.
+  const at = (iso) => new Date(iso);
+  assert.equal(ordersDay(0, at('2026-11-17T08:01:57Z')), '2026-11-17');
+  assert.equal(ordersDay(0, at('2026-11-18T14:30:00Z')), '2026-11-18');
+  assert.equal(ordersDay(0, at('2026-11-18T17:30:00Z')), '2026-11-18');
+  assert.equal(ordersDay(0, at('2026-11-18T19:30:00Z')), '2026-11-19');
+  assert.equal(ordersDay(-1, at('2026-11-18T14:30:00Z')), '2026-11-17');
+  assert.equal(ordersDay(1, at('2026-11-30T14:30:00Z')), '2026-12-01');
+  assert.equal(ordersDay(-1, at('2026-03-01T06:00:00Z')), '2026-02-28');
+  assert.match(ordersDay(), /^\d{4}-\d{2}-\d{2}$/);
+});
 test('paid orders, sales and sales-mode shifts parse; unpaid parsing stays strict', () => {
   const edge = saleEdge();
   const quote = {
