@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "558a9ba9bfe6f89f7beee5ce2acb9c942e24c2ff",
-      "updatedAt": "2026-11-18T10:59:55.722Z",
-      "summary": "558a9ba9: all external stickers removed; phones enlarged to80%, raised to18%, centered. Four1320x2868 exports and both strips visually checked. Source hashes unchanged; geometry, archive and published remote SHA PASS.",
-      "nextAction": "Owner preview; native order-status capture remains before Apple upload. No store changes this turn."
+      "status": "available",
+      "head": "1b5dfeca4126564b70726132ea5cc4637bf55d0b",
+      "updatedAt": "2026-11-18T11:07:06.553Z",
+      "summary": "1b5dfeca: owner-approved four screenshots uploaded to App Store Connect draft iOS1.0.2, ru, large1320x2868 and required medium1206x2622. Four per group and correct order persisted after reload; en-GB and ordinary smaller sizes inherit. Old refs removed, assets retained in library. Only external draft labels removed; approved app-gallery order notice retained. Upload proof and file hashes published.",
+      "nextAction": "Screenshot upload complete. App Review submission not performed; wait for owner instruction on next store action. Current cover unchanged."
     }
   ],
   "approvedScopeTransfers": [
