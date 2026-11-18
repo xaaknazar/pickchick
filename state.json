@@ -8073,11 +8073,11 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "02f2a0f536193b392e8503d1822a37d5db9f244c",
-      "updatedAt": "2026-11-18T04:43:33.030Z",
-      "summary": "02f2a0f5 опубликован и удалённый SHA сверен: исследование 10+6 карточек, RU/EN/KK тексты и план 6 кадров. Формат, длины полей и дефисы PASS. Вход Apple не работает в Codex и Chrome, ошибка Chrome подтверждена на экране. Магазин не изменён.",
-      "nextAction": "После восстановления входа проверить 48 и статус версии; согласовать подписи/локализацию, получить настоящие снимки и обновить карточку. Общие статус и пульт пока не менялись."
+      "status": "available",
+      "head": "1bc73b45915deb1260c0b4336077b7c38728d49c",
+      "updatedAt": "2026-11-18T05:08:09.458Z",
+      "summary": "18.11: Apple draft 1.0.2 uses build 40; RU/en-GB name Pick Chick, descriptions, keywords and official support/privacy links saved; manual release preserved, not submitted. Cover preview and browser proof published. Owner approved expressive Kazakh captions, variant 2. JSON/lengths/format/diff/hash checks pass.",
+      "nextAction": "Obtain fresh build 40 iPhone screenshots with real prices; compose approved six captions; export header to accepted Apple dimensions and show final previews before upload. Do not change live release, server or Google Play."
     }
   ],
   "approvedScopeTransfers": [
