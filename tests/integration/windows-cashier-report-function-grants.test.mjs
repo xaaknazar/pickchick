@@ -30,6 +30,7 @@ import {
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
 import { fulfillmentWorkerGrants } from '../../infra/windows/fulfillment-worker-grants.mjs';
 import {
+  KASPI_SCHEMA_ROW,
   REPORT_FUNCTIONS,
   SALES_FUNCTIONS,
   WORKER_FUNCTIONS,
@@ -196,10 +197,10 @@ test('cashier-report-function-grants: native-like 028 edge - POS order, kitchen 
     // native-foundation-db.mjs: ALTER DEFAULT PRIVILEGES FOR ROLE pickchick_edge_owner REVOKE
     // EXECUTE ON FUNCTIONS FROM PUBLIC before the migrations; the same end state here.
     await pool.query(`REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schema} FROM PUBLIC`);
-    assert.equal(
-      (await pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n,
-      28,
-    );
+    // 028 on the cutover branch; 029 once the reviewed Kaspi migration is in this repository.
+    const migrated = (await pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0]
+      .n;
+    assert.ok([28, 29].includes(migrated), String(migrated));
     const desk = await unpaidDesk(ctx);
     const runtime = await loginRole(ctx, (role) =>
       applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
@@ -283,7 +284,7 @@ test('cashier-report-function-grants: native-like 028 edge - POS order, kitchen 
       const inspected = await tool({ mode: 'inspect' });
       assert.deepEqual(inspected, {
         mode: 'inspect',
-        schema: 'schema028',
+        schema: `schema0${migrated}`,
         runtimeRole: runtime.role,
         workerRoles: [worker.role],
         changed: false,
@@ -323,7 +324,7 @@ test('cashier-report-function-grants: native-like 028 edge - POS order, kitchen 
             mode: 'apply',
             pinned: pinned.map((m, i) => (i === 4 ? { ...m, checksum: '0'.repeat(64) } : m)),
           },
-          { message: 'Reviewed schema016 to schema028 required' },
+          { message: 'Reviewed schema016 to schema029 required' },
         ],
         [
           { mode: 'apply', runtimeRole: 'rfg_absent_runtime' },
@@ -340,6 +341,36 @@ test('cashier-report-function-grants: native-like 028 edge - POS order, kitchen 
       await pool.query('ALTER FUNCTION append_cashier_order_report(uuid) SECURITY DEFINER');
       await assert.rejects(tool({ mode: 'apply' }), { message: 'Reviewed functions differ' });
       await pool.query('ALTER FUNCTION append_cashier_order_report(uuid) SECURITY INVOKER');
+      assert.deepEqual(await rights(ctx, [runtime.role, worker.role]), original);
+
+      // 3b. A 029 ledger (the test cashier runs the Kaspi 029) passes only with the reviewed row
+      // pinned in the tool, whatever the pinned file carries in its place; the plan stays 028's.
+      const kaspi = async (checksum) => {
+        await pool.query('DELETE FROM schema_migrations WHERE version=$1', [
+          KASPI_SCHEMA_ROW.version,
+        ]);
+        if (checksum)
+          await pool.query(
+            'INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)',
+            [KASPI_SCHEMA_ROW.version, checksum, KASPI_SCHEMA_ROW.scope],
+          );
+      };
+      const pinned029 = (checksum) => [...pinned.slice(0, 28), { ...KASPI_SCHEMA_ROW, checksum }];
+      await kaspi(KASPI_SCHEMA_ROW.checksum);
+      const at029 = { ...inspected, schema: 'schema029' };
+      assert.deepEqual(await tool({ mode: 'inspect' }), at029);
+      assert.deepEqual(await tool({ mode: 'inspect', pinned: pinned029('f'.repeat(64)) }), at029);
+      await kaspi('e'.repeat(64));
+      for (const options of [
+        { mode: 'apply' },
+        { mode: 'apply', pinned: pinned029('e'.repeat(64)) },
+      ])
+        await assert.rejects(
+          tool(options),
+          { message: 'Reviewed schema016 to schema029 required' },
+          JSON.stringify(options).slice(0, 40),
+        );
+      await kaspi(migrated === 29 ? KASPI_SCHEMA_ROW.checksum : null);
       assert.deepEqual(await rights(ctx, [runtime.role, worker.role]), original);
 
       // 4. apply: exactly the planned EXECUTE entries, no table, column or schema right.

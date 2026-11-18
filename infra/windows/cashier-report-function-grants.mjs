@@ -28,8 +28,10 @@ import { fileURLToPath } from 'node:url';
  *   append_cashier_order_report (it writes kitchen reservations that may belong to POS orders).
  *
  * The functions stay invoker: each still runs with the caller's own table rights. One transaction
- * under an advisory lock; the ledger must equal a reviewed prefix (016..028) of
- * native-edge-backup-ledger.json; one branch (EDGE_BRANCH_ID when set); restricted existing roles;
+ * under an advisory lock; the ledger must equal a reviewed prefix of length 016..029: rows 001..028
+ * of native-edge-backup-ledger.json next to this tool, then the reviewed Kaspi 029 row pinned here
+ * (the cutover ledger ends at 028; the test cashier runs 029); one branch (EDGE_BRANCH_ID when
+ * set); restricted existing roles;
  * the full privilege map of every role must differ by exactly the added (or removed) EXECUTE
  * entries. A replay changes nothing. `revoke` removes only these entries (rollback). Output: role
  * and function names, codes and booleans only; no row data, SQL or connection details.
@@ -56,10 +58,24 @@ export const OWNER_FUNCTIONS = Object.freeze([
   'edge_restore_fence(boolean)',
   'fulfillment_display_allocate(uuid)',
 ]);
-/** Ledger lengths: 016 adds the report functions, 026 the sales helpers; 028 is the reviewed end. */
+/** Ledger lengths: 016 adds the report functions, 026 the sales helpers; 029 is the reviewed end. */
 export const FIRST_SCHEMA = 16;
 export const SALES_SCHEMA = 26;
-export const LAST_SCHEMA = 28;
+export const LAST_SCHEMA = 29;
+/** The shipped cutover ledger ends at 028: a pinned file holds at least that many rows. */
+export const PINNED_MIN = 28;
+/**
+ * 029 (Kaspi Smart POS, ADR-0017; on the test cashier since 16.11, runtime 8290c87f), reviewed by
+ * its exact bytes: two tables, a tender foreign key and three trigger functions that call built-ins
+ * only (trigger functions are not checked for EXECUTE when they fire), no new or replaced helper.
+ * So 029 needs exactly the 028 plan. Any other 029 is refused until it is reviewed here.
+ */
+export const KASPI_SCHEMA_ROW = Object.freeze({
+  scope: 'edge',
+  version: '029_edge_kaspi_pos.sql',
+  checksum: 'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
+});
+const REVIEWED_RANGE = 'Reviewed schema016 to schema029 required';
 const NAME = /^[a-z][a-z0-9_]{0,62}$/;
 const identifier = (name) => {
   if (!NAME.test(name ?? '')) throw Error('Invalid identifier');
@@ -72,7 +88,7 @@ export function functionGrantPlan(
   { runtimeRole = RUNTIME_ROLE, workerRoles = [] } = {},
 ) {
   if (!Number.isInteger(ledgerLength) || ledgerLength < FIRST_SCHEMA || ledgerLength > LAST_SCHEMA)
-    throw Error('Reviewed schema016 to schema028 required');
+    throw Error(REVIEWED_RANGE);
   identifier(runtimeRole);
   for (const role of workerRoles) identifier(role);
   const runtime = [...REPORT_FUNCTIONS, ...(ledgerLength >= SALES_SCHEMA ? SALES_FUNCTIONS : [])];
@@ -122,7 +138,7 @@ export async function cashierReportFunctionGrants(
   if (branchId !== undefined && !/^[a-f0-9-]{36}$/.test(branchId)) throw Error('Invalid branch');
   const ns = identifier(schema);
   identifier(runtimeRole);
-  if (!Array.isArray(pinned) || pinned.length < LAST_SCHEMA)
+  if (!Array.isArray(pinned) || pinned.length < PINNED_MIN)
     throw Error('Pinned edge ledger is invalid');
   try {
     await client.query('BEGIN');
@@ -134,16 +150,15 @@ export async function cashierReportFunctionGrants(
     const ledger = (
       await client.query('SELECT scope,version,checksum FROM schema_migrations ORDER BY version')
     ).rows;
+    // Reviewed rows: 001..028 from the pinned file, then the reviewed Kaspi 029 row of this tool (a
+    // 029 row the pinned file may carry is not trusted in its place).
+    const reviewedRows = [...pinned.slice(0, PINNED_MIN), KASPI_SCHEMA_ROW];
+    const row = ({ scope, version, checksum }) => JSON.stringify({ scope, version, checksum });
     const reviewed =
       ledger.length >= FIRST_SCHEMA &&
       ledger.length <= LAST_SCHEMA &&
-      JSON.stringify(ledger) ===
-        JSON.stringify(
-          pinned
-            .slice(0, ledger.length)
-            .map(({ scope, version, checksum }) => ({ scope, version, checksum })),
-        );
-    if (!reviewed) throw Error('Reviewed schema016 to schema028 required');
+      ledger.every((r, i) => row(r) === row(reviewedRows[i]));
+    if (!reviewed) throw Error(REVIEWED_RANGE);
     const branches = (await client.query('SELECT id::text AS id FROM branch_config')).rows;
     if (branches.length !== 1 || (branchId !== undefined && branches[0].id !== branchId))
       throw Error('Branch differs');
