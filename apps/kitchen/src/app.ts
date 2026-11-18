@@ -437,7 +437,9 @@ function render() {
     : '';
   const recoveryPanel = (owner: Owner) => {
     const pending = owner === 'cloud' ? s.cloudPending : s.pending;
-    if (!pending) return '';
+    // A new command on its first request is not shown as unfinished: the panel appears only if
+    // that request fails or the answer is lost (then sending is over and the journal remains).
+    if (!pending || s.sending === owner) return '';
     const conflict = owner === 'cloud' ? s.cloudConflict : s.conflict;
     const reviewed = owner === 'cloud' ? s.cloudReviewed : s.reviewed;
     const suffix = owner === 'cloud' ? '-cloud' : '';
