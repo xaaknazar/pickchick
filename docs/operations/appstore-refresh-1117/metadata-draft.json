@@ -1,16 +1,17 @@
 {
-  "status": "ru-en-saved-in-app-store-connect-draft",
+  "status": "ru-en-submitted-waiting-for-review",
   "requested_build": "40",
   "build_verified": true,
   "localization_mapping_approved": false,
   "notes": [
     "Owner confirmed build 40 instead of 48 on 18 November.",
-    "Release mode remains manual. Nothing submitted for App Review.",
+    "Release mode remains manual. Submitted 18 November 2026; status WAITING_FOR_REVIEW verified after reload.",
     "RU and en-GB name, subtitle, description, promotional text, keywords and support URLs saved.",
     "Privacy URL changed to official domain in both existing localizations; data declarations unchanged.",
     "Owner approved expressive screenshot caption set 2 on 18 November. KK listing description remains a draft.",
     "18 November: owner approved concise copy without city, named payment provider, or individual game names. Exact RU and equivalent en-GB saved and independently verified after reload. See short-copy-1118.json and verification.",
-    "Historical kk-copy-draft is superseded by the concise meaning and must not be applied without revision. No separate kk App Store localization is available in the observed menu."
+    "Historical kk-copy-draft is superseded by the concise meaning and must not be applied without revision. No separate kk App Store localization is available in the observed menu.",
+    "18 November owner explicitly requested App Review submission of 1.0.2 (40) with manual release. One item submitted; submission-1118.json records the receipt. No public release action performed."
   ],
   "localizations": {
     "ru": {
@@ -45,5 +46,7 @@
     "privacy": "https://pickchick.kz/legal/privacy",
     "http_status": 200
   },
-  "screenshot_captions_approved": "captions-1118.md: variant 2"
+  "screenshot_captions_approved": "captions-1118.md: variant 2",
+  "submission_id": "7bf24364-c08d-4a3c-9d37-dcf067f86faf",
+  "release_mode": "manual"
 }

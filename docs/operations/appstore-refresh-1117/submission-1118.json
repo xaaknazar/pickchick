@@ -1,0 +1,34 @@
+{
+  "app_id": "6809208492",
+  "version": "1.0.2",
+  "build": "40",
+  "build_id": "abae2dc0-8251-44f1-b739-5feb8ea4b59f",
+  "owner_authorization": "18 November: submit App Store version 1.0.2 (40), retain manual release",
+  "before": {
+    "checked_at": "2026-11-18T11:57:48.777Z",
+    "state": "PREPARE_FOR_SUBMISSION",
+    "manual_release": true
+  },
+  "submission_clicked_at": "2026-11-18T11:58:36.029Z",
+  "after": {
+    "verified_at": "2026-11-18T11:59:27.584Z",
+    "state": "WAITING_FOR_REVIEW",
+    "display_status": "Ожидание проверки",
+    "manual_release": true,
+    "reloaded": true,
+    "checks": {
+      "waiting_for_review": true,
+      "build_40": true,
+      "manual_release": true
+    }
+  },
+  "version_page": "https://appstoreconnect.apple.com/apps/6809208492/distribution/ios/version/inflight",
+  "submission_id": "7bf24364-c08d-4a3c-9d37-dcf067f86faf",
+  "submission_url": "https://appstoreconnect.apple.com/apps/6809208492/distribution/reviewsubmissions/details/7bf24364-c08d-4a3c-9d37-dcf067f86faf",
+  "submission_display_time": "18 November 2026 16:58 Asia/Almaty",
+  "submission_items": 1,
+  "review_detail_verified": true,
+  "final_status": "WAITING_FOR_REVIEW",
+  "binary_source_commit": "502743ce48dd2e96449bc3db15f836895cbad2b0",
+  "binary_foundation_run": "44041220661"
+}
