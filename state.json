@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3a3c0787590ef5dd075e8242f4ea29089f7b35c8",
-      "updatedAt": "2026-11-18T05:24:36.630Z",
+      "updatedAt": "2026-11-18T05:26:37.407Z",
       "summary": "18.11: saved owner-approved blue header 3840x1646 in App Store draft 1.0.2 build 40; en-GB inherits ru. Apple accepted asset, both iPhone previews checked, persistence confirmed after reload. PNG/SVG, screenshots, hashes and report pushed at 3a3c0787. No App Review submission.",
       "nextAction": "Fresh native build 40 screenshots with real prices still needed; prepare six approved expressive Kazakh captions. Current gallery still contains previous artwork. Do not change live release, server or Google Play."
     }
