@@ -8073,9 +8073,9 @@
         "docs/operations/appstore-refresh-1117",
         "@apple/appstore"
       ],
-      "status": "available",
+      "status": "active",
       "head": "aa1e2c54520d27ec822962f6e39c8a0d768929ae",
-      "updatedAt": "2026-11-18T11:51:13.723Z",
+      "updatedAt": "2026-11-18T11:57:03.657Z",
       "summary": "aa1e2c54: owner-approved concise RU copy and equivalent en-GB applied to App Store Connect draft 1.0.2 build40. Both subtitles, promo, description, whats-new and keywords persisted after reload and exact comparison. Names remain Pick Chick. Public before/after evidence published; field limits, formatting and secret-pattern review PASS. Screenshots/cover/build unchanged; manual release; no App Review submission.",
       "nextAction": "Current text request complete. Continue only on owner instruction for remaining store actions; prior screenshot order-demo and language notes remain documented."
     }
