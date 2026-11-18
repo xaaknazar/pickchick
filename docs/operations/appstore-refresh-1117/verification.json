@@ -167,12 +167,12 @@
       {
         "path": "screenshots-preview-1118/01-combo.jpg",
         "size": [1320, 2868],
-        "sha256": "8194a00ab5fec111361e175a999797e28c13bf54eff34917c17f9ff3e1e4a82c"
+        "sha256": "0a1ed555f3e8e9be13708d217bda35f0a7b36c70efc43b32396bcd5e684ca7a9"
       },
       {
         "path": "screenshots-preview-1118/02-friends.jpg",
         "size": [1320, 2868],
-        "sha256": "e25a30264dae6a4515bffa61f82860ec881459a0128663e165f40a1d05d02340"
+        "sha256": "7b28f6d23c2074f4b01f873f4901cc9aaa463ab9e2eefef3c5a251d776a640b7"
       },
       {
         "path": "screenshots-preview-1118/03-customise.jpg",
@@ -182,27 +182,27 @@
       {
         "path": "screenshots-preview-1118/04-takeaway.jpg",
         "size": [1320, 2868],
-        "sha256": "f6e650f2812fc9636dcdcd1d520de54af44a253065e9a4fb8e4fd8184dddc8c1"
+        "sha256": "d55f5ffba895791e6e923fefa5bdf698b71c748380b593de0998cb10850bf14b"
       },
       {
         "path": "screenshots-preview-1118/05-order.jpg",
         "size": [1320, 2868],
-        "sha256": "e816e49abf33b6b45ad23971092309cef4553d2b77039c0047f41dfc12b73a68"
+        "sha256": "759b35ccb9748d80e1d666775c1650a1d4ff477aaf57373c6f767907e6cb7e2d"
       },
       {
         "path": "screenshots-preview-1118/06-games.jpg",
         "size": [1320, 2868],
-        "sha256": "456953477dc32024262fcb5ddabb8ad873f2cebcb1e1819df2016def6d62e853"
+        "sha256": "aebc547aaa79626dac6062f11ba275cc3d1ad3285e39b3f0ae87b8a8caac36d6"
       }
     ],
     "strips": [
       {
         "path": "screenshots-preview-1118/preview-01-03.jpg",
-        "sha256": "60ffc3b9328fd580f9ee964e04da9850e242822d08f45895234d9f4fdfaace70"
+        "sha256": "2160e5c7f602fae4a6b42e000455748dc08d735e92b6c1679b65683fb000a7a4"
       },
       {
         "path": "screenshots-preview-1118/preview-04-06.jpg",
-        "sha256": "1628a218202c7ccaeda97fde4520ae31fcc026de48f0385603d793108a5a1fd9"
+        "sha256": "809e0446b3e84af50e00b69d2634c81f2212fb3ef98a364e386ef4806afe39ab"
       }
     ],
     "background": {
@@ -211,10 +211,20 @@
       "matching_header": "../assets/header-iridescent-3840x1646.jpg",
       "sprites": "art/brand-figures.png",
       "sprite_grid": [3, 2],
-      "source_interface_modified": false
+      "source_interface_modified": false,
+      "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
+      "packaging_motifs_displayed": false
     },
     "composition": "White headlines above phones, 3 background motifs per card, all background artwork behind unmodified UI sources; 6 headings clear of phone bounds.",
-    "visual_check": "Both final 3-card strips checked visually; top overlay keeps white headings readable. No current numeric contrast claim for generated artwork."
+    "visual_check": "Both final 3-card strips checked visually; top overlay keeps white headings readable. No current numeric contrast claim for generated artwork.",
+    "food_replacement": {
+      "single_boxes_to_fingers": 3,
+      "stacked_boxes_to_burger": 2,
+      "source_assets_reused_byte_for_byte": true,
+      "new_photography": false,
+      "both_strips_visually_checked": true,
+      "box_motifs_remaining": 0
+    }
   },
   "header_gradient_preview": {
     "path": "assets/header-gradient-3840x1646.png",

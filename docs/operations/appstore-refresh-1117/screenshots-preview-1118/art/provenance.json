@@ -24,5 +24,24 @@
     "partial_pixels": 670413,
     "opaque_pixels": 0,
     "corner_rgba": [0, 0, 0, 0]
+  },
+  "food_replacement": {
+    "reason": "Owner requested replacing the decorative boxes with Pick Chick food",
+    "method": "Reused existing catalog cutouts unchanged; no new image generation",
+    "items": [
+      {
+        "asset": "food-fingers.png",
+        "origin": "apps/mobile/assets/catalog-cutouts/fingers.png",
+        "sha256": "fba10960262b5c1677c331efc74e6556dcce6dec3d8e0fda25628c511ab67478",
+        "source_type": "Generated catalog illustration from PickChick reference"
+      },
+      {
+        "asset": "food-burger.png",
+        "origin": "apps/mobile/assets/catalog-cutouts/burger.png",
+        "sha256": "25c0232e50984b2b1ede707bb573a931cba758867ed33eb202a01777adeb7f60",
+        "source_type": "Unmodified owner-supplied mockup asset"
+      }
+    ],
+    "not_new_product_photography": true
   }
 }

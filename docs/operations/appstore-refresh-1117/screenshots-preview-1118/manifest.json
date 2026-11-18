@@ -35,11 +35,11 @@
           "rotation": -18
         },
         {
-          "name": "box",
-          "left": 82,
-          "top": 80,
+          "name": "food-fingers",
+          "left": 2,
+          "top": 16,
           "width": 32,
-          "rotation": 15
+          "rotation": -12
         }
       ]
     },
@@ -63,11 +63,11 @@
           "rotation": -17
         },
         {
-          "name": "box",
-          "left": 81,
-          "top": 43,
-          "width": 36,
-          "rotation": 16
+          "name": "food-fingers",
+          "left": 67,
+          "top": 16,
+          "width": 32,
+          "rotation": -12
         },
         {
           "name": "alex",
@@ -126,11 +126,11 @@
       "background_position": "52%",
       "motifs": [
         {
-          "name": "box",
-          "left": -4,
-          "top": 17,
+          "name": "food-fingers",
+          "left": 0,
+          "top": 16,
           "width": 30,
-          "rotation": -13
+          "rotation": -12
         },
         {
           "name": "cup",
@@ -175,7 +175,7 @@
           "rotation": -18
         },
         {
-          "name": "blocks",
+          "name": "food-burger",
           "left": 69,
           "top": 82,
           "width": 30,
@@ -196,8 +196,8 @@
       "background_position": "80%",
       "motifs": [
         {
-          "name": "blocks",
-          "left": -4,
+          "name": "food-burger",
+          "left": 0,
           "top": 17,
           "width": 31,
           "rotation": -13
@@ -225,6 +225,8 @@
     "matching_header": "../assets/header-iridescent-3840x1646.jpg",
     "sprites": "art/brand-figures.png",
     "sprite_grid": [3, 2],
-    "source_interface_modified": false
+    "source_interface_modified": false,
+    "food_assets": ["art/food-fingers.png", "art/food-burger.png"],
+    "packaging_motifs_displayed": false
   }
 }
