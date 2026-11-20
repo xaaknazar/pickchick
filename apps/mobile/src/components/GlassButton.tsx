@@ -252,14 +252,14 @@ export function GlassButton({
   return (
     <MotionPressable
       {...control}
-      style={({ pressed }) => [
+      feedback="scale"
+      style={[
         s.button,
         s.fallbackButton,
         round,
         { borderColor: glassLayers(surface, place).rim },
         disabled && s.disabled,
         style,
-        pressed && !reduced && s.pressed,
       ]}
     >
       {({ pressed }) => (
@@ -288,7 +288,6 @@ const s = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   clip: { overflow: 'hidden' },
   disabled: { opacity: 0.45 },
-  pressed: { transform: [{ scale: 0.95 }] },
   glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
 });
 

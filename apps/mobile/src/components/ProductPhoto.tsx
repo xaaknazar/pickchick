@@ -97,6 +97,8 @@ export function ProductPhoto({
       testID={testID}
       cachePolicy={remote ? 'disk' : cachePolicy}
       recyclingKey={photo.kind === 'remote' ? photo.cacheKey : undefined}
+      // Photos arriving from the network fade in instead of popping (Apple's image loading).
+      transition={photo.kind === 'remote' ? 220 : 0}
       onError={remote ? () => setFailed(photo.cacheKey) : undefined}
     />
   );

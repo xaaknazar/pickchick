@@ -19,7 +19,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { MotionPressable as Pressable, useReducedMotion } from './Motion';
+import { MotionPressable as Pressable, animatedSpring, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
@@ -207,15 +207,15 @@ export function CartShortcut({
         NativeAnimated.sequence([
           NativeAnimated.timing(feedback, {
             toValue: 1,
-            duration: 160,
+            duration: 140,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
-          NativeAnimated.timing(feedback, {
+          // «Added»: the bar and the new photo settle back with Apple's bouncy spring.
+          NativeAnimated.spring(feedback, {
             toValue: 0,
-            duration: 240,
-            easing: Easing.inOut(Easing.cubic),
+            ...animatedSpring(0.5, 0.5),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
@@ -260,10 +260,24 @@ export function CartShortcut({
       style={[s.dock, floating && s.floating, aboveTabBar && s.aboveTabBar]}
     >
       <GestureHandlerRootView style={s.root}>
-        <View
+        <NativeAnimated.View
           testID="cart-shortcut"
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
-          style={[s.capsule, capsuleGlass, closed && s.capsuleClosed]}
+          style={[
+            s.capsule,
+            capsuleGlass,
+            closed && s.capsuleClosed,
+            {
+              transform: [
+                {
+                  scale: feedback.interpolate({
+                    inputRange: [-1, 0, 1],
+                    outputRange: [0.98, 1, 1.05],
+                  }),
+                },
+              ],
+            },
+          ]}
         >
           {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
           <GlassFill
@@ -437,8 +451,14 @@ export function CartShortcut({
                           transform: [
                             {
                               scale: feedback.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [1, 1.14],
+                                inputRange: [-1, 0, 1],
+                                outputRange: [0.9, 1, 1.3],
+                              }),
+                            },
+                            {
+                              translateY: feedback.interpolate({
+                                inputRange: [-1, 0, 1],
+                                outputRange: [3, 0, -8],
                               }),
                             },
                           ],
@@ -451,7 +471,7 @@ export function CartShortcut({
               </Animated.View>
             ) : null}
           </Pressable>
-        </View>
+        </NativeAnimated.View>
       </GestureHandlerRootView>
     </BottomActions>
   );

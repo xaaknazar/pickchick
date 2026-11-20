@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Animated, Easing, Keyboard, StyleSheet, View } from 'react-native';
-import { useReducedMotion } from '../components/Motion';
+import { animatedSpring, useReducedMotion } from '../components/Motion';
 import { OrderSheet, SheetBackLayer } from '../components/OrderSheet';
 import { AuthWelcome } from '../components/AuthWelcome';
 import { Phone, Otp } from '../screens/AuthScreens';
@@ -30,21 +30,39 @@ export default function Auth() {
   const transition = useRef(new Animated.Value(1)).current;
   const transitioning = useRef(false);
   const [changingStep, setChangingStep] = useState(false);
+  const stepLeaving = useRef<ScreenId | null>(null);
   useEffect(() => () => transition.stopAnimation(), [transition]);
   useEffect(() => {
-    if (step === 'M01' || !transitioning.current) return;
-    const animation = Animated.timing(transition, {
-      toValue: 1,
-      duration: reducedMotion ? 100 : 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    animation.start(({ finished }) => {
-      if (!finished) return;
+    if (!transitioning.current) return;
+    // The next step settles on Apple's smooth spring (no bounce), like a pushed page.
+    const animation = reducedMotion
+      ? Animated.timing(transition, { toValue: 1, duration: 120, useNativeDriver: true })
+      : Animated.spring(transition, {
+          toValue: 1,
+          ...animatedSpring(0.42, 1),
+          restDisplacementThreshold: 0.002,
+          restSpeedThreshold: 0.002,
+          useNativeDriver: true,
+        });
+    animation.start();
+    // The field is ready once the page is opaque (70 % of the spring, ~0.16 s); the rest is the
+    // slide. The timer only covers a listener that never reports.
+    let done = false;
+    const ready = () => {
+      if (done) return;
+      done = true;
       transitioning.current = false;
       setChangingStep(false);
+    };
+    const listener = transition.addListener(({ value }) => {
+      if (value >= 0.7) ready();
     });
-    return () => animation.stop();
+    const fallback = setTimeout(ready, 600);
+    return () => {
+      clearTimeout(fallback);
+      transition.removeListener(listener);
+      animation.stop();
+    };
   }, [step, transition, reducedMotion]);
   const [accepted, setAccepted] = useState<{ phone: string; version: string } | null>(null);
   const dismiss = useCallback(() => {
@@ -101,20 +119,19 @@ export default function Auth() {
     }
     if (id === 'M02' || id === 'M03' || id === 'M04') {
       if (transitioning.current) return;
-      if (step === 'M01') {
-        transitioning.current = true;
-        setChangingStep(true);
-        Animated.timing(transition, {
-          toValue: 0,
-          duration: reducedMotion ? 80 : 100,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }).start(({ finished }) => {
-          if (finished) setStep(id);
-        });
-        return;
-      }
-      setStep(id);
+      // Every step (welcome, phone, code, profile) leaves and arrives as one movement; before,
+      // only the welcome faded and the others swapped in a single frame.
+      transitioning.current = true;
+      stepLeaving.current = step;
+      setChangingStep(true);
+      Animated.timing(transition, {
+        toValue: 0,
+        duration: reducedMotion ? 80 : 140,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setStep(id);
+      });
       return;
     }
   };
@@ -144,14 +161,21 @@ export default function Auth() {
                 pointerEvents={changingStep ? 'none' : 'auto'}
                 style={{
                   flex: 1,
-                  opacity: transition,
+                  opacity: transition.interpolate({
+                    inputRange: [0, 0.7, 1],
+                    outputRange: [0, 1, 1],
+                    extrapolate: 'clamp',
+                  }),
                   transform: [
                     {
                       translateX: reducedMotion
                         ? 0
                         : transition.interpolate({
                             inputRange: [0, 1],
-                            outputRange: [step === 'M01' ? -16 : 16, 0],
+                            outputRange: [
+                              changingStep && step === stepLeaving.current ? -24 : 24,
+                              0,
+                            ],
                           }),
                     },
                   ],

@@ -10,10 +10,13 @@ import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { useTabScrollToTop } from '../components/useTabScrollToTop';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
+import { RollingText } from '../components/MotionSheets';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, {
+  FadeOut,
+  LinearTransition,
   runOnJS,
   interpolateColor,
   useAnimatedReaction,
@@ -278,6 +281,8 @@ const ProductMenuCard = memo(function ProductMenuCard({
 }) {
   return (
     <Pressable
+      // Cards shrink a little under the finger and spring back, like App Store cards.
+      feedback="scale"
       testID={`product-${product.id}`}
       accessibilityRole="button"
       accessibilityLabel={localize(
@@ -711,6 +716,7 @@ export type CartCheckout = {
   footer(blocked: boolean): ReactNode;
 };
 export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
+  const reduced = useReducedMotion();
   useLocale();
   const { checkout } = props;
   const insets = useSafeAreaInsets();
@@ -851,8 +857,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
             <Row style={{ alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
                 <Body>
-                  {localize(line.product.name)}
-                  {t('удалён')}
+                  {localize(line.product.name)} {t('удалён')}
                 </Body>
                 <Caption>
                   {localize(
@@ -894,7 +899,15 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
             </Notice>
           ) : null}
           {props.model.cart.map((line) => (
-            <View key={cartLineKey(line)} style={s.cartLine}>
+            <Animated.View
+              key={cartLineKey(line)}
+              style={s.cartLine}
+              // A removed line fades and the rest close the gap on a spring, not in one frame.
+              layout={
+                reduced ? undefined : LinearTransition.springify().dampingRatio(1).duration(450)
+              }
+              exiting={reduced ? undefined : FadeOut.duration(180)}
+            >
               <Pressable
                 onPress={() => setEditing(line)}
                 accessibilityRole="button"
@@ -954,17 +967,19 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                         props.model.setQuantity(cartLineKey(line), line.quantity - 1);
                       }}
                     />
-                    <Body
-                      testID={`cart-quantity-${line.product.id}`}
-                      style={{
-                        fontFamily: font.heading,
-                        fontSize: 17,
-                        minWidth: 16,
-                        textAlign: 'center',
-                      }}
-                    >
-                      {localize(line.quantity)}
-                    </Body>
+                    <RollingText value={line.quantity} numeric={line.quantity}>
+                      <Body
+                        testID={`cart-quantity-${line.product.id}`}
+                        style={{
+                          fontFamily: font.heading,
+                          fontSize: 17,
+                          minWidth: 16,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {localize(line.quantity)}
+                      </Body>
+                    </RollingText>
                     <PlainIconButton
                       name="add"
                       label={localize(t('Добавить ещё {p0}', { p0: t(line.product.name) }))}
@@ -980,7 +995,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                   />
                 </Row>
               </View>
-            </View>
+            </Animated.View>
           ))}
           <ComboGiftChoice props={props} />
           <CartRecommendations props={props} />
