@@ -56,6 +56,17 @@ export const DAY_SUM_NOTE =
  * A voided order is cancelled and left out; a staff meal, marketing and a partly refunded order
  * count with their order total, as DAY_SUM_NOTE says on each card.
  */
+/**
+ * The calendar day (Asia/Almaty, YYYY-MM-DD) of the «Заказы» screen: `offset` days from today,
+ * with today read at every draw. 18.11 test point: the day was fixed when the POS started, so a
+ * desk running since the day before showed that day (no orders, zeros everywhere).
+ */
+export function ordersDay(offset = 0, now = new Date()) {
+  const day = (d) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
+  const d = new Date(day(now) + 'T12:00:00+05:00');
+  d.setUTCDate(d.getUTCDate() + offset);
+  return day(d);
+}
 export function paidDayStats(orders) {
   const paid = orders.filter((o) => o.state === 'paid');
   const stat = (label, list) => {
