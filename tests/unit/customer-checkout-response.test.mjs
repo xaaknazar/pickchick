@@ -25,3 +25,25 @@ test('new checkout profile receives comment and capability; unrelated Accept val
     orderId: 'fixture',
   });
 });
+
+test('wallet methods reach only builds that send the wallets profile', () => {
+  const config = {
+    enabled: true,
+    orderCommentEnabled: true,
+    paymentMethods: ['kaspi', 'card'],
+    paymentEnvironment: 'test',
+  };
+  const comments = 'application/json; profile=pickchick.checkout-comments-v1';
+  const wallets = 'application/json; profile=pickchick.checkout-wallets-v1';
+  assert.deepEqual(checkoutRepresentation(config, comments), {
+    enabled: true,
+    orderCommentEnabled: true,
+  });
+  assert.deepEqual(checkoutRepresentation(config), { enabled: true });
+  assert.equal(checkoutRepresentation(config, `${comments}, ${wallets}`), config);
+  assert.deepEqual(checkoutRepresentation(config, wallets), {
+    enabled: true,
+    paymentMethods: ['kaspi', 'card'],
+    paymentEnvironment: 'test',
+  });
+});

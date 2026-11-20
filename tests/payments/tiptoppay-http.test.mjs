@@ -42,6 +42,20 @@ test('real HTTP boundary preserves form bytes, rejects JSON, invalid HMAC and di
           413,
         );
         assert.equal((await fetch(url)).status, 404);
+        // TEST 3-D Secure page and TermUrl: static page, larger bank answer, back to the app.
+        const base = (await app.getUrl()) + '/v1/integrations/tiptoppay/';
+        const threeDs = await fetch(base + 'test-3ds');
+        assert.equal(threeDs.status, 200);
+        assert.equal(threeDs.headers.get('cache-control'), 'no-store');
+        assert.equal(threeDs.headers.get('x-frame-options'), 'DENY');
+        assert.match(await threeDs.text(), /test-3ds-return/);
+        const back = await fetch(base + 'test-3ds-return', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'MD=123&PaRes=' + 'x'.repeat(20000),
+        });
+        assert.equal(back.status, 200);
+        assert.match(await back.text(), /pickchick:\/\/tiptoppay-return\?state=pending/);
       } finally {
         await app.close();
       }

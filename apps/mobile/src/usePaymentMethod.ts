@@ -8,13 +8,25 @@ import {
   type LastPaymentSource,
   type PaymentMethodId,
 } from './payment-method';
+import { createConnectedMethodsStore } from './tiptoppay-checkout';
 
 /** One store per app process, persisted per account in AsyncStorage (see payment-method.ts). */
 export const paymentMethodStore = createPaymentMethodStore({
   storage: AsyncStorage,
   now: Date.now,
 });
-const methods = paymentMethods(Platform.OS);
+/** TipTopPay methods this cart may offer now (updated by the cart's /config read). */
+export const connectedMethodsStore = createConnectedMethodsStore();
+let cachedMethods = { version: -1, value: paymentMethods(Platform.OS) };
+function currentMethods() {
+  const version = connectedMethodsStore.version();
+  if (cachedMethods.version !== version)
+    cachedMethods = {
+      version,
+      value: paymentMethods(Platform.OS, undefined, connectedMethodsStore.methods()),
+    };
+  return cachedMethods.value;
+}
 
 /** Remembers the method of a payment that was just sent (or chosen) for this account. */
 export function rememberPaymentMethod(
@@ -22,7 +34,7 @@ export function rememberPaymentMethod(
   method: PaymentMethodId,
   source: LastPaymentSource,
 ) {
-  paymentMethodStore.record(customerId, method, source, methods);
+  paymentMethodStore.record(customerId, method, source, currentMethods());
 }
 
 /**
@@ -37,6 +49,12 @@ export function usePaymentMethod() {
     paymentMethodStore.version,
     paymentMethodStore.version,
   );
+  useSyncExternalStore(
+    connectedMethodsStore.subscribe,
+    connectedMethodsStore.version,
+    connectedMethodsStore.version,
+  );
+  const methods = currentMethods();
   useEffect(() => {
     void paymentMethodStore.load(customerId);
   }, [customerId]);

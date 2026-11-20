@@ -74,7 +74,7 @@ with sync_playwright() as p:
     assert r.request.headers.get('accept')=='application/json'
     assert r.request.headers.get('authorization')=='Bearer '+envelope['tokens']['access_token']
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
-    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2'
+    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2, application/json; profile=pickchick.checkout-wallets-v1'
    data=None
    if path=='/v1/customers/me':
     if legal_hold['enabled']:legal_hold['routes'].append(r);return

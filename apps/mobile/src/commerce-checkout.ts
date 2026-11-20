@@ -3,6 +3,8 @@ import {
   CustomerCommerceOrderSchema,
   CustomerCheckoutConfigSchema,
   CustomerQuoteSchema,
+  CustomerTestPaymentSchema,
+  CustomerTestPaymentSetupSchema,
 } from '@pickchick/contracts';
 import { API_URL } from './api';
 import { createCustomerRequest } from './customer-http';
@@ -10,7 +12,7 @@ import type { CartLine } from './model';
 
 export const kaspiCheckoutEnabled = process.env.EXPO_PUBLIC_KASPI_CHECKOUT === '1';
 export const COMMERCE_ACCEPT =
-  'application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2';
+  'application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2, application/json; profile=pickchick.checkout-wallets-v1';
 export const commerceRequest = (
   path: string,
   method: 'GET' | 'POST',
@@ -20,15 +22,22 @@ export const commerceRequest = (
 ) =>
   createCustomerRequest(API_URL, nativeFetch, {
     allowed:
-      /^\/v1\/customer-checkout\/(config|combo-rewards|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
+      /^\/v1\/customer-checkout\/(config|combo-rewards|quotes|test-payments(?:-setup|\/[a-f0-9-]{36})?|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
     // errors-v2: this bundle's ErrorSchema knows KITCHEN_OFFLINE (older servers ignore it).
+    // wallets-v1: this bundle's config schema knows paymentMethods (TipTopPay, 18.11.2026).
     accept: COMMERCE_ACCEPT,
     signal,
   })(path, method, body, token);
 
-export { CustomerCommerceOrderSchema, CustomerCheckoutConfigSchema, CustomerQuoteSchema };
+export {
+  CustomerCommerceOrderSchema,
+  CustomerCheckoutConfigSchema,
+  CustomerQuoteSchema,
+  CustomerTestPaymentSchema,
+  CustomerTestPaymentSetupSchema,
+};
 export const checkoutItems = (cart: CartLine[]) =>
   cart.map((line) => ({
     productId: line.product.id,
