@@ -45,16 +45,22 @@ export default function Auth() {
           useNativeDriver: true,
         });
     animation.start();
-    // The field is ready as soon as the page has mostly arrived; the spring's tail is only visual.
-    const ready = setTimeout(
-      () => {
-        transitioning.current = false;
-        setChangingStep(false);
-      },
-      reducedMotion ? 120 : 240,
-    );
+    // The field is ready once the page is opaque (70 % of the spring, ~0.16 s); the rest is the
+    // slide. The timer only covers a listener that never reports.
+    let done = false;
+    const ready = () => {
+      if (done) return;
+      done = true;
+      transitioning.current = false;
+      setChangingStep(false);
+    };
+    const listener = transition.addListener(({ value }) => {
+      if (value >= 0.7) ready();
+    });
+    const fallback = setTimeout(ready, 600);
     return () => {
-      clearTimeout(ready);
+      clearTimeout(fallback);
+      transition.removeListener(listener);
       animation.stop();
     };
   }, [step, transition, reducedMotion]);
@@ -155,7 +161,11 @@ export default function Auth() {
                 pointerEvents={changingStep ? 'none' : 'auto'}
                 style={{
                   flex: 1,
-                  opacity: transition,
+                  opacity: transition.interpolate({
+                    inputRange: [0, 0.7, 1],
+                    outputRange: [0, 1, 1],
+                    extrapolate: 'clamp',
+                  }),
                   transform: [
                     {
                       translateX: reducedMotion

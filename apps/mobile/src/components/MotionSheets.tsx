@@ -117,7 +117,8 @@ export function SheetModal({
       onDismiss={onDismiss}
       statusBarTranslucent
     >
-      <GestureHandlerRootView style={s.root}>
+      {/* Leaving: taps already go to the screen underneath. */}
+      <GestureHandlerRootView style={s.root} pointerEvents={visible ? 'auto' : 'none'}>
         <Animated.View
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { backgroundColor: dim }, shadeStyle]}
@@ -189,7 +190,9 @@ export function DialogModal({
   }));
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onRequestClose}>
-      <Animated.View style={[{ flex: 1 }, style]}>{children}</Animated.View>
+      <Animated.View style={[{ flex: 1 }, style]} pointerEvents={visible ? 'auto' : 'none'}>
+        {children}
+      </Animated.View>
     </Modal>
   );
 }
