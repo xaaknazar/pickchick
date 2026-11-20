@@ -16,7 +16,17 @@ import {
   Button,
   type IconName,
 } from '../components/UI';
-import { MotionPressable } from '../components/Motion';
+import { MotionPressable, spring, useReducedMotion } from '../components/Motion';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { GlassButton } from '../components/GlassButton';
 import { OrderActions } from '../components/OrderActions';
 import { RepeatOrder } from '../components/RepeatOrder';
@@ -272,12 +282,10 @@ export function OrderStatusView({
             >
               {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
                 <View key={label} style={s.trackItem}>
-                  <View
-                    style={[
-                      s.trackBar,
-                      (ready || (active && i <= (orderStage(order) === 'На сборке' ? 1 : 0))) &&
-                        s.trackActive,
-                    ]}
+                  <StageBar
+                    lit={ready || (active && i <= (orderStage(order) === 'На сборке' ? 1 : 0))}
+                    current={!ready && active && i === (orderStage(order) === 'На сборке' ? 1 : 0)}
+                    delay={i * 120}
                   />
                   <Caption style={s.trackLabel}>{localize(label)}</Caption>
                 </View>
@@ -445,6 +453,7 @@ const s = StyleSheet.create({
   trackItem: { flex: 1, gap: 5 },
   trackBar: { height: 3, borderRadius: 2, backgroundColor: colors.border },
   trackActive: { backgroundColor: colors.accent },
+  trackFill: { position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 2 },
   trackLabel: { fontSize: 11, textAlign: 'center', color: colors.muted },
   orderBlock: {
     paddingHorizontal: 16,
@@ -512,3 +521,37 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+/**
+ * One stage of «Кухня / Сборка / Выдача»: a lit stage fills from the left on a spring (stages one
+ * after another), and the stage in progress breathes softly, like Apple's live progress.
+ */
+function StageBar({ lit, current, delay }: { lit: boolean; current: boolean; delay: number }) {
+  const reduced = useReducedMotion();
+  const fill = useSharedValue(reduced && lit ? 1 : 0);
+  const glow = useSharedValue(1);
+  useEffect(() => {
+    fill.value = reduced ? (lit ? 1 : 0) : withDelay(delay, withSpring(lit ? 1 : 0, spring.smooth));
+  }, [lit, delay, reduced, fill]);
+  useEffect(() => {
+    glow.value =
+      current && !reduced
+        ? withRepeat(
+            withSequence(
+              withTiming(0.45, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+              withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+            ),
+            -1,
+          )
+        : withTiming(1, { duration: 200 });
+  }, [current, reduced, glow]);
+  const style = useAnimatedStyle(() => ({
+    width: `${Math.max(0, Math.min(1.02, fill.value)) * 100}%`,
+    opacity: glow.value,
+  }));
+  return (
+    <View style={[s.trackBar, { overflow: 'hidden' }]}>
+      <Animated.View style={[s.trackFill, s.trackActive, style]} />
+    </View>
+  );
+}

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { LaunchReveal } from '../components/LaunchReveal';
 import { Stack } from 'expo-router';
+import { SheetStackProvider } from '../components/SheetStack';
 import { motion, MotionProvider, useReducedMotion } from '../components/Motion';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -63,63 +64,65 @@ function AppLayout() {
               <NotificationsProvider>
                 <StatusBar style="light" />
                 <PaymentRecovery />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    orientation: 'portrait',
-                    animation: reduced ? 'none' : 'default',
-                    contentStyle: { backgroundColor: '#04143A' },
-                  }}
-                >
-                  <Stack.Screen
-                    name="auth"
-                    options={{
-                      presentation: 'transparentModal',
-                      animation: 'none',
-                      contentStyle: { backgroundColor: 'transparent' },
+                <SheetStackProvider>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      orientation: 'portrait',
+                      animation: reduced ? 'none' : 'default',
+                      contentStyle: { backgroundColor: '#04143A' },
                     }}
-                  />
-                  <Stack.Screen
-                    name="product-photo"
-                    options={{
-                      presentation: 'modal',
-                      animation: reduced ? 'none' : 'slide_from_bottom',
-                      animationDuration: reduced ? 0 : motion.sheetEnter,
-                      contentStyle: { backgroundColor: '#D8C5A7' },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="order-status"
-                    options={{
-                      presentation: 'transparentModal',
-                      animation: 'none',
-                      contentStyle: { backgroundColor: 'transparent' },
-                    }}
-                  />
-                  {/* Profile is a pushed screen above the tabs: back chevron and swipe back. */}
-                  <Stack.Screen name="profile" options={{ gestureEnabled: true }} />
-                  <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
-                  <Stack.Screen name="games/pick-man" options={ARCADE_SCREEN_OPTIONS} />
-                  <Stack.Screen name="games/magic-sort" options={ARCADE_SCREEN_OPTIONS} />
-                  <Stack.Screen name="games/pick-box" options={ARCADE_SCREEN_OPTIONS} />
-                  <Stack.Screen name="games/pick-farm" options={ARCADE_SCREEN_OPTIONS} />
-                  <Stack.Screen
-                    name="cart"
-                    options={{
-                      presentation: 'transparentModal',
-                      animation: 'none',
-                      contentStyle: { backgroundColor: 'transparent' },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="checkout"
-                    options={{
-                      presentation: 'transparentModal',
-                      animation: 'none',
-                      contentStyle: { backgroundColor: 'transparent' },
-                    }}
-                  />
-                </Stack>
+                  >
+                    <Stack.Screen
+                      name="auth"
+                      options={{
+                        presentation: 'transparentModal',
+                        animation: 'none',
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="product-photo"
+                      options={{
+                        presentation: 'modal',
+                        animation: reduced ? 'none' : 'slide_from_bottom',
+                        animationDuration: reduced ? 0 : motion.sheetEnter,
+                        contentStyle: { backgroundColor: '#D8C5A7' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="order-status"
+                      options={{
+                        presentation: 'transparentModal',
+                        animation: 'none',
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    {/* Profile is a pushed screen above the tabs: back chevron and swipe back. */}
+                    <Stack.Screen name="profile" options={{ gestureEnabled: true }} />
+                    <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
+                    <Stack.Screen name="games/pick-man" options={ARCADE_SCREEN_OPTIONS} />
+                    <Stack.Screen name="games/magic-sort" options={ARCADE_SCREEN_OPTIONS} />
+                    <Stack.Screen name="games/pick-box" options={ARCADE_SCREEN_OPTIONS} />
+                    <Stack.Screen name="games/pick-farm" options={ARCADE_SCREEN_OPTIONS} />
+                    <Stack.Screen
+                      name="cart"
+                      options={{
+                        presentation: 'transparentModal',
+                        animation: 'none',
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="checkout"
+                      options={{
+                        presentation: 'transparentModal',
+                        animation: 'none',
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                  </Stack>
+                </SheetStackProvider>
               </NotificationsProvider>
             </MobileProvider>
           </AccountProvider>

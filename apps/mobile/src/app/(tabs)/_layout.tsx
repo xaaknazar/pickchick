@@ -2,6 +2,7 @@ import { t, useLocale } from '../../i18n';
 import { useAccount } from '../../useAccount';
 import { guestCanOpen } from '../../account-access';
 import { Tabs, useRouter } from 'expo-router';
+import { SheetStackBackground } from '../../components/SheetStack';
 import { useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,51 +55,53 @@ export default function TabLayout() {
   return (
     <TabBarInsetContext.Provider value={inset}>
       <TabCartDockContext.Provider value={cartDockHeight}>
-        <Tabs
-          tabBar={(props) => (
-            <FloatingTabBar
-              {...props}
-              onTabBarHeight={setTabBarHeight}
-              onCartDockHeight={setCartDockHeight}
+        <SheetStackBackground>
+          <Tabs
+            tabBar={(props) => (
+              <FloatingTabBar
+                {...props}
+                onTabBarHeight={setTabBarHeight}
+                onCartDockHeight={setCartDockHeight}
+              />
+            )}
+            screenOptions={{
+              headerShown: false,
+              // No tab fade on purpose. expo-router 57's bottom-tab view derives a hidden tab's native
+              // attach state from the fade's animated value; on iOS a quick switch back can leave the
+              // returning tab detached and blank (expo/expo#49681, react-navigation#12755). Instant
+              // switching is also the standard iOS tab behaviour.
+              animation: 'none',
+              tabBarHideOnKeyboard: true,
+              sceneStyle: { backgroundColor: '#04143A' },
+            }}
+          >
+            <Tabs.Screen
+              name="menu"
+              options={{
+                title: t('Меню'),
+                tabBarButtonTestID: 'tab-menu',
+              }}
             />
-          )}
-          screenOptions={{
-            headerShown: false,
-            // No tab fade on purpose. expo-router 57's bottom-tab view derives a hidden tab's native
-            // attach state from the fade's animated value; on iOS a quick switch back can leave the
-            // returning tab detached and blank (expo/expo#49681, react-navigation#12755). Instant
-            // switching is also the standard iOS tab behaviour.
-            animation: 'none',
-            tabBarHideOnKeyboard: true,
-            sceneStyle: { backgroundColor: '#04143A' },
-          }}
-        >
-          <Tabs.Screen
-            name="menu"
-            options={{
-              title: t('Меню'),
-              tabBarButtonTestID: 'tab-menu',
-            }}
-          />
-          <Tabs.Screen
-            name="events"
-            // App Store build (review 29.10.2026): a guest opens «События» and plays.
-            listeners={guestCanOpen('M26') ? undefined : gate('M26')}
-            options={{
-              title: t('Игры'),
-              tabBarButtonTestID: 'tab-events',
-            }}
-          />
-          <Tabs.Screen
-            name="orders"
-            listeners={gate('M19')}
-            options={{
-              title: t('Заказы'),
-              tabBarButtonTestID: 'tab-orders',
-              tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
-            }}
-          />
-        </Tabs>
+            <Tabs.Screen
+              name="events"
+              // App Store build (review 29.10.2026): a guest opens «События» and plays.
+              listeners={guestCanOpen('M26') ? undefined : gate('M26')}
+              options={{
+                title: t('Игры'),
+                tabBarButtonTestID: 'tab-events',
+              }}
+            />
+            <Tabs.Screen
+              name="orders"
+              listeners={gate('M19')}
+              options={{
+                title: t('Заказы'),
+                tabBarButtonTestID: 'tab-orders',
+                tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
+              }}
+            />
+          </Tabs>
+        </SheetStackBackground>
       </TabCartDockContext.Provider>
     </TabBarInsetContext.Provider>
   );

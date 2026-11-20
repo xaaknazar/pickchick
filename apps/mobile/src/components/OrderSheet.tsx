@@ -22,6 +22,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, {
   cancelAnimation,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -30,6 +31,7 @@ import Animated, {
 import { useIsFocused } from 'expo-router';
 import { spring, useReducedMotion } from './Motion';
 import { rubberBand } from './MotionSheets';
+import { useSheetStack } from './SheetStack';
 import { useTapsSettled } from './useTapGuard';
 import { colors } from '../theme';
 import { createBackLayers, type BackLayer } from '../back-layers';
@@ -254,6 +256,20 @@ export function OrderSheet({
           ? withTiming(0, { duration: 0 })
           : withSpring(0, { ...spring.smooth, velocity: e.velocityY });
     });
+  // The screen underneath steps back while this sheet is open (iOS page sheet).
+  const stack = useSheetStack();
+  useAnimatedReaction(
+    () => Math.max(0, Math.min(1, 1 - y.value / travel)),
+    (open) => {
+      if (stack) stack.value = open;
+    },
+  );
+  useEffect(
+    () => () => {
+      if (stack) stack.value = 0;
+    },
+    [stack],
+  );
   const position = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - y.value / travel) }));
   return (
