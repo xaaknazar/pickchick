@@ -24,7 +24,7 @@ class Ingress(unittest.TestCase):
     def test_reviewed_routes_keep_longpoll_and_default_timeouts(self):
         sites=(Path(__file__).resolve().parents[2]/'infra/pickchick-ingress/sites.Caddyfile').read_bytes()
         self.assertEqual(r.digest(sites),r.SITE_HASH)
-        self.assertEqual(sites.count(b'response_header_timeout 32s'),3)
+        self.assertEqual(sites.count(b'response_header_timeout 32s'),4)
         self.assertEqual(sites.count(b'response_header_timeout 8s'),1)
         self.assertIn(b'Strict-Transport-Security',sites)
 
