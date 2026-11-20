@@ -82,6 +82,8 @@ export type State = {
   cloudPending: Pending | null;
   cloudConflict: boolean;
   cloudReviewed: Order | null;
+  /** The owner whose new command is on its first request (journal written, answer awaited). */
+  sending: Owner | null;
   /**
    * Cutover KDS (contracts section 5.4): the edge layout of this cook session. null - the layout
    * is off, missing (404) or not known yet: today's screen, unchanged.
@@ -179,6 +181,7 @@ export class KitchenModel {
     cloudPending: null,
     cloudConflict: false,
     cloudReviewed: null,
+    sending: null,
     kds: null,
     breading: null,
     incidents: [],
@@ -978,16 +981,24 @@ export class KitchenModel {
         throw new Error('ACTION_UNAVAILABLE');
       const old = this.durable.getItem(j.key);
       if (old) throw new Error('RECOVERY_REQUIRED');
-      this.persist(owner, {
-        version: 1,
-        scope: j.scope,
-        orderId: o.orderId,
-        stationId: s,
-        key: this.newId(),
-        body: action(body),
-        ...(owner === 'cloud' ? { owner: 'cloud' as const } : {}),
-      });
-      await this.sendPending(owner);
+      // The journal is written before the request as always, but the first send of a new
+      // command is an ordinary request: the recovery panel is for an unknown result (lost answer,
+      // restart), not for the second a tap takes (owner 18.11: «на секунду вышла ошибка»).
+      this.state.sending = owner;
+      try {
+        this.persist(owner, {
+          version: 1,
+          scope: j.scope,
+          orderId: o.orderId,
+          stationId: s,
+          key: this.newId(),
+          body: action(body),
+          ...(owner === 'cloud' ? { owner: 'cloud' as const } : {}),
+        });
+        await this.sendPending(owner);
+      } finally {
+        this.state.sending = null;
+      }
     });
   }
   private async sendPending(owner: Owner) {

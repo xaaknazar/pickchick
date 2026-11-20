@@ -47,6 +47,12 @@ kitchen rights. Omit `--fulfillment` for POS-only rights. Reapplying with that f
 omitted removes kitchen rights. A failed validation rolls back the entire grant
 change; it does not silently retain a partially applied configuration.
 
+A native Windows edge leaves PUBLIC without EXECUTE on the functions the migrations
+create (`native-foundation-db.mjs`). After the migrations, and after every schema
+step up to 028, run [cashier-report-function-grants.mjs](cashier-report-function-grants.md)
+before the first order: it adds only EXECUTE on the cashier report and POS sales
+helpers that triggers call as the runtime and fulfillment worker roles.
+
 Migration 009 adds constrained `lock_anchor` columns for PostgreSQL row locks on
 staff, terminals, sessions, fulfillment configuration, stations and grants.
 Runtime can acquire the locks needed by HTTP operations without permission to
