@@ -106,6 +106,15 @@ with sync_playwright() as p:
     activate(page.locator('#retry'))
     expect(page.get_by_test_id('recovery')).to_have_count(0)
     assert retried == first_command, 'Exact body and idempotency key must survive reload'
+    # 18.11 test point: a normal command must not flash «Незавершённая команда» while its request
+    # is in flight; the panel is for a lost answer only (checked above). Any frame counts.
+    page.evaluate('''() => {
+      window.__recoverySeen = false;
+      const check = () => {
+        if (document.querySelector('[data-testid^="recovery"]')) window.__recoverySeen = true;
+      };
+      new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
+    }''')
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
     for _ in range(10):
         buttons = ticket.locator('[data-command]')
@@ -136,6 +145,7 @@ with sync_playwright() as p:
     expect(ready).to_be_enabled()
     activate(ready)
     expect(ticket.get_by_role('button',name='Подтвердить выдачу')).to_be_enabled()
+    assert page.evaluate('window.__recoverySeen') is False, 'A normal command showed the recovery panel'
     number = ticket.locator('.number').inner_text()
     activate(page.locator('#mode-display'))
     expect(page.get_by_test_id('display')).to_be_visible()

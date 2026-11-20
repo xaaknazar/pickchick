@@ -262,6 +262,52 @@ test('logout during pending POST keeps journal; late successful response cannot 
   assert.equal(n.state.pending, null);
   assert.equal(n.state.orders[0].version, 2);
 });
+test('a new command on its first request is sending, not unfinished; a lost answer is unfinished', async () => {
+  // 18.11 test point: «Готово», «Собран» and «Подтвердить выдачу» flashed the recovery panel
+  // («Незавершённая команда») for the second each request took. The journal is still written
+  // before the request; only the panel waits until the answer is really unknown.
+  const f = fixture();
+  let gate = null;
+  const m = new KitchenModel(
+    async (...args) => {
+      if (args[2] && gate) await gate;
+      return f.transport(...args);
+    },
+    f.session,
+    f.durable,
+    async () => () => {},
+  );
+  await login(f, m);
+  let open;
+  gate = new Promise((r) => (open = r));
+  const first = m.command(m.state.orders[0], allowedActions(m.state.orders[0], f.station)[0]);
+  await Promise.resolve();
+  assert.ok(m.state.pending);
+  assert.ok(f.durable.getItem(journalKey(f.c)), 'journal before the request, as always');
+  assert.equal(m.state.sending, 'edge');
+  open();
+  gate = null;
+  await first;
+  assert.equal(m.state.sending, null);
+  assert.equal(m.state.pending, null);
+  assert.equal(m.state.error, null);
+  // The answer of the next command is lost: the request is over, the journal stays and the
+  // panel is due (sending is cleared, pending remains).
+  f.setFault(() => {
+    throw new ApiError('CONNECTION_UNKNOWN');
+  });
+  await m.command(m.state.orders[0], allowedActions(m.state.orders[0], f.station)[0]);
+  assert.equal(m.state.sending, null);
+  assert.ok(m.state.pending);
+  assert.ok(m.state.error);
+  // A retry never counts as a first request.
+  f.setFault(null);
+  const retry = m.retry();
+  assert.equal(m.state.sending, null);
+  await retry;
+  assert.equal(m.state.pending, null);
+  assert.equal(m.state.sending, null);
+});
 test('all cursor pages loaded; refresh restarts from head and publishes no incomplete list', async () => {
   const f = fixture(),
     orders = Array.from({ length: 105 }, (_, i) => ({
