@@ -118,7 +118,17 @@ export default function Auth() {
       return;
     }
     if (id === 'M02' || id === 'M03' || id === 'M04') {
-      if (transitioning.current) return;
+      if (transitioning.current) {
+        // A step that answers before the previous one settled (SMS code autofill, a fast tap)
+        // must still move on: drop the running animation and show the new step at once.
+        transition.stopAnimation();
+        transition.setValue(1);
+        transitioning.current = false;
+        stepLeaving.current = null;
+        setChangingStep(false);
+        setStep(id);
+        return;
+      }
       // Every step (welcome, phone, code, profile) leaves and arrives as one movement; before,
       // only the welcome faded and the others swapped in a single frame.
       transitioning.current = true;
