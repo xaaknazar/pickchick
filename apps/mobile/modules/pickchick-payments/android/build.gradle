@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'kz.pickchick.payments'
+version = '0.1.0'
+
+android {
+  namespace "kz.pickchick.payments"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // Google Pay API (TipTopPay gateway tokens).
+  implementation 'com.google.android.gms:play-services-wallet:19.4.0'
+}

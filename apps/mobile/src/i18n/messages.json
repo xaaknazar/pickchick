@@ -8707,5 +8707,155 @@
     "kk": "4-шағын аудан, 10Б",
     "en": "4th microdistrict, 10B",
     "context": "config/restaurant-locations.json"
+  },
+  {
+    "ru": "Закрыть оплату картой",
+    "kk": "Картамен төлеуді жабу",
+    "en": "Close card payment",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Оплата картой",
+    "kk": "Картамен төлеу",
+    "en": "Pay by card",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Тестовый режим: деньги не спишутся",
+    "kk": "Тест режимі: ақша есептен шығарылмайды",
+    "en": "Test mode: no money will be charged",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Номер карты",
+    "kk": "Карта нөмірі",
+    "en": "Card number",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Срок, ММ/ГГ",
+    "kk": "Мерзімі, АА/ЖЖ",
+    "en": "Expiry, MM/YY",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "ММ/ГГ",
+    "kk": "АА/ЖЖ",
+    "en": "MM/YY",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Срок действия карты",
+    "kk": "Картаның қолданылу мерзімі",
+    "en": "Card expiry date",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "CVV-код",
+    "kk": "CVV коды",
+    "en": "CVV code",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Данные карты шифруются на телефоне и передаются только банку",
+    "kk": "Карта деректері телефонда шифрланып, тек банкке жіберіледі",
+    "en": "Card details are encrypted on your phone and sent only to the bank",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Попробовать ещё раз",
+    "kk": "Қайта көру",
+    "en": "Try again",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Оплатить через Kaspi.kz",
+    "kk": "Kaspi.kz арқылы төлеу",
+    "en": "Pay with Kaspi.kz",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Проверьте номер карты",
+    "kk": "Карта нөмірін тексеріңіз",
+    "en": "Check the card number",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Проверьте срок действия",
+    "kk": "Қолданылу мерзімін тексеріңіз",
+    "en": "Check the expiry date",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Проверьте CVV: три цифры на обороте карты",
+    "kk": "CVV кодын тексеріңіз: картаның артындағы үш сан",
+    "en": "Check the CVV: the three digits on the back of the card",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Оплата прошла",
+    "kk": "Төлем өтті",
+    "en": "Payment successful",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Это тестовая оплата: деньги не списаны, заказ на кухню не отправлен.",
+    "kk": "Бұл тест төлемі: ақша есептен шығарылған жоқ, тапсырыс асүйге жіберілген жоқ.",
+    "en": "This is a test payment: no money was charged and no order was sent to the kitchen.",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Заказ оплачен.",
+    "kk": "Тапсырыс төленді.",
+    "en": "The order is paid.",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Оплата не прошла",
+    "kk": "Төлем өтпеді",
+    "en": "Payment failed",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Банк не подтвердил оплату. Деньги не списаны. Попробуйте ещё раз или выберите другой способ.",
+    "kk": "Банк төлемді растамады. Ақша есептен шығарылған жоқ. Қайта көріңіз немесе басқа тәсілді таңдаңыз.",
+    "en": "The bank did not confirm the payment. No money was charged. Try again or choose another method.",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Время оплаты вышло",
+    "kk": "Төлем уақыты өтті",
+    "en": "Payment time is up",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Деньги не списаны. Нажмите «Оплатить» ещё раз.",
+    "kk": "Ақша есептен шығарылған жоқ. «Төлеу» батырмасын қайта басыңыз.",
+    "en": "No money was charged. Tap “Pay” again.",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Проверяем оплату",
+    "kk": "Төлемді тексеріп жатырмыз",
+    "en": "Checking the payment",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Ждём ответ банка. Не оплачивайте заново: результат появится здесь.",
+    "kk": "Банк жауабын күтіп жатырмыз. Қайта төлемеңіз: нәтиже осында шығады.",
+    "en": "Waiting for the bank. Do not pay again: the result will appear here.",
+    "context": "apps/mobile/src/tiptoppay-checkout.ts"
+  },
+  {
+    "ru": "Этот способ оплаты сейчас недоступен на телефоне. Выберите другой способ.",
+    "kk": "Бұл төлем тәсілі қазір телефонда қолжетімсіз. Басқа тәсілді таңдаңыз.",
+    "en": "This payment method is not available on this phone right now. Choose another method.",
+    "context": "apps/mobile/src/useTipTopPayCheckout.tsx"
+  },
+  {
+    "ru": "Оплатить картой · {p0}",
+    "kk": "Картамен төлеу · {p0}",
+    "en": "Pay by card · {p0}",
+    "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
   }
 ]

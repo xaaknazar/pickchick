@@ -61,12 +61,16 @@ export function tipTopPayMinor(amount: string | undefined): string {
   return minor.toString();
 }
 
-export function parseTipTopPayPayment(fields: Record<string, string>, event: 'check' | 'pay') {
+export function parseTipTopPayPayment(
+  fields: Record<string, string>,
+  event: 'check' | 'pay' | 'fail',
+) {
   if (fields.TestMode !== '0') throw new TipTopPayError('MODE');
   if (
     fields.Currency !== 'KZT' ||
     fields.OperationType !== 'Payment' ||
-    fields.Status !== 'Completed' ||
+    (event !== 'fail' && fields.Status !== 'Completed') ||
+    (event === 'fail' && !/^[1-9][0-9]{3}$/.test(fields.ReasonCode ?? '')) ||
     !UUIDSchema.safeParse(fields.InvoiceId).success ||
     !UUIDSchema.safeParse(fields.AccountId).success ||
     !/^[1-9][0-9]{0,18}$/.test(fields.TransactionId ?? '')

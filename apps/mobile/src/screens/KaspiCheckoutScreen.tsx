@@ -89,7 +89,13 @@ import {
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
-import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
+import {
+  connectedMethodsStore,
+  rememberPaymentMethod,
+  usePaymentMethod,
+} from '../usePaymentMethod';
+import { phoneWallets, useTipTopPayCheckout } from '../useTipTopPayCheckout';
+import { TIPTOPPAY_TEST_BUILD, connectedTipTopPayMethods } from '../tiptoppay-checkout';
 import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
 import { receiptShown } from '../store-build';
 import { runSlidePayIntent } from '../slide-pay-intent';
@@ -105,6 +111,13 @@ import { cartTotal, cartLineKey, money } from '../domain';
 import { colors } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
+/** TipTopPay methods the cart may offer after a /config read (server, build and phone). */
+function noteConnectedMethods(setup: ReturnType<typeof CustomerCheckoutConfigSchema.parse>) {
+  connectedMethodsStore.set(
+    connectedTipTopPayMethods(setup, phoneWallets()),
+    setup.paymentEnvironment ?? null,
+  );
+}
 type Pending = PendingPayment;
 const root = '/v1/customer-checkout';
 
@@ -469,6 +482,7 @@ function KaspiCheckoutSession(
         // Passive configuration only; price/admission checks belong to the explicit pay action.
         const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
         if (active) noteCheckoutSwitch(customerId, setup.enabled);
+        if (active) noteConnectedMethods(setup);
         if (active && !controller.signal.aborted && !lock.current) setConfig(setup);
         return;
       }
@@ -613,12 +627,95 @@ function KaspiCheckoutSession(
   useEffect(() => {
     if (!orderRef.current) setQuote(null);
   }, [displayedCartTotal]);
+  /** The quote request of the current cart (Kaspi and TipTopPay send the same body). */
+  const quoteBody = (quoteKey: string, branchId: string) => ({
+    key: quoteKey,
+    branchId,
+    ...(publishedCartVersion(cart.current, branchId) === undefined
+      ? {}
+      : { catalog_version: publishedCartVersion(cart.current, branchId) }),
+    serviceMode: props.model.diningMode,
+    items: checkoutItems(cart.current),
+    ...(giftIndex === undefined ? {} : { giftItemIndex: giftIndex }),
+    ...(comment ? { kitchenComment: comment } : {}),
+  });
+  /**
+   * The TipTopPay press up to the charge: consent, /config and a fresh quote with the same stops
+   * as the Kaspi press (switch, comment, gift, prices). null when a stop was shown instead.
+   */
+  const tipTopPayQuote = async (signal: AbortSignal) => {
+    const acceptedTotal = quote?.totalMinor ?? localTotal;
+    setError(null);
+    setPriceNotice('');
+    setResumeNotice('');
+    try {
+      await props.authorizeLegal(signal);
+      if (signal.aborted) return null;
+      if (props.model.comboRewards?.selected && (giftIndex === undefined || giftDiscount === '0')) {
+        setError(new Error('GIFT_UNAVAILABLE'));
+        props.model.comboRewards.refresh();
+        return null;
+      }
+      const setup = CustomerCheckoutConfigSchema.parse(
+        await request('/config', 'GET', undefined, signal),
+      );
+      noteCheckoutSwitch(customerId, setup.enabled);
+      noteConnectedMethods(setup);
+      setConfig(setup);
+      if (!setup.enabled) throw new CustomerSessionError('NOT_READY', 503, true);
+      if (!setup.orderCommentEnabled && comment) {
+        setError(new Error('COMMENT_UNAVAILABLE'));
+        return null;
+      }
+      const sent = signature;
+      const currentQuote = CustomerQuoteSchema.parse(
+        await request('/quotes', 'POST', quoteBody(randomUUID(), setup.branchId), signal),
+      );
+      if (sent !== signatureRef.current || signal.aborted) return null;
+      setQuote(currentQuote);
+      if (String(currentQuote.totalMinor) !== String(acceptedTotal)) {
+        setPriceNotice(PRICES_UPDATED);
+        return null;
+      }
+      return { quoteId: currentQuote.quoteId, totalMinor: String(currentQuote.totalMinor) };
+    } catch (e) {
+      if (
+        e instanceof CustomerSessionError &&
+        e.authoritative &&
+        ['MENU_CHANGED', 'CONFLICT', 'QUOTE_EXPIRED'].includes(e.code)
+      ) {
+        await refreshChangedMenu();
+        return null;
+      }
+      if (signal.aborted) return null;
+      throw e;
+    }
+  };
+  const tipTopPayQuoteRef = useRef(tipTopPayQuote);
+  tipTopPayQuoteRef.current = tipTopPayQuote;
+  const [tipTopPayBusy, setTipTopPayBusy] = useState(false);
+  const tipTopPay = useTipTopPayCheckout({
+    request,
+    newQuote: useCallback((signal: AbortSignal) => tipTopPayQuoteRef.current(signal), []),
+    onBusy: useCallback((value: boolean) => {
+      lock.current = value;
+      setTipTopPayBusy(value);
+    }, []),
+    onKaspi: useCallback(() => payment.choose('kaspi'), [payment.choose]),
+    test: TIPTOPPAY_TEST_BUILD,
+  });
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
     // This session sends Kaspi invoices only; another active method never sends one. Until that
     // method has its own flow, the press (or the slide) stops here with a visible message:
     // nothing is created, quoted or sent.
     if (payment.method !== 'kaspi') {
+      // TipTopPay card / Apple Pay / Google Pay (18.11.2026) when this cart may offer it now.
+      if (connectedMethodsStore.methods().includes(payment.method)) {
+        setMethodStop(false);
+        tipTopPay.start(payment.method, quote?.totalMinor ?? localTotal);
+        return;
+      }
       setMethodStop(true);
       return;
     }
@@ -707,6 +804,7 @@ function KaspiCheckoutSession(
           await request('/config', 'GET', undefined, controller.signal),
         );
         noteCheckoutSwitch(customerId, value.enabled);
+        noteConnectedMethods(value);
         if (!value.enabled) throw new CustomerSessionError('NOT_READY', 503, true);
         return value;
       });
@@ -718,22 +816,7 @@ function KaspiCheckoutSession(
       const quoteKey = randomUUID();
       const currentQuote = CustomerQuoteSchema.parse(
         await prepared(() =>
-          request(
-            '/quotes',
-            'POST',
-            {
-              key: quoteKey,
-              branchId: setup.branchId,
-              ...(publishedCartVersion(cart.current, setup.branchId) === undefined
-                ? {}
-                : { catalog_version: publishedCartVersion(cart.current, setup.branchId) }),
-              serviceMode: props.model.diningMode,
-              items: checkoutItems(cart.current),
-              ...(giftIndex === undefined ? {} : { giftItemIndex: giftIndex }),
-              ...(comment ? { kitchenComment: comment } : {}),
-            },
-            controller.signal,
-          ),
+          request('/quotes', 'POST', quoteBody(quoteKey, setup.branchId), controller.signal),
         ),
       );
       if (signature !== signatureRef.current) return;
@@ -1032,9 +1115,9 @@ function KaspiCheckoutSession(
     <CartPaymentFooter
       totalMinor={total}
       totalText={money(total)}
-      busy={busy}
-      disabled={busy || blocked || !availability.canPay}
-      unavailable={busy ? null : unavailable.label}
+      busy={busy || tipTopPayBusy}
+      disabled={busy || tipTopPayBusy || blocked || !availability.canPay}
+      unavailable={busy || tipTopPayBusy ? null : unavailable.label}
       method={payment.method}
       onPay={() => {
         if (availability.canPay) void submit();
@@ -1300,19 +1383,22 @@ function KaspiCheckoutSession(
   );
   if (props.screenId !== 'M19')
     return (
-      <Cart
-        {...props}
-        checkout={{
-          restaurant: config?.restaurant,
-          banner: unavailable.banner,
-          notices,
-          comment:
-            config?.orderCommentEnabled !== false ? (
-              <CartOrderComment model={props.model} editable={!busy} />
-            ) : undefined,
-          footer: cartFooter,
-        }}
-      />
+      <>
+        <Cart
+          {...props}
+          checkout={{
+            restaurant: config?.restaurant,
+            banner: unavailable.banner,
+            notices,
+            comment:
+              config?.orderCommentEnabled !== false ? (
+                <CartOrderComment model={props.model} editable={!busy && !tipTopPayBusy} />
+              ) : undefined,
+            footer: cartFooter,
+          }}
+        />
+        {tipTopPay.sheets}
+      </>
     );
   return (
     <Page
