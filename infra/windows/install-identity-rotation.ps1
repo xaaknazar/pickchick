@@ -87,7 +87,7 @@ if ($Mode -eq 'Uninstall') {
 }
 $binding = Read-WorkerBinding
 if ($Mode -eq 'Inspect') {
-    $lastLog = if (Test-Path -LiteralPath $logPath) { @(Get-Content -LiteralPath $logPath -Tail 1) } else { @() }
+    $lastLog = @(if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Tail 1 })
     [pscustomobject]@{
         mode = 'inspect'; changed = $false
         workerApp = $binding.app; taskInstalled = [bool]$task
@@ -133,7 +133,9 @@ Register-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Action $action -
 Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
 $deadline = [DateTime]::UtcNow.AddSeconds(90)
 do { Start-Sleep -Seconds 2; $info = Get-ScheduledTaskInfo -TaskPath $taskPath -TaskName $taskName } while ((Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName).State -eq 'Running' -and [DateTime]::UtcNow -lt $deadline)
-$lastLog = if (Test-Path -LiteralPath $logPath) { @(Get-Content -LiteralPath $logPath -Tail 1) } else { @() }
+# @() around the whole if: PowerShell unrolls a one-line or empty array returned from if, and
+# StrictMode Latest then fails on .Count of the scalar or $null (seen on the test cashier 20.11.2026).
+$lastLog = @(if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Tail 1 })
 [pscustomobject]@{
     mode = 'install'; autoRotate = [bool]$AutoRotate; workerApp = $binding.app
     lastTaskResult = $info.LastTaskResult; lastLog = if ($lastLog.Count) { $lastLog[0] } else { '' }
