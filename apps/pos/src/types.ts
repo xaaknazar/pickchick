@@ -825,6 +825,29 @@ export type PosConfig = {
   server_time: string;
   /** Number of this desk (1..99) set by the operator (edge 028, CR pos-7), or null. */
   desk_number: number | null;
+  /** This desk has a linked Kaspi Smart POS (edge 029, ADR-0017); an older edge omits it. */
+  kaspi_terminal_link: boolean;
+};
+export const TERMINAL_STATES = [
+  'created',
+  'sending',
+  'wait',
+  'success',
+  'fail',
+  'unknown',
+  'send_failed',
+  'lost',
+] as const;
+export type TerminalState = (typeof TERMINAL_STATES)[number];
+/** GET pos/terminal-payments/{id} (ADR-0017): one amount sent to the Kaspi Smart POS of this desk. */
+export type TerminalPayment = {
+  attempt_id: string;
+  quote_id: string;
+  amount_minor: string;
+  state: TerminalState;
+  transaction_id: string | null;
+  message: string | null;
+  order_id: string | null;
 };
 export type SaleTender = {
   tender_id: string;
@@ -932,7 +955,24 @@ export function posConfig(value: unknown): PosConfig {
     approval_ttl_seconds: integer(c.approval_ttl_seconds, 1, 3600),
     server_time: date(c.server_time),
     desk_number: deskNumber(c.desk_number),
+    kaspi_terminal_link: c.kaspi_terminal_link === true,
   };
+}
+export function terminalPayment(value: unknown): TerminalPayment {
+  const t = record(value);
+  const optional = (v: unknown) => (v === null || v === undefined ? null : text(v, 300));
+  return {
+    attempt_id: uuid(t.attempt_id),
+    quote_id: uuid(t.quote_id),
+    amount_minor: minor(t.amount_minor),
+    state: oneOf(t.state, TERMINAL_STATES),
+    transaction_id: optional(t.transaction_id),
+    message: optional(t.message),
+    order_id: t.order_id === null || t.order_id === undefined ? null : uuid(t.order_id),
+  };
+}
+export function terminalPayments(value: unknown): TerminalPayment[] {
+  return array(record(value).items, 50).map(terminalPayment);
 }
 /** The kitchen number is a positive integer; the edge may send it as a number or a string. */
 function displayNumber(value: unknown): string {

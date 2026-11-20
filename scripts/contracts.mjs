@@ -438,6 +438,46 @@ const openapi = {
               'One PostgreSQL transaction: paid captured order, tenders, kitchen admission, Webkassa receipt record and durable posSales events. A replay with the same Idempotency-Key and body returns the stored result and never spends an approval twice. An aggregator or ChocoFood order number belongs to at most one sale of its channel that is not voided (EXTERNAL_REF_DUPLICATE): a void frees it for the corrected re-entry.',
           },
         },
+        '/edge/v1/pos/terminal-payments': {
+          post: {
+            operationId: 'createPosTerminalPayment',
+            security: staff,
+            parameters: [uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosTerminalPaymentRequestSchema),
+            responses: {
+              201: ok(
+                c.PosTerminalPaymentSchema,
+                'Amount sent to the Kaspi Smart POS of this desk',
+              ),
+              ...errors,
+              409: response(
+                'Error',
+                'TERMINAL_NOT_LINKED, TERMINAL_BUSY or the quote cannot be paid',
+              ),
+            },
+            description:
+              'ADR-0017: sends the whole quote total to the Kaspi Smart POS linked to this desk (edge 029). The attempt is answered as it stands after sending (wait, send_failed or lost); a lost answer is never sent again. A replay with the same Idempotency-Key returns the same attempt.',
+          },
+        },
+        '/edge/v1/pos/terminal-payments/open': {
+          get: {
+            operationId: 'listOpenPosTerminalPayments',
+            security: staff,
+            responses: { 200: ok(c.PosTerminalPaymentListSchema), ...errors },
+            description:
+              'Attempts of this desk from the last 24 h a person must finish: unfinished, lost, or paid without their sale.',
+          },
+        },
+        '/edge/v1/pos/terminal-payments/{attemptId}': {
+          get: {
+            operationId: 'readPosTerminalPayment',
+            security: staff,
+            parameters: [uuidParameter('attemptId')],
+            responses: { 200: ok(c.PosTerminalPaymentSchema), ...errors },
+            description:
+              'One attempt of this desk; while it waits, the edge asks the terminal once per read (status, or actualize at most every 10 s for unknown). Its success is spent by POST pos/sales with tenders[].attempt_id.',
+          },
+        },
         '/edge/v1/pos/sales/{orderId}': {
           get: {
             operationId: 'readPosSale',

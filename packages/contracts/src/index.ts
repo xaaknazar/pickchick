@@ -242,6 +242,10 @@ export const ErrorSchema = z.strictObject({
     'REFUND_NOT_SUPPORTED',
     'DRAWER_INSUFFICIENT',
     'FISCAL_PENDING',
+    // Cashier edge Kaspi Smart POS routes only (ADR-0017); cloud routes never send them.
+    'TERMINAL_NOT_LINKED',
+    'TERMINAL_BUSY',
+    'TERMINAL_ATTEMPT_INVALID',
     'SHIFT_CLOSED',
     // Kitchen edge only (cutover KDS-4, CR kds-6): handoff of a delivery order without the three
     // courier marks. Only kitchen clients with the KDS layout send marks; cloud routes never

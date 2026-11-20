@@ -512,6 +512,8 @@ function draw() {
     kkmDot: '#F0C240',
     kkmBg: '#FFF3C4',
     orderNoLabel: 'новый',
+    // The header names the open tab (20.11 review: it said «Заказ новый» on every tab).
+    headerTitle: HEADER_TITLES[s.tab] ?? HEADER_TITLES.order,
     openShift: safe(async () => {
       if (m.actor?.role !== 'shift_manager') {
         say('Открывает начальник смены');
@@ -924,8 +926,9 @@ function draw() {
     no: orderNumber(o),
     time: time(o.created_at),
     // No row is called a test; "Без оплаты" says what an unpaid row is.
-    channel: 'КАССА',
-    chBg: 'var(--blue)',
+    // An aggregator order entered at the desk is labelled by its channel, not «КАССА».
+    channel: dayChannel(o).label,
+    chBg: dayChannel(o).color,
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
     sum: money(o.snapshot.total_minor),
@@ -983,7 +986,7 @@ function draw() {
       : '-',
     share: 'Сумма заказов без оплаты',
   }));
-  v.dayTotal = rows.length + ' заказов · последние 100';
+  v.dayTotal = ordersCount(rows.length) + ' · последние 100';
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
   if (paid) {
@@ -1112,13 +1115,49 @@ function draw() {
     root.setAttribute('aria-busy', 'true');
   } else root.removeAttribute('aria-busy');
 }
+const HEADER_TITLES = Object.freeze({
+  order: 'Новый заказ',
+  orders: 'Заказы',
+  stops: 'Стоп-лист',
+  shift: 'Смена и касса',
+  fiscal: 'Чеки Webkassa',
+});
+/**
+ * Channel of a desk order for the «ЗАКАЗЫ» list and its filter chips: GET orders lists only the
+ * orders entered at the desks, so «Касса» (hall and takeaway) or the aggregator named in the quote.
+ */
+const DAY_CHANNELS = Object.freeze({
+  yandex_eda: { filter: 'ya', label: 'ЯНДЕКС', color: '#8A6D00' },
+  glovo: { filter: 'glovo', label: 'GLOVO', color: '#007A63' },
+});
+/** «1 заказ», «2 заказа», «5 заказов» (it said «1 заказов»). */
+function ordersCount(n) {
+  const ten = n % 10,
+    hundred = n % 100;
+  const word =
+    ten === 1 && hundred !== 11
+      ? 'заказ'
+      : ten >= 2 && ten <= 4 && (hundred < 12 || hundred > 14)
+        ? 'заказа'
+        : 'заказов';
+  return n + ' ' + word;
+}
+function dayChannel(o) {
+  return (
+    DAY_CHANNELS[o.snapshot?.sales_channel] ?? {
+      filter: 'pos',
+      label: 'КАССА',
+      color: 'var(--blue)',
+    }
+  );
+}
 /** Orders of the day chosen in "ЗАКАЗЫ" (this desk's; a shift manager's are the branch's). */
 function dayOrders() {
   const s = reference.state,
     day = ordersDay(dayOffset);
   return model.state.orders.filter(
     (o) =>
-      (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
+      (s.dayFilter === 'all' || dayChannel(o).filter === s.dayFilter) &&
       new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) === day,
   );
 }
@@ -1276,6 +1315,8 @@ schedule();
 setInterval(() => {
   for (const e of root.querySelectorAll('[data-clock]')) e.textContent = time();
   if (reference.state.clock !== time()) schedule();
+  // Kaspi Smart POS of this desk (ADR-0017): one poll a second while the terminal decides.
+  if (model.state.actor && model.terminalHold) void sale.tick();
 }, 1000);
 setInterval(() => {
   if (model.state.actor && !blocked() && !document.hidden)
