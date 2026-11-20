@@ -102,11 +102,22 @@ LocalService и могут только читать `device-identity.json`: `na
    Проверить `/health/ready` = 200 (readiness теперь требует колонок 066) и наличие
    `pickchick_edge_identity_*` в приватных метриках. Существующая касса продолжает работать:
    без ротаций `previous_*` пусты, проверка ключа прежняя.
-2. **Облако, флаг включён.** В установленном compose выставить
-   `CLOUD_EDGE_IDENTITY_ROTATION_ENABLED: "true"` для `api` и `provision` (через reviewed
-   release-скрипт, как остальные флаги), выполнить provision (выдаёт права) и пересоздать
-   только API. Проверка через туннель: `POST /internal/v1/edge/identity/rotate` без ключа -
-   401 (не 404); readiness проверяет миграцию 066 и права.
+2. **Облако, флаг включён.** Установленный compose выпуска - разрешённый JSON
+   (`releases/<api sha>/infra/staging/compose.yaml`, без `${...}` и без сервиса `provision`),
+   поэтому env-файлы на флаг не влияют. Общий `provision.mjs` не запускать. Штатный путь -
+   `infra/staging/edge-identity-rotation-flag.py`:
+   ```sh
+   python3 infra/staging/edge-identity-rotation-flag.py inspect
+   python3 infra/staging/edge-identity-rotation-flag.py enable --apply \
+     --expected-api-sha <api_sha> --expected-compose-sha256 <compose_sha256>
+   ```
+   Под общей блокировкой `.market-release.lock` скрипт выдаёт роли API только права
+   `edge-identity-rotation-grants.mjs`, дописывает `"true"` в `api.environment` установленного
+   compose (копия `compose.yaml.before-edge-identity-<время>`, 600), пересоздаёт только API
+   и проверяет: readiness, `POST /internal/v1/edge/identity/rotate` без ключа - 401 (не 404),
+   метрики `pickchick_edge_identity_*`, изменился только этот ключ env API (по SHA-256),
+   образ и соседние контейнеры те же. При провале проверки сам возвращает compose и права.
+   Выключение: `disable --apply` (сначала API без флага, затем отзыв прав).
 3. **Касса, релиз.** Установить edge-релиз с этим коммитом штатной процедурой обновления
    FulfillmentWorker (релиз содержит `native-identity-rotation.mjs` и `native-identity-acl.ps1`).
 4. **Касса, задача без продления.** В elevated PowerShell 5.1 из каталога `infra\windows`:
