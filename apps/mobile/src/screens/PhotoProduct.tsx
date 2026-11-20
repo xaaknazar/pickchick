@@ -30,6 +30,7 @@ import { optionPhotos, extraPhotos } from '../product-photo-assets';
 import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
+import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
 import { colors, font } from '../theme';
@@ -794,38 +795,31 @@ export function PhotoProduct(props: Props) {
           </View>
         ) : null}
       </MotionModal>
-      <MotionModal
+      <SheetModal
         visible={info}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setInfo(false)}
+        onClose={() => setInfo(false)}
+        closeLabel={t('Закрыть пищевую ценность')}
+        dim="#00000080"
+        style={{ maxWidth: 600, maxHeight: '82%' }}
       >
-        <View style={[s.nutritionOverlay, { paddingTop: insets.top + 16 }]}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            accessibilityRole="button"
-            accessibilityLabel={t('Закрыть пищевую ценность')}
-            onPress={() => setInfo(false)}
-          />
-          <View
-            style={[s.nutritionWindow, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            role="dialog"
-            aria-modal
-            accessibilityViewIsModal
-            accessibilityLabel={t('Пищевая ценность')}
-            testID="photo-nutrition-dialog"
-          >
-            <Row style={s.modalHeader}>
-              <CloseButton
-                label={t('Закрыть окно пищевой ценности')}
-                onPress={() => setInfo(false)}
-              />
-              <Text style={s.modalTitle}>{t('Пищевая ценность')}</Text>
-            </Row>
-            <ScrollView>{infoContent}</ScrollView>
-          </View>
+        <View
+          style={[s.nutritionWindow, { paddingBottom: Math.max(insets.bottom, 16) }]}
+          role="dialog"
+          aria-modal
+          accessibilityViewIsModal
+          accessibilityLabel={t('Пищевая ценность')}
+          testID="photo-nutrition-dialog"
+        >
+          <Row style={s.modalHeader}>
+            <CloseButton
+              label={t('Закрыть окно пищевой ценности')}
+              onPress={() => setInfo(false)}
+            />
+            <Text style={s.modalTitle}>{t('Пищевая ценность')}</Text>
+          </Row>
+          <ScrollView>{infoContent}</ScrollView>
         </View>
-      </MotionModal>
+      </SheetModal>
     </View>
   );
 }
@@ -1096,7 +1090,6 @@ function makeStyles(blue: boolean) {
       backgroundColor: colors.background,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
-      maxHeight: '82%',
       width: '100%',
       maxWidth: 600,
       alignSelf: 'center',

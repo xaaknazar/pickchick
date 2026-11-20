@@ -5,7 +5,6 @@ import {
   AccessibilityInfo,
   Keyboard,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -17,7 +16,8 @@ import { KASPI_PAY, brandSlotParts, cartPayTitle } from '../cart-payment';
 import { paymentMethodLabel, paymentPayAction, type PaymentMethodId } from '../payment-method';
 import { usePaymentMethod } from '../usePaymentMethod';
 import { bannerAnnouncement } from '../payment-availability';
-import { MotionModal, MotionPressable } from './Motion';
+import { MotionPressable } from './Motion';
+import { SheetModal } from './MotionSheets';
 import { PaymentMark } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
 import { colors, font } from '../theme';
@@ -249,85 +249,82 @@ export function PaymentMethodSelector() {
           <Icon name="chevron-down" size={18} color={colors.muted} />
         </View>
       </MotionPressable>
-      <MotionModal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <View style={s.modal}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('Закрыть способы оплаты')}
-            style={StyleSheet.absoluteFill}
-            onPress={close}
-          />
-          <View
-            testID="cart-payment-sheet"
-            role="dialog"
-            aria-modal
-            accessibilityViewIsModal
-            accessibilityLabel={t('Способ оплаты')}
-            style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
-          >
-            <ScrollView contentContainerStyle={s.sheetContent} bounces={false}>
-              <View style={s.sheetHeader}>
-                <Heading small style={s.sheetTitle}>
-                  {t('Способ оплаты')}
-                </Heading>
-                <CloseButton
-                  label={t('Закрыть способы оплаты')}
-                  testID="cart-payment-close"
-                  onPress={close}
-                />
-              </View>
-              <View accessibilityRole="radiogroup" style={s.options}>
-                {payment.methods.map((method) =>
-                  method.available ? (
-                    <MotionPressable
-                      key={method.id}
-                      testID={`cart-payment-${method.id}`}
-                      accessibilityRole="radio"
-                      accessibilityLabel={localize(t(method.label))}
-                      aria-checked={method.id === payment.method}
-                      accessibilityState={{
-                        checked: method.id === payment.method,
-                        selected: method.id === payment.method,
-                      }}
-                      onPress={() => {
-                        payment.choose(method.id);
-                        close();
-                      }}
-                      style={[s.option, method.id === payment.method && s.optionSelected]}
-                    >
-                      <PaymentMark method={method.id} size={36} />
-                      <Body style={s.optionName}>{localize(t(method.label))}</Body>
-                      {method.id === payment.method ? (
-                        <Icon name="checkmark-circle" size={24} color={colors.accent} />
-                      ) : null}
-                    </MotionPressable>
-                  ) : (
-                    <View
-                      key={method.id}
-                      testID={`cart-payment-${method.id}`}
-                      accessible
-                      accessibilityRole="radio"
-                      aria-disabled
-                      aria-checked={false}
-                      accessibilityState={{ disabled: true, checked: false }}
-                      accessibilityLabel={localize(t('{p0}, скоро', { p0: t(method.label) }))}
-                      style={[s.option, s.optionDisabled]}
-                    >
-                      <View style={s.optionIcon}>
-                        <Icon name={methodIcon(method.id)} size={21} color="#899BBC" />
-                      </View>
-                      <Body style={[s.optionName, s.optionNameDisabled]}>
-                        {localize(t(method.label))}
-                      </Body>
-                      <Text style={s.soon}>{t('СКОРО')}</Text>
+      <SheetModal
+        visible={open}
+        onClose={close}
+        closeLabel={t('Закрыть способы оплаты')}
+        style={s.sheetFrame}
+      >
+        <View
+          testID="cart-payment-sheet"
+          role="dialog"
+          aria-modal
+          accessibilityViewIsModal
+          accessibilityLabel={t('Способ оплаты')}
+          style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+        >
+          <ScrollView contentContainerStyle={s.sheetContent} bounces={false}>
+            <View style={s.sheetHeader}>
+              <Heading small style={s.sheetTitle}>
+                {t('Способ оплаты')}
+              </Heading>
+              <CloseButton
+                label={t('Закрыть способы оплаты')}
+                testID="cart-payment-close"
+                onPress={close}
+              />
+            </View>
+            <View accessibilityRole="radiogroup" style={s.options}>
+              {payment.methods.map((method) =>
+                method.available ? (
+                  <MotionPressable
+                    key={method.id}
+                    testID={`cart-payment-${method.id}`}
+                    accessibilityRole="radio"
+                    accessibilityLabel={localize(t(method.label))}
+                    aria-checked={method.id === payment.method}
+                    accessibilityState={{
+                      checked: method.id === payment.method,
+                      selected: method.id === payment.method,
+                    }}
+                    onPress={() => {
+                      payment.choose(method.id);
+                      close();
+                    }}
+                    style={[s.option, method.id === payment.method && s.optionSelected]}
+                  >
+                    <PaymentMark method={method.id} size={36} />
+                    <Body style={s.optionName}>{localize(t(method.label))}</Body>
+                    {method.id === payment.method ? (
+                      <Icon name="checkmark-circle" size={24} color={colors.accent} />
+                    ) : null}
+                  </MotionPressable>
+                ) : (
+                  <View
+                    key={method.id}
+                    testID={`cart-payment-${method.id}`}
+                    accessible
+                    accessibilityRole="radio"
+                    aria-disabled
+                    aria-checked={false}
+                    accessibilityState={{ disabled: true, checked: false }}
+                    accessibilityLabel={localize(t('{p0}, скоро', { p0: t(method.label) }))}
+                    style={[s.option, s.optionDisabled]}
+                  >
+                    <View style={s.optionIcon}>
+                      <Icon name={methodIcon(method.id)} size={21} color="#899BBC" />
                     </View>
-                  ),
-                )}
-              </View>
-            </ScrollView>
-          </View>
+                    <Body style={[s.optionName, s.optionNameDisabled]}>
+                      {localize(t(method.label))}
+                    </Body>
+                    <Text style={s.soon}>{t('СКОРО')}</Text>
+                  </View>
+                ),
+              )}
+            </View>
+          </ScrollView>
         </View>
-      </MotionModal>
+      </SheetModal>
     </>
   );
 }
@@ -612,11 +609,10 @@ const s = StyleSheet.create({
   payText: { fontFamily: font.heading, fontSize: 19, lineHeight: 26, color: colors.background },
   payBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payBrandText: { fontFamily: font.display },
-  modal: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000088' },
+  sheetFrame: { maxWidth: 720, maxHeight: '90%' },
   sheet: {
     width: '100%',
     maxWidth: 720,
-    maxHeight: '90%',
     alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

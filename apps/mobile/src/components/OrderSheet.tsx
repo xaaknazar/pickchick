@@ -20,15 +20,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
   cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router';
-import { motion, useReducedMotion } from './Motion';
+import { spring, useReducedMotion } from './Motion';
+import { rubberBand } from './MotionSheets';
 import { useTapsSettled } from './useTapGuard';
 import { colors } from '../theme';
 import { createBackLayers, type BackLayer } from '../back-layers';
@@ -154,23 +155,28 @@ export function OrderSheet({
       y.value = 0;
     }
   }, [blocked, onDismissBlockedChange, y, closing]);
-  const close = useCallback(() => {
-    if (exiting.current || locks.current.size) return;
-    exiting.current = true;
-    closing.value = true;
-    y.value = withTiming(
-      travel,
-      { duration: reduced ? 0 : motion.sheetExit, easing: Easing.in(Easing.cubic) },
-      (done) => {
-        if (done) runOnJS(onClose)();
-      },
-    );
-  }, [closing, onClose, reduced, travel, y]);
+  // Apple's sheet: a spring without bounce both ways, and a flick keeps the finger's speed.
+  const close = useCallback(
+    (velocity?: unknown) => {
+      if (exiting.current || locks.current.size) return;
+      exiting.current = true;
+      closing.value = true;
+      const done = (finished?: boolean) => {
+        'worklet';
+        if (finished) runOnJS(onClose)();
+      };
+      y.value = reduced
+        ? withTiming(travel, { duration: 0 }, done)
+        : withSpring(
+            travel,
+            { ...spring.exit, velocity: typeof velocity === 'number' ? velocity : 0 },
+            done,
+          );
+    },
+    [closing, onClose, reduced, travel, y],
+  );
   useEffect(() => {
-    y.value = withTiming(0, {
-      duration: reduced ? 0 : motion.sheetEnter,
-      easing: Easing.bezier(0.22, 1, 0.36, 1),
-    });
+    y.value = reduced ? withTiming(0, { duration: 0 }) : withSpring(0, spring.smooth);
   }, [reduced, y]);
   // Back asks the layers on top first (the payment X, an overlay, the OTP step); a locked sheet
   // (close() is a no-op then) keeps Back, so a running payment never leaves the app.
@@ -230,22 +236,23 @@ export function OrderSheet({
       gestureStart.value = y.value;
     })
     .onUpdate((e) => {
-      if (!closing.value)
-        y.value = Math.min(travel, Math.max(0, gestureStart.value + e.translationY));
+      if (closing.value) return;
+      const next = gestureStart.value + e.translationY;
+      // Pulled up past the top: the sheet gives a little and resists (rubber band).
+      y.value = next < 0 ? rubberBand(next, travel) : Math.min(travel, next);
     })
     .onEnd((e) => {
       if (closing.value) return;
       if (y.value > 90 || e.velocityY > 850) {
         closing.value = true;
-        runOnJS(close)();
+        runOnJS(close)(e.velocityY);
       }
     })
-    .onFinalize(() => {
+    .onFinalize((e) => {
       if (!closing.value)
-        y.value = withTiming(0, {
-          duration: reduced ? 0 : motion.sheetReturn,
-          easing: Easing.out(Easing.cubic),
-        });
+        y.value = reduced
+          ? withTiming(0, { duration: 0 })
+          : withSpring(0, { ...spring.smooth, velocity: e.velocityY });
     });
   const position = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - y.value / travel) }));

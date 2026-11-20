@@ -5,7 +5,8 @@ import { Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-na
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font, restaurantColors } from '../theme';
-import { MotionModal, MotionPressable } from './Motion';
+import { MotionPressable } from './Motion';
+import { SheetModal } from './MotionSheets';
 import { Body, Button, Heading, Icon, CloseButton } from './UI';
 import {
   COMBO_STAMP_SLOTS,
@@ -124,108 +125,100 @@ export function ComboRewardCard({
           </View>
         </View>
       </MotionPressable>
-      <MotionModal
+      <SheetModal
         visible={open}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onClose={() => setOpen(false)}
+        closeLabel={t('Закрыть')}
+        style={{ maxWidth: 600, maxHeight: '92%' }}
       >
-        <View style={[s.overlay, { paddingTop: Math.max(20, insets.top) }]}>
-          <MotionPressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setOpen(false)}
-            accessible={false}
-            importantForAccessibility="no"
-          />
-          <View
-            testID="combo-reward-details"
-            accessibilityViewIsModal
-            style={[s.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}
-          >
-            <View style={s.sheetHeader}>
-              <CloseButton
-                label={t('Закрыть условия акции')}
-                testID="combo-reward-close"
-                onPress={() => setOpen(false)}
-              />
-              <Heading small style={{ flex: 1 }}>
-                {t('Твоё седьмое комбо')}
-              </Heading>
-            </View>
-            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
-              <View style={{ gap: 8 }}>
-                <Heading small>{localize(nextStep.title)}</Heading>
-                <Body muted>{localize(nextStep.detail)}</Body>
-              </View>
-              {(progress?.commercial
-                ? [
-                    [
-                      '1',
-                      t('Покупайте любое комбо'),
-                      t(
-                        'После подтверждённой оплаты каждое комбо даёт одну отметку. Два комбо в заказе - две отметки.',
-                      ),
-                    ],
-                    [
-                      '2',
-                      t('Заберите Pick Combo в подарок'),
-                      t(
-                        'После шести отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.',
-                      ),
-                    ],
-                    [
-                      '3',
-                      t('Возвраты учитываются'),
-                      t(
-                        'Возврат комбо снимает соответствующую отметку. Неиспользованный подарок станет недоступен, если отметок недостаточно. Если подарок уже использован, сотрудник проверит ситуацию.',
-                      ),
-                    ],
-                  ]
-                : [
-                    [
-                      '1',
-                      'Покупайте комбо',
-                      'За шесть комбо - седьмое в подарок. Акция действует на точке.',
-                    ],
-                    [
-                      '2',
-                      'Обратитесь к кассиру',
-                      'Уточните, какие комбо участвуют, как собираются отметки и какое комбо можно получить в подарок.',
-                    ],
-                    [
-                      '3',
-                      'Сохраните свои отметки',
-                      progress?.data?.mode === 'practice'
-                        ? t(
-                            'Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: {p0}. Остаток переносится. Бумажные отметки остаются у кассира.',
-                            { p0: practiceRound(progress.data.earned_units).rounds },
-                          )
-                        : 'Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок учитываются на кассе.',
-                    ],
-                  ]
-              ).map(([number, title, text]) => (
-                <View key={number} style={s.rule}>
-                  <Text style={s.ruleNumber}>{localize(number)}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Body style={{ fontFamily: font.bold }}>{localize(title)}</Body>
-                    <Body muted style={{ marginTop: 6 }}>
-                      {localize(text)}
-                    </Body>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-            <Button
-              title={localize(nextStep.action)}
-              testID="combo-reward-menu"
-              onPress={() => {
-                setOpen(false);
-                onMenu();
-              }}
+        <View
+          testID="combo-reward-details"
+          accessibilityViewIsModal
+          style={[s.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}
+        >
+          <View style={s.sheetHeader}>
+            <CloseButton
+              label={t('Закрыть условия акции')}
+              testID="combo-reward-close"
+              onPress={() => setOpen(false)}
             />
+            <Heading small style={{ flex: 1 }}>
+              {t('Твоё седьмое комбо')}
+            </Heading>
           </View>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
+            <View style={{ gap: 8 }}>
+              <Heading small>{localize(nextStep.title)}</Heading>
+              <Body muted>{localize(nextStep.detail)}</Body>
+            </View>
+            {(progress?.commercial
+              ? [
+                  [
+                    '1',
+                    t('Покупайте любое комбо'),
+                    t(
+                      'После подтверждённой оплаты каждое комбо даёт одну отметку. Два комбо в заказе - две отметки.',
+                    ),
+                  ],
+                  [
+                    '2',
+                    t('Заберите Pick Combo в подарок'),
+                    t(
+                      'После шести отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.',
+                    ),
+                  ],
+                  [
+                    '3',
+                    t('Возвраты учитываются'),
+                    t(
+                      'Возврат комбо снимает соответствующую отметку. Неиспользованный подарок станет недоступен, если отметок недостаточно. Если подарок уже использован, сотрудник проверит ситуацию.',
+                    ),
+                  ],
+                ]
+              : [
+                  [
+                    '1',
+                    'Покупайте комбо',
+                    'За шесть комбо - седьмое в подарок. Акция действует на точке.',
+                  ],
+                  [
+                    '2',
+                    'Обратитесь к кассиру',
+                    'Уточните, какие комбо участвуют, как собираются отметки и какое комбо можно получить в подарок.',
+                  ],
+                  [
+                    '3',
+                    'Сохраните свои отметки',
+                    progress?.data?.mode === 'practice'
+                      ? t(
+                          'Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: {p0}. Остаток переносится. Бумажные отметки остаются у кассира.',
+                          { p0: practiceRound(progress.data.earned_units).rounds },
+                        )
+                      : 'Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок учитываются на кассе.',
+                  ],
+                ]
+            ).map(([number, title, text]) => (
+              <View key={number} style={s.rule}>
+                <Text style={s.ruleNumber}>{localize(number)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Body style={{ fontFamily: font.bold }}>{localize(title)}</Body>
+                  <Body muted style={{ marginTop: 6 }}>
+                    {localize(text)}
+                  </Body>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <Button
+            title={localize(nextStep.action)}
+            testID="combo-reward-menu"
+            onPress={() => {
+              setOpen(false);
+              onMenu();
+            }}
+          />
         </View>
-      </MotionModal>
+      </SheetModal>
     </View>
   );
 }
@@ -264,7 +257,6 @@ const s = StyleSheet.create({
   detailsText: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: colors.white },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {
-    maxHeight: '100%',
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
