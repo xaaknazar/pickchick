@@ -1,0 +1,25 @@
+{
+  "artifactZip": {
+    "bytes": 120914507,
+    "sha256": "d663e383723d7004f0d977897d8e890c45bb1853d1d384da2f1a5cd48a9af1ba",
+    "matchesGithubDigest": true
+  },
+  "files": {
+    "kitchen/latest.json": {
+      "bytes": 217,
+      "sha256": "6a334acbd985e717619ebea8827e20aabc89288a99b193fb2ac1d16dc28e7701",
+      "content": "{\"app\":\"kitchen\",\"version\":\"0.4.7\",\"file\":\"PickChick-Kitchen-Setup-0.4.7-x64.exe\",\"sha256\":\"39b2785e3906f8f26c24b7b2f720d9c10bad60561680434e3e5c9f72432719ec\",\"bytes\":120902775,\"apply\":\"idle\"}"
+    },
+    "kitchen/PickChick-Kitchen-Setup-0.4.7-x64.exe": {
+      "bytes": 120902775,
+      "sha256": "39b2785e3906f8f26c24b7b2f720d9c10bad60561680434e3e5c9f72432719ec"
+    }
+  },
+  "buildLogHashMatches": true,
+  "sameOnServerAfterUpload": true,
+  "serverFeed": "/opt/pickchick-staging/incoming/desktop-kitchen-047-1120/feed",
+  "outside": {
+    "latestJson": "HTTP/2 200, cache-control: no-store, content-type: application/json, 217 bytes, sha256 6a334acbd985e717619ebea8827e20aabc89288a99b193fb2ac1d16dc28e7701",
+    "installerHead": "HTTP/2 200, cache-control: no-store, content-length 120902775"
+  }
+}

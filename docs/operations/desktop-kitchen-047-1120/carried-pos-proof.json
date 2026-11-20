@@ -1,0 +1,17 @@
+{
+  "apply": { "kitchen": "idle", "pos": "idle" },
+  "posFiles": {
+    "PickChick-POS-Setup-0.5.3-x64.exe": {
+      "bytes": 172279898,
+      "sha256": "56ebe751915275e744b25ca2daf9ef4a1ead0ffa770c24c937c19d78682f0aa1",
+      "outsideHead": "HTTP/2 200 from the publish verification (full read by the operator script)"
+    },
+    "latest.json": {
+      "bytes": 209,
+      "sha256": "2b1795289e86a2d0aadb27797aaedaf9a101e10fb0d309cf6f1d117735de734b",
+      "outside": "{\"app\":\"pos\",\"version\":\"0.5.3\",\"file\":\"PickChick-POS-Setup-0.5.3-x64.exe\",\"sha256\":\"56ebe751915275e744b25ca2daf9ef4a1ead0ffa770c24c937c19d78682f0aa1\",\"bytes\":172279898,\"apply\":\"idle\"}"
+    }
+  },
+  "samePosFiles": true,
+  "sameAs": "kitchen-0.4.6-pos-0.5.3 (docs/operations/desktop-kitchen-046-1117/carried-pos-proof.json)"
+}
