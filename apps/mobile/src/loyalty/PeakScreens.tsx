@@ -194,7 +194,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
                   t('{p0}, {p1} Чиков, {p2}. Подробнее', {
                     p0: t(peak.name),
                     p1: number(peak.points),
-                    p2: peak.reward,
+                    p2: t(peak.reward),
                   }),
                 )}
                 onPress={() => setSelected(peak)}

@@ -193,9 +193,13 @@ export function ConnectedCheckout(props: ScreenProps) {
   const branchId = pending?.branch_id ?? props.model.branch?.id;
   const branch = props.model.branches.find((candidate) => candidate.id === branchId);
   const location = restaurantLocation(branchId);
+  // Status recovery stays quiet, but a tap that sent nothing must say why (SHIFT_CLOSED, no answer).
+  const [submitFailed, setSubmitFailed] = useState(false);
   const submit = async () => {
+    setSubmitFailed(false);
     if (pending) flow.select(pending.order_id);
     const order = pending ?? (await flow.submit());
+    if (!order) setSubmitFailed(true);
     if (order) {
       if (['preparing', 'ready'].includes(order.state)) {
         props.model.clearCart(
@@ -221,6 +225,11 @@ export function ConnectedCheckout(props: ScreenProps) {
       header={<CheckoutHeader props={props} />}
       footer={
         <>
+          {submitFailed && !flow.busy && flow.error ? (
+            <View accessibilityRole="alert" testID="checkout-submit-error">
+              <Notice warning>{localize(flow.error)}</Notice>
+            </View>
+          ) : null}
           <OrderTotal value={money(pending?.snapshot.total_minor ?? cartTotal(props.model.cart))} />
           <Button
             style={orderUI.action}
