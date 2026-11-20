@@ -921,7 +921,9 @@ def scenario_payment_method(browser):
 
 
 # Apple Pay and the card as a future build would list them: available, without their own flow yet.
-FUTURE_METHODS = re.compile(r"(\{id:'(apple_pay|card)',label:\w+\('\2'\),available:)!1\}")
+# PR #400 (TipTopPay, 18.11.2026): availability is `connected.includes(id)`; the wallet id is a
+# variable (apple_pay / google_pay by platform), the card a literal.
+FUTURE_METHODS = re.compile(r"(\{id:('card'|\w+),label:\w+\(\2\),available:)\w+\.includes\(\2\)\}")
 
 
 def text(locator):
