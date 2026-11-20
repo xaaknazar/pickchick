@@ -857,8 +857,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
             <Row style={{ alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
                 <Body>
-                  {localize(line.product.name)}
-                  {t('удалён')}
+                  {localize(line.product.name)} {t('удалён')}
                 </Body>
                 <Caption>
                   {localize(
