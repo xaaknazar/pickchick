@@ -8857,5 +8857,23 @@
     "kk": "Картамен төлеу · {p0}",
     "en": "Pay by card · {p0}",
     "context": "apps/mobile/src/components/TipTopPaySheets.tsx"
+  },
+  {
+    "ru": "Условия сервиса",
+    "kk": "Қызмет көрсету шарттары",
+    "en": "Terms of service",
+    "context": "apps/mobile/src/components/CheckoutLegal.tsx"
+  },
+  {
+    "ru": "Не сейчас",
+    "kk": "Қазір емес",
+    "en": "Not now",
+    "context": "apps/mobile/src/components/CheckoutLegal.tsx"
+  },
+  {
+    "ru": "Загрузка",
+    "kk": "Жүктелуде",
+    "en": "Loading",
+    "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx"
   }
 ]

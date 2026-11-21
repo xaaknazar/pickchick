@@ -148,6 +148,17 @@ with sync_playwright() as p:
         visible_element(page, 'phone-input').fill(PHONE)
         expect(visible_element(page, 'phone-input')).to_have_value('700 000 00 01')
         expect(request).to_be_enabled()
+        # The sign-in sheet rises on a critically damped spring (owner 20.11, Apple motion);
+        # measure the action once the sheet has come to rest, not on its way up.
+        page.wait_for_function('''() => new Promise(resolve => {
+            const rect = () => {
+                const el = Array.from(document.querySelectorAll('[data-testid="request-otp"]'))
+                    .find(node => node.getClientRects().length);
+                return el ? Math.round(el.getBoundingClientRect().y * 4) : null;
+            };
+            const first = rect();
+            setTimeout(() => resolve(first !== null && first === rect()), 150);
+        })''')
         rect = request.bounding_box()
         assert rect['y'] + rect['height'] <= height, 'Phone action must remain in viewport'
         assert_no_horizontal_overflow(page, width)

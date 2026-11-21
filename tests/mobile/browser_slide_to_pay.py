@@ -224,6 +224,21 @@ def add(page, product='pick-combo'):
     page.get_by_test_id('product-add').click()
     expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
     expect(page.get_by_test_id('cart-shortcut')).to_be_visible()
+    settle(page)
+
+
+def settle(page):
+    # The bar rises in and gives one springy bump when a dish lands (owner 20.11, Apple motion):
+    # measure it only once two reads 120 ms apart agree.
+    bar = page.get_by_test_id('cart-shortcut').filter(visible=True)
+    previous = None
+    for _ in range(40):
+        box = bar.bounding_box()
+        if previous and box and all(abs(box[k] - previous[k]) < 0.25 for k in box):
+            return
+        previous = box
+        page.wait_for_timeout(120)
+    raise AssertionError(('cart bar never settled', previous))
 
 
 def geometry(page):

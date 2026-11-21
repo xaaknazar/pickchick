@@ -18,4 +18,4 @@ export const ARCADE_SCREEN_OPTIONS = {
 export type GameOrigin = 'events' | 'order';
 export const gameOrigin = (from: string | string[] | undefined): GameOrigin =>
   from === 'order' ? 'order' : 'events';
-export const exitLabel = (origin: GameOrigin) => (origin === 'order' ? 'К заказу' : 'К событиям');
+export const exitLabel = (origin: GameOrigin) => (origin === 'order' ? 'К заказу' : 'К играм');
