@@ -46,10 +46,14 @@ DEFAULT_MOBILE_PROFILE = "storefront"
 STAGING_API_URL = "https://pickchick.185.129.51.103.nip.io"
 PRODUCTION_API_URL = "https://api.pickchick.kz"
 PRODUCTION_FLAGS = {**STOREFRONT_FLAGS, "EXPO_PUBLIC_PICKCHICK_ENV": "production"}
+# Owner 18-20.11.2026: TipTopPay TEST in TestFlight (card now; Apple Pay after the Merchant ID
+# and TipTopPay's certificate). Internal TestFlight only: never send this build to App Review.
+TIPTOPPAY_TEST_PROFILE = "production-tiptoppay-test"
+TIPTOPPAY_TEST_FLAGS = {**PRODUCTION_FLAGS, "EXPO_PUBLIC_TIPTOPPAY_TEST": "1"}
 # Older names of the same flag set; archives recorded under an alias stay deliverable.
 PROFILE_ALIASES = {"catalog-pilot": "published-catalog"}
 MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE,
-                   "production", *PROFILE_ALIASES)
+                   "production", TIPTOPPAY_TEST_PROFILE, *PROFILE_ALIASES)
 # Archives made before the catalog source was pinned recorded these exact flag sets; their
 # bundles were built when an unset flag still meant the legacy catalog.
 HISTORICAL_PROFILE_FLAGS = {
@@ -476,7 +480,7 @@ def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
     profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
                 "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS,
-                "production": PRODUCTION_FLAGS}
+                "production": PRODUCTION_FLAGS, TIPTOPPAY_TEST_PROFILE: TIPTOPPAY_TEST_FLAGS}
     feature_profile = canonical_profile(feature_profile)
     if feature_profile == "legacy" or feature_profile in KIOSK_PROFILES:
         return None
@@ -549,6 +553,9 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     # Owner 29.10.2026 (App Review 2.1): the disabled Apple Pay / card list returns only when a
     # profile pins EXPO_PUBLIC_UPCOMING_PAYMENTS, never from a shell left over from local testing.
     env.pop("EXPO_PUBLIC_UPCOMING_PAYMENTS", None)
+    # TipTopPay TEST methods and the Apple Pay entitlement come only from a pinned profile.
+    env.pop("EXPO_PUBLIC_TIPTOPPAY_TEST", None)
+    env.pop("EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID", None)
     if feature_profile not in KIOSK_PROFILES:
         # Mobile switch only; a kiosk bundle reads its pinned EXPO_PUBLIC_KIOSK_* values.
         env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]

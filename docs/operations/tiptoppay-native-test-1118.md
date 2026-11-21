@@ -87,6 +87,22 @@ TipTopPay на LIVE-терминал PickChick.
   обработки платежей из CSR TipTopPay, новые профили.
 - Сборка TestFlight с `EXPO_PUBLIC_TIPTOPPAY_TEST=1` и Merchant ID.
 
+## Включено 20.11.2026
+
+- API `b48fcd38` на облаке с 21:01 UTC: `TIPTOPPAY_MODE=test`, способы `card,google_pay`,
+  ключи сайта 8194419 только на сервере. Foundation 44804971188 зелёная. Копия базы перед
+  переключением `cloud-20261120T205939Z.dump.age`; добавлено только право runtime на
+  `commerce_tiptoppay_test_payments`.
+- Шлюз и Caddy доменов пропускают только `test-3ds`, `test-3ds-return`, `test-check`, `test-pay`,
+  `test-fail`; боевые `/check` и `/pay` отвечают 503. Проверено снаружи на обоих доменах.
+- Кабинет: уведомления Check, Pay, Fail указывают на `.../test-check`, `.../test-pay`,
+  `.../test-fail` (POST, UTF-8, формат по умолчанию).
+- Сборка TestFlight: профиль `production-tiptoppay-test` в `scripts/mobile/ios_release.py`
+  (= production + `EXPO_PUBLIC_TIPTOPPAY_TEST=1`). Только внутренний TestFlight, не App Review.
+  Apple Pay в ней нет, пока не готовы Merchant ID и сертификат по CSR TipTopPay.
+- Откат: прежние релизы API и шлюза `bf325a47` сохранены, копия Caddyfile доменов в
+  `rehearsal/tiptoppay-test-1120/front.rollback.Caddyfile`. Базу не откатывать.
+
 ## Чего этот этап не делает
 
 - Не создаёт заказ, не отправляет на кухню, не печатает и не отправляет чек.
