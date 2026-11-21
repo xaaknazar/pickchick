@@ -1,3 +1,12 @@
+## 20 ноября: TipTopPay TEST установлен на сервер (карта, Google Pay)
+
+API и шлюз `b48fcd38` (CI 44804971188) с тестовым режимом TipTopPay, права на
+`commerce_tiptoppay_test_payments`, адреса test-payments и test-3ds/test-check/pay/fail открыты
+в шлюзе и входном Caddy; боевые /check и /pay остаются 503. Копия базы до выпуска сохранена.
+Apple Pay выключен до Merchant ID и сертификата. Осталось: уведомления в кабинете TipTopPay,
+сборка TestFlight с тестовым флагом, первое тестовое списание.
+[Протокол выпуска](operations/deployments/2026-11-20-tiptoppay-test-release.md).
+
 ## 18 ноября: TipTopPay в приложении - карта, Apple Pay, Google Pay (тест, код готов)
 
 Владелец подключает эквайринг TipTopPay (тестовый аккаунт) и выбрал полностью нативную оплату:
