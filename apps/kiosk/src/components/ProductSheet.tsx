@@ -45,6 +45,8 @@ const DISABLED = '#D5DBE6';
 const ART_WIDTH = '142%';
 /** bg2: the lines-and-stars illustration the design puts at the sheet's top right. */
 const ART = 1;
+/** The illustration stays behind the text as a watermark. */
+const ART_OPACITY = 0.35;
 /** Neutral photo backdrop; transparent cut-outs are placed above the card illustration. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
@@ -206,6 +208,9 @@ export function ProductSheet({
               top: 0,
               width: ART_WIDTH,
               aspectRatio: cardBackgroundRatio,
+              // The stars run under the name and description: a watermark, so no star sits
+              // on a letter at full strength.
+              opacity: ART_OPACITY,
             }}
           />
           {/* Opaque product pixels sit above the decorative background. */}
