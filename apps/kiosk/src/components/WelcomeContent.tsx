@@ -29,7 +29,7 @@ function CtaCaption({ shown }: { shown: Locale }) {
       importantForAccessibility="no-hide-descendants"
       aria-hidden
       pointerEvents="none"
-      style={{ flex: 1, height: lineHeight, overflow: 'hidden', marginBottom: px(12) }}
+      style={{ flex: 1, height: lineHeight, overflow: 'hidden' }}
     >
       <Text
         {...fixedText}
