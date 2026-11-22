@@ -23,6 +23,8 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,7 +33,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';
 import { restaurantLocation } from '../restaurant-location';
-import { cartLineKey, cartTotal, lineUnitPrice, selectionDescription } from '../domain';
+import {
+  cartLineKey,
+  cartTotal,
+  lineUnitPrice,
+  preparationMinutes,
+  selectionDescription,
+} from '../domain';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { CartLinePrice } from '../components/CartLinePrice';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
@@ -55,6 +63,8 @@ import { useRestaurantHoursNow } from '../usePaymentAvailability';
 import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import { upcomingFeaturesShown } from '../store-build';
+import { useUsualProductIds } from '../usual-products';
+import { useAccount } from '../useAccount';
 import {
   Body,
   Button,
@@ -334,6 +344,100 @@ const ProductMenuCard = memo(function ProductMenuCard({
     </Pressable>
   );
 });
+
+/**
+ * «Как обычно» (audit 22.11.2026, Drinkit «тебе как всегда?» on the owner's iPhone): the guest's
+ * usual dishes in one row above the menu; the plus adds the dish as usually made.
+ */
+function UsualRow({
+  products,
+  openProduct,
+  add,
+}: {
+  products: Product[];
+  openProduct(product: Product): void;
+  add(id: string): void;
+}) {
+  useLocale();
+  return (
+    <View testID="usual-row">
+      <Heading small style={s.sectionTitle}>
+        {t('Как обычно')}
+      </Heading>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.usualList}
+        style={s.usualScroll}
+      >
+        {products.map((product) => (
+          <Pressable
+            key={product.id}
+            feedback="scale"
+            testID={`usual-${product.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={localize(`${t(product.name)}, ${MinorMoney(product.priceMinor)}`)}
+            onPress={() => openProduct(product)}
+            style={s.usualCard}
+          >
+            <View style={s.usualPhoto}>
+              <ProductPhoto
+                photo={productPhoto(product, 'card', 'menu')}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+              />
+            </View>
+            <Text numberOfLines={2} style={s.usualTitle}>
+              {localize(product.name)}
+            </Text>
+            <Row style={s.usualPriceRow}>
+              <Body style={s.usualPrice}>{localize(MinorMoney(product.priceMinor))}</Body>
+              <Pressable
+                testID={`usual-add-${product.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={localize(t('Добавить {p0}', { p0: t(product.name) }))}
+                hitSlop={8}
+                onPress={() => add(product.id)}
+                style={s.usualPlus}
+              >
+                <Icon name="add" color={colors.orangeInk} size={18} />
+              </Pressable>
+            </Row>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** Cold start: card outlines instead of a spinner (Dodo shows grey blocks while it loads). */
+function MenuSkeleton({ width }: { width: number }) {
+  const reduced = useReducedMotion();
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (!reduced) pulse.value = withRepeat(withTiming(0.55, { duration: 600 }), -1, true);
+  }, [reduced, pulse]);
+  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  return (
+    <Animated.View
+      testID="menu-skeleton"
+      accessibilityLabel={localize(t('Загружаем меню'))}
+      style={[s.skeletonGrid, style]}
+    >
+      {[0, 1, 2, 3].map((key) => (
+        <View key={key} style={[s.skeletonCard, { width: (width - 58) / 2 }]}>
+          <View style={s.skeletonPhoto} />
+          <View style={[s.skeletonLine, { width: '80%' }]} />
+          <View style={[s.skeletonLine, { width: '55%' }]} />
+          <View style={s.skeletonFoot}>
+            <View style={[s.skeletonLine, { width: 64, height: 16 }]} />
+            <View style={s.skeletonPlus} />
+          </View>
+        </View>
+      ))}
+    </Animated.View>
+  );
+}
 export function Menu(props: ScreenProps) {
   useLocale();
   const [cartHeight, setCartHeight] = useState(100);
@@ -344,11 +448,22 @@ export function Menu(props: ScreenProps) {
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
   const loyaltyShown = upcomingFeaturesShown(undefined, props.preview);
   const [promotionOpen, setPromotionOpen] = useState(false);
+  const account = useAccount();
+  const usualIds = useUsualProductIds(props.preview ? null : account.account?.customerId);
+  const usual = useMemo(
+    () =>
+      usualIds
+        .map((id) => props.model.products.find((p) => p.id === id && p.available !== false))
+        .filter((p): p is Product => !!p),
+    [usualIds, props.model.products],
+  );
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
   // Owner update: lift the storefront; shorter phones still reveal the first dish.
   const heroHeight = Math.round(
-    Math.max(260, Math.min(width * 2 - 48, height < 700 ? height * 0.55 : height * 0.93 - 48, 852)),
+    // Audit 22.11.2026 (Drinkit on the owner's iPhone): the video stays big, but the tabs and the
+    // top of the first cards sit on the first screen (tabs ≈ 590 pt, cards ≈ 680 pt on 393 x 852).
+    Math.max(260, Math.min(width * 2 - 48, height < 700 ? height * 0.55 : height * 0.84 - 48, 852)),
   );
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
@@ -595,7 +710,7 @@ export function Menu(props: ScreenProps) {
             </Notice>
           ) : null}
           {props.model.connection.status === 'loading' && props.model.catalogMode === 'server' ? (
-            <Loading />
+            <MenuSkeleton width={width} />
           ) : null}
           {props.model.connection.status !== 'online' &&
           props.model.catalogMode === 'server' &&
@@ -611,6 +726,9 @@ export function Menu(props: ScreenProps) {
           ) : null}
         </View>
         <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
+          {usual.length >= 2 ? (
+            <UsualRow products={usual} openProduct={openProduct} add={props.model.addToCart} />
+          ) : null}
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             const singleColumn = fontScale > 1.3;
@@ -880,6 +998,14 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
       ) : (
         <>
           <DiningModePill value={props.model.diningMode} onChange={props.model.setDiningMode} />
+          {/* Drinkit «приготовим за 4 мин» (owner's iPhone 22.11.2026): the wait before paying, from
+              the dishes' own preparation minutes (catalog prep_minutes). */}
+          <View testID="cart-eta" style={s.cartEta}>
+            <Icon name="time-outline" size={16} color={colors.muted} />
+            <Caption style={s.cartEtaText}>
+              {t('Приготовим за ≈{p0} мин', { p0: preparationMinutes(props.model.cart) })}
+            </Caption>
+          </View>
           {props.model.catalogMode === 'design' ? (
             <Notice warning>
               {t('Это корзина из образцов дизайна. Заказ и оплата недоступны.')}
@@ -1229,6 +1355,77 @@ const s = StyleSheet.create({
     letterSpacing: -0.36,
   },
   productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  usualScroll: { marginHorizontal: -18 },
+  usualList: { gap: 10, paddingHorizontal: 18 },
+  // ≈ Drinkit's row (96 pt cards) sized up to our menu cards' type.
+  usualCard: {
+    width: 128,
+    borderRadius: 20,
+    padding: 6,
+    paddingBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FFFFFF0D',
+    backgroundColor: colors.surface,
+  },
+  usualPhoto: {
+    width: '100%',
+    aspectRatio: 1.1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#EEF2F8',
+  },
+  usualTitle: {
+    fontFamily: font.bold,
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.text,
+    paddingTop: 8,
+    paddingHorizontal: 4,
+    minHeight: 44,
+  },
+  usualPriceRow: {
+    paddingTop: 6,
+    paddingHorizontal: 4,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  usualPrice: { fontFamily: font.bold, fontSize: 14, color: colors.text, fontVariant: ['tabular-nums'] },
+  usualPlus: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartEta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF0D',
+  },
+  cartEtaText: { color: colors.text, fontFamily: font.medium, fontSize: 14 },
+  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  skeletonCard: {
+    borderRadius: 24,
+    padding: 6,
+    paddingBottom: 14,
+    gap: 8,
+    backgroundColor: colors.surface,
+  },
+  skeletonPhoto: { width: '100%', aspectRatio: 1.1, borderRadius: 18, backgroundColor: '#FFFFFF14' },
+  skeletonLine: { height: 12, borderRadius: 6, marginLeft: 8, backgroundColor: '#FFFFFF14' },
+  skeletonFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  skeletonPlus: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF14' },
   product: {
     borderRadius: 24,
     padding: 6,

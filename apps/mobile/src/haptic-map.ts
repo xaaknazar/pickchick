@@ -15,10 +15,11 @@
  *   available the medium impact is used.
  * The strength still has to be felt on 2-3 real phones before production (lane note).
  */
-export type HapticCue = 'grab' | 'tick' | 'armed';
+/** `added`: a dish went into the cart (audit 22.11.2026: Dodo and Drinkit confirm the add). */
+export type HapticCue = 'grab' | 'tick' | 'armed' | 'added';
 
 export type AndroidFeedback =
-  { kind: 'impact'; style: 'medium' | 'heavy' } | { kind: 'system'; types: readonly string[] };
+  { kind: 'impact'; style: 'light' | 'medium' | 'heavy' } | { kind: 'system'; types: readonly string[] };
 
 /** What Android plays for each cue; `types` are expo-haptics `AndroidHaptics` values, preferred first. */
 export const ANDROID_FEEDBACK: Record<HapticCue, AndroidFeedback> = {
@@ -26,11 +27,13 @@ export const ANDROID_FEEDBACK: Record<HapticCue, AndroidFeedback> = {
   // SEGMENT_TICK (34): a discrete point on a slider; CLOCK_TICK (all versions).
   tick: { kind: 'system', types: ['segment-tick', 'clock-tick'] },
   armed: { kind: 'impact', style: 'heavy' },
+  added: { kind: 'impact', style: 'light' },
 };
 
 /** expo-haptics `ImpactFeedbackStyle` values: iOS always, Android for impacts and as the last fallback. */
-export const IMPACT_STYLE: Record<HapticCue, 'medium' | 'heavy'> = {
+export const IMPACT_STYLE: Record<HapticCue, 'light' | 'medium' | 'heavy'> = {
   grab: 'heavy',
   tick: 'medium',
   armed: 'heavy',
+  added: 'light',
 };

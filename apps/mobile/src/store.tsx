@@ -1,4 +1,5 @@
 import { setAppLocale } from './i18n/core';
+import { haptic } from './haptics';
 import { useComboRewards } from './loyalty/useComboRewards';
 import { restoreLegacyPublishedCart, publishedCartStorageRelease } from './published-catalog';
 import { repriceCart, PRICES_UPDATED } from './cart-reprice';
@@ -604,7 +605,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         if (next !== previous && quantity > 0) added.next = next;
         return next;
       });
-      if (added.next) noteAdded([product.id], added.next);
+      if (added.next) {
+        noteAdded([product.id], added.next);
+        haptic('added');
+      }
     },
     setQuantity: (id, quantity) => {
       restoration.current = null;
