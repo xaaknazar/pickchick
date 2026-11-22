@@ -1,7 +1,9 @@
+import { View } from 'react-native';
 import { money } from '../cart';
 import type { Locale } from '../i18n';
 import type { TerminalPaymentView } from '../model';
 import { terminalCopy } from '../terminalCopy';
+import { useMetrics } from '../theme';
 import { Body } from './Body';
 import { Button } from './Button';
 import { Heading } from './Heading';
@@ -44,6 +46,9 @@ export function TerminalPayment({
   onStaff?: () => void;
 }) {
   const t = terminalCopy(locale);
+  const { px } = useMetrics();
+  /** «В меню» and «Повторить» side by side at one width, so the pair reads as one even row. */
+  const pair = Math.max(240, px(300));
   const paying = view.phase === 'starting' || view.phase === 'waiting';
   const title =
     view.phase === 'failed'
@@ -116,24 +121,30 @@ export function TerminalPayment({
       {retry || staff ? (
         <Wrapper dir="row" gap={14} wrap justify="center">
           {retry && onLeave ? (
-            <Button
-              label={t.toMenu}
-              testID="kiosk-terminal-menu"
-              icon="arrow-back"
-              iconLeading
-              disabled={busy}
-              onPress={onLeave}
-            />
+            <View style={{ width: pair }}>
+              <Button
+                label={t.toMenu}
+                testID="kiosk-terminal-menu"
+                icon="arrow-back"
+                iconLeading
+                fullWidth
+                disabled={busy}
+                onPress={onLeave}
+              />
+            </View>
           ) : null}
           {retry && onRetry ? (
-            <Button
-              label={t.retry}
-              tone="light"
-              testID="kiosk-terminal-retry"
-              icon="refresh"
-              busy={busy}
-              onPress={onRetry}
-            />
+            <View style={{ width: pair }}>
+              <Button
+                label={t.retry}
+                tone="light"
+                testID="kiosk-terminal-retry"
+                icon="refresh"
+                fullWidth
+                busy={busy}
+                onPress={onRetry}
+              />
+            </View>
           ) : null}
           {staff && onStaff ? (
             <Button
