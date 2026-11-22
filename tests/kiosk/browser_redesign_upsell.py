@@ -225,7 +225,7 @@ class SmartUpsell(ui.KioskUI):
         expect(ui.element(page, 'kiosk-payment-method-kaspi')).to_be_visible()
         expect(page.get_by_test_id('kiosk-payment-method-card')).to_have_count(0)
         expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_have_count(0)
-        expect(page.get_by_text('10-13', exact=False).first).to_be_visible()
+        expect(page.get_by_text('10-13', exact=False)).to_have_count(0)  # owner 22.11: no preparation time yet
         photos = page.locator('[data-testid^="kiosk-review-photo-"]')
         expect(photos).to_have_count(2)
         for photo in photos.all():
