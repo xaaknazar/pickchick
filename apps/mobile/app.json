@@ -2,7 +2,7 @@
   "expo": {
     "name": "PickChick",
     "slug": "pickchick",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "icon": "../../design/prototype/assets/mockup/logo.png",
     "orientation": "portrait",
     "scheme": "pickchick",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android/adaptive-icon-foreground.png",
         "monochromeImage": "./assets/android/adaptive-icon-monochrome.png",
