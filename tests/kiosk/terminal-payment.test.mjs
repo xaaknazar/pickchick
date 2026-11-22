@@ -815,3 +815,254 @@ test('protected terminal (22.11): deviceinfo without a token is 401/999, registe
   assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
   assert.equal(sent(h, 'register').length, count);
 });
+
+// Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once. Kaspi has no cancel
+// command, so the open payment is followed underneath and nothing about money changes.
+const cancelled = () => ({ kind: 'ok', data: { status: 'fail', subStatus: 'ProcessCancelled' } });
+const lineOf = (c) => c.getSnapshot().cart[0].lineId;
+
+test('owner 22.11: «Изменить заказ» while the terminal waits opens the cart at once, the payment stays followed', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  const requests = h.calls.length;
+  const terminalCalls = h.terminal.calls.length;
+  assert.equal(c.editTerminalOrder(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'cart');
+  assert.equal(s.order, null, 'the guest sees a plain draft');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.recoveryRequired, false);
+  assert.equal(s.cart.length, 1);
+  assert.equal(h.calls.length, requests, 'no request: nothing is cancelled or forgotten');
+  assert.equal(h.terminal.calls.length, terminalCalls);
+  assert.equal(flowOf(h).terminal.phase, 'wait');
+  assert.ok(flowOf(h).order);
+
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true);
+  assert.equal(flowOf(h).cart[0].quantity, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-1', 'the open attempt is written back untouched');
+  c.goMenu();
+  assert.equal(c.getSnapshot().step, 'menu');
+  // The terminal is still read every second and a background refresh keeps the guest's screen.
+  await c.pollTerminal();
+  assert.equal(sent(h, 'status').length > 0, true);
+  await c.refresh();
+  assert.equal(c.getSnapshot().step, 'menu');
+  // A refused tap is a cart matter, never the recovery screen.
+  assert.equal(await c.updateQuantity('no-such-line', 1), false);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.notEqual(s.errorCode, 'PAYMENT_UNKNOWN');
+  assert.equal(sent(h, 'payment').length, 1);
+});
+
+test('owner 22.11: only a waiting terminal payment can be changed; a restart shows the payment again', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  assert.equal(c.editTerminalOrder(), true);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true);
+  const again = new CommercialKioskController(h.io);
+  assert.equal(await again.restore(), true);
+  let s = again.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.ok(s.order);
+  h.terminal.statuses = [cancelled()];
+  await again.pollTerminal();
+  assert.equal(again.getSnapshot().terminalPayment.phase, 'cancelled');
+  assert.equal(again.editTerminalOrder(), false, 'a settled payment is left by «Изменить заказ»');
+  assert.equal(await again.leaveTerminal(), true);
+  s = again.getSnapshot();
+  assert.equal(s.step, 'cart');
+  assert.equal(s.cart[0].quantity, 2, 'the change made before the restart is kept');
+});
+
+test('owner 22.11: the terminal lets go while the guest changes the order: left without a tap, then paid as a new order', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  const first = h.order.orderId;
+  c.editTerminalOrder();
+  c.goMenu();
+  h.terminal.statuses = [cancelled()];
+  assert.equal(await c.pollTerminal(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'menu', 'the guest stays on their screen');
+  assert.equal(s.cart.length, 1);
+  assert.equal(s.terminalPayment, null);
+  assert.equal(h.terminal.events.at(-1).status, 'fail');
+  assert.equal(h.terminal.events.at(-1).sub_status, 'ProcessCancelled');
+  assert.equal(h.calls.filter((call) => call.path === '/sessions/end').length, 1);
+  assert.equal('terminal' in flowOf(h), false);
+  assert.equal(flowOf(h).order, null);
+  assert.equal(flowOf(h).guestId, null, 'the changed order gets a new guest session');
+  assert.equal(await c.pollTerminal(), false, 'nothing left to read');
+
+  h.order = null;
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'wait' } }];
+  h.terminal.payment = () => ({ kind: 'ok', data: { processId: 'P-2' } });
+  c.goLoyalty();
+  assert.equal(await c.beginPayment(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.notEqual(h.order.orderId, first);
+  assert.equal(h.terminal.attempts, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-2');
+});
+
+test('owner 22.11: «Оплатить» while the terminal still holds the old sum waits, then pays the changed order by itself', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goLoyalty();
+  assert.equal(await c.beginPayment(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'releasing');
+  assert.equal(s.order, null);
+  assert.equal(sent(h, 'payment').length, 1, 'never a second /v2/payment on a busy terminal');
+  assert.equal(h.terminal.attempts, 1);
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'releasing');
+  // «Вернуться к заказу» and pay again.
+  assert.equal(c.editTerminalOrder(), true);
+  assert.equal(c.getSnapshot().step, 'cart');
+  assert.equal(c.getSnapshot().terminalPayment, null);
+  assert.equal(await c.beginPayment(), true);
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'releasing');
+
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(
+    s.terminalPayment.phase,
+    'releasing',
+    'the terminal is free, the payment starts next',
+  );
+  assert.equal(flowOf(h).order, null);
+  h.order = null;
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'wait' } }];
+  h.terminal.payment = () => ({ kind: 'ok', data: { processId: 'P-2' } });
+  assert.equal(await c.pollTerminal(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.equal(sent(h, 'payment').length, 2);
+  assert.equal(h.terminal.attempts, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-2');
+  // The new payment is an ordinary one.
+  h.terminal.statuses = [success()];
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().step, 'order');
+  assert.equal(c.getSnapshot().editDropped, false);
+});
+
+test('owner 22.11: a changed order that cannot be paid returns to the review with the reason', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goLoyalty();
+  await c.beginPayment();
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  h.order = null;
+  h.terminal.cloud.enabled = false;
+  h.paymentMethods = [];
+  assert.equal(await c.pollTerminal(), false);
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'loyalty');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.order, null);
+  assert.equal(await c.pollTerminal(), false, 'asked once');
+});
+
+test('owner 22.11: paid on the terminal while the guest changes the order: the first order wins', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  await c.updateQuantity(lineOf(c), 2);
+  h.terminal.statuses = [success()];
+  assert.equal(await c.pollTerminal(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'order');
+  assert.equal(s.order.payment_state, 'paid');
+  assert.equal(s.editDropped, true, 'the guest is told the changes are not in the order');
+  assert.equal(h.terminal.events.at(-1).status, 'success');
+  assert.equal(c.editTerminalOrder(), false);
+  assert.equal(await c.newGuest(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'start');
+  assert.equal(s.editDropped, false);
+  assert.equal(s.cart.length, 0);
+});
+
+test('owner 22.11: cancel while changing the order waits for the terminal, then ends the guest', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  assert.equal(await c.newGuest(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'cancelling');
+  assert.ok(flowOf(h).order, 'nothing is forgotten while the terminal may still take the money');
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'cancelling');
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'start');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.cart.length, 0);
+  assert.equal(flowOf(h).order, null);
+  assert.equal(flowOf(h).mode, null);
+  assert.equal(sent(h, 'payment').length, 1);
+});
+
+test('owner 22.11: an unknown terminal result ends the change: the payment screen takes over', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goMenu();
+  h.terminal.statuses = [{ kind: 'refused', httpStatus: 400, statusCode: 101, message: 'gone' }];
+  await c.pollTerminal();
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'checking');
+  assert.ok(s.order);
+  assert.equal(c.editTerminalOrder(), false);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), false, 'the draft is closed again');
+});
+
+test('owner 22.11: a cloud that does not answer keeps the guest changing the order; it is left once the cloud answers', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goMenu();
+  // The terminal failed, the cloud does not take the result yet.
+  h.terminal.eventsDown = true;
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(flowOf(h).terminal.phase, 'fail');
+  assert.equal(flowOf(h).terminal.reported, false);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true, 'the draft stays open meanwhile');
+  // The result is taken, the session end is not.
+  h.terminal.eventsDown = false;
+  h.endFail = true;
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(s.recoveryRequired, false);
+  assert.equal(flowOf(h).terminal.reported, true);
+  assert.ok(flowOf(h).order, 'not left before the old guest is ended');
+  h.endFail = false;
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(flowOf(h).order, null);
+  assert.equal('terminal' in flowOf(h), false);
+  assert.equal(s.cart[0].quantity, 2);
+  assert.equal(s.error, null);
+});
