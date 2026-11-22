@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { chmod, cp, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,6 +27,7 @@ import {
   AGGREGATOR_MODES,
   CATEGORIES,
   LEGACY_SLUGS,
+  OPTIONAL_SHEETS,
   PAYLOAD_BUDGET_BYTES,
   SHEETS,
   apiBase,
@@ -1604,4 +1605,63 @@ test('restore from the public catalog: refused when the cashier has aggregator p
   });
   assert.equal(admin.ok, true, JSON.stringify(admin.manifest.errors));
   assert.doesNotMatch(await readFile(join(dir, 'admin', 'review.md'), 'utf8'), /публичный каталог/);
+});
+
+test('optional КБЖУ sheet: operator values replace the zeros; bad rows are refused; absent sheet changes nothing', async (t) => {
+  const header = OPTIONAL_SHEETS.nutrition.columns.join('\t');
+  const nutrition = parseTsv(
+    [
+      header,
+      'wedges\tper_100_g\t200\t3,0\t9.9\t23.9\tлист',
+      'fingers\tper_serving\t97\t13.2\t4.1\t1.7\t',
+    ].join('\n'),
+    'nutrition',
+  );
+  const model = buildMenu({ ...sheets(), nutrition });
+  assert.deepEqual(model.errors, []);
+  const by = Object.fromEntries(model.payload.products.map((product) => [product.id, product]));
+  assert.deepEqual(by.wedges.nutrition, {
+    basis: 'per_100_g',
+    energy_kcal: 200,
+    protein_g: 3,
+    fat_g: 9.9,
+    carbs_g: 23.9,
+  });
+  assert.equal(by.wedges.nutrition_status, 'operator_entered');
+  assert.equal(by.toast.nutrition_status, 'unverified');
+  assert.match(reviewMarkdown(model, { inputs: {}, payloadSha256: 'a'.repeat(64) }), /## КБЖУ/);
+  // No sheet: exactly the step-1 payload.
+  assert.equal(
+    payloadHash(buildMenu({ ...sheets(), nutrition: [] }).payload),
+    payloadHash(payload),
+  );
+  const bad = parseTsv(
+    [
+      header,
+      'nope\tper_serving\t1\t1\t1\t1\t',
+      'toast\tper_kg\t1\t1\t1\t1\t',
+      'coleslaw\tper_serving\t-1\t1\t1\t1\t',
+      'coleslaw\tper_serving\t1\t1\t1\t1\t',
+    ].join('\n'),
+    'nutrition',
+  );
+  const refused = buildMenu({ ...sheets(), nutrition: bad });
+  assert.equal(refused.payload, null);
+  assert.deepEqual(codes(refused.errors), [
+    'NUTRITION_DUPLICATE',
+    'NUTRITION_INVALID',
+    'NUTRITION_UNKNOWN',
+  ]);
+  // runBuild: an absent nutrition.tsv is not an input; a present one is recorded.
+  const dir = mkdtempSync(join(tmpdir(), 'menu-nutrition-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  for (const spec of Object.values(SHEETS))
+    writeFileSync(join(dir, spec.file), readFileSync(join(FIXTURE, spec.file)));
+  await runBuild({ dir, out: join(dir, 'out-1') });
+  const plain = JSON.parse(readFileSync(join(dir, 'out-1', 'manifest.json'), 'utf8'));
+  assert.equal('nutrition.tsv' in plain.inputs, false);
+  writeFileSync(join(dir, 'nutrition.tsv'), `${header}\nwedges\tper_100_g\t200\t3\t9.9\t23.9\t\n`);
+  await runBuild({ dir, out: join(dir, 'out-2') });
+  const withSheet = JSON.parse(readFileSync(join(dir, 'out-2', 'manifest.json'), 'utf8'));
+  assert.equal(typeof withSheet.inputs['nutrition.tsv'].sha256, 'string');
 });

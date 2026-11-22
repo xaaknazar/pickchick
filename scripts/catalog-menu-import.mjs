@@ -189,6 +189,18 @@ export const SHEETS = Object.freeze({
   },
   catalog: { file: 'catalog.tsv', title: 'Каталог', columns: ['key', 'value', 'comment'] },
 });
+/**
+ * Optional sheets: a missing file is an empty sheet, and a build without it keeps the same
+ * manifest bytes as before (the input is recorded only when the file exists).
+ */
+export const OPTIONAL_SHEETS = Object.freeze({
+  nutrition: {
+    file: 'nutrition.tsv',
+    title: 'КБЖУ',
+    columns: ['slug', 'basis', 'energy_kcal', 'protein_g', 'fat_g', 'carbs_g', 'comment'],
+  },
+});
+const NUTRITION_BASES = ['per_serving', 'per_100_g'];
 const SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PHOTO = ['есть', 'временное', 'нет'];
@@ -244,7 +256,7 @@ const hasControl = (value, allowTab = false) =>
 
 /** Tab-separated sheet as exported by Google Sheets or Excel (UTF-8), quoted cells allowed. */
 export function parseTsv(input, sheet) {
-  const spec = SHEETS[sheet];
+  const spec = SHEETS[sheet] ?? OPTIONAL_SHEETS[sheet];
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(String(input), 'utf8');
   if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff))
     throw new ImportError('TSV_ENCODING', `${spec.file}: UTF-16, сохраните лист как UTF-8 TSV`);
@@ -338,7 +350,7 @@ export function buildMenu(sheets, { current = null, edge = null, aggregatorPrice
     }
   };
   const where = (sheet, row, field) => ({
-    sheet: SHEETS[sheet].file,
+    sheet: (SHEETS[sheet] ?? OPTIONAL_SHEETS[sheet]).file,
     line: row.line,
     ...(field ? { field } : {}),
   });
@@ -441,6 +453,38 @@ export function buildMenu(sheets, { current = null, edge = null, aggregatorPrice
     };
     products.push(product);
     if (SLUG.test(row.slug) && !bySlug.has(row.slug)) bySlug.set(row.slug, product);
+  }
+  // Optional КБЖУ sheet: an operator-entered value replaces the unverified zeros.
+  const nutritionSeen = new Set();
+  for (const row of sheets.nutrition ?? []) {
+    const at = (field) => where('nutrition', row, field);
+    const product = bySlug.get(row.slug);
+    if (!product) {
+      fail('NUTRITION_UNKNOWN', at('slug'), `«${row.slug}»`);
+      continue;
+    }
+    if (nutritionSeen.has(row.slug)) {
+      fail('NUTRITION_DUPLICATE', at('slug'), row.slug);
+      continue;
+    }
+    nutritionSeen.add(row.slug);
+    if (!NUTRITION_BASES.includes(row.basis))
+      fail('NUTRITION_INVALID', at('basis'), `«${row.basis}»`);
+    const values = {};
+    for (const [field, max] of [
+      ['energy_kcal', 100000],
+      ['protein_g', 10000],
+      ['fat_g', 10000],
+      ['carbs_g', 10000],
+    ]) {
+      const text = row[field].replace(',', '.');
+      const value = /^\d+(\.\d{1,3})?$/.test(text) ? Number(text) : NaN;
+      if (!(value >= 0 && value <= max))
+        fail('NUTRITION_INVALID', at(field), `«${row[field]}» - число 0..${max}`);
+      values[field] = value;
+    }
+    product.payload.nutrition = { basis: row.basis, ...values };
+    product.payload.nutrition_status = 'operator_entered';
   }
   if (products.length < 1 || products.length > 100)
     fail('PRODUCT_COUNT', { sheet: SHEETS.positions.file }, `${products.length} позиций (1..100)`);
@@ -812,7 +856,9 @@ export function reviewMarkdown(model, meta) {
       (model.bytes === null
         ? ''
         : ` Размер каталога: ${model.bytes} байт из ${PAYLOAD_BUDGET_BYTES} допустимых.`),
-    '- КБЖУ публикуются нулями со статусом «не проверено», аллергены - «не указаны» (в iiko их нет).',
+    model.products.some((product) => product.payload.nutrition_status === 'operator_entered')
+      ? `- КБЖУ из листа «КБЖУ» у ${model.products.filter((product) => product.payload.nutrition_status === 'operator_entered').length} позиций, у остальных нули со статусом «не проверено»; аллергены - «не указаны».`
+      : '- КБЖУ публикуются нулями со статусом «не проверено», аллергены - «не указаны» (в iiko их нет).',
     ...(model.aggregatorPrices === undefined || model.aggregatorPrices === 'off'
       ? [
           '- Цены Яндекс Еды и Glovo в эту публикацию не входят: прайсов агрегаторов в репозитории нет, ' +
@@ -948,6 +994,26 @@ export function reviewMarkdown(model, meta) {
       : 'Не задан (М2 - P1): кухня получает комбо целиком, как сейчас.',
     '',
   );
+  const entered = model.products.filter(
+    (product) => product.payload.nutrition_status === 'operator_entered',
+  );
+  if (entered.length)
+    lines.push(
+      '## КБЖУ',
+      '',
+      table(
+        ['slug', 'Основа', 'Ккал', 'Белки', 'Жиры', 'Углеводы'],
+        entered.map(({ payload: { id, nutrition: n } }) => [
+          id,
+          n.basis === 'per_100_g' ? '100 г' : 'порция',
+          n.energy_kcal,
+          n.protein_g,
+          n.fat_g,
+          n.carbs_g,
+        ]),
+      ),
+      '',
+    );
   if (model.current) {
     lines.push('## Что уходит из опубликованного меню', '');
     const removed = [];
@@ -1072,6 +1138,20 @@ export async function runBuild({ dir, out, current, edge, aggregatorPrices = 'of
     sheets = {};
   for (const [key, spec] of Object.entries(SHEETS)) {
     const bytes = await readRegular(join(dir, spec.file), 2_000_000);
+    inputs[spec.file] = { sha256: sha256(bytes), bytes: bytes.length };
+    sheets[key] = parseTsv(bytes, key);
+  }
+  for (const [key, spec] of Object.entries(OPTIONAL_SHEETS)) {
+    const path = join(dir, spec.file);
+    const exists = await lstat(path).then(
+      () => true,
+      (error) => (error?.code === 'ENOENT' ? false : Promise.reject(error)),
+    );
+    if (!exists) {
+      sheets[key] = [];
+      continue;
+    }
+    const bytes = await readRegular(path, 2_000_000);
     inputs[spec.file] = { sha256: sha256(bytes), bytes: bytes.length };
     sheets[key] = parseTsv(bytes, key);
   }
