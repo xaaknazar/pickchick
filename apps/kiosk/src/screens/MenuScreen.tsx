@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KioskModel, KioskProduct } from '../model';
 import { copy } from '../i18n';
 import { defaultSelections, validSelections } from '../cart';
@@ -9,7 +9,8 @@ import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
 import { Toast } from '../components/Toast';
 import { ProductSheet } from '../components/ProductSheet';
-import { inCategory, type Category, type MenuMemory } from '../components/categories';
+import { MenuDeck } from '../components/MenuDeck';
+import { categoryKeys, inCategory, type Category, type MenuMemory } from '../components/categories';
 import { opensInSheet } from '../productSheet';
 export type { MenuMemory } from '../components/categories';
 export function MenuScreen({
@@ -52,9 +53,32 @@ export function MenuScreen({
     context.from === 'product' && addSerial > (memory.addSerial ?? 0) ? added : null,
   );
   const [arriving, setArriving] = useState(arrival?.productId ?? null);
-  const counts: Record<string, number> = {};
-  for (const line of model.cart)
-    counts[line.productId] = (counts[line.productId] ?? 0) + line.quantity;
+  const counts = useMemo(() => {
+    const units: Record<string, number> = {};
+    for (const line of model.cart)
+      units[line.productId] = (units[line.productId] ?? 0) + line.quantity;
+    return units;
+  }, [model.cart]);
+  const sections = useMemo(() => {
+    const by = {} as Record<Category, KioskProduct[]>;
+    for (const key of categoryKeys) by[key] = products.filter((p) => inCategory(p, key));
+    return by;
+  }, [products]);
+  // Owner 22.11.2026: «В зале» / «С собой» and other short saves must not blink the prices and
+  // buttons. The cards and the panel show the busy look only for a wait the guest can notice;
+  // a tap during a short save is refused by the controller as before.
+  const slow = useSlowBusy(model.busy);
+  // Stable handlers, so the sections kept under the open one are not drawn again on every
+  // change of the screen (MenuGrid is memoised).
+  const latest = useRef({ open, model });
+  latest.current = { open, model };
+  const onOpen = useCallback((p: KioskProduct) => latest.current.open(p), []);
+  const onTouch = useCallback(() => latest.current.model.touch(), []);
+  const onAdd = useCallback((p: KioskProduct) => {
+    const selected = defaultSelections(p);
+    if (p.modifier_groups.length || !validSelections(p, selected)) latest.current.open(p);
+    else void latest.current.model.addToCart(p.id, selected);
+  }, []);
   // Every add (here or on the product screen just closed) replaces the toast with
   // that line's name; a quantity that grows by itself (availability) shows none.
   // Adds made on the upsell or cart screens are not announced again on return.
@@ -107,23 +131,23 @@ export function MenuScreen({
             />
           }
         />
-        <MenuGrid
-          key={category + '-' + revision}
-          products={products.filter((p) => inCategory(p, category))}
-          category={category}
-          memory={memory}
-          locale={context.locale}
-          busy={model.busy}
-          cartCounts={counts}
-          arriving={arriving}
-          onInteraction={model.touch}
-          onOpen={open}
-          onAdd={(p) => {
-            const selected = defaultSelections(p);
-            if (p.modifier_groups.length || !validSelections(p, selected)) open(p);
-            else void model.addToCart(p.id, selected);
-          }}
-        />
+        <MenuDeck category={category} revision={revision}>
+          {(key, active) => (
+            <MenuGrid
+              active={active}
+              products={sections[key]}
+              category={key}
+              memory={memory}
+              locale={context.locale}
+              busy={slow}
+              cartCounts={counts}
+              arriving={arriving}
+              onInteraction={onTouch}
+              onOpen={onOpen}
+              onAdd={onAdd}
+            />
+          )}
+        </MenuDeck>
       </Wrapper>
       <CartBar
         lines={model.cart}
@@ -133,7 +157,7 @@ export function MenuScreen({
         previousTotal={previousTotal.current}
         valid={model.cartValid}
         empty={!model.cart.length && !model.unavailableCartLines.length}
-        busy={model.busy}
+        busy={slow}
         locale={context.locale}
         arrival={arrival}
         onLanded={() => setArriving(null)}
@@ -165,4 +189,17 @@ export function MenuScreen({
       ) : null}
     </ScreenSurface>
   );
+}
+/** True once `busy` has lasted long enough to show (a quick save never blinks the menu). */
+function useSlowBusy(busy: boolean, wait = 450) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), wait);
+    return () => clearTimeout(timer);
+  }, [busy, wait]);
+  return busy && slow;
 }
