@@ -127,7 +127,7 @@ export function MenuScreen({
             <PhotoEntry
               locale={context.locale}
               onInteraction={model.touch}
-              disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
+              disabled={slow || !!sheet || model.idleWarningSeconds !== null}
             />
           }
         />
