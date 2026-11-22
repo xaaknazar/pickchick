@@ -12,6 +12,7 @@ import {
   compositionPills,
   drinkShelf,
   drinkShelves,
+  fillTarget,
   firstMissing,
   gridColumns,
   groupComplete,
@@ -359,4 +360,47 @@ test('owner 22.11: a fingers set keeps its optional sauces and the paid «Доб
     ],
   };
   assert.deepEqual(ids(cardGroups(set)), ['sauce', 'drink-extra']);
+});
+
+test('«Заполнить фирменным» fills the room left in a set with the free signature sauce', () => {
+  const group = {
+    id: 'sauce',
+    title: 'Соусы',
+    min: 0,
+    max: 8,
+    options: [
+      {
+        id: 'pick',
+        label: 'Фирменный',
+        price_delta_minor: '0',
+        default_quantity: 0,
+        max_quantity: 8,
+        available: true,
+      },
+      {
+        id: 'hot',
+        label: 'Острый',
+        price_delta_minor: '0',
+        default_quantity: 0,
+        max_quantity: 8,
+        available: true,
+      },
+    ],
+  };
+  assert.deepEqual(fillTarget(group, []), { option: group.options[0], quantity: 8 });
+  const some = [
+    { group_id: 'sauce', option_id: 'hot', quantity: 3 },
+    { group_id: 'sauce', option_id: 'pick', quantity: 2 },
+  ];
+  assert.equal(fillTarget(group, some).quantity, 5);
+  const filled = applyPick(group, some, 'pick', 5);
+  assert.equal(
+    filled.reduce((sum, s) => sum + s.quantity, 0),
+    8,
+  );
+  assert.equal(fillTarget(group, filled), null);
+  // A sold-out signature sauce falls back to the next free one.
+  const out = { ...group, options: [{ ...group.options[0], available: false }, group.options[1]] };
+  assert.equal(fillTarget(out, []).option.id, 'hot');
+  assert.equal(fillTarget({ ...group, max: 1 }, []), null);
 });

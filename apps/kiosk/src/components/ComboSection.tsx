@@ -9,6 +9,7 @@ import { productCopy } from '../productCopy';
 import {
   applyPick,
   chooseText,
+  fillTarget,
   gridColumns,
   groupComplete,
   groupCount,
@@ -203,6 +204,8 @@ export function ComboSection({
         : total > 0 && group.max > 1
           ? t.chosenOf.replace('{n}', String(total)).replace('{max}', String(group.max))
           : chooseText(group, tp);
+  const fill = group.id === 'sauce' && optional ? fillTarget(group, selections) : null;
+  const fillPress = usePress(0.95);
   const check = done && !idle;
   const calm = done || idle;
   const pop = usePopIn(value, 360, 0, false);
@@ -251,6 +254,39 @@ export function ComboSection({
           {sectionTitle(group, tp)}
         </Text>
         <View style={{ flex: 1 }} />
+        {fill ? (
+          <Animated.View style={{ transform: [{ scale: fillPress.scale }] }}>
+            <Pressable
+              testID={`kiosk-section-fill-${group.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={tp.fillSignature}
+              onPress={() =>
+                setSelections(applyPick(group, selections, fill.option.id, fill.quantity))
+              }
+              onPressIn={fillPress.onPressIn}
+              onPressOut={fillPress.onPressOut}
+              style={{
+                height: px(44),
+                paddingLeft: px(12),
+                paddingRight: px(18),
+                borderRadius: 999,
+                backgroundColor: colors.white,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: px(6),
+              }}
+            >
+              <Icon name="add" size="small" tone="brand" />
+              <Text
+                {...fixedText}
+                numberOfLines={1}
+                style={{ fontFamily: fonts.heavy, fontSize: px(17), color: colors.blue }}
+              >
+                {tp.fillSignature}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
         <Animated.View
           testID={`kiosk-section-value-${group.id}`}
           style={{

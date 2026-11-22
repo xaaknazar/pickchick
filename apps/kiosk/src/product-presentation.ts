@@ -262,6 +262,23 @@ export function applyPick(
   return quantity > 0 ? [...others, { group_id: group.id, option_id: optionId, quantity }] : others;
 }
 /**
+ * «Заполнить фирменным» (owner 22.11): a set's optional sauces take the free signature sauce
+ * up to the set's count. The first free option on sale fills the room left; the guest's other
+ * picks stay. Null when there is no room or no free option to fill with.
+ */
+export function fillTarget(group: KioskModifierGroup, selections: readonly KioskSelection[]) {
+  if (group.max <= 1) return null;
+  const room = group.max - groupCount(group, selections);
+  if (room <= 0) return null;
+  const option = group.options.find((o) => o.available && BigInt(o.price_delta_minor) === 0n);
+  if (!option) return null;
+  const have = selections
+    .filter((s) => s.group_id === group.id && s.option_id === option.id)
+    .reduce((sum, s) => sum + s.quantity, 0);
+  const quantity = Math.min(option.max_quantity, have + room);
+  return quantity > have ? { option, quantity } : null;
+}
+/**
  * Groups shown as numbered sections. The «Добавить к заказу» list (`extras`, optional extras
  * with quantities) left the card: the smart upsell offers extras now. Its picks, if a cart line
  * being edited has any, stay in the line untouched. Owner 22.11.2026: other optional groups with
