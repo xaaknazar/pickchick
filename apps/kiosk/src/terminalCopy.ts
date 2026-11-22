@@ -42,6 +42,13 @@ const ru = {
   cancelOrEdit: 'Отменить или изменить заказ',
   cancelOnTerminal:
     'Нажмите «Отмена» на терминале. Деньги не спишутся, а здесь появится кнопка «Изменить заказ».',
+  /** Owner 22.11.2026: the guest changed the order while the terminal still held the old sum. */
+  releasingTitle: 'Ждём терминал',
+  releasing:
+    'На терминале ещё прошлая сумма - не оплачивайте её. Новая появится сама, как только терминал освободится (до 3 минут). Быстрее: нажмите на терминале «Отмена».',
+  cancellingTitle: 'Отменяем заказ',
+  cancelling:
+    'Не оплачивайте на терминале. Сумма на нём погаснет сама (до 3 минут) или сразу по кнопке «Отмена».',
   noCancelTitle: 'Оплату нельзя отменить на киоске',
   noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
@@ -124,6 +131,12 @@ const kk: Strings = {
   cancelOrEdit: 'Тапсырысты болдырмау не өзгерту',
   cancelOnTerminal:
     'Терминалда төлемді болдырмаңыз. Ақша алынбайды, ал мұнда «Тапсырысты өзгерту» түймесі шығады.',
+  releasingTitle: 'Терминалды күтеміз',
+  releasing:
+    'Терминалда әлі бұрынғы сома тұр - оны төлемеңіз. Жаңа сома терминал босаған бойда өзі шығады (3 минутқа дейін). Тезірек: терминалда «Болдырмау» түймесін басыңыз.',
+  cancellingTitle: 'Тапсырысты болдырмаймыз',
+  cancelling:
+    'Терминалда төлемеңіз. Ондағы сома өзі өшеді (3 минутқа дейін) немесе «Болдырмау» түймесін басқанда бірден өшеді.',
   noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
   noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
   staffResetBody:
@@ -202,6 +215,12 @@ const en: Strings = {
   cancelOrEdit: 'Cancel or change order',
   cancelOnTerminal:
     'Press «Cancel» on the terminal. No money is taken, and «Change order» appears here.',
+  releasingTitle: 'Waiting for the terminal',
+  releasing:
+    'The terminal still shows the previous amount - do not pay it. The new one appears by itself as soon as the terminal is free (up to 3 minutes). Faster: press «Cancel» on the terminal.',
+  cancellingTitle: 'Cancelling the order',
+  cancelling:
+    'Do not pay on the terminal. The amount there clears by itself (up to 3 minutes), or at once with its «Cancel» button.',
   noCancelTitle: 'The payment cannot be cancelled on the kiosk',
   noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
   staffResetBody:

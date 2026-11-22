@@ -58,6 +58,14 @@ export const Cancelled: Story = {
     view: { phase: 'cancelled', reason: null, offline: false, subStatus: 'ProcessCancelled' },
   },
 };
+/** The guest changed the order and pressed pay while the terminal still held the old sum. */
+export const Releasing: Story = {
+  args: { view: { phase: 'releasing', reason: null, offline: false, subStatus: null } },
+};
+/** The guest cancelled while changing the order: the kiosk waits for the terminal to let go. */
+export const Cancelling: Story = {
+  args: { view: { phase: 'cancelling', reason: null, offline: false, subStatus: null } },
+};
 /** Error 107: a previous operation is not finished on the terminal. */
 export const TerminalBusy: Story = {
   args: { view: { phase: 'not_started', reason: 'busy', offline: false, subStatus: null } },

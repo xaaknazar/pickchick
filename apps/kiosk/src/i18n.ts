@@ -49,6 +49,9 @@ const ru = {
     'Сотрудник проверяет оплату. Не оплачивайте повторно. Если нужна помощь, обратитесь к сотруднику.',
   numberPending: 'Номер заказа появится на табло. Если номера долго нет, обратитесь к сотруднику.',
   photoNumber: 'Сфотографируйте номер или запомните его',
+  /** The order was paid on the terminal while the guest was changing it (owner 22.11.2026). */
+  editDropped:
+    'Оплата прошла по заказу до изменений. Изменения в него не вошли - их можно заказать отдельно.',
   optionStopped: '«{name}» больше нет в наличии. Выберите другой вариант.',
   menuUpdatingTitle: 'Меню обновляется',
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
@@ -362,6 +365,8 @@ const kk: Strings = {
     'Қызметкер төлемді тексеріп жатыр. Қайта төлемеңіз. Көмек керек болса, қызметкерге жүгініңіз.',
   numberPending: 'Тапсырыс нөмірі тақтада пайда болады. Нөмір ұзақ болмаса, қызметкерге жүгініңіз.',
   photoNumber: 'Нөмірді суретке түсіріңіз немесе есте сақтаңыз',
+  editDropped:
+    'Төлем өзгерістерге дейінгі тапсырыс бойынша өтті. Өзгерістер оған кірмеді - оларды бөлек тапсырыс беруге болады.',
   optionStopped: '«{name}» енді жоқ. Басқа нұсқаны таңдаңыз.',
   menuUpdatingTitle: 'Мәзір жаңартылып жатыр',
   menuUpdatingBody:
@@ -675,6 +680,8 @@ const en: Strings = {
   numberPending:
     'Your order number will appear on the board. If it takes long, please ask a team member.',
   photoNumber: 'Take a photo of your number or remember it',
+  editDropped:
+    'The payment went through for the order before your changes. The changes are not in it - you can order them separately.',
   optionStopped: '{name} is no longer available. Please choose another option.',
   menuUpdatingTitle: 'The menu is updating',
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',

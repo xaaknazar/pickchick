@@ -82,6 +82,9 @@ export function PaymentScreen({
               onRetry={model.retryTerminal ? () => void model.retryTerminal?.() : undefined}
               onLeave={model.leaveTerminal ? () => void model.leaveTerminal?.(true) : undefined}
               onEdit={model.leaveTerminal ? () => void model.leaveTerminal?.(false) : undefined}
+              onEditNow={
+                model.editTerminalOrder ? () => void model.editTerminalOrder?.() : undefined
+              }
               onStaff={model.staffResetAvailable ? context.onStaffHold : undefined}
             />
           </Wrapper>
@@ -435,6 +438,11 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           {number ? (
             <Body tone="onBlue" align="center">
               {t.photoNumber}
+            </Body>
+          ) : null}
+          {model.editDropped ? (
+            <Body tone="inverse" align="center" announce testID="kiosk-order-edit-dropped">
+              {t.editDropped}
             </Body>
           ) : null}
         </Wrapper>
