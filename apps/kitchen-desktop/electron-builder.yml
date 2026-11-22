@@ -29,6 +29,7 @@ files:
   - renderer/demo.js
   - renderer/ticket-view.js
   - renderer/kds-view.js
+  - renderer/kitchen-ticket.js
   - renderer/courier.js
   - renderer/components/*.js
   - renderer/components/*.css

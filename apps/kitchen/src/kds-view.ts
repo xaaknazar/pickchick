@@ -16,6 +16,7 @@ import type {
   Station,
   Task,
 } from './types.js';
+import { timer } from './kitchen-ticket.js';
 
 const escape = (s: string) =>
   s.replace(
@@ -149,14 +150,21 @@ function head(
   age: string,
   status = '',
   wait = '',
+  since?: { createdAt: string; now: number; still?: boolean },
 ) {
-  return `<div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div>${modeChip(o)}${sourceLabel(o)}</div><div class="age"><strong>${escape(age)}</strong>${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
+  const clock = since
+    ? timer(since.createdAt, since.now, !since.still)
+    : age
+      ? `<strong>${escape(age)}</strong>`
+      : '';
+  return `<div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div>${modeChip(o)}${sourceLabel(o)}</div><div class="age">${clock}${status ? `<small>${escape(status)}</small>` : ''}</div></div>`;
 }
 const minutes = (from: string, now: number) =>
   `${Math.max(0, Math.floor((now - Date.parse(from)) / 60000))} мин`;
 function line(t: Task, extra = '', orderComment = '') {
+  void orderComment; // Menu descriptions are never shown on a kitchen ticket (22.11).
   const d = t.details;
-  return `<section class="line kds-line"><span class="quantity${d.quantity > 1 ? ' many' : ''}">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.description && d.description !== orderComment ? `<p class="description">${escape(d.description)}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
+  return `<section class="line kds-line"><span class="quantity${d.quantity > 1 ? ' many' : ''}">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
 }
 const comment = (o: Order) =>
   o.kitchenComment
@@ -217,7 +225,7 @@ function toastsScreen(input: KdsScreenInput, visible: Order[]) {
       if (special(o)) return input.ticket(o);
       const own = o.tasks.filter((t) => t.stationId === input.stationId && open(t));
       const a = input.actions(o).find((x) => x.action === 'complete_station');
-      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), '', waitClass(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
+      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, '', '', waitClass(o.createdAt, input.now), { createdAt: o.createdAt, now: input.now })}${comment(o)}<div class="lines">${own
         .map((t) =>
           line(
             t,
@@ -244,7 +252,7 @@ function tableScreen(input: KdsScreenInput, visible: Order[]) {
       const upstream = o.tasks.filter((t) => t.details.kds?.upstreamOf === input.stationId);
       const issue = o.tasks.some((t) => t.details.kds?.function === 'issue');
       const a = input.actions(o).find((x) => x.action === 'complete_station');
-      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), '', waitClass(o.createdAt, input.now))}${comment(o)}<div class="lines">${own
+      return `<article class="ticket kds-ticket" data-order="${o.orderId}">${head(o, '', '', waitClass(o.createdAt, input.now), { createdAt: o.createdAt, now: input.now })}${comment(o)}<div class="lines">${own
         .map((t) => {
           const toast = upstream.find(
             (u) =>
@@ -309,7 +317,7 @@ function issueScreen(input: KdsScreenInput, visible: Order[]) {
         ? command(o, a, 'Готов - позвать гостя', input.blocked(o))
         : '<p>Ждём сборку со стола</p>';
     }
-    return `<article class="ticket kds-ticket${o.state === 'ready' ? ' kds-ready' : ''}" data-order="${o.orderId}">${head(o, minutes(o.createdAt, input.now), o.state === 'ready' ? 'Готов к выдаче' : '', o.state === 'ready' ? '' : waitClass(o.createdAt, input.now))}${comment(o)}${prepare}${table}<div class="ticket-actions">${buttons}</div></article>`;
+    return `<article class="ticket kds-ticket${o.state === 'ready' ? ' kds-ready' : ''}" data-order="${o.orderId}">${head(o, '', o.state === 'ready' ? 'Готов к выдаче' : '', o.state === 'ready' ? '' : waitClass(o.createdAt, input.now), { createdAt: o.createdAt, now: input.now, still: o.state === 'ready' })}${comment(o)}${prepare}${table}<div class="ticket-actions">${buttons}</div></article>`;
   };
   const preparing = visible.filter((o) => o.state !== 'ready');
   const ready = visible.filter((o) => o.state === 'ready');

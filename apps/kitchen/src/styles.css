@@ -1779,3 +1779,97 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
     font-size: 20px;
   }
 }
+
+/* 22.11 kitchen/assembly tickets (kitchen-ticket.ts): stopwatch, cook lines, assembly checklist. */
+.timer {
+  font-variant-numeric: tabular-nums;
+  min-width: 4.2ch;
+  text-align: center;
+}
+.kitchen-ticket .ticket-head {
+  align-items: flex-start;
+}
+.ticket-cook .cook-line h3 {
+  font-size: 28px;
+  font-weight: 800;
+}
+.ticket-cook .cook-line .quantity {
+  font-size: 24px;
+  padding: 6px 12px;
+}
+.cook-line.line-done {
+  opacity: 0.55;
+}
+.cook-line:last-child,
+.pack-line:last-child,
+.add-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.line-check {
+  margin: 6px 0 0;
+  font-weight: 700;
+  color: #176142;
+}
+.pack-block {
+  margin: 12px 16px 0;
+  border-radius: 14px;
+  background: #f6f8fc;
+}
+.pack-block h4 {
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3e506d;
+}
+.pack-block h4 .done {
+  color: #176142;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+.pack-block .lines {
+  padding: 10px 14px 8px;
+  gap: 10px;
+}
+.pack-block .line {
+  padding-bottom: 10px;
+  align-items: center;
+}
+.pack-block .line h3 {
+  font-size: 22px;
+}
+.pack-add {
+  background: #fff4ee;
+  border: 2px solid #ffd2bd;
+}
+.pack-add h4 {
+  color: #9b350a;
+}
+.add-drink .quantity {
+  background: #dce7ff;
+  color: var(--blue);
+}
+.add-sauce .quantity {
+  background: #ffe7c2;
+  color: #6b4a00;
+}
+.line-state {
+  flex: none;
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5a6478;
+}
+.line-state.done {
+  font-size: 24px;
+  color: #176142;
+}
+.kitchen-ticket .ticket-actions {
+  padding-top: 16px;
+}
+.kitchen-ticket .age strong.timer {
+  font-size: 30px;
+}

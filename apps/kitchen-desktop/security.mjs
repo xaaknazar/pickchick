@@ -20,6 +20,7 @@ export const ASSETS = [
   'ticket-view.js',
   // Cutover KDS screens (contracts 5.4).
   'kds-view.js',
+  'kitchen-ticket.js',
   'courier.js',
   'components/TerminalPairing.js',
   'components/DisplayAccess.js',
