@@ -1,6 +1,7 @@
 import { Icon } from './Icon';
 import {
   Animated,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,7 +18,8 @@ import { useEnter } from './motion';
 const CTA_ORDER: readonly Locale[] = ['kk', 'ru', 'en'];
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
-/** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
+/** Kaspi brand mark for the terminal payment chip. */
+const KASPI_MARK = require('../../assets/v3/kaspi.webp');
 /** Owner 2026-10-13: one static caption, always in the selected language. */
 function CtaCaption({ shown }: { shown: Locale }) {
   const { px } = useMetrics();
@@ -159,7 +161,16 @@ function KaspiChip({ label, terminal = false }: { label: string; terminal?: bool
           overflow: 'hidden',
         }}
       >
-        <Icon name={terminal ? 'card-outline' : 'qr-code-outline'} tone="brand" />
+        {terminal ? (
+          <Image
+            source={KASPI_MARK}
+            accessibilityIgnoresInvertColors
+            style={{ width: disc, height: disc }}
+            resizeMode="contain"
+          />
+        ) : (
+          <Icon name="qr-code-outline" tone="brand" />
+        )}
       </View>
       <Text
         {...fixedText}
