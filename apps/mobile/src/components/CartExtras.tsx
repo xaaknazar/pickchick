@@ -34,7 +34,6 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                 fontSize: 22,
                 lineHeight: 28,
                 marginTop: 18,
-                marginLeft: 8,
               },
             ]}
           >
@@ -54,10 +53,12 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   style={s.extraPhoto}
                   accessible={false}
                 />
-                <Body style={s.extraName}>{localize(line.product.name)}</Body>
-                <Caption numberOfLines={1} style={s.extraDetail}>
-                  {localize(selectionDescription(line) || line.product.servingLabel)}
-                </Caption>
+                <View style={s.extraText}>
+                  <Body style={s.extraName}>{localize(line.product.name)}</Body>
+                  <Caption numberOfLines={1} style={s.extraDetail}>
+                    {localize(selectionDescription(line) || line.product.servingLabel)}
+                  </Caption>
+                </View>
                 <View style={{ flex: 1 }} />
                 <MotionPressable
                   style={s.extraAdd}
@@ -78,7 +79,9 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   }}
                 >
                   <Body style={s.extraPrice}>{localize(money(lineUnitPrice(line)))}</Body>
-                  <Icon name="add" size={19} color={colors.accent} />
+                  <View style={s.extraPlus}>
+                    <Icon name="add" size={20} color={colors.orangeInk} />
+                  </View>
                 </MotionPressable>
               </View>
             ))}
@@ -105,7 +108,14 @@ export function CartOffers({ props }: { props: ScreenProps }) {
   if (!combo && !content?.promos.length) return null;
   return (
     <View style={{ gap: 14 }}>
-      <Heading small style={orderUI.section}>
+      {/* Same heading as «Всегда кстати»: one left edge and one size for cart sections. */}
+      <Heading
+        small
+        style={[
+          orderUI.section,
+          { fontFamily: font.display, fontSize: 22, lineHeight: 28, marginTop: 18 },
+        ]}
+      >
         {t('Акции')}
       </Heading>
       {combo ? (
@@ -169,31 +179,45 @@ export function CheckoutPayments() {
   );
 }
 const s = StyleSheet.create({
+  // Owner 22.11.2026: the same card as the menu grid - photo on the light window, the name
+  // under it, then the price on the left and the round orange plus on the right.
   extra: {
-    width: 136,
-    padding: 12,
-    paddingTop: 0,
-    gap: 3,
+    width: 148,
+    padding: 6,
+    paddingBottom: 10,
     borderRadius: 22,
-    backgroundColor: '#141B2B',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#FFFFFF0F',
+    borderColor: '#FFFFFF0D',
   },
-  extraPhoto: { width: 110, height: 96, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  extraName: { fontFamily: font.heading, fontSize: 15, lineHeight: 19, marginTop: 6 },
-  extraDetail: { fontSize: 12, lineHeight: 17, color: '#A3B4D6' },
+  extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#EEF2F8' },
+  extraText: { gap: 2, paddingTop: 10, paddingHorizontal: 6 },
+  extraName: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: colors.text },
+  extraDetail: { fontSize: 12, lineHeight: 17, color: colors.muted },
   extraAdd: {
-    minHeight: 48,
-    paddingHorizontal: 10,
-    marginTop: 8,
-    borderRadius: 24,
-    backgroundColor: '#1C2538',
+    minHeight: 44,
+    marginTop: 10,
+    paddingLeft: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 4,
+    gap: 6,
   },
-  extraPrice: { fontFamily: font.heading, fontSize: 15, lineHeight: 20 },
+  extraPrice: {
+    fontFamily: font.bold,
+    fontSize: 15,
+    lineHeight: 20,
+    fontVariant: ['tabular-nums'],
+    color: colors.text,
+  },
+  extraPlus: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   promotion: {
     width: 260,
     padding: 18,

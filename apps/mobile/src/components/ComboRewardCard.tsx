@@ -53,27 +53,44 @@ export function ComboRewardCard({
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
       >
-        <Image
-          source={require('../../assets/campaigns/combo-seven-plus-one.png')}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          accessible={false}
+        {/* Owner 22.11.2026: a new background - the app's night navy with a warm light behind
+            real cut-out food, instead of the grey studio photo. */}
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            gradient('linear-gradient(120deg, #1C2538 0%, #141B2B 100%)'),
+          ]}
         />
         <View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            (Platform.OS === 'web'
-              ? {
-                  backgroundImage:
-                    'linear-gradient(90deg, rgba(4,20,42,0.78) 0%, rgba(4,20,42,0.42) 55%, rgba(4,20,42,0.06) 100%)',
-                }
-              : {
-                  experimental_backgroundImage:
-                    'linear-gradient(90deg, rgba(4,20,42,0.78) 0%, rgba(4,20,42,0.42) 55%, rgba(4,20,42,0.06) 100%)',
-                }) as ViewStyle,
+            gradient(
+              'radial-gradient(circle at 80% 55%, rgba(255,138,61,0.55) 0%, rgba(255,105,0,0) 58%)',
+            ),
           ]}
         />
+        <View pointerEvents="none" style={s.food} accessible={false}>
+          <Image
+            source={require('../../assets/catalog-cutouts/fingers.png')}
+            style={s.foodFingers}
+            contentFit="contain"
+            accessible={false}
+          />
+          <Image
+            source={require('../../assets/catalog-cutouts/burger.png')}
+            style={s.foodBurger}
+            contentFit="contain"
+            accessible={false}
+          />
+          <Image
+            source={require('../../assets/catalog-cutouts/sauce.png')}
+            style={s.foodSauce}
+            contentFit="contain"
+            accessible={false}
+          />
+        </View>
         <View style={[s.offer, compact && s.offerCompact]}>
           <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
             {t('Купи 6 комбо.')}
@@ -223,13 +240,23 @@ export function ComboRewardCard({
   );
 }
 
+function gradient(value: string) {
+  return (
+    Platform.OS === 'web' ? { backgroundImage: value } : { experimental_backgroundImage: value }
+  ) as ViewStyle;
+}
+
 const s = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#263C55' },
+  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#141B2B' },
+  food: { position: 'absolute', top: 0, right: 0, bottom: 0, width: 190 },
+  foodFingers: { position: 'absolute', right: -22, top: 8, width: 138, height: 138 },
+  foodBurger: { position: 'absolute', right: 44, top: 30, width: 118, height: 118 },
+  foodSauce: { position: 'absolute', right: 6, top: 78, width: 52, height: 52 },
   ticket: { minHeight: 174 },
   offer: { flex: 1, minWidth: 0, padding: 18, gap: 10, justifyContent: 'space-between' },
   offerCompact: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
   title: {
-    maxWidth: '74%',
+    maxWidth: '58%',
     fontFamily: font.display,
     fontSize: 22,
     lineHeight: 28,
@@ -238,22 +265,28 @@ const s = StyleSheet.create({
   },
   titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
   progress: { gap: 6 },
-  stamps: { flexDirection: 'row', gap: 6 },
+  stamps: { flexDirection: 'row', gap: 5, maxWidth: '58%' },
   stamp: {
     flex: 1,
     minHeight: 30,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#132B45',
+    backgroundColor: '#FFFFFF14',
     borderWidth: 1,
-    borderColor: '#738699',
+    borderColor: '#FFFFFF47',
   },
   // Same fill as an empty slot; the green check and rim carry the state.
   earned: { borderColor: STAMP_GREEN },
-  gift: { backgroundColor: '#163755', borderColor: '#FFE2C3' },
+  gift: { backgroundColor: '#FFFFFF14', borderColor: '#FFE2C3' },
   stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
-  details: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  details: {
+    maxWidth: '58%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   detailsText: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: colors.white },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {
