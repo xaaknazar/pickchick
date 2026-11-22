@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { money } from '../cart';
 import type { Locale } from '../i18n';
@@ -33,6 +34,7 @@ export function TerminalPayment({
   busy = false,
   onRetry,
   onLeave,
+  onEdit,
   onStaff,
 }: {
   view: TerminalPaymentView;
@@ -42,13 +44,16 @@ export function TerminalPayment({
   busy?: boolean;
   onRetry?: () => void;
   onLeave?: () => void;
+  /** Back to the cart with the same dishes (after a failure; the kiosk keeps the draft). */
+  onEdit?: () => void;
   /** Opens the staff dialog (staff code, then the service reset). */
   onStaff?: () => void;
 }) {
   const t = terminalCopy(locale);
   const { px } = useMetrics();
   /** «В меню» and «Повторить» side by side at one width, so the pair reads as one even row. */
-  const pair = Math.max(240, px(300));
+  // Wide enough for the label, its icon and the busy spinner on one line (owner 22.11.2026).
+  const pair = Math.max(280, px(360));
   const paying = view.phase === 'starting' || view.phase === 'waiting';
   const title =
     view.phase === 'failed'
@@ -79,6 +84,11 @@ export function TerminalPayment({
   // Owner 22.11.2026: a failed, cancelled or not started payment never sends the guest to staff;
   // only an unknown result (money may have moved) keeps «Сотруднику».
   const staff = view.phase === 'lost' || view.phase === 'checking';
+  // Owner 22.11.2026: a way out while the terminal waits. The kiosk cannot cancel a payment the
+  // terminal holds (money could still move), so the button tells how to cancel it there; once
+  // the terminal reports the cancellation, «Изменить заказ» returns to the cart.
+  const [asked, setAsked] = useState(false);
+  const waiting = view.phase === 'waiting';
   return (
     <Wrapper gap={26} align="center" width="100%" maxWidth={820} testID="kiosk-terminal-payment">
       <Icon name={ICONS[view.phase]} size="hero" tone="inverse" />
@@ -118,6 +128,38 @@ export function TerminalPayment({
           </Body>
         ) : null}
       </Wrapper>
+      {waiting && onEdit ? (
+        asked ? (
+          <Wrapper maxWidth={720}>
+            <Body tone="inverse" align="center" announce testID="kiosk-terminal-cancel-hint">
+              {t.cancelOnTerminal}
+            </Body>
+          </Wrapper>
+        ) : (
+          <Button
+            label={t.cancelOrEdit}
+            tone="outline"
+            testID="kiosk-terminal-cancel-edit"
+            icon="create-outline"
+            iconLeading
+            onPress={() => setAsked(true)}
+          />
+        )
+      ) : null}
+      {retry && onEdit ? (
+        <View style={{ width: pair * 2 + 14 }}>
+          <Button
+            label={t.editOrder}
+            tone="accent"
+            testID="kiosk-terminal-edit"
+            icon="create-outline"
+            iconLeading
+            fullWidth
+            disabled={busy}
+            onPress={onEdit}
+          />
+        </View>
+      ) : null}
       {retry || staff ? (
         <Wrapper dir="row" gap={14} wrap justify="center">
           {retry && onLeave ? (

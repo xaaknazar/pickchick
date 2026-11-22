@@ -80,6 +80,7 @@ export function PaymentScreen({
               busy={model.busy}
               onRetry={model.retryTerminal ? () => void model.retryTerminal?.() : undefined}
               onLeave={model.leaveTerminal ? () => void model.leaveTerminal?.(true) : undefined}
+              onEdit={model.leaveTerminal ? () => void model.leaveTerminal?.(false) : undefined}
               onStaff={model.staffResetAvailable ? context.onStaffHold : undefined}
             />
           </Wrapper>

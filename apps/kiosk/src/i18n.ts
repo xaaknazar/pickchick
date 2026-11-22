@@ -53,6 +53,7 @@ const ru = {
   menuUpdatingTitle: 'Меню обновляется',
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
   emptyCartHint: 'Выберите блюдо - оно появится здесь',
+  chooseFirst: 'Сначала выберите блюдо',
   limitLine: 'Больше 20 одинаковых позиций добавить нельзя',
   removeOne: 'Убрать одну',
   // v3 kiosk design
@@ -367,6 +368,7 @@ const kk: Strings = {
   menuUpdatingBody:
     'Бірнеше секунд күтіңіз: позициялар қайта пайда болады. Оларды жоюдың қажеті жоқ.',
   emptyCartHint: 'Тағам таңдаңыз - ол осында пайда болады',
+  chooseFirst: 'Алдымен тағам таңдаңыз',
   limitLine: 'Бірдей позицияны 20-дан артық қосуға болмайды',
   removeOne: 'Біреуін алып тастау',
   // v3 kiosk design
@@ -679,6 +681,7 @@ const en: Strings = {
   menuUpdatingTitle: 'The menu is updating',
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',
   emptyCartHint: 'Pick a dish - it will appear here',
+  chooseFirst: 'Choose a dish first',
   limitLine: 'You cannot add more than 20 of one item',
   removeOne: 'Remove one',
   // v3 kiosk design (wording from the approved prototype's EN strings)

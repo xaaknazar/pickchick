@@ -83,7 +83,11 @@ export function MenuScreen({
   // that line's name; a quantity that grows by itself (availability) shows none.
   // Adds made on the upsell or cart screens are not announced again on return.
   const announced = useRef(context.from === 'product' ? (memory.addSerial ?? 0) : addSerial);
-  const [toast, setToast] = useState<{ message: string; id: number } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    id: number;
+    hint?: boolean;
+  } | null>(null);
   const addedMessage = added ? t.addedToCart + ': ' + added.product.name : t.addedToCart;
   useEffect(() => {
     if (addSerial > announced.current)
@@ -162,12 +166,21 @@ export function MenuScreen({
         arrival={arrival}
         onLanded={() => setArriving(null)}
         onCheckout={model.openUpsell}
+        onEmpty={() => {
+          model.touch();
+          setToast((current) => ({
+            message: t.chooseFirst,
+            id: (current?.id ?? 0) + 1,
+            hint: true,
+          }));
+        }}
         onOpenCart={model.openCart}
       />
       <Toast
         testID="kiosk-toast"
         message={toast?.message ?? t.addedToCart}
         trigger={toast?.id ?? null}
+        tone={toast?.hint ? 'hint' : 'success'}
       />
       {sheet ? (
         <ProductSheet

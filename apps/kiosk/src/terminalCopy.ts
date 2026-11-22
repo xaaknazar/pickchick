@@ -36,6 +36,12 @@ const ru = {
   leave: 'Вернуться к заказу',
   /** Owner 22.11.2026: after a failed or cancelled payment, an empty menu. */
   toMenu: 'В меню',
+  /** Owner 22.11.2026: back to the cart with the same dishes after a failed or cancelled payment. */
+  editOrder: 'Изменить заказ',
+  /** While the terminal waits: the iPad cannot cancel it, the guest cancels on the terminal. */
+  cancelOrEdit: 'Отменить или изменить заказ',
+  cancelOnTerminal:
+    'Нажмите «Отмена» на терминале. Деньги не спишутся, а здесь появится кнопка «Изменить заказ».',
   staff: 'Сотруднику',
   noCancelTitle: 'Оплату нельзя отменить на киоске',
   noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
@@ -115,6 +121,10 @@ const kk: Strings = {
   retry: 'Қайталау',
   leave: 'Тапсырысқа оралу',
   toMenu: 'Мәзірге',
+  editOrder: 'Тапсырысты өзгерту',
+  cancelOrEdit: 'Тапсырысты болдырмау не өзгерту',
+  cancelOnTerminal:
+    'Терминалда төлемді болдырмаңыз. Ақша алынбайды, ал мұнда «Тапсырысты өзгерту» түймесі шығады.',
   staff: 'Қызметкерге',
   noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
   noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
@@ -190,6 +200,10 @@ const en: Strings = {
   retry: 'Try again',
   leave: 'Back to my order',
   toMenu: 'Back to menu',
+  editOrder: 'Change order',
+  cancelOrEdit: 'Cancel or change order',
+  cancelOnTerminal:
+    'Press «Cancel» on the terminal. No money is taken, and «Change order» appears here.',
   staff: 'Staff',
   noCancelTitle: 'The payment cannot be cancelled on the kiosk',
   noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
