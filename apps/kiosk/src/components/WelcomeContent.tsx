@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
+import { terminalCopy } from '../terminalCopy';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
 import { useEnter } from './motion';
@@ -118,7 +119,7 @@ function StartCta({
  * (rgba(2,10,31,.28), 1 px light line, 14 px backdrop blur on the web), a round 50 pt Kaspi
  * mark on a white disc and Montserrat 700 24. Sizes are 1024-wide mock-up points (`px`).
  */
-function KaspiChip({ label }: { label: string }) {
+function KaspiChip({ label, terminal = false }: { label: string; terminal?: boolean }) {
   const { px } = useMetrics();
   const web =
     Platform.OS === 'web'
@@ -158,7 +159,7 @@ function KaspiChip({ label }: { label: string }) {
           overflow: 'hidden',
         }}
       >
-        <Icon name="qr-code-outline" tone="brand" />
+        <Icon name={terminal ? 'card-outline' : 'qr-code-outline'} tone="brand" />
       </View>
       <Text
         {...fixedText}
@@ -183,6 +184,7 @@ export function WelcomeContent({
   onStart,
   busy,
   onLogoHold,
+  terminal = false,
 }: {
   locale: Locale;
   onLocale: (v: Locale) => void;
@@ -190,6 +192,8 @@ export function WelcomeContent({
   busy: boolean;
   /** Staff only: a long hold (STAFF_HOLD_MS) on the logo; no visible hint for guests. */
   onLogoHold?: () => void;
+  /** ADR-0018: guests pay on the kiosk's Kaspi terminal, so the chip names it instead of QR. */
+  terminal?: boolean;
 }) {
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -285,7 +289,10 @@ export function WelcomeContent({
               gap: v(16),
             }}
           >
-            <KaspiChip label={t.payKaspiQR} />
+            <KaspiChip
+              label={terminal ? terminalCopy(locale).chip : t.payKaspiQR}
+              terminal={terminal}
+            />
           </Animated.View>
         </View>
       </View>

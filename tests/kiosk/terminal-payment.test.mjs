@@ -740,7 +740,12 @@ test('terminal copy: same keys in ru/kk/en, no long dash, never the word «те�
   for (const value of Object.values(terminalCopyForTest.en))
     assert.doesNotMatch(value, /[А-Яа-яЁё]/);
   assert.equal(terminalCopyForTest.ru.title, 'Оплатите на терминале');
-  assert.equal(terminalCopyForTest.ru.subtitle, 'картой или Kaspi QR');
+  assert.equal(terminalCopyForTest.ru.subtitle, 'картой или в приложении Kaspi.kz');
+  // Owner 22.11.2026: with the terminal no guest text speaks of a QR.
+  for (const [locale, strings] of Object.entries(terminalCopyForTest))
+    for (const [key, value] of Object.entries(strings))
+      if (!['disabled', 'result_unlinked'].includes(key))
+        assert.doesNotMatch(value, /QR/, `${locale}.${key}`);
   assert.equal(terminalCopyForTest.ru.confirmTitle, 'Нажмите «Разрешить» на терминале');
 });
 

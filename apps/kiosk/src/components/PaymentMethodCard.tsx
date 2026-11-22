@@ -105,7 +105,7 @@ export function PaymentMethodCard({
             name={
               invoice
                 ? 'phone-portrait-outline'
-                : method === 'kaspi'
+                : method === 'kaspi' && !onTerminal
                   ? 'qr-code-outline'
                   : 'card-outline'
             }

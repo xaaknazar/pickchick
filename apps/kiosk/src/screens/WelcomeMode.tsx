@@ -18,6 +18,7 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
         onStart={() => void model.start()}
         busy={model.busy}
         onLogoHold={context.onStaffHold}
+        terminal={!!model.commercial && !!model.terminalPaymentAvailable}
       />
     </ScreenSurface>
   );

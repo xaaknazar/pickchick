@@ -7,11 +7,13 @@ import type { TerminalSetupResult } from './model';
 const ru = {
   // Guest: pay on the terminal
   title: 'Оплатите на терминале',
-  subtitle: 'картой или Kaspi QR',
+  subtitle: 'картой или в приложении Kaspi.kz',
   pointer: 'Терминал Kaspi - рядом с экраном',
+  /** Start screen chip. */
+  chip: 'Оплата на терминале Kaspi',
   toPay: 'К оплате',
   starting: 'Отправляем сумму на терминал…',
-  waiting: 'Приложите карту или отсканируйте QR на экране терминала. Экран обновится сам.',
+  waiting: 'Оплатите на терминале Kaspi картой или в приложении Kaspi.kz. Экран обновится сам.',
   checking: 'Уточняем результат на терминале. Не оплачивайте повторно.',
   paid: 'Оплата прошла. Передаём заказ на кухню…',
   offline: 'Нет ответа - проверяем снова. Не оплачивайте повторно.',
@@ -33,11 +35,13 @@ const ru = {
   retry: 'Повторить',
   leave: 'Вернуться к заказу',
   staff: 'Сотруднику',
+  noCancelTitle: 'Оплату нельзя отменить на киоске',
+  noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
   staffResetBody:
     'Оплата на терминале не подтверждена. Сначала проверьте операцию на экране терминала. После сброса заказ уйдёт менеджеру на сверку, на кухню он не попадёт.',
   /** Review screen: the payment method when the terminal takes it. */
-  method: 'Картой или Kaspi QR на терминале',
+  method: 'На терминале Kaspi - картой или Kaspi.kz',
   // Staff: terminal setup (behind the staff code)
   setupOpen: 'Терминал Kaspi',
   setupTitle: 'Терминал Kaspi',
@@ -80,12 +84,12 @@ const ru = {
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
   title: 'Терминалда төлеңіз',
-  subtitle: 'картамен немесе Kaspi QR арқылы',
+  subtitle: 'картамен немесе Kaspi.kz қосымшасында',
   pointer: 'Kaspi терминалы - экранның жанында',
+  chip: 'Kaspi терминалында төлеу',
   toPay: 'Төлеуге',
   starting: 'Соманы терминалға жіберудеміз…',
-  waiting:
-    'Картаны жақындатыңыз немесе терминал экранындағы QR-ды сканерлеңіз. Экран өзі жаңарады.',
+  waiting: 'Kaspi терминалында картамен немесе Kaspi.kz қосымшасында төлеңіз. Экран өзі жаңарады.',
   checking: 'Нәтижені терминалдан нақтылаудамыз. Қайта төлемеңіз.',
   paid: 'Төлем өтті. Тапсырысты асүйге жіберудеміз…',
   offline: 'Жауап жоқ - қайта тексереміз. Қайта төлемеңіз.',
@@ -109,9 +113,11 @@ const kk: Strings = {
   retry: 'Қайталау',
   leave: 'Тапсырысқа оралу',
   staff: 'Қызметкерге',
+  noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
+  noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
   staffResetBody:
     'Терминалдағы төлем расталмады. Алдымен операцияны терминал экранынан тексеріңіз. Қалпына келтіргеннен кейін тапсырыс менеджерге салыстыруға жіберіледі, асүйге түспейді.',
-  method: 'Терминалда картамен немесе Kaspi QR арқылы',
+  method: 'Kaspi терминалында - картамен немесе Kaspi.kz',
   setupOpen: 'Kaspi терминалы',
   setupTitle: 'Kaspi терминалы',
   setupBody:
@@ -153,11 +159,12 @@ const kk: Strings = {
 };
 const en: Strings = {
   title: 'Pay on the terminal',
-  subtitle: 'by card or Kaspi QR',
+  subtitle: 'by card or in the Kaspi.kz app',
   pointer: 'The Kaspi terminal is next to the screen',
+  chip: 'Pay on the Kaspi terminal',
   toPay: 'To pay',
   starting: 'Sending the amount to the terminal…',
-  waiting: 'Tap your card or scan the QR on the terminal screen. This screen updates itself.',
+  waiting: 'Pay on the Kaspi terminal by card or in the Kaspi.kz app. This screen updates itself.',
   checking: 'Checking the result on the terminal. Do not pay again.',
   paid: 'Payment received. Sending your order to the kitchen…',
   offline: 'No answer - checking again. Do not pay again.',
@@ -180,9 +187,11 @@ const en: Strings = {
   retry: 'Try again',
   leave: 'Back to my order',
   staff: 'Staff',
+  noCancelTitle: 'The payment cannot be cancelled on the kiosk',
+  noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
   staffResetBody:
     'The terminal payment is not confirmed. First check the operation on the terminal screen. After the reset the order goes to the manager for review and never reaches the kitchen.',
-  method: 'Card or Kaspi QR on the terminal',
+  method: 'On the Kaspi terminal - card or Kaspi.kz',
   setupOpen: 'Kaspi terminal',
   setupTitle: 'Kaspi terminal',
   setupBody:
