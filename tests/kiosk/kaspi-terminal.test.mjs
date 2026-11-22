@@ -654,3 +654,43 @@ test('terminal copy: the pin mismatch text of the owner task, in ru/kk/en', asyn
     assert.ok(terminalCopyForTest[locale].result_protection.length > 20);
   }
 });
+
+test('relocate asks deviceinfo with the access token (protected terminals refuse it without)', async () => {
+  const calls = [];
+  const link = {
+    host: '192.168.2.145',
+    terminalId: 'T1',
+    serial: 'S1',
+    pin: null,
+    name: 'pickchick-kiosk-abc123',
+    accessToken: 'acc-1',
+    refreshToken: 'ref-1',
+    expiresAt: Date.now() + 86400000,
+    linkedAt: 1,
+  };
+  let raw = JSON.stringify(link);
+  const session = new TerminalSession(
+    {
+      read: async () => raw,
+      write: async (r) => {
+        raw = r;
+      },
+      remove: async () => {
+        raw = null;
+      },
+    },
+    async (host, method, params, options = {}) => {
+      calls.push({ host, method, token: options.token ?? null });
+      if (method === 'deviceinfo' && host === '192.168.2.150' && options.token === 'acc-1')
+        return { kind: 'ok', data: { terminalId: 'T1', serialNum: 'S1' } };
+      if (method === 'deviceinfo' && host === '192.168.2.150')
+        return { kind: 'refused', httpStatus: 401, statusCode: 999, message: null };
+      return { kind: 'unreachable', reason: 'CONNECT' };
+    },
+    () => Date.now(),
+  );
+  await session.load();
+  assert.equal(await session.relocate(), true);
+  assert.equal(session.current().host, '192.168.2.150');
+  assert.ok(calls.filter((c) => c.method === 'deviceinfo').every((c) => c.token === 'acc-1'));
+});

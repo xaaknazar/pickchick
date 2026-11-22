@@ -128,7 +128,8 @@ export function terminalTokens(answer: KaspiCallResult, now: number) {
   return { accessToken: access, refreshToken: refresh, expiresAt };
 }
 
-const tokenRefused = (answer: KaspiCallResult) =>
+/** The terminal answered and refused the token (or its absence): 401/403. */
+export const tokenRefusedAnswer = (answer: KaspiCallResult) =>
   answer.kind === 'refused' && (answer.httpStatus === 401 || answer.httpStatus === 403);
 
 /**
@@ -183,9 +184,14 @@ export class TerminalSession {
       return null;
     }
   }
-  /** Read-only identity check of any address (no token needed), pinned when `pin` is given. */
-  deviceInfo(host: string, pin: string | null = null) {
-    return this.port(host, 'deviceinfo', {}, { pin });
+  /**
+   * Read-only identity check of an address, pinned when `pin` is given. 22.11.2026 (terminal #2,
+   * app 2.64.9): with «Защита интеграции» on, /v2/deviceinfo without a token answers 401
+   * `{"statusCode":999,"errorText":"Authorization failed"}`, so a linked terminal is always
+   * asked with its access token.
+   */
+  deviceInfo(host: string, pin: string | null = null, token?: string) {
+    return this.port(host, 'deviceinfo', {}, token ? { pin, token } : { pin });
   }
   register(host: string, name: string, pin: string | null = null) {
     return this.port(host, 'register', { name }, { pin });
@@ -236,7 +242,7 @@ export class TerminalSession {
     // once (safe for a payment too: `unreachable` means its pre-flight failed, nothing was sent).
     if (first.kind === 'unreachable' && (await this.relocate()) && this.link)
       first = await this.safeCall(this.link, method, params, options);
-    if (!tokenRefused(first)) return first;
+    if (!tokenRefusedAnswer(first)) return first;
     const renewed = await this.renew(true);
     if (!renewed || method === 'payment' || !this.link) return first;
     return this.safeCall(this.link, method, params, options);
@@ -269,7 +275,8 @@ export class TerminalSession {
             {},
             // An HTTPS link is pinned here too: only the same certificate answers at all, so a
             // device with another certificate is never taken for this terminal.
-            { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: link.pin },
+            // The token too: a protected terminal answers deviceinfo only with it (22.11.2026).
+            { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: link.pin, token: link.accessToken },
           );
         } catch {
           answer = null;

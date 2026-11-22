@@ -743,3 +743,54 @@ test('terminal copy: same keys in ru/kk/en, no long dash, never the word «те�
   assert.equal(terminalCopyForTest.ru.subtitle, 'картой или Kaspi QR');
   assert.equal(terminalCopyForTest.ru.confirmTitle, 'Нажмите «Разрешить» на терминале');
 });
+
+test('protected terminal (22.11): deviceinfo without a token is 401/999, register goes ahead, identity is read with the new token', async () => {
+  const PIN = 'd1'.repeat(32);
+  const h = terminalFixture({ linked: false, cloudTerminal: null });
+  h.io.verifyStaff = async () => {};
+  h.io.terminal.probe = async (host) =>
+    host === '192.168.2.145' ? { transport: 'https', pin: PIN } : null;
+  h.terminal.certificate = PIN;
+  const identity = { terminalId: TERMINAL_ID, serialNum: 'SPOS3A1B2C3' };
+  const refused = {
+    kind: 'refused',
+    httpStatus: 401,
+    statusCode: 999,
+    message: 'Authorization failed',
+  };
+  let valid = 'access-2';
+  h.terminal.deviceinfo = () =>
+    h.terminal.calls.at(-1).token === valid ? { kind: 'ok', data: identity } : refused;
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  assert.equal(await c.openTerminalSetup('4829'), true);
+
+  assert.equal(await c.linkTerminal('192.168.2.145'), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'linked');
+  assert.deepEqual(
+    h.terminal.calls.map((call) => [call.method, call.token, call.pin]),
+    [
+      ['deviceinfo', null, PIN],
+      ['register', null, PIN],
+      ['deviceinfo', 'access-2', PIN],
+    ],
+  );
+  assert.equal(parseTerminalLink(h.terminal.raw).terminalId, TERMINAL_ID);
+  assert.equal(h.terminal.sends[0].body.terminal_id, TERMINAL_ID);
+
+  // «Проверить связь» asks with the stored token.
+  const before = h.terminal.calls.length;
+  assert.equal(await c.checkTerminal(), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'ok');
+  assert.equal(h.terminal.calls[before].token, 'access-2');
+
+  // A plain-HTTP terminal that refuses deviceinfo is still «не отвечает»: nothing is registered.
+  h.terminal.raw = null;
+  valid = 'none';
+  h.io.terminal.probe = async () => ({ transport: 'http' });
+  const count = sent(h, 'register').length;
+  await c.unlinkTerminal();
+  await c.linkTerminal('192.168.2.146');
+  assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+  assert.equal(sent(h, 'register').length, count);
+});

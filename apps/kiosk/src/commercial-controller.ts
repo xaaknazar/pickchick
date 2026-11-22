@@ -42,6 +42,7 @@ import {
   terminalIdentity,
   terminalIntegrationName,
   terminalTokens,
+  tokenRefusedAnswer,
   type TerminalLink,
   type TerminalLinkStore,
 } from './kaspi-terminal-link.ts';
@@ -2606,8 +2607,13 @@ export class CommercialKioskController {
       const probe = await session.probe(address);
       if (!probe) return 'unreachable';
       const pin = probe.transport === 'https' ? probe.pin : null;
-      const identity = terminalIdentity(await session.deviceInfo(address, pin).catch(() => null!));
-      if (!identity) return 'unreachable';
+      const before: KaspiCallResult = await session
+        .deviceInfo(address, pin)
+        .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+      let identity = terminalIdentity(before);
+      // 22.11.2026: a protected terminal (HTTPS) refuses deviceinfo without a token (401, code
+      // 999). It answered, so register goes ahead and the identity is read with the new token.
+      if (!identity && !(pin !== null && tokenRefusedAnswer(before))) return 'unreachable';
       this.setupConfirming = true;
       this.setupConfirmingPin = pin;
       this.emit();
@@ -2622,7 +2628,15 @@ export class CommercialKioskController {
         this.setupConfirmingPin = null;
       }
       const tokens = terminalTokens(answer, this.io.now());
-      if (!tokens)
+      if (tokens && !identity) {
+        identity = terminalIdentity(
+          await session
+            .deviceInfo(address, pin, tokens.accessToken)
+            .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' })),
+        );
+        if (!identity) return 'unreachable';
+      }
+      if (!tokens || !identity)
         return answer.kind === 'refused' && answer.statusCode === 105
           ? // 22.11.2026: over plain HTTP code 105 came from «Защита интеграции» being off.
             pin === null
@@ -2650,9 +2664,14 @@ export class CommercialKioskController {
       let link = session.current();
       if (!link) return 'unreachable';
       const ask = async (at: TerminalLink) => {
-        const answer = await session
-          .deviceInfo(at.host, at.pin)
-          .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+        const read = (token: string) =>
+          session
+            .deviceInfo(at.host, at.pin, token)
+            .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+        let answer = await read(at.accessToken);
+        // An expired or revoked token: renewed once, then asked again with the new one.
+        if (tokenRefusedAnswer(answer) && (await session.renew(true)) && session.current())
+          answer = await read(session.current()!.accessToken);
         return {
           identity: terminalIdentity(answer),
           certificate: answer.kind === 'unreachable' && answer.reason === 'CERTIFICATE',
