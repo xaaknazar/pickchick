@@ -54,8 +54,6 @@ export function PhotoImage({
           }
           source={source}
           cachePolicy="memory-disk"
-          // A photo not yet decoded fades in instead of popping into an empty card.
-          transition={{ duration: 160, effect: 'cross-dissolve' }}
           allowDownscaling={false}
           onError={() =>
             setFailed((current) => ({
