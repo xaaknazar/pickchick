@@ -44,7 +44,7 @@ function AppLayout() {
     Manrope_700Bold,
   });
   return (
-    <View style={{ flex: 1, backgroundColor: '#04143A' }}>
+    <View style={{ flex: 1, backgroundColor: '#0A1020' }}>
       <View
         style={{ flex: 1 }}
         pointerEvents={introDone ? 'auto' : 'none'}
@@ -70,7 +70,7 @@ function AppLayout() {
                       headerShown: false,
                       orientation: 'portrait',
                       animation: reduced ? 'none' : 'default',
-                      contentStyle: { backgroundColor: '#04143A' },
+                      contentStyle: { backgroundColor: '#0A1020' },
                     }}
                   >
                     <Stack.Screen

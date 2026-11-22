@@ -164,7 +164,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       </>
     );
   return (
-    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
+    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#0A1020' }}>
       {screen()}
       {preview ? (
         <Pressable

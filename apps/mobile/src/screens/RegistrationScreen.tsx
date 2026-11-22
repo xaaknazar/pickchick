@@ -257,7 +257,7 @@ const s = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: authColors.surface,
     borderWidth: 1,
-    borderColor: '#203561',
+    borderColor: '#283247',
     overflow: 'hidden',
   },
   formRow: {
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
-  dateRow: { borderTopWidth: 1, borderTopColor: '#203561' },
+  dateRow: { borderTopWidth: 1, borderTopColor: '#283247' },
   dateContent: {
     flex: 1,
     minWidth: 100,
@@ -314,7 +314,7 @@ const s = StyleSheet.create({
     padding: 4,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#203561',
+    borderColor: '#283247',
     backgroundColor: authColors.surface,
   },
   gender: {

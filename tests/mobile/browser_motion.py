@@ -54,7 +54,7 @@ with sync_playwright() as p:
   media=page.get_by_test_id('product-media');content=page.get_by_test_id('product-content')
   assert abs(media.bounding_box()['y']+media.bounding_box()['height']-content.bounding_box()['y'])<2
   gradients=media.locator('div').evaluate_all("els=>els.map(e=>getComputedStyle(e).backgroundImage).filter(v=>v.includes('linear-gradient'))")
-  assert any('rgb(4, 20, 58) 100%' in g for g in gradients),gradients
+  assert any('rgb(10, 16, 32) 100%' in g for g in gradients),gradients
   assert page.get_by_test_id('product-close').bounding_box()['width']>=44
   bounded(page);page.screenshot(path=str(OUT/f'pick-combo-{width}.png'))
   # A press animates smoothly and releasing outside must not navigate.

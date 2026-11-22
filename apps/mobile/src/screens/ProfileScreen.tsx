@@ -469,7 +469,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     borderRadius: 14,
-    backgroundColor: '#173666',
+    backgroundColor: '#1C2538',
     paddingHorizontal: 8,
   },
   shortcuts: { flexDirection: 'row', gap: 12 },
@@ -501,7 +501,7 @@ const s = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#173666',
+    backgroundColor: '#1C2538',
   },
   loyaltyTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 25, color: colors.white },
   loyaltyCopy: {

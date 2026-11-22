@@ -124,7 +124,8 @@ with sync_playwright() as p:
     header = page.get_by_test_id('storefront-header').bounding_box()
     category = page.get_by_test_id('category-Комбо').bounding_box()
     assert category['y'] >= header['y'] + header['height'] - 1
-    expect(page.get_by_test_id('product-pick-combo').get_by_text('Выбрать', exact=True)).to_be_visible()
+    # Owner 22.11.2026 menu redesign: a round orange plus replaces the «Выбрать» label.
+    expect(page.get_by_test_id('product-plus-pick-combo')).to_be_visible()
     page.screenshot(path=str(output / 'catalog.png'))
     page.get_by_test_id('product-pick-combo').click()
     expect(page.get_by_test_id('photo-product-pick-combo')).to_be_visible()

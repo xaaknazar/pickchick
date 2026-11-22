@@ -668,7 +668,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   success: { backgroundColor: '#1FAF5A' },
-  failure: { backgroundColor: '#0B2255', borderWidth: 1.5, borderColor: '#FF690073' },
+  failure: { backgroundColor: '#141B2B', borderWidth: 1.5, borderColor: '#FF690073' },
   glow: {
     position: 'absolute',
     width: 270,
@@ -709,7 +709,7 @@ const s = StyleSheet.create({
     padding: 18,
     marginTop: 24,
     borderRadius: 22,
-    backgroundColor: '#0B2255',
+    backgroundColor: '#141B2B',
     width: '100%',
     maxWidth: 360,
   },

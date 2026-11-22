@@ -1451,7 +1451,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
     borderRadius: 18,
-    backgroundColor: '#0B2255',
+    backgroundColor: '#141B2B',
   },
   earlierText: { color: '#DCE6FA', fontSize: 14, lineHeight: 20, textAlign: 'center' },
   tightEarlier: { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },

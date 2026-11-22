@@ -5,7 +5,7 @@ export const brandColors = tokens.color;
 export const colors = {
   ...tokens.theme.mobile,
   raised: tokens.theme.mobile.surfaceRaised,
-  border: '#233962',
+  border: '#283247',
   orangeInk: '#251609',
   white: '#FFFFFF',
   success: '#ADEDD1',
@@ -26,7 +26,7 @@ export const spacing = { page: tokens.spacing[3] ?? 16, gap: 12, card: 20 };
 export const restaurantColors = {
   open: '#5FD3A0',
   closed: '#FFB777',
-  divider: '#1E3563',
-  outline: '#2A4378',
-  mapControl: 'rgba(4,20,58,0.88)',
+  divider: '#222B3F',
+  outline: '#313C55',
+  mapControl: 'rgba(10,16,32,0.88)',
 };

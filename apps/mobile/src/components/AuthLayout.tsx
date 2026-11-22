@@ -23,8 +23,8 @@ import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 
 // Brand theme from the supplied mobile-v2 source, scoped to its auth screens.
 export const authColors = {
-  background: '#04143A',
-  surface: '#0B2255',
+  background: '#0A1020',
+  surface: '#141B2B',
   text: '#F2F6FF',
   muted: '#A3B4D6',
   blue: '#2E6FE8',
@@ -108,7 +108,7 @@ export function AuthLayout({
   const keyboardVisible = useAuthKeyboardVisible();
   const { height } = useWindowDimensions();
   const top = props.inSheet ? Math.max(insets.top + 10, Math.min(62, height * 0.08)) : 0;
-  const gradient = 'linear-gradient(180deg, #0A2257 0%, #04143A 300px)';
+  const gradient = 'linear-gradient(180deg, #0A2257 0%, #0A1020 300px)';
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}

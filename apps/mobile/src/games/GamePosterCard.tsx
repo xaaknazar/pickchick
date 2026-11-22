@@ -14,7 +14,7 @@ import { Icon } from '../components/UI';
 import { useGameCardHeight } from './ArcadeCard';
 
 const gradient =
-  'linear-gradient(180deg, rgba(4,20,58,0.2) 0%, rgba(4,20,58,0) 35%, rgba(2,10,30,0.86) 72%, rgba(2,10,30,0.97) 100%)';
+  'linear-gradient(180deg, rgba(10,16,32,0.2) 0%, rgba(10,16,32,0) 35%, rgba(2,10,30,0.86) 72%, rgba(2,10,30,0.97) 100%)';
 const scrim = (
   Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
 ) as ViewStyle;
@@ -77,13 +77,13 @@ const s = StyleSheet.create({
     padding: 16,
     borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: '#04143A',
+    backgroundColor: '#0A1020',
     justifyContent: 'space-between',
   },
   tag: {
     alignSelf: 'flex-start',
     borderRadius: 20,
-    backgroundColor: '#04143AB8',
+    backgroundColor: '#0A1020B8',
     paddingHorizontal: 10,
     paddingVertical: 5,
   },

@@ -563,7 +563,7 @@ const s = StyleSheet.create({
   photoSlot: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
   photo: {
     overflow: 'hidden',
-    backgroundColor: '#FFF8EE',
+    backgroundColor: '#EEF2F8',
     // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
     borderWidth: 3,
     borderColor: glass.pillBase,

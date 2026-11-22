@@ -236,9 +236,9 @@ export function DiningSelector({
 // Match the owner screenshot: keep the product visible through the caption,
 // then fade broadly behind the first card into the exact page color at the edge.
 const gradient =
-  'linear-gradient(180deg, rgba(4,20,58,0.45) 0%, rgba(4,20,58,0.05) 26%, rgba(4,20,58,0) 40%, rgba(4,20,58,0.07) 50%, rgba(4,20,58,0.19) 60%, rgba(4,20,58,0.40) 70%, rgba(4,20,58,0.66) 80%, rgba(4,20,58,0.86) 88%, rgba(4,20,58,0.965) 94%, #04143A 99%, #04143A 100%)';
+  'linear-gradient(180deg, rgba(10,16,32,0.45) 0%, rgba(10,16,32,0.05) 26%, rgba(10,16,32,0) 40%, rgba(10,16,32,0.07) 50%, rgba(10,16,32,0.19) 60%, rgba(10,16,32,0.40) 70%, rgba(10,16,32,0.66) 80%, rgba(10,16,32,0.86) 88%, rgba(10,16,32,0.965) 94%, #0A1020 99%, #0A1020 100%)';
 const productGradient =
-  'linear-gradient(180deg, rgba(4,20,58,0) 38%, rgba(4,20,58,0.08) 55%, rgba(4,20,58,0.28) 68%, rgba(4,20,58,0.62) 82%, rgba(4,20,58,0.90) 93%, #04143A 100%)';
+  'linear-gradient(180deg, rgba(10,16,32,0) 38%, rgba(10,16,32,0.08) 55%, rgba(10,16,32,0.28) 68%, rgba(10,16,32,0.62) 82%, rgba(10,16,32,0.90) 93%, #0A1020 100%)';
 const brand = StyleSheet.create({
   loyalty: {
     minHeight: 84,

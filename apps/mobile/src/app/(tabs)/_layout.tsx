@@ -72,7 +72,7 @@ export default function TabLayout() {
               // switching is also the standard iOS tab behaviour.
               animation: 'none',
               tabBarHideOnKeyboard: true,
-              sceneStyle: { backgroundColor: '#04143A' },
+              sceneStyle: { backgroundColor: '#0A1020' },
             }}
           >
             <Tabs.Screen

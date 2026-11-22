@@ -19,7 +19,7 @@ export function PromotionDialog({
   const file = key === 'logo' ? 'logo.png' : key === 'generic-drink' ? null : key + '.jpg';
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView testID="promotion-dialog" style={{ flex: 1, backgroundColor: '#04143A' }}>
+      <SafeAreaView testID="promotion-dialog" style={{ flex: 1, backgroundColor: '#0A1020' }}>
         <ScrollView contentContainerStyle={{ padding: 24, gap: 20 }}>
           {file ? (
             <Image

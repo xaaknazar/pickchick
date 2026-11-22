@@ -115,7 +115,7 @@ export function AuthWelcome(props: ScreenProps) {
         ? 'Чтобы играть в игры и участвовать в событиях'
         : 'Чтобы оформлять заказы и следить за ними';
   const glow =
-    'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(4,20,58,0) 68%)';
+    'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(10,16,32,0) 68%)';
   return (
     <View testID="auth-welcome" style={s.page}>
       <View style={[s.header, { pointerEvents: settled ? 'auto' : 'none' }]}>

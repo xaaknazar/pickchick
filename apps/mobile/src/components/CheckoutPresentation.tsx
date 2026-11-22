@@ -126,7 +126,7 @@ export const checkoutStyle = StyleSheet.create({
   branch: { flexShrink: 1, marginLeft: 'auto', fontSize: 14, lineHeight: 20, color: '#A3B4D6' },
   cartFooter: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 0 },
   footer: {
-    backgroundColor: '#0B2255',
+    backgroundColor: '#141B2B',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 16,
@@ -149,7 +149,7 @@ export const checkoutStyle = StyleSheet.create({
   paymentPanel: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: '#0B2255',
+    backgroundColor: '#141B2B',
     borderWidth: 1,
     borderColor: '#FFFFFF0F',
   },

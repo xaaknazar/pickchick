@@ -267,7 +267,6 @@ const ProductMenuCard = memo(function ProductMenuCard({
   compact,
   singleColumn,
   width,
-  fontScale,
   openProduct,
   hit,
 }: {
@@ -275,7 +274,6 @@ const ProductMenuCard = memo(function ProductMenuCard({
   compact: boolean;
   singleColumn: boolean;
   width: number;
-  fontScale: number;
   openProduct(product: Product): void;
   hit: boolean;
 }) {
@@ -293,15 +291,13 @@ const ProductMenuCard = memo(function ProductMenuCard({
       onPress={() => openProduct(product)}
       style={({ pressed }) => [
         s.product,
-        compact && [s.compactProduct, { width: singleColumn ? '100%' : (width - 48) / 2 }],
-        !compact && fontScale > 1.3 && { flexDirection: 'column' },
+        { width: singleColumn ? '100%' : (width - 46) / 2 },
         pressed && ui.pressed,
       ]}
     >
-      <View
-        testID={`product-photo-${product.id}`}
-        style={[s.productPhotoWrap, compact && s.compactPhoto]}
-      >
+      {/* Owner 22.11.2026 (menu redesign): a light window under the food on the dark card, like the
+          Apple Store; the menu photos are retouched onto the same cool #EEF2F8. */}
+      <View testID={`product-photo-${product.id}`} style={s.productPhotoWrap}>
         <ProductPhoto
           photo={productPhoto(product, 'card', 'menu')}
           style={StyleSheet.absoluteFill}
@@ -314,33 +310,25 @@ const ProductMenuCard = memo(function ProductMenuCard({
         ) : null}
       </View>
       <View style={s.productInfo}>
-        <Heading small style={compact ? s.compactTitle : s.productTitle}>
+        <Text numberOfLines={2} style={s.productTitle}>
           {localize(product.name)}
-        </Heading>
-        {!compact ? (
-          <Caption style={s.productDescription}>{localize(product.description)}</Caption>
+        </Text>
+        {!compact && product.description ? (
+          <Text numberOfLines={2} style={s.productDescription}>
+            {localize(product.description)}
+          </Text>
         ) : null}
         <Row style={s.productPriceRow}>
-          <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
-            {localize(MinorMoney(product.priceMinor))}
-          </Body>
-          <View
-            style={
-              product.available === false
-                ? { flexShrink: 1, maxWidth: 120 }
-                : compact
-                  ? s.productPlus
-                  : s.productChoose
-            }
-          >
-            {product.available === false ? (
-              <Caption style={{ color: colors.text }}>{t('Нет в наличии')}</Caption>
-            ) : compact ? (
-              <Icon name="add" color={colors.orangeInk} size={20} />
-            ) : (
-              <Body style={s.productChooseText}>{t('Выбрать')}</Body>
-            )}
-          </View>
+          {product.available === false ? (
+            <Caption style={s.productSoldOut}>{t('Нет в наличии')}</Caption>
+          ) : (
+            <>
+              <Body style={s.productPrice}>{localize(MinorMoney(product.priceMinor))}</Body>
+              <View testID={`product-plus-${product.id}`} style={s.productPlus}>
+                <Icon name="add" color={colors.orangeInk} size={20} />
+              </View>
+            </>
+          )}
         </Row>
       </View>
     </Pressable>
@@ -446,7 +434,7 @@ export function Menu(props: ScreenProps) {
   });
   // Opaque once collapsed: a translucent bar let product buttons show through behind the row.
   const headerStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', colors.background]),
+    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#0A102000', colors.background]),
   }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
@@ -637,7 +625,7 @@ export function Menu(props: ScreenProps) {
                 <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
                   {localize(item)}
                 </Heading>
-                <View style={compact ? s.compactGrid : s.productList}>
+                <View style={s.productGrid}>
                   {products.map((product, index) => (
                     <ProductMenuCard
                       key={product.id}
@@ -645,7 +633,6 @@ export function Menu(props: ScreenProps) {
                       compact={compact}
                       singleColumn={singleColumn}
                       width={width}
-                      fontScale={fontScale}
                       openProduct={openProduct}
                       hit={index === 0 && item === 'Комбо' && props.model.catalogMode === 'design'}
                     />
@@ -1209,7 +1196,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.68,
     color: colors.white,
     textAlign: 'center',
-    textShadowColor: '#04143A88',
+    textShadowColor: '#0A102088',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 18,
   },
@@ -1233,7 +1220,7 @@ const s = StyleSheet.create({
     color: '#FFFFFFA6',
   },
   categoryTextSelected: { color: colors.white },
-  catalogSections: { paddingHorizontal: 18, gap: 26 },
+  catalogSections: { paddingHorizontal: 18, gap: 24 },
   sectionTitle: {
     fontFamily: font.display,
     fontSize: 24,
@@ -1241,59 +1228,53 @@ const s = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: -0.36,
   },
-  productList: { gap: 12 },
+  productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   product: {
-    flexDirection: 'row',
-    gap: 12,
     borderRadius: 24,
-    padding: 12,
+    padding: 6,
+    paddingBottom: 14,
     borderWidth: 1,
-    borderColor: '#FFFFFF12',
+    borderColor: '#FFFFFF0D',
     backgroundColor: colors.surface,
   },
   productPhotoWrap: {
-    width: 112,
-    height: 132,
-    flexShrink: 0,
-    borderRadius: 16,
+    width: '100%',
+    aspectRatio: 1.1,
+    borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#FFF8EE',
+    backgroundColor: '#EEF2F8',
   },
-  productInfo: { flex: 1, minWidth: 0, gap: 6 },
-  productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
-  productDescription: { fontSize: 14, lineHeight: 20 },
+  // 12 pt between the photo and the name (owner 21.11.2026: «текст слишком близко к фото»).
+  productInfo: { flex: 1, minWidth: 0, gap: 4, paddingTop: 12, paddingHorizontal: 8 },
+  productTitle: {
+    fontFamily: font.bold,
+    fontSize: 16,
+    lineHeight: 21,
+    letterSpacing: -0.2,
+    color: colors.text,
+  },
+  productDescription: { fontFamily: font.body, fontSize: 13, lineHeight: 18, color: colors.muted },
   productPriceRow: {
     marginTop: 'auto',
-    paddingTop: 8,
-    flexWrap: 'wrap',
+    paddingTop: 10,
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 8,
   },
   productPrice: {
-    fontFamily: font.display,
-    fontSize: 20,
-    lineHeight: 28,
+    fontFamily: font.bold,
+    fontSize: 16,
+    lineHeight: 22,
     fontVariant: ['tabular-nums'],
     color: colors.text,
+    flexShrink: 1,
   },
-  productChoose: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-  },
-  productChooseText: {
-    fontFamily: font.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.orangeInk,
-  },
+  productSoldOut: { color: colors.muted, minHeight: 44, textAlignVertical: 'center' },
+  // The whole card is the button; the round plus only shows that a tap adds (44 pt target).
   productPlus: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1308,10 +1289,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
-  compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 24, gap: 12 },
-  compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
-  compactTitle: { fontFamily: font.heading, fontSize: 17, lineHeight: 24 },
   productClose: {
     position: 'absolute',
     right: 16,
@@ -1336,7 +1313,7 @@ const s = StyleSheet.create({
     gap: 14,
     padding: 12,
     borderRadius: 24,
-    backgroundColor: '#0B2255',
+    backgroundColor: '#141B2B',
     borderWidth: 1,
     borderColor: '#FFFFFF0F',
   },
@@ -1349,10 +1326,10 @@ const s = StyleSheet.create({
     color: '#A3B4D6',
   },
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
-  cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#FFF8EE' },
+  cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#EEF2F8' },
   // Drinkit-like separate round glass -/+ (owner 27.10.2026).
   // Owner 28.10.2026: the cart -/+ keep their original filled pill, not glass circles.
-  stepper: { backgroundColor: '#14306B', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
+  stepper: { backgroundColor: '#1C2538', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,
     height: 94,

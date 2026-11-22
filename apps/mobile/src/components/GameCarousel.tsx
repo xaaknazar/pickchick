@@ -34,7 +34,7 @@ const CARD_HEIGHT = 200;
 const GAP = 12;
 // Eased stops keep the 120 pt fade free of a visible edge or a solid plate.
 const fade =
-  'linear-gradient(180deg, rgba(4,20,58,0) 0%, rgba(4,20,58,0.06) 16%, rgba(4,20,58,0.2) 32%, rgba(4,20,58,0.4) 50%, rgba(4,20,58,0.62) 68%, rgba(4,20,58,0.8) 84%, rgba(4,20,58,0.92) 100%)';
+  'linear-gradient(180deg, rgba(10,16,32,0) 0%, rgba(10,16,32,0.06) 16%, rgba(10,16,32,0.2) 32%, rgba(10,16,32,0.4) 50%, rgba(10,16,32,0.62) 68%, rgba(10,16,32,0.8) 84%, rgba(10,16,32,0.92) 100%)';
 const shade = (
   Platform.OS === 'web' ? { backgroundImage: fade } : { experimental_backgroundImage: fade }
 ) as ViewStyle;

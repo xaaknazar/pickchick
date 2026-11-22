@@ -27,7 +27,7 @@ export default function ProductPhotoRoute() {
       <View
         testID="photo-product-loading"
         accessibilityLabel={t('Загружаем позицию')}
-        style={{ flex: 1, justifyContent: 'center', backgroundColor: '#04143A' }}
+        style={{ flex: 1, justifyContent: 'center', backgroundColor: '#0A1020' }}
       >
         <ActivityIndicator color="white" />
       </View>
@@ -40,7 +40,7 @@ export default function ProductPhotoRoute() {
           justifyContent: 'center',
           padding: 24,
           gap: 20,
-          backgroundColor: '#04143A',
+          backgroundColor: '#0A1020',
         }}
       >
         <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция сейчас недоступна')}</Text>

@@ -101,7 +101,7 @@ export function PhotoProduct(props: Props) {
   const pageInk = blue ? '#FFFFFF' : ink;
   const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #04143A 100%)`;
+  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -986,7 +986,7 @@ function makeStyles(blue: boolean) {
   const paper = blue ? '#0047BB' : '#FFF8EE';
   const muted = blue ? '#D4E5FF' : '#594635';
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: blue ? '#04143A' : paper },
+    page: { flex: 1, backgroundColor: blue ? '#0A1020' : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
     close: { position: 'absolute' },
     photoAction: {

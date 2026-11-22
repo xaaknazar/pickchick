@@ -20,7 +20,7 @@ export function GameAvailability({
     config = usePublishedContent(model.branch?.id);
   if (config.gameEnabled(template)) return children;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#04143A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A1020' }}>
       <View
         testID="game-unavailable"
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}

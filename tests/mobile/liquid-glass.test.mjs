@@ -225,7 +225,7 @@ const blurTints = {
   ios: [0.11 * 255, 0.11 * 255, 0.11 * 255, (glass.blurIntensity / 100) * 0.73],
 };
 const white = [255, 255, 255];
-const background = rgba('#04143A').slice(0, 3);
+const background = rgba('#0A1020').slice(0, 3);
 
 function fallbackGlass(surface, behind, blurTint = blurTints.web) {
   const layers = glassLayers(surface);

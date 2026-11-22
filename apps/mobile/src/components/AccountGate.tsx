@@ -39,7 +39,7 @@ export function AccountGate({
     destination === 'M27' ||
     destination === 'M28';
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#04143A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A1020' }}>
       <View
         testID="account-required"
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}
