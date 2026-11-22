@@ -379,7 +379,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           valid={model.cartValid}
           locale={context.locale}
           count={count}
-          qr={qr}
+          qr={qr && !model.terminalPaymentAvailable}
           size="large"
         />
         <Wrapper dir="row" gap={14}>

@@ -20,8 +20,9 @@ const ICONS: Record<TerminalPaymentView['phase'], IconName> = {
 /**
  * ADR-0018: the payment step when the kiosk has its own Kaspi Smart POS. «Оплатите на терминале -
  * картой или Kaspi QR», the amount and a pointer to the terminal while the guest pays there; the
- * result, «Повторить» and «Вернуться к заказу» after a failure or a payment that did not start;
- * «Сотруднику» while only staff can check the terminal (never «pay again»). For the blue surface.
+ * result, «В меню» (an empty menu, owner 22.11.2026) and «Повторить» after a failure, a
+ * cancellation or a payment that did not start; «Сотруднику» only while the result is unknown
+ * (never «pay again»). For the blue surface.
  */
 export function TerminalPayment({
   view,
@@ -70,7 +71,9 @@ export function TerminalPayment({
                 : t.lostBody;
   const retry =
     view.phase === 'failed' || view.phase === 'cancelled' || view.phase === 'not_started';
-  const staff = view.phase === 'lost' || view.phase === 'checking' || view.phase === 'not_started';
+  // Owner 22.11.2026: a failed, cancelled or not started payment never sends the guest to staff;
+  // only an unknown result (money may have moved) keeps «Сотруднику».
+  const staff = view.phase === 'lost' || view.phase === 'checking';
   return (
     <Wrapper gap={26} align="center" width="100%" maxWidth={820} testID="kiosk-terminal-payment">
       <Icon name={ICONS[view.phase]} size="hero" tone="inverse" />
@@ -112,22 +115,24 @@ export function TerminalPayment({
       </Wrapper>
       {retry || staff ? (
         <Wrapper dir="row" gap={14} wrap justify="center">
+          {retry && onLeave ? (
+            <Button
+              label={t.toMenu}
+              testID="kiosk-terminal-menu"
+              icon="arrow-back"
+              iconLeading
+              disabled={busy}
+              onPress={onLeave}
+            />
+          ) : null}
           {retry && onRetry ? (
             <Button
               label={t.retry}
+              tone="light"
               testID="kiosk-terminal-retry"
               icon="refresh"
               busy={busy}
               onPress={onRetry}
-            />
-          ) : null}
-          {retry && onLeave ? (
-            <Button
-              label={t.leave}
-              tone="light"
-              testID="kiosk-terminal-leave"
-              disabled={busy}
-              onPress={onLeave}
             />
           ) : null}
           {staff && onStaff ? (

@@ -355,6 +355,7 @@ function Illustration({ index, part }: { index: number; part: number }) {
       accessible={false}
       accessibilityLabel=""
       source={cardBackgrounds[index % cardBackgrounds.length]}
+      cachePolicy="memory-disk"
       contentFit="cover"
       style={{
         position: 'absolute',

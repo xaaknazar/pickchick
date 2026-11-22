@@ -1,4 +1,4 @@
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Image, Pressable, Text, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
@@ -6,6 +6,8 @@ import { usePop, useStagger } from './motion';
 import type { KioskPaymentMethod } from '../model';
 import { fixedText } from './Body';
 import { terminalCopy } from '../terminalCopy';
+
+const KASPI_MARK = require('../../assets/v3/kaspi.webp');
 /**
  * v3 payment choice: white 28-pt card with a method tile (orange QR, blue phone
  * invoice, soft card), title and explanation. Selected = orange ring + check pop.
@@ -95,22 +97,37 @@ export function PaymentMethodCard({
             width: tile,
             height: tile,
             borderRadius: v(22),
-            backgroundColor:
-              method === 'kaspi' ? colors.orange : invoice ? colors.blue : colors.soft,
+            backgroundColor: onTerminal
+              ? colors.white
+              : method === 'kaspi'
+                ? colors.orange
+                : invoice
+                  ? colors.blue
+                  : colors.soft,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon
-            name={
-              invoice
-                ? 'phone-portrait-outline'
-                : method === 'kaspi'
-                  ? 'qr-code-outline'
-                  : 'card-outline'
-            }
-            tone={method === 'card' ? 'brand' : 'inverse'}
-          />
+          {onTerminal ? (
+            // Owner 22.11.2026: the Kaspi mark on the terminal payment method.
+            <Image
+              source={KASPI_MARK}
+              accessibilityIgnoresInvertColors
+              style={{ width: tile * 0.78, height: tile * 0.78 }}
+              resizeMode="contain"
+            />
+          ) : (
+            <Icon
+              name={
+                invoice
+                  ? 'phone-portrait-outline'
+                  : method === 'kaspi'
+                    ? 'qr-code-outline'
+                    : 'card-outline'
+              }
+              tone={method === 'card' ? 'brand' : 'inverse'}
+            />
+          )}
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: v(4) }}>
           <Text
