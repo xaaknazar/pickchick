@@ -8090,9 +8090,11 @@
         "docs/operations/deployments/2026-11-22-pos-cloud-enable.md",
         "infra/staging/pos-cloud-enable-1122.py"
       ],
-      "status": "active",
-      "head": "6201b2bdddb05a64d33454351fffaed007ecf2bd",
-      "updatedAt": "2026-11-22T11:57:30.411Z"
+      "status": "available",
+      "head": "e4f2edc1502b9ce6289b3c7bf002549b7e862d2b",
+      "updatedAt": "2026-11-22T12:12:07.505Z",
+      "summary": "Cloud POS sync enabled22.11 on unchanged API b48fcd38, CI44804971188 success. Encrypted backup115942Z SHA97003ce4 and isolated restore PASS. Exact binding/producers saved, scoped receiver grants verified, two flags false->true, only API recreated12:03:37UTC,13 neighbors unchanged.21 readiness probes/300.8sec PASS, restart0, feedPOS0.5.6 200/no-store, private sales without identity401. Own server lock released12:10:26UTC. Report e4f2edc1 pushed, PR412; doc checksPASS. No cashier/order/payment/owner-folder changes.",
+      "nextAction": "Root required: pickchick-pos-link absent, ops has no sudo. Owner runs prepared root command, verify sshd policy and exact key; then Claude Install/Verify on cashier, authenticated posSales probe and62event delivery. Binding and grants remain on flag rollback; guarded rollback.py in server operation dir, dry-runPASS. Do not repeat backup/apply or overwrite newer configuration; inspect current hashes first. Shared status/roadmap remain with desktop-kitchen-046-1117 and online board was not updated. Review report PR412 and integrate normally before finish."
     }
   ],
   "approvedScopeTransfers": [
