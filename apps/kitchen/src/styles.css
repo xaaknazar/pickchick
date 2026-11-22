@@ -1109,10 +1109,9 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
 }
 .order-note {
   margin: 12px 16px 0;
-  border-left: 6px solid #f5a300;
   padding: 10px 14px;
   background: #fff4c7;
-  border-radius: 6px 12px 12px 6px;
+  border-radius: 12px;
 }
 .order-note strong {
   color: #6b4a00;
@@ -1872,4 +1871,29 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
 }
 .kitchen-ticket .age strong.timer {
   font-size: 30px;
+}
+/* Combo contents for the cook: count first, big enough to read from the fryer. */
+.composition {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+.composition li {
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: #eef2f9;
+  font-size: 19px;
+  font-weight: 600;
+  color: #0e1524;
+}
+.composition li strong {
+  font:
+    800 20px Montserrat,
+    Golos,
+    sans-serif;
+  color: var(--blue);
+  margin-right: 2px;
 }

@@ -36,6 +36,97 @@ export function modifierKind(m: Modifier): 'drink' | 'sauce' | 'cook' {
 export const cookModifiers = (t: Task) =>
   t.details.modifiers.filter((m) => modifierKind(m) === 'cook');
 
+/**
+ * What goes into each combo and set, for the cook (owner 22.11: «состав комбо, но без напитков»).
+ * From the manager menu sheet 22.11 (catalog-admin fixtures manager-menu-2026-11-22, ingredients),
+ * drinks left out. Keyed by menu slug (app and kiosk orders) and by Russian name (cashier orders
+ * carry hashed ids). A dish not listed shows no composition, never a guess.
+ * Change together with the menu when a combo's contents change.
+ */
+type Part = readonly [name: string, count: number];
+const FRIES: Part = ['Фри', 1];
+const WEDGES_DUO: Part = ['Дольки, порции', 1.5];
+const COMPOSITION: Readonly<Record<string, readonly [string, readonly Part[]]>> = {
+  'pick-combo': [
+    'Finger Combo',
+    [['Фингерсы', 4], FRIES, ['Тост', 1], ['Коулслоу', 1], ['Соус', 1]],
+  ],
+  'master-combo': [
+    'Master Combo',
+    [['Фингерсы', 6], FRIES, ['Тост', 2], ['Коулслоу', 1], ['Соус', 2]],
+  ],
+  'burger-combo': ['Pick Burger Combo', [['Pick Burger', 1], FRIES, ['Соус', 1]]],
+  'solo-combo': ['Solo Combo', [['Фингерсы', 3], FRIES, ['Тост', 1], ['Соус', 1]]],
+  'pick-meal-combo': ['Pick Meal', [['Pick Burger', 1], ['Фингерсы', 2], FRIES, ['Соус', 1]]],
+  'chick-burger-combo': ['Chick Burger Combo', [['Chick Burger', 1], FRIES, ['Соус', 1]]],
+  'chick-n-roll-combo': ['Chick N Roll Combo', [['Ролл', 1], FRIES, ['Соус', 1]]],
+  'chick-n-roll-meal-combo': [
+    'Chick N Roll Meal',
+    [['Ролл', 1], ['Фингерсы', 2], FRIES, ['Соус', 1]],
+  ],
+  'chick-meal-combo': ['Chick Meal', [['Chick Burger', 1], ['Фингерсы', 2], FRIES, ['Соус', 1]]],
+  'finger-duo': [
+    'Finger Duo',
+    [['Фингерсы', 8], WEDGES_DUO, ['Тост', 2], ['Коулслоу', 2], ['Соус', 2]],
+  ],
+  'burger-duo': ['Pick Burger Duo', [['Pick Burger', 2], WEDGES_DUO, ['Соус', 2]]],
+  'mix-duo': [
+    'Mix Duo c Pick Burger',
+    [['Pick Burger', 1], ['Фингерсы', 4], WEDGES_DUO, ['Тост', 1], ['Соус', 2]],
+  ],
+  'chick-burger-duo': ['Chick Burger Duo', [['Chick Burger', 2], WEDGES_DUO, ['Соус', 2]]],
+  'mix-chick-duo': [
+    'Mix Duo c Chick Burger',
+    [['Chick Burger', 1], ['Фингерсы', 4], WEDGES_DUO, ['Тост', 1], ['Соус', 2]],
+  ],
+  'mix-burger-duo': [
+    'Mix Burger Duo',
+    [['Pick Burger', 1], ['Chick Burger', 1], WEDGES_DUO, ['Соус', 2]],
+  ],
+  'fingers-25': [
+    '25 фингерсов',
+    [
+      ['Фингерсы', 25],
+      ['Соус', 8],
+    ],
+  ],
+  'fingers-50': [
+    '50 фингерсов',
+    [
+      ['Фингерсы', 50],
+      ['Соус', 16],
+    ],
+  ],
+  'fingers-75': [
+    '75 фингерсов',
+    [
+      ['Фингерсы', 75],
+      ['Соус', 24],
+    ],
+  ],
+  'fingers-100': [
+    '100 фингерсов',
+    [
+      ['Фингерсы', 100],
+      ['Соус', 32],
+    ],
+  ],
+};
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+const BY_NAME = new Map(Object.values(COMPOSITION).map(([name, parts]) => [norm(name), parts]));
+/** Contents of one task for the cook, multiplied by its quantity; [] when unknown. */
+export function composition(t: Task): { name: string; count: number }[] {
+  const parts = COMPOSITION[t.details.productId]?.[1] ?? BY_NAME.get(norm(t.details.title)) ?? [];
+  return parts.map(([name, count]) => ({ name, count: count * t.details.quantity }));
+}
+const amount = (n: number) => (Number.isInteger(n) ? String(n) : String(n).replace('.', ','));
+const compositionList = (t: Task) => {
+  const list = composition(t);
+  return list.length
+    ? `<ul class="composition">${list.map((p) => `<li><strong>${amount(p.count)}</strong> ${escape(p.name)}</li>`).join('')}</ul>`
+    : '';
+};
+
 /** Running stopwatch since the order came in: 0:07, 4:35, 12:03, 1:02:09. */
 export function stopwatch(createdAt: string | undefined, now: number) {
   const start = Date.parse(createdAt ?? '');
@@ -131,7 +222,7 @@ export function kitchenTicket(input: TicketInput) {
     body = `<div class="lines cook-lines">${own
       .map(
         (t) =>
-          `<section class="line cook-line${t.state === 'done' ? ' line-done' : ''}">${qty(t.details.quantity)}<div class="line-info"><h3>${escape(t.details.title)}</h3>${parent(t)}${mods(cookModifiers(t))}${t.state === 'done' ? '<p class="line-check">✓ Готово</p>' : ''}${taskButton(t)}</div></section>`,
+          `<section class="line cook-line${t.state === 'done' ? ' line-done' : ''}">${qty(t.details.quantity)}<div class="line-info"><h3>${escape(t.details.title)}</h3>${parent(t)}${compositionList(t)}${mods(cookModifiers(t))}${t.state === 'done' ? '<p class="line-check">✓ Готово</p>' : ''}${taskButton(t)}</div></section>`,
       )
       .join('')}</div>`;
   } else {

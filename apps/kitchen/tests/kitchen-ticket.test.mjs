@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cookModifiers, kitchenTicket, modifierKind, stopwatch } from '../dist/kitchen-ticket.js';
+import {
+  composition,
+  cookModifiers,
+  kitchenTicket,
+  modifierKind,
+  stopwatch,
+} from '../dist/kitchen-ticket.js';
 
 const PREP = '00000000-0000-4000-8000-000000000001';
 const ASM = '00000000-0000-4000-8000-000000000002';
@@ -122,4 +128,23 @@ test('a ready order keeps its timer but loses the wait colour', () => {
   assert.match(html, /data-still=""/);
   assert.doesNotMatch(html, /wait-late/);
   assert.match(html, /Готов к выдаче/);
+});
+
+test('combo contents for the cook: by slug or cashier name, times quantity, no drinks', () => {
+  const bySlug = task(PREP, 'Finger Combo', { productId: 'pick-combo', quantity: 2 });
+  assert.deepEqual(composition(bySlug), [
+    { name: 'Фингерсы', count: 8 },
+    { name: 'Фри', count: 2 },
+    { name: 'Тост', count: 2 },
+    { name: 'Коулслоу', count: 2 },
+    { name: 'Соус', count: 2 },
+  ]);
+  const cashier = task(PREP, 'Master Combo', { productId: 'a1b2c3d4-hashed' });
+  assert.equal(composition(cashier).find((p) => p.name === 'Фингерсы').count, 6);
+  assert.deepEqual(composition(task(PREP, 'Pick Burger')), []);
+  for (const t of [bySlug, cashier]) assert.ok(composition(t).every((p) => !/напит/i.test(p.name)));
+  const html = render(order([bySlug]), PREP);
+  assert.match(html, /<li><strong>8<\/strong> Фингерсы<\/li>/);
+  const duo = task(PREP, 'Finger Duo', { productId: 'finger-duo' });
+  assert.match(render(order([duo]), PREP), /<strong>1,5<\/strong> Дольки, порции/);
 });
