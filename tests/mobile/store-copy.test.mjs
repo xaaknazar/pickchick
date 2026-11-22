@@ -209,12 +209,6 @@ const ALLOWED = [
   ],
   [
     'loyalty/combo-progress.ts',
-    'Отметки пока у кассира',
-    'App Store build: no card while the server programme is off',
-    COMBO_SERVER,
-  ],
-  [
-    'loyalty/combo-progress.ts',
     'Пробные отметки: {p0} из 6',
     'test orders: practice counter',
     COMBO_SERVER,

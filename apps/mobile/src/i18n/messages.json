@@ -2904,9 +2904,9 @@
     "context": "apps/mobile/src/loyalty/combo-progress.ts:11"
   },
   {
-    "ru": "Отметки пока у кассира",
-    "kk": "Белгілер әзірге кассирде",
-    "en": "Stamps are managed by the cashier for now",
+    "ru": "Отметка за каждое комбо",
+    "kk": "Әр комбо үшін бір белгі",
+    "en": "One stamp for every combo",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:12"
   },
   {
@@ -2940,9 +2940,9 @@
     "context": "apps/mobile/src/loyalty/combo-progress.ts:27"
   },
   {
-    "ru": "Отметки не теряются при отсутствии связи. Условия действующей акции уточняйте на кассе.",
-    "kk": "Байланыс болмаса да, белгілер жоғалмайды. Қолданыстағы акция шарттарын кассадан нақтылаңыз.",
-    "en": "Stamps aren't lost when you're offline. Ask at the till for the current offer terms.",
+    "ru": "Комбо из приложения отмечаются сами. Отметки не теряются без связи.",
+    "kk": "Қосымшадағы комбо өзі белгіленеді. Байланыс болмаса да, белгілер жоғалмайды.",
+    "en": "Combos ordered in the app are stamped automatically. Stamps aren't lost when you're offline.",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:32"
   },
   {

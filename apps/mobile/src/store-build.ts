@@ -60,7 +60,7 @@ export function upcomingFeaturesShown(store = STORE_BUILD, preview = false): boo
  * The «Купи 6 комбо, 7-е в подарок» card. The server is the authority: in the App Store build the
  * card appears only while the server runs the programme (`/combo-rewards` answers `enabled: true`
  * with the customer's stamps). Switched off on the server (the state of 29.10.2026), signed out,
- * still loading or unreadable: no card, instead of «Отметки пока у кассира».
+ * still loading or unreadable: no card, instead of «Отметка за каждое комбо».
  */
 export function comboCardShown(
   progress: ComboProgressState | undefined,

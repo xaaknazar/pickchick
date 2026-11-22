@@ -16,7 +16,7 @@ export function comboProgressView(state?: ComboProgressState, preview = false) {
   if (preview) return { count: 3, text: 'Пример: 3 из 6 комбо' };
   if (!state || state.status === 'signed_out')
     return { count: null, text: 'Войдите, чтобы видеть отметки' };
-  if (state.status === 'unavailable') return { count: null, text: 'Отметки пока у кассира' };
+  if (state.status === 'unavailable') return { count: null, text: 'Отметка за каждое комбо' };
   if (state.status === 'loading') return { count: null, text: 'Загружаем отметки…' };
   if (state.status === 'ready' && state.commercial)
     return {
@@ -50,8 +50,7 @@ export function comboNextStep(state?: ComboProgressState, preview = false) {
   if (view.count === null)
     return {
       title: view.text,
-      detail:
-        'Отметки не теряются при отсутствии связи. Условия действующей акции уточняйте на кассе.',
+      detail: 'Комбо из приложения отмечаются сами. Отметки не теряются без связи.',
       action: 'Открыть меню',
     };
   if (state?.commercial) {

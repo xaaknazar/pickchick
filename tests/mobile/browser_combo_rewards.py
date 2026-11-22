@@ -101,14 +101,14 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('profile-combo-reward-progress')).to_contain_text('Ещё 1 комбо до подарка')
   page.goto(URL+'/cart');expect(page.get_by_test_id('cart-use-combo-gift')).to_have_count(0)
   # Owner 29.10.2026 (App Store build): the programme switched off on the server shows no card
-  # anywhere, instead of «Отметки пока у кассира»; it comes back with the server's next answer.
+  # anywhere, instead of «Отметка за каждое комбо»; it comes back with the server's next answer.
   state['earned']=None
   for path,card in [('/profile','profile-combo-reward'),('/events','events-combo-reward'),('/cart','cart-combo-reward')]:
    page.goto(URL+path)
    expect(page.get_by_test_id('screen-M30' if path=='/profile' else 'screen-M26' if path=='/events' else 'screen-M09')).to_be_visible(timeout=25000)
    page.wait_for_timeout(1500)
    expect(page.get_by_test_id(card)).to_have_count(0)
-   expect(page.get_by_text('Отметки пока у кассира',exact=False)).to_have_count(0)
+   expect(page.get_by_text('Отметка за каждое комбо',exact=False)).to_have_count(0)
   page.screenshot(path=str(OUT/f'programme-off-cart-{width}.png'))
   context.close()
  browser.close()
