@@ -17,7 +17,7 @@ const ru = {
   offline: 'Нет ответа - проверяем снова. Не оплачивайте повторно.',
   failedTitle: 'Оплата не прошла',
   cancelledTitle: 'Оплата отменена на терминале',
-  failedBody: 'Деньги не списаны. Попробуйте ещё раз или вернитесь к заказу.',
+  failedBody: 'Деньги не списаны. Можно повторить оплату или начать заказ заново.',
   notStartedTitle: 'Терминал не начал оплату',
   notStartedBody: 'Деньги не списаны.',
   reason_busy: 'Терминал занят прошлой операцией. Завершите её на терминале и нажмите «Повторить».',
@@ -32,6 +32,8 @@ const ru = {
     'Ответ терминала не пришёл. Не оплачивайте повторно - пригласите сотрудника, он проверит операцию на терминале.',
   retry: 'Повторить',
   leave: 'Вернуться к заказу',
+  /** Owner 22.11.2026: after a failed or cancelled payment, an empty menu. */
+  toMenu: 'В меню',
   staff: 'Сотруднику',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
   staffResetBody:
@@ -91,7 +93,7 @@ const kk: Strings = {
   offline: 'Жауап жоқ - қайта тексереміз. Қайта төлемеңіз.',
   failedTitle: 'Төлем өтпеді',
   cancelledTitle: 'Төлем терминалда тоқтатылды',
-  failedBody: 'Ақша алынған жоқ. Қайта көріңіз немесе тапсырысқа оралыңыз.',
+  failedBody: 'Ақша алынған жоқ. Төлемді қайталауға немесе тапсырысты қайта бастауға болады.',
   notStartedTitle: 'Терминал төлемді бастамады',
   notStartedBody: 'Ақша алынған жоқ.',
   reason_busy:
@@ -108,6 +110,7 @@ const kk: Strings = {
     'Терминалдан жауап келмеді. Қайта төлемеңіз - қызметкерді шақырыңыз, ол операцияны терминалда тексереді.',
   retry: 'Қайталау',
   leave: 'Тапсырысқа оралу',
+  toMenu: 'Мәзірге',
   staff: 'Қызметкерге',
   staffResetBody:
     'Терминалдағы төлем расталмады. Алдымен операцияны терминал экранынан тексеріңіз. Қалпына келтіргеннен кейін тапсырыс менеджерге салыстыруға жіберіледі, асүйге түспейді.',
@@ -163,7 +166,7 @@ const en: Strings = {
   offline: 'No answer - checking again. Do not pay again.',
   failedTitle: 'Payment failed',
   cancelledTitle: 'Payment cancelled on the terminal',
-  failedBody: 'No money was taken. Try again or go back to your order.',
+  failedBody: 'No money was taken. You can try again or start a new order.',
   notStartedTitle: 'The terminal did not start the payment',
   notStartedBody: 'No money was taken.',
   reason_busy:
@@ -179,6 +182,7 @@ const en: Strings = {
     'The terminal did not answer. Do not pay again - call a team member to check the operation on the terminal.',
   retry: 'Try again',
   leave: 'Back to my order',
+  toMenu: 'Back to menu',
   staff: 'Staff',
   staffResetBody:
     'The terminal payment is not confirmed. First check the operation on the terminal screen. After the reset the order goes to the manager for review and never reaches the kitchen.',

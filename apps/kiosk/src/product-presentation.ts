@@ -262,12 +262,15 @@ export function applyPick(
   return quantity > 0 ? [...others, { group_id: group.id, option_id: optionId, quantity }] : others;
 }
 /**
- * Groups shown as numbered sections. The «Добавить к заказу» list (an optional group of extras
+ * Groups shown as numbered sections. The «Добавить к заказу» list (`extras`, optional extras
  * with quantities) left the card: the smart upsell offers extras now. Its picks, if a cart line
- * being edited has any, stay in the line untouched.
+ * being edited has any, stay in the line untouched. Owner 22.11.2026: other optional groups with
+ * quantities stay on the card - the sauces of a fingers set (min 0, up to 8/16/24/32) and its paid
+ * «Добавить напитки» (`drink-extra`, catalog v17).
  */
+export const LEGACY_EXTRAS_GROUP = 'extras';
 export const cardGroups = (product: Pick<KioskProduct, 'modifier_groups'>) =>
-  product.modifier_groups.filter((group) => !(group.min === 0 && group.max > 1));
+  product.modifier_groups.filter((group) => group.id !== LEGACY_EXTRAS_GROUP);
 /** The first section still waiting for a choice. */
 export const firstMissing = (
   groups: readonly KioskModifierGroup[],

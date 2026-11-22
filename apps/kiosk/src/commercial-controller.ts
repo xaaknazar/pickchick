@@ -2329,24 +2329,36 @@ export class CommercialKioskController {
    * when the payment never started on the terminal (no money can move: the order stays unpaid and
    * the cloud moves its open attempt to review after 15 minutes).
    */
-  leaveTerminal = () =>
+  leaveTerminal = (fresh = false) =>
     this.run(async () => {
       const a = this.current.terminal;
       if (!a || !(a.phase === 'send_failed' || this.terminalSettled()))
         throw new KioskError('QUIET');
       if (a.phase === 'send_failed') {
         await this.abandonUnpaidOrder();
-        return;
+      } else {
+        await this.readOrder();
+        if (this.current.order?.phase !== 'failed') {
+          this.derive();
+          throw new KioskError('QUIET');
+        }
+        const ended = await this.io.request('/sessions/end', this.guest!.token, {});
+        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+        await this.abandonUnpaidOrder(true);
       }
-      await this.readOrder();
-      if (this.current.order?.phase !== 'failed') {
-        this.derive();
-        throw new KioskError('QUIET');
-      }
-      const ended = await this.io.request('/sessions/end', this.guest!.token, {});
-      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
-      await this.abandonUnpaidOrder(true);
+      if (fresh) await this.freshMenu();
     });
+  /**
+   * Owner 22.11.2026: «В меню» after a failed or cancelled terminal payment drops the whole
+   * draft (the unpaid order is already given up above) and opens an empty menu in the same
+   * dining mode, so the next guest never inherits the cart.
+   */
+  private async freshMenu() {
+    const mode = this.current.mode;
+    await this.save({ ...this.empty(), guestId: this.current.guestId, mode });
+    this.clearGuestScreens();
+    this.step = mode ? 'menu' : 'start';
+  }
   private refreshResult = (background = false) =>
     this.run(
       async () => {

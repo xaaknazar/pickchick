@@ -349,3 +349,14 @@ test('product card copy exists in RU, KZ and EN with the owner hyphen rule', () 
   assert.equal(ru.more.replace('{n}', '4'), 'Ещё 4');
   assert.equal(ru.includedIn.replace('{product}', 'Pick Combo'), 'Входит в Pick Combo');
 });
+
+test('owner 22.11: a fingers set keeps its optional sauces and the paid «Добавить напитки» on the card', () => {
+  const set = {
+    modifier_groups: [
+      { id: 'sauce', min: 0, max: 8, options: [] },
+      { id: 'drink-extra', min: 0, max: 20, options: [] },
+      { id: 'extras', min: 0, max: 10, options: [] },
+    ],
+  };
+  assert.deepEqual(ids(cardGroups(set)), ['sauce', 'drink-extra']);
+});
