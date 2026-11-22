@@ -27,6 +27,7 @@ import { GlassButton } from './GlassButton';
 import { useTabBarInset } from './tab-bar-inset';
 import { useTabScrollToTop } from './useTabScrollToTop';
 import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
+import { svgDataUri } from '../svg-data-uri';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({
@@ -81,7 +82,7 @@ export function TabIcon({
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
   return (
     <Image
-      source={{ uri: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` }}
+      source={{ uri: svgDataUri(svg) }}
       style={{ width: 23, height: 23, flexShrink: 0 }}
       contentFit="contain"
       pointerEvents="none"

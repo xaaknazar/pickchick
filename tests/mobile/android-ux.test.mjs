@@ -248,3 +248,27 @@ test('Android has a shadow wherever iOS draws one; 2GIS keeps its web fallback',
   assert.match(restaurants, /if \(await Linking\.canOpenURL\(app\)\)/);
   assert.match(restaurants, /await Linking\.openURL\(mapUrl\);\s*\}/);
 });
+
+// Owner 22.11.2026: «на андроиде на таб-баре нет иконок». expo-image on Android base64-decodes
+// every data: URI, so a percent-encoded SVG drew nothing there (tab bar, branch check, Pick Man).
+test('inline SVG images are base64 data URIs that Android can decode', async () => {
+  const { base64Utf8, svgDataUri } = await import('../../apps/mobile/src/svg-data-uri.ts');
+  for (const sample of ['', 'a', 'ab', 'abc', '<svg stroke="#FF6A00"/>', 'Қазақ ₸ 🍔']) {
+    assert.equal(base64Utf8(sample), Buffer.from(sample, 'utf8').toString('base64'));
+  }
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18"/></svg>';
+  const uri = svgDataUri(svg);
+  assert.match(uri, /^data:image\/svg\+xml;base64,[A-Za-z0-9+/]+=*$/);
+  assert.equal(Buffer.from(uri.split(',')[1], 'base64').toString('utf8'), svg);
+  const offenders = sourceFiles()
+    .filter((file) => /data:image\/svg\+xml;(utf8|charset)/.test(readFileSync(file, 'utf8')))
+    .map((file) => file.slice(src.length));
+  assert.deepEqual(offenders, []);
+  for (const file of [
+    'components/UI.tsx',
+    'components/Restaurants.tsx',
+    'games/pick-man/visuals.tsx',
+  ]) {
+    assert.match(read(file), /svgDataUri\(/, file);
+  }
+});
