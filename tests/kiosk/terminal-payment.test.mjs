@@ -147,7 +147,15 @@ function terminalFixture({
       },
     },
     call: async (host, method, params, options = {}) => {
-      t.calls.push({ host, method, params, token: options.token ?? null });
+      t.calls.push({
+        host,
+        method,
+        params,
+        token: options.token ?? null,
+        pin: options.pin ?? null,
+      });
+      if (t.certificate && options.pin && options.pin !== t.certificate)
+        return { kind: 'unreachable', reason: 'CERTIFICATE' };
       if (method === 'payment') return t.payment();
       if (method === 'status') return t.statuses.length > 1 ? t.statuses.shift() : t.statuses[0];
       if (method === 'actualize') return t.actualize();
@@ -548,6 +556,8 @@ test('terminal setup: staff code, IP, deviceinfo, register, SecureStore, PUT ter
     terminalId: TERMINAL_ID,
     serial: 'SPOS3A1B2C3',
     host: '192.168.1.50',
+    // No probe in this fixture: the terminal answers plain HTTP, nothing is pinned.
+    certificate: null,
   });
   assert.equal(setup.cloudLinked, true);
   assert.deepEqual(
@@ -602,7 +612,8 @@ test('terminal setup: a terminal held by another kiosk is not kept; a refused re
     message: null,
   });
   await c.linkTerminal('192.168.1.50');
-  assert.equal(c.getSnapshot().terminalSetup.result, 'pending');
+  // 22.11.2026: over plain HTTP code 105 means «Защита интеграции» is off.
+  assert.equal(c.getSnapshot().terminalSetup.result, 'protection');
   assert.equal(h.terminal.raw, null);
   h.terminal.register = () => ({ kind: 'lost', reason: 'TIMEOUT' });
   await c.linkTerminal('192.168.1.50');
@@ -618,6 +629,91 @@ test('terminal setup: a terminal held by another kiosk is not kept; a refused re
   h.terminal.deviceinfo = () => ({ kind: 'unreachable', reason: 'CONNECT' });
   await c.linkTerminal('192.168.1.51');
   assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+});
+
+test('terminal setup over HTTPS: the probed certificate is pinned, shown shortened, never sent to the cloud', async () => {
+  const PIN = '228fc8c4' + 'ab'.repeat(24) + '5d0e9a17';
+  const h = terminalFixture({ linked: false, cloudTerminal: null });
+  h.io.verifyStaff = async () => {};
+  const probes = [];
+  h.io.terminal.probe = async (host) => {
+    probes.push(host);
+    return host === '192.168.1.50' ? { transport: 'https', pin: PIN } : null;
+  };
+  h.terminal.certificate = PIN;
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  assert.equal(await c.openTerminalSetup('4829'), true);
+
+  // Nothing answers at the address: no deviceinfo, no register.
+  await c.linkTerminal('192.168.1.77');
+  assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+  assert.equal(h.terminal.calls.length, 0);
+
+  let shown = null;
+  const register = h.terminal.register;
+  h.terminal.register = () => {
+    shown = c.getSnapshot().terminalSetup.confirmingCertificate;
+    return register();
+  };
+  assert.equal(await c.linkTerminal('192.168.1.50'), true);
+  assert.equal(shown, '228fc8c4…5d0e9a17', 'the staff sees the start and end while confirming');
+  const setup = c.getSnapshot().terminalSetup;
+  assert.equal(setup.result, 'linked');
+  assert.equal(setup.confirmingCertificate, null);
+  assert.equal(setup.link.certificate, '228fc8c4…5d0e9a17');
+  assert.deepEqual(
+    h.terminal.calls.map((call) => [call.method, call.pin]),
+    [
+      ['deviceinfo', PIN],
+      ['register', PIN],
+    ],
+  );
+  assert.equal(parseTerminalLink(h.terminal.raw).pin, PIN);
+  assert.deepEqual(h.terminal.sends[0].body, {
+    terminal_id: TERMINAL_ID,
+    serial: 'SPOS3A1B2C3',
+    host: '192.168.1.50',
+  });
+  assert.equal(JSON.stringify(h.terminal.sends).includes(PIN), false, 'no pin to the cloud');
+  assert.equal(JSON.stringify(h.calls).includes(PIN), false, 'no pin in any cloud request');
+
+  assert.equal(await c.checkTerminal(), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'ok');
+  assert.equal(h.terminal.calls.at(-1).pin, PIN);
+
+  // The terminal now presents another certificate: nothing is sent past the handshake, the
+  // search for a moved terminal finds no device with the pinned certificate, the staff is told.
+  h.terminal.certificate = 'ff'.repeat(32);
+  const before = h.terminal.calls.length;
+  await c.checkTerminal();
+  assert.equal(c.getSnapshot().terminalSetup.result, 'certificate');
+  const after = h.terminal.calls.slice(before);
+  assert.ok(after.every((call) => call.method === 'deviceinfo' && call.pin === PIN));
+  assert.equal(parseTerminalLink(h.terminal.raw).host, '192.168.1.50', 'the link is kept');
+});
+
+test('a guest payment on an HTTPS link goes with the pin; another certificate sends nothing', async () => {
+  const PIN = 'c0'.repeat(32);
+  const h = terminalFixture();
+  h.terminal.raw = JSON.stringify(storedLink({ pin: PIN }));
+  h.terminal.certificate = PIN;
+  await pay(h);
+  const payments = sent(h, 'payment');
+  assert.equal(payments.length, 1);
+  assert.equal(payments[0].pin, PIN);
+
+  const other = terminalFixture();
+  other.terminal.raw = JSON.stringify(storedLink({ pin: PIN }));
+  other.terminal.certificate = 'ee'.repeat(32);
+  const c = await pay(other);
+  const s = c.getSnapshot();
+  assert.equal(s.terminalPayment.phase, 'not_started', 'nothing sent: not started, not lost');
+  assert.equal(s.terminalPayment.reason, 'unreachable');
+  assert.ok(
+    other.terminal.calls.every((call) => call.pin === PIN),
+    'every attempt is pinned (the search too)',
+  );
 });
 
 test('the stored terminal attempt is strictly checked on restore', async () => {

@@ -47,7 +47,11 @@ const ru = {
   link: 'Подключить',
   confirmTitle: 'Нажмите «Разрешить» на терминале',
   confirmBody:
-    'На экране терминала появится запрос от pickchick-kiosk. Если его нет: «Настройки» → «Панель администратора» → «Защита интеграции» → «Настроить доступ».',
+    'На экране терминала появится запрос от pickchick-kiosk. Если его нет: «Панель главного кассира» → «Защита интеграции» (включена) → «Настроить доступ».',
+  /** The pinned certificate (start and end of its SHA-256), HTTPS links. */
+  confirmCertificate: 'Сертификат терминала',
+  certificate: 'Сертификат',
+  plainHttp: 'Без шифрования (HTTP)',
   linkedTitle: 'Подключён терминал',
   terminalId: 'ID терминала',
   serial: 'Серийный номер',
@@ -68,6 +72,9 @@ const ru = {
   result_taken: 'Этот терминал привязан к другому киоску. Сначала отвяжите его там.',
   result_cloud: 'Не удалось сохранить на сервере. Проверьте связь и нажмите «Проверить связь».',
   result_mismatch: 'По этому адресу отвечает другой терминал. Отвяжите и подключите заново.',
+  result_certificate: 'Терминал отвечает с другим сертификатом. Проверьте IP или привяжите заново.',
+  result_protection:
+    'Терминал работает без защиты. Включите на терминале «Защита интеграции», нажмите «Настроить доступ» и повторите.',
   result_busy: 'Сейчас идёт заказ гостя. Повторите на заставке.',
 };
 type Strings = { [K in keyof typeof ru]: string };
@@ -113,7 +120,10 @@ const kk: Strings = {
   link: 'Қосу',
   confirmTitle: 'Терминалда «Рұқсат ету» түймесін басыңыз',
   confirmBody:
-    'Терминал экранында pickchick-kiosk сұрауы шығады. Егер ол жоқ болса: «Баптаулар» → «Әкімші панелі» → «Интеграцияны қорғау» → «Қолжетімділікті баптау».',
+    'Терминал экранында pickchick-kiosk сұрауы шығады. Егер ол жоқ болса: «Бас кассир панелі» → «Интеграцияны қорғау» (қосулы) → «Қолжетімділікті баптау».',
+  confirmCertificate: 'Терминал сертификаты',
+  certificate: 'Сертификат',
+  plainHttp: 'Шифрлаусыз (HTTP)',
   linkedTitle: 'Қосылған терминал',
   terminalId: 'Терминал ID',
   serial: 'Сериялық нөмір',
@@ -135,6 +145,10 @@ const kk: Strings = {
   result_cloud:
     'Серверде сақтау мүмкін болмады. Байланысты тексеріп, «Байланысты тексеру» түймесін басыңыз.',
   result_mismatch: 'Бұл мекенжай бойынша басқа терминал жауап береді. Ажыратып, қайта қосыңыз.',
+  result_certificate:
+    'Терминал басқа сертификатпен жауап береді. IP мекенжайын тексеріңіз немесе қайта байлаңыз.',
+  result_protection:
+    'Терминал қорғаусыз жұмыс істеп тұр. Терминалда «Интеграцияны қорғау» функциясын қосып, «Қолжетімділікті баптау» түймесін басып, қайталаңыз.',
   result_busy: 'Қазір қонақтың тапсырысы жүріп жатыр. Бастапқы экранда қайталаңыз.',
 };
 const en: Strings = {
@@ -177,7 +191,10 @@ const en: Strings = {
   link: 'Connect',
   confirmTitle: 'Press Allow on the terminal',
   confirmBody:
-    'The terminal shows a request from pickchick-kiosk. If it does not: Settings → Administrator panel → Integration protection → Set up access.',
+    'The terminal shows a request from pickchick-kiosk. If it does not: Senior cashier panel → Integration protection (on) → Set up access.',
+  confirmCertificate: 'Terminal certificate',
+  certificate: 'Certificate',
+  plainHttp: 'Not encrypted (HTTP)',
   linkedTitle: 'Linked terminal',
   terminalId: 'Terminal ID',
   serial: 'Serial number',
@@ -198,6 +215,10 @@ const en: Strings = {
   result_taken: 'This terminal is linked to another kiosk. Unlink it there first.',
   result_cloud: 'Could not save on the server. Check the connection and press Check connection.',
   result_mismatch: 'Another terminal answers at this address. Unlink and connect again.',
+  result_certificate:
+    'The terminal answers with a different certificate. Check the IP or link it again.',
+  result_protection:
+    'The terminal runs without protection. Turn on Integration protection on the terminal, press Set up access and try again.',
   result_busy: 'A guest order is in progress. Try again on the start screen.',
 };
 const table: Record<Locale, Strings> = { ru, kk, en };

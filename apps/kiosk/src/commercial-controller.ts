@@ -30,12 +30,19 @@ import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
-import { privateIPv4, type KaspiCallResult, type KaspiTerminalPort } from './kaspi-terminal.ts';
+import {
+  kaspiPinShort,
+  privateIPv4,
+  type KaspiCallResult,
+  type KaspiProbePort,
+  type KaspiTerminalPort,
+} from './kaspi-terminal.ts';
 import {
   TerminalSession,
   terminalIdentity,
   terminalIntegrationName,
   terminalTokens,
+  type TerminalLink,
   type TerminalLinkStore,
 } from './kaspi-terminal-link.ts';
 import { placeLine, selectedPriceMinor, validSelections, testLineId } from './cart.ts';
@@ -75,7 +82,7 @@ export interface CommercialKioskIO extends KioskIO {
    * ADR-0018: the kiosk's own Kaspi Smart POS over the LAN (link in SecureStore, LAN calls).
    * Absent (web, the demo, older tests): the kiosk only knows the QR on screen.
    */
-  terminal?: { store: TerminalLinkStore; call: KaspiTerminalPort };
+  terminal?: { store: TerminalLinkStore; call: KaspiTerminalPort; probe?: KaspiProbePort };
   /** PUT/DELETE /terminal of kiosk-checkout (device headers; the guest token when there is one). */
   send?(
     method: 'PUT' | 'DELETE',
@@ -811,6 +818,8 @@ export class CommercialKioskController {
   private terminalSub: string | null = null;
   private setupUntil = 0;
   private setupConfirming = false;
+  /** The certificate pin being linked (shown shortened while the terminal asks «Разрешить»). */
+  private setupConfirmingPin: string | null = null;
   private setupResult: TerminalSetupResult | null = null;
   private listeners = new Set<() => void>();
   private view: KioskState;
@@ -818,7 +827,12 @@ export class CommercialKioskController {
   constructor(io: CommercialKioskIO) {
     this.io = io;
     if (io.terminal) {
-      this.terminalSession = new TerminalSession(io.terminal.store, io.terminal.call, io.now);
+      this.terminalSession = new TerminalSession(
+        io.terminal.store,
+        io.terminal.call,
+        io.now,
+        io.terminal.probe ?? null,
+      );
       // The terminal got a new address (no DHCP reservation): the cloud learns the new host.
       this.terminalSession.onRelocated = () => {
         if (this.terminalSession) void this.putTerminal(this.terminalSession);
@@ -1076,8 +1090,19 @@ export class CommercialKioskController {
     return {
       open: this.setupOpen(),
       confirming: this.setupConfirming,
+      confirmingCertificate:
+        this.setupConfirming && this.setupConfirmingPin
+          ? kaspiPinShort(this.setupConfirmingPin)
+          : null,
       result: this.setupResult,
-      link: link ? { terminalId: link.terminalId, serial: link.serial, host: link.host } : null,
+      link: link
+        ? {
+            terminalId: link.terminalId,
+            serial: link.serial,
+            host: link.host,
+            certificate: link.pin ? kaspiPinShort(link.pin) : null,
+          }
+        : null,
       cloudLinked: !!link && this.terminalConfig?.terminalId === link.terminalId,
       enabled: !!this.terminalConfig?.enabled,
     };
@@ -2576,30 +2601,43 @@ export class CommercialKioskController {
     this.setupAction(async (session) => {
       const address = host.trim();
       if (!privateIPv4(address)) return 'host';
-      const identity = terminalIdentity(await session.deviceInfo(address).catch(() => null!));
+      // HTTPS («Защита интеграции» on): the presented certificate is pinned from here on, trusted
+      // on first use; the staff sees its start and end while confirming on the terminal.
+      const probe = await session.probe(address);
+      if (!probe) return 'unreachable';
+      const pin = probe.transport === 'https' ? probe.pin : null;
+      const identity = terminalIdentity(await session.deviceInfo(address, pin).catch(() => null!));
       if (!identity) return 'unreachable';
       this.setupConfirming = true;
+      this.setupConfirmingPin = pin;
       this.emit();
       const name = terminalIntegrationName(this.io.uuid());
       let answer: KaspiCallResult;
       try {
-        answer = await session.register(address, name);
+        answer = await session.register(address, name, pin);
       } catch {
         answer = { kind: 'unreachable', reason: 'CONNECT' };
       } finally {
         this.setupConfirming = false;
+        this.setupConfirmingPin = null;
       }
       const tokens = terminalTokens(answer, this.io.now());
       if (!tokens)
         return answer.kind === 'refused' && answer.statusCode === 105
-          ? 'pending'
+          ? // 22.11.2026: over plain HTTP code 105 came from «Защита интеграции» being off.
+            pin === null
+            ? 'protection'
+            : 'pending'
           : answer.kind === 'unreachable'
-            ? 'unreachable'
+            ? answer.reason === 'CERTIFICATE'
+              ? 'certificate'
+              : 'unreachable'
             : 'denied';
       await session.save({
         host: address,
         terminalId: identity.terminalId,
         serial: identity.serial,
+        pin,
         name,
         ...tokens,
         linkedAt: this.io.now(),
@@ -2611,12 +2649,23 @@ export class CommercialKioskController {
     this.setupAction(async (session) => {
       let link = session.current();
       if (!link) return 'unreachable';
-      let identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
-      // Silent, or another device took the address: look for this terminal at a new address.
+      const ask = async (at: TerminalLink) => {
+        const answer = await session
+          .deviceInfo(at.host, at.pin)
+          .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+        return {
+          identity: terminalIdentity(answer),
+          certificate: answer.kind === 'unreachable' && answer.reason === 'CERTIFICATE',
+        };
+      };
+      let { identity, certificate } = await ask(link);
+      // Silent, another device took the address, or another certificate answers there: look for
+      // this terminal (same ID, serial and pin) at a new address.
       if ((!identity || identity.terminalId !== link.terminalId) && (await session.relocate())) {
         link = session.current()!;
-        identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+        ({ identity, certificate } = await ask(link));
       }
+      if (certificate) return 'certificate';
       if (!identity) return 'unreachable';
       if (identity.terminalId !== link.terminalId) return 'mismatch';
       await session.renew();

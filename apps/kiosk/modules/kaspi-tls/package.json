@@ -1,0 +1,7 @@
+{
+  "name": "kaspi-tls",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTPS to the kiosk's Kaspi Smart POS with the terminal's leaf certificate pinned (ADR-0018)",
+  "main": "index.ts"
+}

@@ -82,6 +82,10 @@ export type TerminalSetupResult =
   | 'taken'
   | 'cloud'
   | 'mismatch'
+  /** The terminal answers with another certificate than the pinned one. */
+  | 'certificate'
+  /** register refused with code 105 over plain HTTP: «Защита интеграции» is off. */
+  | 'protection'
   | 'busy';
 /** Staff terminal setup (ADR-0018), opened after the staff code. */
 export interface TerminalSetupView {
@@ -89,9 +93,19 @@ export interface TerminalSetupView {
   open: boolean;
   /** register was sent: the terminal shows «Разрешить». */
   confirming: boolean;
+  /** While confirming over HTTPS: the start and end of the certificate being pinned. */
+  confirmingCertificate?: string | null;
   result: TerminalSetupResult | null;
-  /** The terminal linked on this iPad, if any. */
-  link: { terminalId: string; serial: string; host: string } | null;
+  /**
+   * The terminal linked on this iPad, if any. `certificate`: start and end of the pinned
+   * certificate (HTTPS); null or absent: linked over plain HTTP.
+   */
+  link: {
+    terminalId: string;
+    serial: string;
+    host: string;
+    certificate?: string | null;
+  } | null;
   /** The cloud knows this same terminal for this kiosk. */
   cloudLinked: boolean;
   /** The cloud allows payments on the terminal (KIOSK_KASPI_TERMINAL_ENABLED). */
