@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, font, restaurantColors } from '../theme';
+import { colors, font } from '../theme';
 import { MotionPressable } from './Motion';
 import { SheetModal } from './MotionSheets';
 import { Body, Button, Heading, Icon, CloseButton } from './UI';
@@ -16,9 +16,10 @@ import {
   type ComboProgressState,
 } from '../loyalty/combo-progress';
 
-// Owner 27.10.2026: a collected stamp keeps the calm slot background; only the
-// checkmark (and a thin rim) is green. The same green marks «open» restaurants.
-const STAMP_GREEN = restaurantColors.open;
+// 22.11.2026: on the orange card a collected stamp is a darker slot with a dark
+// checkmark and rim (green on orange was unreadable).
+/** Dark ink on the orange card (6:1 on #FF6900). */
+const INK = colors.orangeInk;
 
 // Account-scoped server progress. Unknown data never becomes an invented zero balance.
 export function ComboRewardCard({
@@ -53,13 +54,14 @@ export function ComboRewardCard({
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
       >
-        {/* Owner 22.11.2026: a new background - the app's night navy with a warm light behind
-            real cut-out food, instead of the grey studio photo. */}
+        {/* Owner 22.11.2026: brand orange with a soft light behind our Pick Combo photo
+            (cut out), instead of the grey studio photo. Text is dark ink: white on #FF6900
+            is only 2.9:1. */}
         <View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            gradient('linear-gradient(120deg, #1C2538 0%, #141B2B 100%)'),
+            gradient('linear-gradient(120deg, #FF8A3D 0%, #FF6900 60%, #F25500 100%)'),
           ]}
         />
         <View
@@ -67,30 +69,17 @@ export function ComboRewardCard({
           style={[
             StyleSheet.absoluteFill,
             gradient(
-              'radial-gradient(circle at 80% 55%, rgba(255,138,61,0.55) 0%, rgba(255,105,0,0) 58%)',
+              'radial-gradient(circle at 78% 55%, rgba(255,226,180,0.55) 0%, rgba(255,226,180,0) 55%)',
             ),
           ]}
         />
-        <View pointerEvents="none" style={s.food} accessible={false}>
-          <Image
-            source={require('../../assets/catalog-cutouts/fingers.png')}
-            style={s.foodFingers}
-            contentFit="contain"
-            accessible={false}
-          />
-          <Image
-            source={require('../../assets/catalog-cutouts/burger.png')}
-            style={s.foodBurger}
-            contentFit="contain"
-            accessible={false}
-          />
-          <Image
-            source={require('../../assets/catalog-cutouts/sauce.png')}
-            style={s.foodSauce}
-            contentFit="contain"
-            accessible={false}
-          />
-        </View>
+        <Image
+          source={require('../../assets/campaigns/pick-combo-cutout.png')}
+          style={s.food}
+          contentFit="contain"
+          contentPosition="right"
+          accessible={false}
+        />
         <View style={[s.offer, compact && s.offerCompact]}>
           <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
             {t('Купи 6 комбо.')}
@@ -116,10 +105,10 @@ export function ComboRewardCard({
                   >
                     {earned ? (
                       <View testID={`${testID}-stamp-${index + 1}-check`}>
-                        <Icon name="checkmark-sharp" size={20} color={STAMP_GREEN} />
+                        <Icon name="checkmark-sharp" size={20} color={INK} />
                       </View>
                     ) : gift ? (
-                      <Icon name="gift-outline" size={17} color="#FFE2C3" />
+                      <Icon name="gift-outline" size={17} color={INK} />
                     ) : (
                       <Text style={s.stampNumber} maxFontSizeMultiplier={1.3}>
                         {localize(index + 1)}
@@ -137,7 +126,7 @@ export function ComboRewardCard({
               >
                 {localize(nextStep.title)}
               </Text>
-              <Icon name="arrow-forward" size={16} color={colors.white} />
+              <Icon name="arrow-forward" size={16} color={INK} />
             </View>
           </View>
         </View>
@@ -247,11 +236,8 @@ function gradient(value: string) {
 }
 
 const s = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#141B2B' },
-  food: { position: 'absolute', top: 0, right: 0, bottom: 0, width: 190 },
-  foodFingers: { position: 'absolute', right: -22, top: 8, width: 138, height: 138 },
-  foodBurger: { position: 'absolute', right: 44, top: 30, width: 118, height: 118 },
-  foodSauce: { position: 'absolute', right: 6, top: 78, width: 52, height: 52 },
+  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#FF6900' },
+  food: { position: 'absolute', right: -10, top: 4, bottom: -8, width: 176 },
   ticket: { minHeight: 174 },
   offer: { flex: 1, minWidth: 0, padding: 18, gap: 10, justifyContent: 'space-between' },
   offerCompact: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
@@ -261,7 +247,7 @@ const s = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     letterSpacing: -0.3,
-    color: colors.white,
+    color: INK,
   },
   titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
   progress: { gap: 6 },
@@ -272,14 +258,14 @@ const s = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF14',
+    backgroundColor: '#25160924',
     borderWidth: 1,
-    borderColor: '#FFFFFF47',
+    borderColor: '#25160959',
   },
   // Same fill as an empty slot; the green check and rim carry the state.
-  earned: { borderColor: STAMP_GREEN },
-  gift: { backgroundColor: '#FFFFFF14', borderColor: '#FFE2C3' },
-  stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
+  earned: { borderColor: INK, backgroundColor: '#2516093D' },
+  gift: { backgroundColor: '#25160924', borderColor: INK },
+  stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: INK },
   details: {
     maxWidth: '58%',
     flexDirection: 'row',
@@ -287,7 +273,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  detailsText: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: colors.white },
+  detailsText: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: INK },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
   sheet: {
     width: '100%',
