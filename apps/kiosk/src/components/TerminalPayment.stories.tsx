@@ -22,6 +22,7 @@ const meta = {
     locale: 'ru',
     onRetry: fn(),
     onLeave: fn(),
+    onEditNow: fn(),
     onStaff: fn(),
   },
   tags: ['autodocs'],
