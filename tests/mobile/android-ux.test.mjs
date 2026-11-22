@@ -272,3 +272,14 @@ test('inline SVG images are base64 data URIs that Android can decode', async () 
     assert.match(read(file), /svgDataUri\(/, file);
   }
 });
+
+// Android applies `userInterfaceStyle` and the root window colour only through expo-system-ui
+// (prebuild warned «Install expo-system-ui»): without it the window behind screens and the
+// keyboard is white and system pickers follow the phone's light theme.
+test('Android window is dark: expo-system-ui with the app background', () => {
+  const app = JSON.parse(readFileSync(`${appRoot}app.json`, 'utf8')).expo;
+  const pkg = JSON.parse(readFileSync(`${appRoot}package.json`, 'utf8'));
+  assert.ok(pkg.dependencies['expo-system-ui'], 'expo-system-ui installed');
+  assert.equal(app.userInterfaceStyle, 'dark');
+  assert.equal(app.backgroundColor, '#04143A');
+});

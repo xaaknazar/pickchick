@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "scheme": "pickchick",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#04143A",
     "ios": {
       "icon": "./assets/app-icon.png",
       "supportsTablet": false,
