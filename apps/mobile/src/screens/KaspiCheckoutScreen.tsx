@@ -108,6 +108,9 @@ import {
 import { usePaymentAvailability } from '../usePaymentAvailability';
 import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
+import { commerceRepeatLines } from '../cart-actions';
+import { haptic } from '../haptics';
+import { rememberUsualProducts } from '../usual-products';
 import { colors } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
@@ -492,6 +495,7 @@ function KaspiCheckoutSession(
       );
       if (!active) return;
       setHistory(orders);
+      rememberUsualProducts(customerId, orders);
     };
     const start = () => {
       // The pay button (submit) aborts a re-read that has not started yet.
@@ -1431,6 +1435,14 @@ function KaspiCheckoutSession(
         onRate={(item, stars) => {
           setInitialRating(stars);
           setOrder(item);
+        }}
+        onRepeat={(item) => {
+          // Drinkit (owner's iPhone 22.11.2026): repeat puts the same lines in the cart and opens it.
+          const { lines } = commerceRepeatLines(item.items, props.model.products);
+          if (lines.length && props.model.appendCartLines(lines)) {
+            haptic('added');
+            props.navigate('M09');
+          }
         }}
       />
     </Page>

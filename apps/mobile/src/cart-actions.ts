@@ -108,3 +108,42 @@ export function cartRecommendations(cart: CartLine[], products: Product[]): Cart
         : [];
     });
 }
+
+/**
+ * Repeat of a Kaspi order from history (Drinkit reference, checked on the owner's iPhone
+ * 22.11.2026: one tap on the repeat icon opens the cart with the same lines). The bank order keeps
+ * only modifier titles, so each saved title is matched to the current option label; anything
+ * that no longer matches falls back to the dish's default composition.
+ */
+export function commerceRepeatLines(
+  items: readonly { productId: string; quantity: number; modifiers: readonly string[] }[],
+  products: Product[],
+) {
+  const lines: CartLine[] = [];
+  const missing: string[] = [];
+  for (const item of items) {
+    const product = products.find((p) => p.id === item.productId && p.available !== false);
+    if (!product) {
+      missing.push(item.productId);
+      continue;
+    }
+    const base = defaultSelections(product);
+    const titles = new Set(item.modifiers.map((title) => title.trim().toLowerCase()));
+    let selections = base;
+    if (titles.size) {
+      const picked = [...base];
+      for (const group of product.modifierGroups ?? []) {
+        const match = group.options.find(
+          (option) => option.available !== false && titles.has(option.label.trim().toLowerCase()),
+        );
+        if (!match) continue;
+        const rest = picked.filter((s) => s.group_id !== group.id);
+        picked.length = 0;
+        picked.push(...rest, { group_id: group.id, option_id: match.id, quantity: 1 });
+      }
+      if (validSelections(product, picked)) selections = picked;
+    }
+    lines.push({ product, selections, quantity: Math.min(20, Math.max(1, item.quantity)) });
+  }
+  return { lines, missing };
+}

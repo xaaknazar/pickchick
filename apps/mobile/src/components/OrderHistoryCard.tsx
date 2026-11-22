@@ -12,6 +12,7 @@ import {
 import {
   HistoryOrderRow,
   OrdersOverview,
+  RepeatLink,
   type ActiveOrderModel,
   type HistoryOrderModel,
 } from './OrdersTab';
@@ -24,6 +25,8 @@ export type OrderHistoryCardProps = {
   savedRating?: number | null;
   /** Shows «Как вам заказ?»; the list grants it to one order only. */
   askRating?: boolean;
+  /** «↻ Повторить» on a handed-over order (Drinkit reference, owner's iPhone 22.11.2026). */
+  onRepeat?: () => void;
 };
 
 const lines = (order: CustomerCommerceOrder): OrderLineView[] =>
@@ -90,6 +93,7 @@ export function commerceHistoryModel({
   onRate,
   savedRating,
   askRating,
+  onRepeat,
 }: Omit<OrderHistoryCardProps, 'products'>): HistoryOrderModel {
   const rating = savedRating && savedRating >= 1 && savedRating <= 5 ? savedRating : null;
   return {
@@ -112,6 +116,14 @@ export function commerceHistoryModel({
     openTestID: `order-history-open-${order.orderId}`,
     openLabel: 'Подробнее о заказе',
     onOpen,
+    repeat:
+      onRepeat && order.phase === 'handed_over' ? (
+        <RepeatLink
+          onPress={onRepeat}
+          testID={`order-history-repeat-${order.orderId}`}
+          number={order.displayNumber ?? ''}
+        />
+      ) : undefined,
     rate:
       askRating && onRate && order.phase === 'handed_over'
         ? {
@@ -134,12 +146,14 @@ export function CommerceOrderList({
   ratings,
   onOpen,
   onRate,
+  onRepeat,
 }: {
   orders: CustomerCommerceOrder[];
   products: Product[];
   ratings: Record<string, { rating: number } | undefined>;
   onOpen(order: CustomerCommerceOrder): void;
   onRate(order: CustomerCommerceOrder, stars?: number): void;
+  onRepeat?: (order: CustomerCommerceOrder) => void;
 }) {
   const active = orders.flatMap((order) => {
     const model = commerceActiveModel(order, () => onOpen(order));
@@ -161,6 +175,7 @@ export function CommerceOrderList({
       onRate: (stars) => onRate(order, stars),
       savedRating: ratings[order.orderId]?.rating,
       askRating: order.orderId === askId,
+      onRepeat: onRepeat ? () => onRepeat(order) : undefined,
     }),
   );
   return <OrdersOverview active={active} history={history} products={products} />;

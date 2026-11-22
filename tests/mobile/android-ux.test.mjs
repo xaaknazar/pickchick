@@ -221,7 +221,8 @@ test('haptics: Android keeps the heavy impact for grab/armed, system slider tick
   ).split('export declare enum ImpactFeedbackStyle')[1];
   for (const style of new Set(Object.values(IMPACT_STYLE)))
     assert.match(impacts, new RegExp(`= "${style}"`), style);
-  assert.deepEqual(IMPACT_STYLE, { grab: 'heavy', tick: 'medium', armed: 'heavy' });
+  assert.deepEqual(IMPACT_STYLE, { grab: 'heavy', tick: 'medium', armed: 'heavy', added: 'light' });
+  assert.deepEqual(ANDROID_FEEDBACK.added, { kind: 'impact', style: 'light' });
   const code = read('haptics.ts');
   assert.match(code, /performAndroidHapticsAsync/);
   assert.match(

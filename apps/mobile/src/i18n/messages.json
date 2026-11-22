@@ -8875,5 +8875,17 @@
     "kk": "Жүктелуде",
     "en": "Loading",
     "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx"
+  },
+  {
+    "ru": "Как обычно",
+    "kk": "Әдеттегідей",
+    "en": "Your usual",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
+  },
+  {
+    "ru": "Приготовим за ≈{p0} мин",
+    "kk": "≈{p0} минутта дайындаймыз",
+    "en": "Ready in ≈{p0} min",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
   }
 ]
