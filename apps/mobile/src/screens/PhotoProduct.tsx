@@ -221,10 +221,13 @@ export function PhotoProduct(props: Props) {
     );
   };
   const groups = (product.modifierGroups ?? []).filter(
-    (g) => ['drink', 'sauce'].includes(g.id) && g.min <= 4,
+    // Included combo slots only; the finger sets' optional sauces (min 0) are counted below.
+    (g) => ['drink', 'sauce'].includes(g.id) && g.min > 0 && g.min <= 4,
   );
+  // Owner 22.11: drinks are a paid upsell on the finger sets, shown as cards like the extras.
+  const drinkExtra = product.modifierGroups?.find((g) => g.id === 'drink-extra');
   const otherGroups = (product.modifierGroups ?? []).filter(
-    (g) => g.id !== 'extras' && !groups.includes(g),
+    (g) => g.id !== 'extras' && g !== drinkExtra && !groups.includes(g),
   );
   const extras = product.modifierGroups?.find((g) => g.id === 'extras');
   const sizeGroup = product.modifierGroups?.find((g) => g.id === 'size');
@@ -460,7 +463,13 @@ export function PhotoProduct(props: Props) {
                         <View style={{ flex: 1 }}>
                           <Text style={s.choiceName}>{localize(option.label)}</Text>
                           <Text style={s.choiceLabel}>
-                            {localize(option.available === false ? 'Временно нет' : 'Включено')}
+                            {localize(
+                              option.available === false
+                                ? 'Временно нет'
+                                : option.price_delta_minor === '0'
+                                  ? 'Включено'
+                                  : `+${money(option.price_delta_minor)}`,
+                            )}
                           </Text>
                         </View>
                         <View
@@ -602,6 +611,74 @@ export function PhotoProduct(props: Props) {
                   );
                 })}
                 {companions.filter((line) => line.product.id !== 'burger').map(companionCard)}
+              </ScrollView>
+            </View>
+          ) : null}
+          {drinkExtra ? (
+            <View style={s.extrasSection}>
+              <Text style={[s.sectionTitle, { paddingHorizontal: 20 }]}>
+                {localize(drinkExtra.title)}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                directionalLockEnabled
+                nestedScrollEnabled
+                decelerationRate="fast"
+                snapToInterval={extraWidth + 12}
+                snapToAlignment="start"
+                contentContainerStyle={s.extrasTrack}
+                testID="photo-drink-extra-track"
+                accessibilityLabel={t('Напитки к сету, горизонтальный список')}
+              >
+                {drinkExtra.options.map((option) => {
+                  const count =
+                    selections.find(
+                      (v) => v.group_id === drinkExtra.id && v.option_id === option.id,
+                    )?.quantity ?? 0;
+                  const total = selections
+                    .filter((v) => v.group_id === drinkExtra.id)
+                    .reduce((n, v) => n + v.quantity, 0);
+                  const unavailable = option.available === false;
+                  const change = (delta: number) =>
+                    setSelections((current) => {
+                      const previous =
+                        current.find(
+                          (v) => v.group_id === drinkExtra.id && v.option_id === option.id,
+                        )?.quantity ?? 0;
+                      return setExtraQuantity(current, drinkExtra, option.id, previous + delta);
+                    });
+                  return (
+                    <View
+                      key={option.id}
+                      testID={`photo-drink-extra-${option.id}`}
+                      style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
+                    >
+                      <OptionImage id={option.id} size={extraWidth - 24} height={104} />
+                      <Text style={s.extraName}>{localize(option.label)}</Text>
+                      <Text style={s.choiceLabel}>
+                        {localize(
+                          unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`,
+                        )}
+                      </Text>
+                      <View style={s.extraControls}>
+                        <Counter
+                          blue={blue}
+                          value={count}
+                          name={option.label}
+                          minus={() => change(-1)}
+                          plus={() => change(1)}
+                          minusDisabled={!count}
+                          plusDisabled={
+                            unavailable ||
+                            count >= (option.max_quantity ?? drinkExtra.max) ||
+                            total >= drinkExtra.max
+                          }
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
               </ScrollView>
             </View>
           ) : null}

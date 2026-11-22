@@ -1254,56 +1254,58 @@
                   </div>
                   <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px">
                     <sc-if value="{{ modIsCombo }}" hint-placeholder-val="{{ true }}">
-                      <div style="display: flex; align-items: center; gap: 12px">
+                      <sc-if value="{{ modHasDrink }}" hint-placeholder-val="{{ true }}">
+                        <div style="display: flex; align-items: center; gap: 12px">
+                          <div
+                            style="
+                              font-size: 15px;
+                              font-weight: 700;
+                              letter-spacing: 0.08em;
+                              color: var(--n600);
+                            "
+                          >
+                            НАПИТОК
+                          </div>
+                          <div
+                            style="padding:4px 10px;border-radius:999px;background:{{ drinkReqBg }};color:{{ drinkReqFg }};font-size:12px;font-weight:800;letter-spacing:.06em"
+                          >
+                            {{ drinkReqLabel }}
+                          </div>
+                        </div>
                         <div
                           style="
-                            font-size: 15px;
-                            font-weight: 700;
-                            letter-spacing: 0.08em;
-                            color: var(--n600);
+                            margin-top: 12px;
+                            display: grid;
+                            grid-template-columns: repeat(4, 1fr);
+                            gap: 10px;
                           "
                         >
-                          НАПИТОК
-                        </div>
-                        <div
-                          style="padding:4px 10px;border-radius:999px;background:{{ drinkReqBg }};color:{{ drinkReqFg }};font-size:12px;font-weight:800;letter-spacing:.06em"
-                        >
-                          {{ drinkReqLabel }}
-                        </div>
-                      </div>
-                      <div
-                        style="
-                          margin-top: 12px;
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 10px;
-                        "
-                      >
-                        <sc-for list="{{ drinkOpts }}" as="o" hint-placeholder-count="8">
-                          <div
-                            onClick="{{ o.pick }}"
-                            class="modifier-choice"
-                            style="height:64px;border-radius:12px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:600;cursor:pointer;opacity:{{ o.opacity }};text-decoration:{{ o.deco }}"
-                          >
-                            {{ o.label }}<span style="font-size: 14px; opacity: 0.7"
-                              >{{ o.note }}</span
-                            ><sc-if value="{{ o.multi }}"
-                              ><span
-                                onClick="{{ o.dec }}"
-                                class="option-step"
-                                aria-label="Уменьшить"
-                                >−</span
-                              ><b>{{ o.qty }}</b
-                              ><span
-                                onClick="{{ o.inc }}"
-                                class="option-step"
-                                aria-label="Увеличить"
-                                >+</span
-                              ></sc-if
+                          <sc-for list="{{ drinkOpts }}" as="o" hint-placeholder-count="8">
+                            <div
+                              onClick="{{ o.pick }}"
+                              class="modifier-choice"
+                              style="height:64px;border-radius:12px;background:{{ o.bg }};color:{{ o.fg }};border:2px solid {{ o.border }};display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:600;cursor:pointer;opacity:{{ o.opacity }};text-decoration:{{ o.deco }}"
                             >
-                          </div>
-                        </sc-for>
-                      </div>
+                              {{ o.label }}<span style="font-size: 14px; opacity: 0.7"
+                                >{{ o.note }}</span
+                              ><sc-if value="{{ o.multi }}"
+                                ><span
+                                  onClick="{{ o.dec }}"
+                                  class="option-step"
+                                  aria-label="Уменьшить"
+                                  >−</span
+                                ><b>{{ o.qty }}</b
+                                ><span
+                                  onClick="{{ o.inc }}"
+                                  class="option-step"
+                                  aria-label="Увеличить"
+                                  >+</span
+                                ></sc-if
+                              >
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
                       <div style="margin-top: 26px; display: flex; align-items: center; gap: 12px">
                         <div
                           style="
