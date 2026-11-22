@@ -149,6 +149,14 @@
       "height": 1024,
       "sha256": "872418f5e7d2f072020c7bdc3bf86711135ae6d53403c85d8612f24036f4c349",
       "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "ketchup.png",
+      "source": "apps/kiosk/assets/v3/hd/sauce-hot.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "e42342bbc3742133fae4b31e3e140275d59c20b3c79bd8026f196d4406b0c3be",
+      "treatment": "portion illustration: the sauce-hot cup with its red-orange contents recoloured to ketchup red (hue/lightness shift, 22.11.2026); not a photo of Heinz retail packaging"
     }
   ]
 }

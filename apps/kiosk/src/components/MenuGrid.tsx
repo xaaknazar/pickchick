@@ -14,7 +14,7 @@ import { useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
 import { MENU_BOTTOM, RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
-import { useStagger } from './motion';
+import { useEnter } from './motion';
 import type { Category, MenuMemory } from './categories';
 /**
  * Grid metrics in design points (1024 pt mockups): gutter, the smallest card and hit rows that
@@ -171,7 +171,10 @@ function Rise({
   frame: BentoFrame;
   children: ReactNode;
 }) {
-  const enter = useStagger(index);
+  // Owner 22.11.2026: a tab switch must never show an empty grid. The tiles are visible within
+  // the first ~100 ms (opacity reaches 1 at a third of the rise) and settle with a short, soft
+  // lift instead of the long 34 pt rise.
+  const enter = useEnter(Math.min(index, 6) * 22, 360);
   return (
     <Animated.View
       style={{
@@ -180,10 +183,10 @@ function Rise({
         top: frame.y,
         width: frame.width,
         height: frame.height,
-        opacity: enter,
+        opacity: enter.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
         transform: [
-          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
-          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) },
         ],
       }}
     >

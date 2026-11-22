@@ -294,6 +294,22 @@ test('the guest cancels on the terminal: ProcessCancelled shows «cancelled»', 
   assert.equal(h.terminal.events.at(-1).sub_status, 'ProcessCancelled');
 });
 
+test('owner 22.11: «В меню» after a cancelled terminal payment drops the draft and opens an empty menu', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'fail', subStatus: 'ProcessCancelled' } }];
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'cancelled');
+  assert.equal(await c.leaveTerminal(true), true);
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(s.order, null);
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.cart.length, 0, 'the next guest starts with an empty bag');
+  assert.equal(flowOf(h).cart.length, 0);
+  assert.ok(flowOf(h).mode, 'the dining mode stays');
+});
+
 test('lost payment answer: never sent again, staff can review it', async () => {
   const h = terminalFixture();
   h.terminal.payment = () => ({ kind: 'lost', reason: 'TIMEOUT' });

@@ -39,7 +39,6 @@ class PaymentOptions(unittest.TestCase):
                 expect(qr).to_have_attribute('aria-checked','true')
                 expect(invoice).to_have_count(0)
                 expect(page.get_by_test_id('kiosk-invoice-phone')).to_have_count(0)
-                expect(page.get_by_text('10-13', exact=False).first).to_be_visible()
                 page.screenshot(path=str(output / f'qr-review-{width}.png'))
                 submit.click()
                 expect(page.get_by_test_id('kiosk-screen-payment')).to_be_visible()

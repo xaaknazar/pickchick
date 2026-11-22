@@ -41,6 +41,8 @@ const photo = (source: number, tile: string | null): Photo => ({
 const sauceBounds = new Map<Photo['source'], readonly [number, number, number, number]>([
   [require('../assets/v3/hd/signature-60.png'), [0.03429, 0.10048, 0.93222, 0.81659]],
   [require('../assets/v3/hd/sauce-hot.png'), [0.11085, 0.17703, 0.77193, 0.66906]],
+  // Same cup and framing as sauce-hot.png (recoloured from it).
+  [require('../assets/v3/hd/ketchup.png'), [0.11085, 0.17703, 0.77193, 0.66906]],
   [require('../assets/v3/hd/heinz-cheese.png'), [0.11324, 0.17783, 0.77352, 0.66667]],
   [require('../assets/v3/hd/heinz-bbq.png'), [0.1244, 0.18182, 0.75199, 0.64833]],
 ]);
@@ -100,6 +102,9 @@ const options: Record<string, Photo> = {
   bbq: photo(require('../assets/v3/hd/heinz-bbq.png'), null),
   'sauce-cheese': photo(require('../assets/v3/hd/heinz-cheese.png'), null),
   'sauce-bbq': photo(require('../assets/v3/hd/heinz-bbq.png'), null),
+  // Owner 22.11.2026: the ketchup option (catalog id `ketchup`) had no photo.
+  ketchup: photo(require('../assets/v3/hd/ketchup.png'), null),
+  'sauce-ketchup': photo(require('../assets/v3/hd/ketchup.png'), null),
   'cola-bottle': photo(require('../assets/v3/options/cola-bottle.webp'), null),
   lemonade: photo(require('../assets/v3/options/lemonade.webp'), null),
   'fuse-peach': photo(require('../assets/v3/options/fuse-peach.webp'), null),
@@ -213,10 +218,16 @@ export const photoCandidates = (imageId: string, variant: 'card' | 'hero') =>
 /** Registers the loaded publication's photos; returns the remote URLs to keep on disk. */
 export const rememberCatalogMedia = (catalog: KioskCatalog | null): string[] =>
   catalog ? media.sync(catalog.products) : [];
-/** Downloads every published photo to the expo-image disk cache so the kiosk stays offline-safe. */
+/**
+ * Downloads every published photo to the expo-image disk cache so the kiosk stays offline-safe,
+ * and keeps it decoded in memory too: owner 22.11.2026, switching menu tabs showed an empty grid
+ * for a moment while the photos were read back from disk.
+ */
 export async function prefetchCatalogMedia(urls: readonly string[]): Promise<boolean> {
   const results = await Promise.all(
-    urls.map(async (url) => ((await Image.prefetch(url, 'disk').catch(() => false)) ? url : null)),
+    urls.map(async (url) =>
+      (await Image.prefetch(url, 'memory-disk').catch(() => false)) ? url : null,
+    ),
   );
   const ready = results.filter((url): url is string => !!url);
   media.markReady(ready);

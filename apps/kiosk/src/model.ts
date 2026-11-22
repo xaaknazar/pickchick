@@ -244,8 +244,11 @@ export interface KioskModel extends KioskState {
   staffReset?(pin: string): Promise<boolean>;
   /** Terminal payment: send it again (not started) or start a new attempt (failed). */
   retryTerminal?(): Promise<boolean>;
-  /** Terminal payment that failed or did not start: back to the cart to choose again. */
-  leaveTerminal?(): Promise<boolean>;
+  /**
+   * Terminal payment that failed or did not start: back to the cart to choose again, or with
+   * `fresh` an empty menu (the draft is dropped; owner 22.11.2026).
+   */
+  leaveTerminal?(fresh?: boolean): Promise<boolean>;
   /** Staff terminal setup (ADR-0018), each behind the server-checked staff code. */
   openTerminalSetup?(pin: string): Promise<boolean>;
   closeTerminalSetup?(): void;
