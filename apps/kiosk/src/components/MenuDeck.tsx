@@ -66,7 +66,6 @@ function MenuLayer({ active, children }: { active: boolean; children: ReactNode 
       style={[
         StyleSheet.absoluteFill,
         {
-          zIndex: active ? 1 : 0,
           opacity: shown,
           transform: [
             { translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
@@ -95,7 +94,10 @@ export function MenuDeck({
 }) {
   const built = useBuiltSections(category);
   return (
-    <View style={{ flex: 1, minHeight: 0 }}>
+    // No zIndex on the layers: with the new architecture's stacking a raised layer escaped the
+    // deck and its scroll view covered «Оформить заказ» (owner 22.11.2026: the button did not
+    // answer). Hidden layers pass touches through (pointerEvents none), so order is irrelevant.
+    <View collapsable={false} style={{ flex: 1, minHeight: 0 }}>
       {built.map((key) => (
         <MenuLayer key={key + '-' + (KEEP_SECTIONS ? 0 : revision)} active={key === category}>
           {children(key, key === category)}
