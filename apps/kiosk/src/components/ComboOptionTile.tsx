@@ -25,6 +25,35 @@ const lightTile = (tile: string) =>
 /** Keeps a volume or weight with its number on one line ("0.5 л" never breaks at л). */
 const glue = (text: string) =>
   text.replace(/(\d)\s+(мл|л|г|кг|шт|ml|l|g|kg|pcs)(?=$|[\s,.)])/giu, '$1\u00A0$2');
+/** «+200 ₸»: the surcharge pill (#FFE7D6 / #B84500). */
+function Surcharge({ text }: { text: string }) {
+  const { px } = useMetrics();
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        height: px(26),
+        paddingHorizontal: px(10),
+        borderRadius: 999,
+        backgroundColor: SURCHARGE_FILL,
+        justifyContent: 'center',
+      }}
+    >
+      <Text
+        {...fixedText}
+        numberOfLines={1}
+        style={{
+          fontFamily: fonts.heavy,
+          fontSize: px(13),
+          color: SURCHARGE_INK,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
 /** Mark of an option without a photo: Heinz in its colour, anything else its first word. */
 function OptionMark({ id, name }: { id: string; name: string }) {
   const { px } = useMetrics();
@@ -189,60 +218,30 @@ export function ComboOptionTile({
           </Text>
         ) : null}
       </View>
-      <View
-        style={{
-          height: multi ? px(40) : px(26),
-          marginTop: px(6),
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: px(6),
-        }}
-      >
-        {option.available && surcharge ? (
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              height: px(26),
-              paddingHorizontal: px(10),
-              borderRadius: 999,
-              backgroundColor: SURCHARGE_FILL,
-              justifyContent: 'center',
-            }}
-          >
+      {multi && option.available ? (
+        // Room for the stepper laid over the tile's bottom edge.
+        <View style={{ height: px(40), marginTop: px(8) }} />
+      ) : (
+        <View style={{ height: px(26), marginTop: px(6), justifyContent: 'center' }}>
+          {option.available && surcharge ? (
+            <Surcharge text={status} />
+          ) : !option.available ? (
             <Text
               {...fixedText}
               numberOfLines={1}
               style={{
-                fontFamily: fonts.heavy,
+                fontFamily: fonts.bold,
                 fontSize: px(13),
-                color: SURCHARGE_INK,
-                fontVariant: ['tabular-nums'],
+                lineHeight: px(17),
+                color: SOLD_OUT,
               }}
             >
               {status}
             </Text>
-          </View>
-        ) : !option.available ? (
-          <Text
-            {...fixedText}
-            numberOfLines={1}
-            style={{
-              fontFamily: fonts.bold,
-              fontSize: px(13),
-              lineHeight: px(17),
-              color: SOLD_OUT,
-            }}
-          >
-            {status}
-          </Text>
-        ) : (
-          // Free options carry no «Входит в комбо» line (owner 22.11: only the surcharge is
-          // news); the slot stays, so every tile of a row keeps one height.
-          <View />
-        )}
-        {multi && option.available ? <View style={{ width: px(40 + 30 + 40 + 8) }} /> : null}
-      </View>
+          ) : null}
+          {/* A free option carries no «Входит в комбо» line (owner 22.11): only a surcharge is news. */}
+        </View>
+      )}
     </>
   );
   const surface = {
@@ -356,6 +355,11 @@ export function ComboOptionTile({
           <Icon name="checkmark" size="small" tone="inverse" />
         </Animated.View>
       )}
+      {multi && option.available && surcharge ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: px(10), left: px(10) }}>
+          <Surcharge text={status} />
+        </View>
+      ) : null}
       {multi && option.available ? (
         // The stepper of a several-pick group (owner 22.11: «нет плюса, непонятно как добавить»):
         // «−  N  +» always at the bottom right, as on the cart. The whole tile still adds one;
@@ -363,12 +367,13 @@ export function ComboOptionTile({
         <View
           style={{
             position: 'absolute',
+            left: px(12),
             right: px(12),
             bottom: px(12),
             height: px(40),
             flexDirection: 'row',
             alignItems: 'center',
-            gap: px(4),
+            justifyContent: 'space-between',
           }}
         >
           <Pressable
@@ -391,7 +396,7 @@ export function ComboOptionTile({
           >
             <Icon name="remove" size="small" tone="inverse" />
           </Pressable>
-          <Animated.View style={{ width: px(30), alignItems: 'center' }}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
             <Text
               {...fixedText}
               testID={`kiosk-modifier-quantity-${groupId}-${option.id}`}
@@ -404,7 +409,7 @@ export function ComboOptionTile({
             >
               {quantity}
             </Text>
-          </Animated.View>
+          </View>
           <View
             pointerEvents="none"
             {...ownerOrange}
