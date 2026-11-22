@@ -766,7 +766,8 @@ function draw() {
   }));
   if (modifier) {
     const gs = modifier.modifier_groups ?? [],
-      drink = gs.find((g) => /напит/i.test(g.name.ru)),
+      // «Добавить напитки» on the finger sets is a paid add-on list, not the combo's drink choice.
+      drink = gs.find((g) => /напит/i.test(g.name.ru) && !/добав/i.test(g.name.ru)),
       sauce = gs.find((g) => /соус.*выбор|соусы/i.test(g.name.ru)),
       size = gs.find((g) => /объ[её]м|размер/i.test(g.name.ru)),
       extra = gs.find((g) => /добав/i.test(g.name.ru));
@@ -789,6 +790,7 @@ function draw() {
       modBase: money(modifier.price_minor),
       modIsCombo: Boolean(drink || sauce),
       modHasSizes: Boolean(size),
+      modHasDrink: Boolean(drink),
       drinkOpts: optionValues(drink),
       sauceOpts: optionValues(sauce),
       sizeOpts: optionValues(size),
