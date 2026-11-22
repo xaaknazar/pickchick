@@ -137,12 +137,12 @@ test('combo contents for the cook: by slug or cashier name, times quantity, no d
     { name: 'Фри', count: 2 },
     { name: 'Тост', count: 2 },
     { name: 'Коулслоу', count: 2 },
-    { name: 'Соус', count: 2 },
   ]);
   const cashier = task(PREP, 'Master Combo', { productId: 'a1b2c3d4-hashed' });
   assert.equal(composition(cashier).find((p) => p.name === 'Фингерсы').count, 6);
   assert.deepEqual(composition(task(PREP, 'Pick Burger')), []);
-  for (const t of [bySlug, cashier]) assert.ok(composition(t).every((p) => !/напит/i.test(p.name)));
+  for (const t of [bySlug, cashier])
+    assert.ok(composition(t).every((p) => !/напит|соус/i.test(p.name)));
   const html = render(order([bySlug]), PREP);
   assert.match(html, /<li><strong>8<\/strong> Фингерсы<\/li>/);
   const duo = task(PREP, 'Finger Duo', { productId: 'finger-duo' });
