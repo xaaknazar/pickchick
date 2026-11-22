@@ -8078,6 +8078,21 @@
       "updatedAt": "2026-11-18T12:03:57.134Z",
       "summary": "f4034cf5: App Store 1.0.2 build 40 submitted with explicit owner instruction. Submission 7bf24364-c08d-4a3c-9d37-dcf067f86faf, 18 Nov 11:58 UTC. WAITING_FOR_REVIEW and manual release verified after reload and independently in review details. One item. Protocol published. No public release.",
       "nextAction": "Await Apple decision; manual release only on owner instruction. Do not resubmit or cancel automatically."
+    },
+    {
+      "id": "pos-cloud-enable-1122",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/pos-cloud-enable-1122",
+      "scopes": [
+        "@vps/api",
+        "@vps/postgres",
+        "@vps/backup",
+        "docs/operations/deployments/2026-11-22-pos-cloud-enable.md",
+        "infra/staging/pos-cloud-enable-1122.py"
+      ],
+      "status": "active",
+      "head": "6201b2bdddb05a64d33454351fffaed007ecf2bd",
+      "updatedAt": "2026-11-22T11:57:30.411Z"
     }
   ],
   "approvedScopeTransfers": [
