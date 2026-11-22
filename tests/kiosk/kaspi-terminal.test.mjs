@@ -5,7 +5,10 @@ import assert from 'node:assert/strict';
 import {
   kaspiEnvelope,
   kaspiExpiration,
+  kaspiPinShort,
   kaspiTerminalCall,
+  kaspiTerminalProbe,
+  kaspiTlsFrom,
   privateIPv4,
 } from '../../apps/kiosk/src/kaspi-terminal.ts';
 import {
@@ -388,4 +391,314 @@ test('a lost answer never starts a search (the request may have reached the term
     h.calls.map((c) => c.method),
     ['payment'],
   );
+});
+
+// ---- HTTPS with the terminal's leaf certificate pinned (22.11.2026, ADR-0018 point 1). ----
+// The native kaspi-tls module is replaced by a double: `certs` maps a host to the SHA-256 of
+// the certificate it presents (null: plain HTTP only, absent: nothing listens). Like the Swift
+// side, a request is `delivered` only after the presented leaf matched the pin.
+const PIN = '228fc8c4' + 'ab'.repeat(24) + '5d0e9a17';
+const OTHER_PIN = 'ff'.repeat(32);
+function fakeTls(certs, answers = {}) {
+  const h = { delivered: [], requests: [], probes: [] };
+  h.native = {
+    probe: async (host, port, timeoutMs) => {
+      h.probes.push({ host, port, timeoutMs });
+      if (!(host in certs)) return { transport: 'none' };
+      return certs[host] === null
+        ? { transport: 'http' }
+        : { transport: 'https', sha256: certs[host] };
+    },
+    request: async (host, port, path, token, sha256, timeoutMs) => {
+      h.requests.push({ host, path, sha256 });
+      if (!(host in certs) || certs[host] === null)
+        return { ok: false, failure: 'CONNECT', sent: false };
+      if (certs[host] !== sha256) return { ok: false, failure: 'CERTIFICATE', sent: false };
+      const parsed = new URL('https://terminal' + path);
+      const method = parsed.pathname.replace('/v2/', '');
+      h.delivered.push({ host, port, method, token, timeoutMs });
+      const answer = answers[method] ?? answers.default;
+      if (typeof answer === 'function') return answer(host);
+      if (answer) return answer;
+      return { ok: false, failure: 'CONNECTION', sent: true };
+    },
+  };
+  h.tls = kaspiTlsFrom(h.native);
+  return h;
+}
+const tlsJson = (status, body) => ({ ok: true, status, body: JSON.stringify(body) });
+const tlsDeviceinfo = (terminalId = 'T1', serialNum = 'S1') =>
+  tlsJson(200, { statusCode: 0, data: { terminalId, serialNum } });
+const noFetch = async () => {
+  throw new Error('plain HTTP must not be used for a pinned link');
+};
+const memoryStore = (h) => ({
+  read: async () => h.raw,
+  write: async (raw) => {
+    h.raw = raw;
+  },
+  remove: async () => {
+    h.raw = null;
+  },
+});
+
+test('a pinned call goes over the native TLS only, with the path, token and pin', async () => {
+  const t = fakeTls(
+    { '192.168.1.50': PIN },
+    { status: tlsJson(200, { statusCode: 0, data: { status: 'wait' } }) },
+  );
+  const answer = await kaspiTerminalCall(
+    '192.168.1.50',
+    'status',
+    { processId: 'P-1' },
+    { token: 'tok_1', pin: PIN },
+    noFetch,
+    t.tls,
+  );
+  assert.deepEqual(answer, { kind: 'ok', data: { status: 'wait' } });
+  assert.deepEqual(t.requests, [
+    { host: '192.168.1.50', path: '/v2/status?processId=P-1', sha256: PIN },
+  ]);
+  assert.equal(t.delivered[0].port, 8080);
+  assert.equal(t.delivered[0].token, 'tok_1');
+  await assert.rejects(
+    kaspiTerminalCall('192.168.1.50', 'status', {}, { pin: PIN.toUpperCase() }, noFetch, t.tls),
+    /PIN/,
+  );
+});
+
+test('another certificate: the payment is never sent, the answer is unreachable CERTIFICATE', async () => {
+  const t = fakeTls(
+    { '192.168.1.50': OTHER_PIN },
+    { default: tlsJson(200, { statusCode: 0, data: { processId: 'P-1' } }) },
+  );
+  const answer = await kaspiTerminalCall(
+    '192.168.1.50',
+    'payment',
+    { amount: '4190' },
+    { token: 'tok_1', pin: PIN },
+    noFetch,
+    t.tls,
+  );
+  assert.deepEqual(answer, { kind: 'unreachable', reason: 'CERTIFICATE' });
+  assert.equal(t.delivered.length, 0, 'nothing passed the handshake');
+  assert.deepEqual(
+    t.requests.map((r) => r.path),
+    ['/v2/deviceinfo'],
+    'only the pre-flight reached the handshake; the payment was never attempted',
+  );
+});
+
+test('over TLS a sent change that fails is lost; a read that never reached TLS is unreachable', async () => {
+  const lostPayment = fakeTls(
+    { '192.168.1.50': PIN },
+    { deviceinfo: tlsDeviceinfo(), payment: { ok: false, failure: 'TIMEOUT', sent: true } },
+  );
+  assert.deepEqual(
+    await kaspiTerminalCall(
+      '192.168.1.50',
+      'payment',
+      { amount: '4190' },
+      { token: 't', pin: PIN },
+      noFetch,
+      lostPayment.tls,
+    ),
+    { kind: 'lost', reason: 'TIMEOUT' },
+  );
+  const silent = fakeTls({});
+  assert.deepEqual(
+    await kaspiTerminalCall('192.168.1.50', 'status', {}, { pin: PIN }, noFetch, silent.tls),
+    { kind: 'unreachable', reason: 'CONNECT' },
+  );
+  // An unreadable native answer is never taken as «not sent».
+  const odd = kaspiTlsFrom({ probe: async () => ({}), request: async () => 'garbage' });
+  assert.deepEqual(
+    await kaspiTerminalCall('192.168.1.50', 'status', {}, { pin: PIN }, noFetch, odd),
+    { kind: 'lost', reason: 'CONNECTION' },
+  );
+  // Without the native module (web, an older build) nothing is sent over HTTPS at all.
+  for (const tls of [undefined, kaspiTlsFrom(null)])
+    assert.deepEqual(
+      await kaspiTerminalCall(
+        '192.168.1.50',
+        'payment',
+        { amount: '1' },
+        { pin: PIN },
+        noFetch,
+        tls,
+      ),
+      { kind: 'unreachable', reason: 'CONNECT' },
+    );
+});
+
+test('probe: TLS gives the pin; a plain HTTP terminal is http; silence is null', async () => {
+  const t = fakeTls({ '192.168.1.50': PIN, '192.168.1.60': null });
+  assert.deepEqual(await kaspiTerminalProbe('192.168.1.50', noFetch, t.tls), {
+    transport: 'https',
+    pin: PIN,
+  });
+  assert.equal(t.probes[0].port, 8080);
+  assert.equal(t.delivered.length, 0, 'the probe sends no request');
+  const { fetcher, calls } = fakeFetch({ deviceinfo });
+  assert.deepEqual(await kaspiTerminalProbe('192.168.1.60', fetcher, t.tls), {
+    transport: 'http',
+  });
+  assert.equal(calls[0].url, 'http://192.168.1.60:8080/v2/deviceinfo');
+  assert.equal(calls[0].init.headers.accesstoken, undefined, 'no token in the probe');
+  const none = fakeFetch({});
+  assert.equal(await kaspiTerminalProbe('192.168.1.70', none.fetcher, t.tls), null);
+  assert.equal(none.calls.length, 0, 'nothing listens: no HTTP attempt');
+  // Web or an older build: no TLS, the address is asked over plain HTTP.
+  assert.deepEqual(await kaspiTerminalProbe('192.168.1.60', fetcher), { transport: 'http' });
+  assert.equal(await kaspiTerminalProbe('192.168.1.60', none.fetcher), null);
+  await assert.rejects(kaspiTerminalProbe('8.8.8.8', noFetch, t.tls), /HOST/);
+  // A malformed certificate hash from the native side is no pin.
+  const bad = kaspiTlsFrom({
+    probe: async () => ({ transport: 'https', sha256: 'xyz' }),
+    request: async () => ({}),
+  });
+  assert.deepEqual(await bad.probe('192.168.1.50', 8080, 5000), { transport: 'http' });
+  assert.equal(kaspiPinShort(PIN), '228fc8c4…5d0e9a17');
+});
+
+test('a stored pin is strictly checked; links stored before HTTPS are plain HTTP', () => {
+  assert.equal(parseTerminalLink(JSON.stringify(link())).pin, null);
+  assert.equal(parseTerminalLink(JSON.stringify(link({ pin: null }))).pin, null);
+  assert.equal(parseTerminalLink(JSON.stringify(link({ pin: PIN }))).pin, PIN);
+  for (const pin of [PIN.toUpperCase(), PIN.slice(1), '', 42, 'ab:'.repeat(32)])
+    assert.equal(parseTerminalLink(JSON.stringify(link({ pin }))), null, String(pin));
+});
+
+test('an HTTPS link: the renewal and every session call are pinned, the pin is kept', async () => {
+  const h = {
+    raw: JSON.stringify(link({ pin: PIN, expiresAt: Date.parse('2026-11-16T13:00:00Z') })),
+  };
+  const pins = [];
+  const session = new TerminalSession(
+    memoryStore(h),
+    async (host, method, params, options = {}) => {
+      pins.push([method, options.pin ?? null]);
+      return method === 'revoke' ? revoked : { kind: 'ok', data: { status: 'wait' } };
+    },
+    () => Date.parse('2026-11-16T12:00:00Z'),
+  );
+  await session.load();
+  await session.call('status', { processId: 'P1' });
+  assert.deepEqual(pins, [
+    ['revoke', PIN],
+    ['status', PIN],
+  ]);
+  assert.equal(parseTerminalLink(h.raw).accessToken, 'new-access');
+  assert.equal(parseTerminalLink(h.raw).pin, PIN, 'renewal keeps the pin');
+});
+
+test('a moved HTTPS terminal is taken only with the same ID, serial and certificate', async () => {
+  // .145: same IDs, another certificate (a look-alike); .147: same certificate, another
+  // terminal; .146: the same terminal.
+  const t = fakeTls(
+    { '192.168.1.145': OTHER_PIN, '192.168.1.146': PIN, '192.168.1.147': PIN },
+    {
+      deviceinfo: (host) =>
+        host === '192.168.1.147' ? tlsDeviceinfo('T2', 'S2') : tlsDeviceinfo('T1', 'S1'),
+      status: tlsJson(200, { statusCode: 0, data: { status: 'wait' } }),
+    },
+  );
+  const h = { raw: JSON.stringify(link({ pin: PIN })) };
+  const session = new TerminalSession(
+    memoryStore(h),
+    (host, method, params, options) =>
+      kaspiTerminalCall(host, method, params, options, noFetch, t.tls),
+    () => Date.parse('2026-11-16T12:00:00Z'),
+  );
+  const moved = [];
+  session.onRelocated = (l) => moved.push(l.host);
+  await session.load();
+  const answer = await session.call('status', { processId: 'P1' });
+  assert.equal(answer.kind, 'ok');
+  assert.deepEqual(moved, ['192.168.1.146']);
+  assert.equal(parseTerminalLink(h.raw).host, '192.168.1.146');
+  assert.equal(parseTerminalLink(h.raw).pin, PIN);
+  assert.ok(
+    t.requests.every((r) => r.sha256 === PIN),
+    'the search is pinned',
+  );
+  assert.equal(
+    t.delivered.some((d) => d.host === '192.168.1.145'),
+    false,
+    'nothing passed the handshake of the look-alike',
+  );
+
+  // Only the look-alike remains: the link stays, the call is unreachable (nothing was sent).
+  const alone = fakeTls({ '192.168.1.145': OTHER_PIN }, { deviceinfo: tlsDeviceinfo() });
+  const h2 = { raw: JSON.stringify(link({ pin: PIN })) };
+  const s2 = new TerminalSession(
+    memoryStore(h2),
+    (host, method, params, options) =>
+      kaspiTerminalCall(host, method, params, options, noFetch, alone.tls),
+    () => Date.parse('2026-11-16T12:00:00Z'),
+  );
+  await s2.load();
+  assert.equal((await s2.call('status', { processId: 'P1' })).kind, 'unreachable');
+  assert.equal(parseTerminalLink(h2.raw).host, '192.168.1.50');
+  assert.equal(alone.delivered.length, 0);
+});
+
+test('terminal copy: the pin mismatch text of the owner task, in ru/kk/en', async () => {
+  const { terminalCopyForTest } = await import('../../apps/kiosk/src/terminalCopy.ts');
+  assert.equal(
+    terminalCopyForTest.ru.result_certificate,
+    'Терминал отвечает с другим сертификатом. Проверьте IP или привяжите заново.',
+  );
+  for (const locale of ['kk', 'en']) {
+    assert.ok(terminalCopyForTest[locale].result_certificate.length > 20);
+    assert.ok(terminalCopyForTest[locale].result_protection.length > 20);
+  }
+});
+
+test('relocate sends the token only on a pinned HTTPS link (protected terminals need it)', async () => {
+  const calls = [];
+  const link = {
+    host: '192.168.2.145',
+    terminalId: 'T1',
+    serial: 'S1',
+    pin: 'e2'.repeat(32),
+    name: 'pickchick-kiosk-abc123',
+    accessToken: 'acc-1',
+    refreshToken: 'ref-1',
+    expiresAt: Date.now() + 86400000,
+    linkedAt: 1,
+  };
+  let raw = JSON.stringify(link);
+  const session = new TerminalSession(
+    {
+      read: async () => raw,
+      write: async (r) => {
+        raw = r;
+      },
+      remove: async () => {
+        raw = null;
+      },
+    },
+    async (host, method, params, options = {}) => {
+      calls.push({ host, method, token: options.token ?? null });
+      if (method === 'deviceinfo' && host === '192.168.2.150' && options.token === 'acc-1')
+        return { kind: 'ok', data: { terminalId: 'T1', serialNum: 'S1' } };
+      if (method === 'deviceinfo' && host === '192.168.2.150')
+        return { kind: 'refused', httpStatus: 401, statusCode: 999, message: null };
+      return { kind: 'unreachable', reason: 'CONNECT' };
+    },
+    () => Date.now(),
+  );
+  await session.load();
+  assert.equal(await session.relocate(), true);
+  assert.equal(session.current().host, '192.168.2.150');
+  assert.ok(calls.filter((c) => c.method === 'deviceinfo').every((c) => c.token === 'acc-1'));
+
+  // A plain-HTTP link: no token goes to the other addresses.
+  calls.length = 0;
+  raw = JSON.stringify({ ...link, pin: null, host: '192.168.2.145' });
+  await session.load();
+  await session.relocate();
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((c) => c.token === null));
 });

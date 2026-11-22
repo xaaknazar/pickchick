@@ -28,3 +28,7 @@ the hero rendition for remote media.
 Prompt used:
 
 > Edit the supplied PickChick Pick Combo product photograph for a large iPad kiosk card. This is a fidelity-preserving resolution/detail enhancement, not a new meal or rearrangement. Preserve EXACTLY the photographed food quantities, positions, bottle with gold cap and Coca-Cola branding, sesame toast, crispy chicken, potatoes, two sauce cups, coleslaw, black tray, PickChick printed paper, camera angle and silhouette. Improve fine realistic photographic clarity and natural microtexture, avoid oversharpening, oily plastic appearance or invented ingredients. Preserve readable original packaging text. Deliver the highest available resolution, ideally 2048x2048 or larger, clean true transparent alpha background, the whole product fully visible with a narrow 3% clear margin. No drop shadow, no extra props, no drawn background, no additional text. The source image is the exact edit target and composition reference.
+
+`ketchup.png` (22.11.2026) is `sauce-hot.png` with its contents recoloured to ketchup red
+(hue and lightness shift only, same cup, angle and framing). It is a portion illustration, not
+a photo of Heinz retail packaging.

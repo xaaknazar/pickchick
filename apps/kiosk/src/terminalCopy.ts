@@ -7,17 +7,19 @@ import type { TerminalSetupResult } from './model';
 const ru = {
   // Guest: pay on the terminal
   title: 'Оплатите на терминале',
-  subtitle: 'картой или Kaspi QR',
+  subtitle: 'картой или в приложении Kaspi.kz',
   pointer: 'Терминал Kaspi - рядом с экраном',
+  /** Start screen chip. */
+  chip: 'Оплата на терминале Kaspi',
   toPay: 'К оплате',
   starting: 'Отправляем сумму на терминал…',
-  waiting: 'Приложите карту или отсканируйте QR на экране терминала. Экран обновится сам.',
+  waiting: 'Экран обновится сам, как только оплата пройдёт.',
   checking: 'Уточняем результат на терминале. Не оплачивайте повторно.',
   paid: 'Оплата прошла. Передаём заказ на кухню…',
   offline: 'Нет ответа - проверяем снова. Не оплачивайте повторно.',
   failedTitle: 'Оплата не прошла',
   cancelledTitle: 'Оплата отменена на терминале',
-  failedBody: 'Деньги не списаны. Попробуйте ещё раз или вернитесь к заказу.',
+  failedBody: 'Деньги не списаны. Можно повторить оплату или начать заказ заново.',
   notStartedTitle: 'Терминал не начал оплату',
   notStartedBody: 'Деньги не списаны.',
   reason_busy: 'Терминал занят прошлой операцией. Завершите её на терминале и нажмите «Повторить».',
@@ -32,12 +34,16 @@ const ru = {
     'Ответ терминала не пришёл. Не оплачивайте повторно - пригласите сотрудника, он проверит операцию на терминале.',
   retry: 'Повторить',
   leave: 'Вернуться к заказу',
+  /** Owner 22.11.2026: after a failed or cancelled payment, an empty menu. */
+  toMenu: 'В меню',
   staff: 'Сотруднику',
+  noCancelTitle: 'Оплату нельзя отменить на киоске',
+  noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
   staffResetBody:
     'Оплата на терминале не подтверждена. Сначала проверьте операцию на экране терминала. После сброса заказ уйдёт менеджеру на сверку, на кухню он не попадёт.',
   /** Review screen: the payment method when the terminal takes it. */
-  method: 'Картой или Kaspi QR на терминале',
+  method: 'На терминале Kaspi - картой или Kaspi.kz',
   // Staff: terminal setup (behind the staff code)
   setupOpen: 'Терминал Kaspi',
   setupTitle: 'Терминал Kaspi',
@@ -47,7 +53,11 @@ const ru = {
   link: 'Подключить',
   confirmTitle: 'Нажмите «Разрешить» на терминале',
   confirmBody:
-    'На экране терминала появится запрос от pickchick-kiosk. Если его нет: «Настройки» → «Панель администратора» → «Защита интеграции» → «Настроить доступ».',
+    'На экране терминала появится запрос от pickchick-kiosk. Если его нет: «Панель главного кассира» → «Защита интеграции» (включена) → «Настроить доступ».',
+  /** The pinned certificate (start and end of its SHA-256), HTTPS links. */
+  confirmCertificate: 'Сертификат терминала',
+  certificate: 'Сертификат',
+  plainHttp: 'Без шифрования (HTTP)',
   linkedTitle: 'Подключён терминал',
   terminalId: 'ID терминала',
   serial: 'Серийный номер',
@@ -68,23 +78,26 @@ const ru = {
   result_taken: 'Этот терминал привязан к другому киоску. Сначала отвяжите его там.',
   result_cloud: 'Не удалось сохранить на сервере. Проверьте связь и нажмите «Проверить связь».',
   result_mismatch: 'По этому адресу отвечает другой терминал. Отвяжите и подключите заново.',
+  result_certificate: 'Терминал отвечает с другим сертификатом. Проверьте IP или привяжите заново.',
+  result_protection:
+    'Терминал работает без защиты. Включите на терминале «Защита интеграции», нажмите «Настроить доступ» и повторите.',
   result_busy: 'Сейчас идёт заказ гостя. Повторите на заставке.',
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
   title: 'Терминалда төлеңіз',
-  subtitle: 'картамен немесе Kaspi QR арқылы',
+  subtitle: 'картамен немесе Kaspi.kz қосымшасында',
   pointer: 'Kaspi терминалы - экранның жанында',
+  chip: 'Kaspi терминалында төлеу',
   toPay: 'Төлеуге',
   starting: 'Соманы терминалға жіберудеміз…',
-  waiting:
-    'Картаны жақындатыңыз немесе терминал экранындағы QR-ды сканерлеңіз. Экран өзі жаңарады.',
+  waiting: 'Төлем өткенде экран өзі жаңарады.',
   checking: 'Нәтижені терминалдан нақтылаудамыз. Қайта төлемеңіз.',
   paid: 'Төлем өтті. Тапсырысты асүйге жіберудеміз…',
   offline: 'Жауап жоқ - қайта тексереміз. Қайта төлемеңіз.',
   failedTitle: 'Төлем өтпеді',
   cancelledTitle: 'Төлем терминалда тоқтатылды',
-  failedBody: 'Ақша алынған жоқ. Қайта көріңіз немесе тапсырысқа оралыңыз.',
+  failedBody: 'Ақша алынған жоқ. Төлемді қайталауға немесе тапсырысты қайта бастауға болады.',
   notStartedTitle: 'Терминал төлемді бастамады',
   notStartedBody: 'Ақша алынған жоқ.',
   reason_busy:
@@ -101,10 +114,13 @@ const kk: Strings = {
     'Терминалдан жауап келмеді. Қайта төлемеңіз - қызметкерді шақырыңыз, ол операцияны терминалда тексереді.',
   retry: 'Қайталау',
   leave: 'Тапсырысқа оралу',
+  toMenu: 'Мәзірге',
   staff: 'Қызметкерге',
+  noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
+  noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
   staffResetBody:
     'Терминалдағы төлем расталмады. Алдымен операцияны терминал экранынан тексеріңіз. Қалпына келтіргеннен кейін тапсырыс менеджерге салыстыруға жіберіледі, асүйге түспейді.',
-  method: 'Терминалда картамен немесе Kaspi QR арқылы',
+  method: 'Kaspi терминалында - картамен немесе Kaspi.kz',
   setupOpen: 'Kaspi терминалы',
   setupTitle: 'Kaspi терминалы',
   setupBody:
@@ -113,7 +129,10 @@ const kk: Strings = {
   link: 'Қосу',
   confirmTitle: 'Терминалда «Рұқсат ету» түймесін басыңыз',
   confirmBody:
-    'Терминал экранында pickchick-kiosk сұрауы шығады. Егер ол жоқ болса: «Баптаулар» → «Әкімші панелі» → «Интеграцияны қорғау» → «Қолжетімділікті баптау».',
+    'Терминал экранында pickchick-kiosk сұрауы шығады. Егер ол жоқ болса: «Бас кассир панелі» → «Интеграцияны қорғау» (қосулы) → «Қолжетімділікті баптау».',
+  confirmCertificate: 'Терминал сертификаты',
+  certificate: 'Сертификат',
+  plainHttp: 'Шифрлаусыз (HTTP)',
   linkedTitle: 'Қосылған терминал',
   terminalId: 'Терминал ID',
   serial: 'Сериялық нөмір',
@@ -135,21 +154,26 @@ const kk: Strings = {
   result_cloud:
     'Серверде сақтау мүмкін болмады. Байланысты тексеріп, «Байланысты тексеру» түймесін басыңыз.',
   result_mismatch: 'Бұл мекенжай бойынша басқа терминал жауап береді. Ажыратып, қайта қосыңыз.',
+  result_certificate:
+    'Терминал басқа сертификатпен жауап береді. IP мекенжайын тексеріңіз немесе қайта байлаңыз.',
+  result_protection:
+    'Терминал қорғаусыз жұмыс істеп тұр. Терминалда «Интеграцияны қорғау» функциясын қосып, «Қолжетімділікті баптау» түймесін басып, қайталаңыз.',
   result_busy: 'Қазір қонақтың тапсырысы жүріп жатыр. Бастапқы экранда қайталаңыз.',
 };
 const en: Strings = {
   title: 'Pay on the terminal',
-  subtitle: 'by card or Kaspi QR',
+  subtitle: 'by card or in the Kaspi.kz app',
   pointer: 'The Kaspi terminal is next to the screen',
+  chip: 'Pay on the Kaspi terminal',
   toPay: 'To pay',
   starting: 'Sending the amount to the terminal…',
-  waiting: 'Tap your card or scan the QR on the terminal screen. This screen updates itself.',
+  waiting: 'This screen updates by itself once the payment goes through.',
   checking: 'Checking the result on the terminal. Do not pay again.',
   paid: 'Payment received. Sending your order to the kitchen…',
   offline: 'No answer - checking again. Do not pay again.',
   failedTitle: 'Payment failed',
   cancelledTitle: 'Payment cancelled on the terminal',
-  failedBody: 'No money was taken. Try again or go back to your order.',
+  failedBody: 'No money was taken. You can try again or start a new order.',
   notStartedTitle: 'The terminal did not start the payment',
   notStartedBody: 'No money was taken.',
   reason_busy:
@@ -165,10 +189,13 @@ const en: Strings = {
     'The terminal did not answer. Do not pay again - call a team member to check the operation on the terminal.',
   retry: 'Try again',
   leave: 'Back to my order',
+  toMenu: 'Back to menu',
   staff: 'Staff',
+  noCancelTitle: 'The payment cannot be cancelled on the kiosk',
+  noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
   staffResetBody:
     'The terminal payment is not confirmed. First check the operation on the terminal screen. After the reset the order goes to the manager for review and never reaches the kitchen.',
-  method: 'Card or Kaspi QR on the terminal',
+  method: 'On the Kaspi terminal - card or Kaspi.kz',
   setupOpen: 'Kaspi terminal',
   setupTitle: 'Kaspi terminal',
   setupBody:
@@ -177,7 +204,10 @@ const en: Strings = {
   link: 'Connect',
   confirmTitle: 'Press Allow on the terminal',
   confirmBody:
-    'The terminal shows a request from pickchick-kiosk. If it does not: Settings → Administrator panel → Integration protection → Set up access.',
+    'The terminal shows a request from pickchick-kiosk. If it does not: Senior cashier panel → Integration protection (on) → Set up access.',
+  confirmCertificate: 'Terminal certificate',
+  certificate: 'Certificate',
+  plainHttp: 'Not encrypted (HTTP)',
   linkedTitle: 'Linked terminal',
   terminalId: 'Terminal ID',
   serial: 'Serial number',
@@ -198,6 +228,10 @@ const en: Strings = {
   result_taken: 'This terminal is linked to another kiosk. Unlink it there first.',
   result_cloud: 'Could not save on the server. Check the connection and press Check connection.',
   result_mismatch: 'Another terminal answers at this address. Unlink and connect again.',
+  result_certificate:
+    'The terminal answers with a different certificate. Check the IP or link it again.',
+  result_protection:
+    'The terminal runs without protection. Turn on Integration protection on the terminal, press Set up access and try again.',
   result_busy: 'A guest order is in progress. Try again on the start screen.',
 };
 const table: Record<Locale, Strings> = { ru, kk, en };

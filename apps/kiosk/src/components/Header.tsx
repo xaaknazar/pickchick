@@ -103,34 +103,37 @@ export function Header({
   const close = v(64);
   const logo = <Logo size={brand ? 'regular' : 'large'} />;
   const long = (title?.length ?? 0) > 16;
+  // Owner 22.11.2026 (one look for every button): the same glass back pill as the product page
+  // and «Добавим к заказу?» headers - 64 pt, chevron, label 19.
   const backPill = back ? (
     <Animated.View style={{ transform: [{ scale: backPress.scale }] }}>
-      <Pressable
-        testID="kiosk-header-back"
-        accessibilityRole="button"
-        accessibilityLabel={backLabel ?? t.back}
-        onPress={back}
-        onPressIn={backPress.onPressIn}
-        onPressOut={backPress.onPressOut}
-        style={{
-          minHeight: Math.max(52, v(64)),
-          paddingLeft: v(14),
-          paddingRight: v(22),
-          borderRadius: 999,
-          backgroundColor: colors.glass,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: v(8),
-        }}
-      >
-        <Icon name="chevron-back" tone="inverse" />
-        <Text
-          {...fixedText}
-          style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
+      <GlassPanel>
+        <Pressable
+          testID="kiosk-header-back"
+          accessibilityRole="button"
+          accessibilityLabel={backLabel ?? t.back}
+          onPress={back}
+          onPressIn={backPress.onPressIn}
+          onPressOut={backPress.onPressOut}
+          style={{
+            minHeight: Math.max(48, v(64)),
+            paddingLeft: v(16),
+            paddingRight: v(24),
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: v(6),
+          }}
         >
-          {backLabel ?? t.back}
-        </Text>
-      </Pressable>
+          <Icon name="chevron-back" size="small" tone="inverse" />
+          <Text
+            {...fixedText}
+            numberOfLines={1}
+            style={{ fontFamily: fonts.heavy, fontSize: v(19), color: colors.white }}
+          >
+            {backLabel ?? t.back}
+          </Text>
+        </Pressable>
+      </GlassPanel>
     </Animated.View>
   ) : null;
   if (centered)
