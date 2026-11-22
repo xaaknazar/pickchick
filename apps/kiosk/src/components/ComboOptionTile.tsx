@@ -1,4 +1,3 @@
-import { glassSurface } from './glassSurface';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { KioskModifierGroup } from '../model';
@@ -14,10 +13,11 @@ import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
 /** Design colours of the option tile (product-and-payment.md §1). */
-const INCLUDED = '#227A45';
 const SURCHARGE_FILL = '#FFE7D6';
 const SURCHARGE_INK = '#B84500';
 const SOLD_OUT = '#8A93A6';
+/** A stepper disc that does nothing now (minus at 0, plus at the limit). */
+const STEP_IDLE = '#C9D2E3';
 /** A studio photo on a near-white backdrop (#FEFAF6 and the like). */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
@@ -65,11 +65,11 @@ function OptionMark({ id, name }: { id: string; name: string }) {
  * Option tile of the product card and the option sheet (kiosk redesign 2026-10-13,
  * product-and-payment.md §1): a white tile (radius 24; 172 high for drinks, 164 otherwise; a
  * photo shot on a near-white backdrop lends the tile that backdrop) with the photo (contain) on
- * top, the short name in Montserrat 800 15, its caption 13 #55617A and the status: «Входит в
- * комбо» in readable green #227A45, a surcharge pill «+200 ₸» (#FFE7D6 / #B84500) or «Нет в наличии» (the
- * tile at .5 and not pressable). A pick shows the 4-pt #FF6900 ring around the tile and the
- * orange check disc at the top right; in a group of several picks the disc counts them and a
- * white minus disc takes one back. An option without a photo shows a 92-pt colour disc with its
+ * top, the short name in Montserrat 800 15, its caption 13 #55617A and the status: a surcharge
+ * pill «+200 ₸» (#FFE7D6 / #B84500), «Нет в наличии» (the tile at .5 and not pressable) or
+ * nothing for a free option (owner 22.11). A pick shows the 4-pt #FF6900 ring around the tile
+ * and the orange check disc at the top right; a group of several picks has the «− N +» stepper
+ * at the bottom right instead. An option without a photo shows a 92-pt colour disc with its
  * short name (Heinz sauces).
  */
 export function ComboOptionTile({
@@ -189,7 +189,16 @@ export function ComboOptionTile({
           </Text>
         ) : null}
       </View>
-      <View style={{ height: px(26), marginTop: px(6), justifyContent: 'center' }}>
+      <View
+        style={{
+          height: multi ? px(40) : px(26),
+          marginTop: px(6),
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: px(6),
+        }}
+      >
         {option.available && surcharge ? (
           <View
             style={{
@@ -214,7 +223,7 @@ export function ComboOptionTile({
               {status}
             </Text>
           </View>
-        ) : (
+        ) : !option.available ? (
           <Text
             {...fixedText}
             numberOfLines={1}
@@ -222,12 +231,17 @@ export function ComboOptionTile({
               fontFamily: fonts.bold,
               fontSize: px(13),
               lineHeight: px(17),
-              color: option.available ? INCLUDED : SOLD_OUT,
+              color: SOLD_OUT,
             }}
           >
             {status}
           </Text>
+        ) : (
+          // Free options carry no «Входит в комбо» line (owner 22.11: only the surcharge is
+          // news); the slot stays, so every tile of a row keeps one height.
+          <View />
         )}
+        {multi && option.available ? <View style={{ width: px(40 + 30 + 40 + 8) }} /> : null}
       </View>
     </>
   );
@@ -317,69 +331,95 @@ export function ComboOptionTile({
           opacity: ring,
         }}
       />
-      <Animated.View
-        pointerEvents="none"
-        {...ownerOrange}
-        style={{
-          position: 'absolute',
-          top: px(10),
-          right: px(10),
-          width: px(32),
-          height: px(32),
-          borderRadius: px(16),
-          backgroundColor: redesign.cta,
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: redesign.cta,
-          shadowOpacity: selected ? 0.4 : 0,
-          shadowRadius: px(6),
-          shadowOffset: { width: 0, height: px(3) },
-          opacity: selected ? check.opacity : 0,
-          transform: [{ scale: check.scale }],
-        }}
-      >
-        {multi ? (
-          <Text
-            {...fixedText}
-            testID={`kiosk-modifier-quantity-${groupId}-${option.id}`}
-            style={{
-              fontFamily: fonts.black,
-              fontSize: px(16),
-              color: colors.white,
-              fontVariant: ['tabular-nums'],
-            }}
-          >
-            {quantity}
-          </Text>
-        ) : (
-          <Icon name="checkmark" size="small" tone="inverse" />
-        )}
-      </Animated.View>
-      {multi ? (
-        <Pressable
-          testID={`kiosk-modifier-minus-${groupId}-${option.id}`}
-          accessibilityRole="button"
-          accessibilityLabel={'- ' + name}
-          accessibilityState={{ disabled: quantity <= 0 }}
-          disabled={quantity <= 0}
-          onPress={() => onChange(quantity - 1)}
-          hitSlop={px(8)}
-          style={({ pressed }) => ({
+      {multi ? null : (
+        <Animated.View
+          pointerEvents="none"
+          {...ownerOrange}
+          style={{
             position: 'absolute',
             top: px(10),
-            left: px(10),
-            width: Math.max(44, px(44)),
-            height: Math.max(44, px(44)),
-            borderRadius: 999,
-            ...glassSurface('brand'),
+            right: px(10),
+            width: px(32),
+            height: px(32),
+            borderRadius: px(16),
+            backgroundColor: redesign.cta,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: selected ? 1 : 0.55,
-            transform: [{ scale: pressed ? 0.9 : 1 }],
-          })}
+            shadowColor: redesign.cta,
+            shadowOpacity: selected ? 0.4 : 0,
+            shadowRadius: px(6),
+            shadowOffset: { width: 0, height: px(3) },
+            opacity: selected ? check.opacity : 0,
+            transform: [{ scale: check.scale }],
+          }}
         >
-          <Icon name="remove" tone="inverse" />
-        </Pressable>
+          <Icon name="checkmark" size="small" tone="inverse" />
+        </Animated.View>
+      )}
+      {multi && option.available ? (
+        // The stepper of a several-pick group (owner 22.11: «нет плюса, непонятно как добавить»):
+        // «−  N  +» always at the bottom right, as on the cart. The whole tile still adds one;
+        // the plus disc shows it, the minus takes one back.
+        <View
+          style={{
+            position: 'absolute',
+            right: px(12),
+            bottom: px(12),
+            height: px(40),
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: px(4),
+          }}
+        >
+          <Pressable
+            testID={`kiosk-modifier-minus-${groupId}-${option.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={'- ' + name}
+            accessibilityState={{ disabled: quantity <= 0 }}
+            disabled={quantity <= 0}
+            onPress={() => onChange(quantity - 1)}
+            hitSlop={px(10)}
+            style={({ pressed }) => ({
+              width: px(40),
+              height: px(40),
+              borderRadius: 999,
+              backgroundColor: selected ? redesign.cardInk : STEP_IDLE,
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: [{ scale: pressed ? 0.9 : 1 }],
+            })}
+          >
+            <Icon name="remove" size="small" tone="inverse" />
+          </Pressable>
+          <Animated.View style={{ width: px(30), alignItems: 'center' }}>
+            <Text
+              {...fixedText}
+              testID={`kiosk-modifier-quantity-${groupId}-${option.id}`}
+              style={{
+                fontFamily: fonts.black,
+                fontSize: px(18),
+                color: selected ? redesign.cardInk : redesign.cardMuted,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {quantity}
+            </Text>
+          </Animated.View>
+          <View
+            pointerEvents="none"
+            {...ownerOrange}
+            style={{
+              width: px(40),
+              height: px(40),
+              borderRadius: 999,
+              backgroundColor: full ? STEP_IDLE : redesign.cta,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="add" size="small" tone="inverse" />
+          </View>
+        </View>
       ) : null}
     </Animated.View>
   );

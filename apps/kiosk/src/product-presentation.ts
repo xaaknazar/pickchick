@@ -283,6 +283,7 @@ export function sectionTitle(group: KioskModifierGroup, t: ProductCopy) {
   if (group.id === 'drink') return many ? t.sectionDrinks : t.sectionDrink;
   if (group.id === 'sauce') return many ? t.sectionSauces : t.sectionSauce;
   if (group.id === 'size') return t.sectionSize;
+  if (group.id === 'drink-extra') return t.sectionDrinksExtra;
   return tidy(group.title).replace(CHOICE, '') || t.chooseOption;
 }
 /** «Выберите соус»: what the panel asks for while a section is empty. */
