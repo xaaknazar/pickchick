@@ -289,7 +289,6 @@ const ru = {
   staffReset: 'Сбросить киоск',
   staffResetBody:
     'Сброс доступен, только когда деньги списаться не могут. Киоск вернётся на заставку.',
-  staffService: 'Сотруднику',
   staffErr_wrong: 'Неверный код.',
   staffErr_locked: 'Слишком много попыток. Повторите через несколько минут.',
   staffErr_unavailable: 'Код сотрудника не настроен на сервере. Обратитесь к администратору.',
@@ -601,7 +600,6 @@ const kk: Strings = {
   staffReset: 'Киоскті тазарту',
   staffResetBody:
     'Тазарту тек ақша алынбайтын жағдайда қолжетімді. Киоск бастапқы экранға оралады.',
-  staffService: 'Қызметкерге',
   staffErr_wrong: 'Код қате.',
   staffErr_locked: 'Әрекет тым көп. Бірнеше минуттан кейін қайталаңыз.',
   staffErr_unavailable: 'Қызметкер коды серверде бапталмаған. Әкімшіге хабарласыңыз.',
@@ -913,7 +911,6 @@ const en: Strings = {
   staffReset: 'Reset the kiosk',
   staffResetBody:
     'The reset is offered only when no money can be taken. The kiosk returns to the start screen.',
-  staffService: 'For staff',
   staffErr_wrong: 'Wrong code.',
   staffErr_locked: 'Too many attempts. Try again in a few minutes.',
   staffErr_unavailable: 'The staff code is not set up on the server. Contact the administrator.',

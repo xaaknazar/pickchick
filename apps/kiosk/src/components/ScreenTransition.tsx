@@ -144,10 +144,14 @@ function Stage({
       easing: easeIn,
       useNativeDriver: true,
     });
+    // The faded screen is dropped only after the next one has finished sliding in: taking a
+    // whole screen (the menu keeps five sections) out of the view tree mid-entrance cost frames.
+    let drop: ReturnType<typeof setTimeout> | undefined;
     animation.start(({ finished }) => {
-      if (finished) onDone(id);
+      if (finished) drop = setTimeout(() => onDone(id), motion.enter);
     });
     return () => {
+      if (drop) clearTimeout(drop);
       animation.stop();
       presence.setValue(1);
     };

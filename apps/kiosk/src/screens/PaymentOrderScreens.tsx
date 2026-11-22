@@ -31,6 +31,7 @@ import { QrStepTiles } from '../components/QrStepTiles';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { paymentCopy } from '../paymentCopy';
 import { TerminalPayment } from '../components/TerminalPayment';
+import { StaffHold } from '../components/StaffHold';
 /** A failed terminal payment returns to the start screen after this long without a choice. */
 export const TERMINAL_FAILED_HOLD_MS = 90000;
 export function PaymentScreen({
@@ -476,7 +477,14 @@ export function RecoveryScreen({ model, context }: { model: KioskModel; context:
       <Header {...context} title={t.restore} />
       <ScrollArea fill>
         <Wrapper flex={1} paddingX={60} paddingY={40} gap={28} align="center" justify="center">
-          <Logo size="large" />
+          {/* Audit 19.10, finding 3.0: a money-safe service reset for staff (code required).
+              Owner 22.11.2026: no «Сотруднику» button; staff hold the logo for five seconds. */}
+          <StaffHold
+            testID="kiosk-staff-service"
+            onHold={model.staffResetAvailable ? context.onStaffHold : undefined}
+          >
+            <Logo size="large" />
+          </StaffHold>
           <Icon name="time-outline" size="hero" tone="inverse" />
           <Heading align="center" tone="inverse">
             {t.restore}
@@ -490,16 +498,6 @@ export function RecoveryScreen({ model, context }: { model: KioskModel; context:
       </ScrollArea>
       <Footer tone="brand">
         <Wrapper dir="row" gap={14} align="center">
-          {/* Audit 19.10, finding 3.0: a money-safe service reset for staff (code required). */}
-          {model.staffResetAvailable && context.onStaffHold ? (
-            <Button
-              testID="kiosk-staff-service"
-              label={t.staffService}
-              tone="outline"
-              disabled={model.busy}
-              onPress={context.onStaffHold}
-            />
-          ) : null}
           <Wrapper flex={1}>
             <Button
               testID="kiosk-payment-retry"

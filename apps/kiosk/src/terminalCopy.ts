@@ -42,7 +42,6 @@ const ru = {
   cancelOrEdit: 'Отменить или изменить заказ',
   cancelOnTerminal:
     'Нажмите «Отмена» на терминале. Деньги не спишутся, а здесь появится кнопка «Изменить заказ».',
-  staff: 'Сотруднику',
   noCancelTitle: 'Оплату нельзя отменить на киоске',
   noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
@@ -125,7 +124,6 @@ const kk: Strings = {
   cancelOrEdit: 'Тапсырысты болдырмау не өзгерту',
   cancelOnTerminal:
     'Терминалда төлемді болдырмаңыз. Ақша алынбайды, ал мұнда «Тапсырысты өзгерту» түймесі шығады.',
-  staff: 'Қызметкерге',
   noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
   noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
   staffResetBody:
@@ -204,7 +202,6 @@ const en: Strings = {
   cancelOrEdit: 'Cancel or change order',
   cancelOnTerminal:
     'Press «Cancel» on the terminal. No money is taken, and «Change order» appears here.',
-  staff: 'Staff',
   noCancelTitle: 'The payment cannot be cancelled on the kiosk',
   noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
   staffResetBody:

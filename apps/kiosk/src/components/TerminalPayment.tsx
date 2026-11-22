@@ -9,6 +9,7 @@ import { Body } from './Body';
 import { Button } from './Button';
 import { Heading } from './Heading';
 import { Icon, type IconName } from './Icon';
+import { StaffHold } from './StaffHold';
 import { Wrapper } from './Wrapper';
 const ICONS: Record<TerminalPaymentView['phase'], IconName> = {
   starting: 'hourglass-outline',
@@ -24,7 +25,7 @@ const ICONS: Record<TerminalPaymentView['phase'], IconName> = {
  * ADR-0018: the payment step when the kiosk has its own Kaspi Smart POS. «Оплатите на терминале -
  * картой или Kaspi QR», the amount and a pointer to the terminal while the guest pays there; the
  * result, «В меню» (an empty menu, owner 22.11.2026) and «Повторить» after a failure, a
- * cancellation or a payment that did not start; «Сотруднику» only while the result is unknown
+ * cancellation or a payment that did not start; a staff hold on the icon while the result is unknown
  * (never «pay again»). For the blue surface.
  */
 export function TerminalPayment({
@@ -81,8 +82,8 @@ export function TerminalPayment({
                 : t.lostBody;
   const retry =
     view.phase === 'failed' || view.phase === 'cancelled' || view.phase === 'not_started';
-  // Owner 22.11.2026: a failed, cancelled or not started payment never sends the guest to staff;
-  // only an unknown result (money may have moved) keeps «Сотруднику».
+  // Owner 22.11.2026: no «Сотруднику» button for guests. While the result is unknown (money may
+  // have moved) staff open their dialog by holding the icon above the title for five seconds.
   const staff = view.phase === 'lost' || view.phase === 'checking';
   // Owner 22.11.2026: a way out while the terminal waits. The kiosk cannot cancel a payment the
   // terminal holds (money could still move), so the button tells how to cancel it there; once
@@ -91,7 +92,9 @@ export function TerminalPayment({
   const waiting = view.phase === 'waiting';
   return (
     <Wrapper gap={26} align="center" width="100%" maxWidth={820} testID="kiosk-terminal-payment">
-      <Icon name={ICONS[view.phase]} size="hero" tone="inverse" />
+      <StaffHold onHold={staff ? onStaff : undefined} testID="kiosk-terminal-staff">
+        <Icon name={ICONS[view.phase]} size="hero" tone="inverse" />
+      </StaffHold>
       <Wrapper gap={8} align="center">
         <Heading size="display" tone="inverse" align="center" testID="kiosk-terminal-title">
           {title}
@@ -160,7 +163,7 @@ export function TerminalPayment({
           />
         </View>
       ) : null}
-      {retry || staff ? (
+      {retry ? (
         <Wrapper dir="row" gap={14} wrap justify="center">
           {retry && onLeave ? (
             <View style={{ width: pair }}>
@@ -187,15 +190,6 @@ export function TerminalPayment({
                 onPress={onRetry}
               />
             </View>
-          ) : null}
-          {staff && onStaff ? (
-            <Button
-              label={t.staff}
-              tone="outline"
-              testID="kiosk-terminal-staff"
-              disabled={busy}
-              onPress={onStaff}
-            />
           ) : null}
         </Wrapper>
       ) : null}
