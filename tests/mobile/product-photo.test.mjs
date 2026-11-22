@@ -509,3 +509,29 @@ test('a new publication keeps the previous photos until its own media map is rea
   assert.equal(interimMedia(null, deferred), deferred);
   assert.equal(interimMedia(previous, { version: 4, products: {} }).version, 4);
 });
+
+test('finger sets: optional sauces are counted, drinks are a paid upsell, 22.11 option ids have photos', async () => {
+  const { readFileSync } = await import('node:fs');
+  const page = readFileSync(
+    new URL('../../apps/mobile/src/screens/PhotoProduct.tsx', import.meta.url),
+    'utf8',
+  );
+  // A group with min 0 (sets: 0-8..32 sauces) must not become zero combo slots.
+  assert.match(page, /\['drink', 'sauce'\]\.includes\(g\.id\) && g\.min > 0/);
+  assert.match(page, /g\.id === 'drink-extra'/);
+  assert.match(page, /testID="photo-drink-extra-track"/);
+  const assets = readFileSync(
+    new URL('../../apps/mobile/src/product-photo-assets.ts', import.meta.url),
+    'utf8',
+  );
+  for (const id of [
+    'sauce',
+    "'sauce-hot'",
+    "'sauce-cheese'",
+    'ketchup',
+    'bbq',
+    'cola',
+    "'iced-tea'",
+  ])
+    assert.match(assets, new RegExp(`\\n  ${id}: `), id);
+});

@@ -46,6 +46,15 @@ export const optionPhotos: Record<string, ImageSourcePropType> = {
   // (assets/catalog-hd/README.md); the owner's photographs replace them when they exist.
   cheese: require('../assets/catalog-hd/sauce-cheese.png'),
   bbq: require('../assets/catalog-hd/sauce-bbq.png'),
+  // Catalog 22.11 option ids (the v11 ids pick/hot/cheese above stay for old carts).
+  sauce: require('../assets/catalog-hd/signature-small.png'),
+  'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
+  'sauce-cheese': require('../assets/catalog-hd/sauce-cheese.png'),
+  // The same clear dip cup as the other sauces (kiosk asset, warm square like sauce-bbq).
+  ketchup: require('../assets/catalog-hd/ketchup.png'),
+  // Drinks offered as paid add-ons on the finger sets (group drink-extra).
+  cola: require('../assets/catalog-hd/cola.png'),
+  'iced-tea': require('../assets/catalog-hd/iced-tea.png'),
 };
 export const extraPhotos: Record<string, ImageSourcePropType> = {
   fingers: catalogCutouts['fingers']!,
