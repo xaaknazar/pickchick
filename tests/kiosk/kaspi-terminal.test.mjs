@@ -655,13 +655,13 @@ test('terminal copy: the pin mismatch text of the owner task, in ru/kk/en', asyn
   }
 });
 
-test('relocate asks deviceinfo with the access token (protected terminals refuse it without)', async () => {
+test('relocate sends the token only on a pinned HTTPS link (protected terminals need it)', async () => {
   const calls = [];
   const link = {
     host: '192.168.2.145',
     terminalId: 'T1',
     serial: 'S1',
-    pin: null,
+    pin: 'e2'.repeat(32),
     name: 'pickchick-kiosk-abc123',
     accessToken: 'acc-1',
     refreshToken: 'ref-1',
@@ -693,4 +693,12 @@ test('relocate asks deviceinfo with the access token (protected terminals refuse
   assert.equal(await session.relocate(), true);
   assert.equal(session.current().host, '192.168.2.150');
   assert.ok(calls.filter((c) => c.method === 'deviceinfo').every((c) => c.token === 'acc-1'));
+
+  // A plain-HTTP link: no token goes to the other addresses.
+  calls.length = 0;
+  raw = JSON.stringify({ ...link, pin: null, host: '192.168.2.145' });
+  await session.load();
+  await session.relocate();
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((c) => c.token === null));
 });

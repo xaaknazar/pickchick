@@ -275,8 +275,12 @@ export class TerminalSession {
             {},
             // An HTTPS link is pinned here too: only the same certificate answers at all, so a
             // device with another certificate is never taken for this terminal.
-            // The token too: a protected terminal answers deviceinfo only with it (22.11.2026).
-            { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: link.pin, token: link.accessToken },
+            // The token too, only over the pinned HTTPS: a protected terminal answers deviceinfo
+            // only with it (22.11.2026), and a wrong certificate cancels before anything is sent.
+            // A plain-HTTP link never sends its token to the other addresses of the network.
+            link.pin
+              ? { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: link.pin, token: link.accessToken }
+              : { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: null },
           );
         } catch {
           answer = null;
