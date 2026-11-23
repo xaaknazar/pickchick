@@ -333,6 +333,7 @@ const assets = new Map([
     'ticket-view',
     'terminal-access',
     'kds-view',
+    'kitchen-ticket',
     'courier',
     'components/TerminalPairing',
     'components/DisplayAccess',

@@ -9,6 +9,7 @@ export const modules = [
   'demo',
   'ticket-view',
   'kds-view',
+  'kitchen-ticket',
   'courier',
   'components/TerminalPairing',
   'components/DisplayAccess',
