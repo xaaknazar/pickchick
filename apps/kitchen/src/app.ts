@@ -10,7 +10,14 @@ import { streamIndicators, sourceBadge } from './components/StreamStatus.js';
 import { cloudPairing } from './components/CloudPairing.js';
 import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
-import { kitchenTicket, tickTimers } from './kitchen-ticket.js';
+import {
+  allDayStrip,
+  chime,
+  kitchenTicket,
+  NewOrders,
+  tickTimers,
+  unlockAudioOnTouch,
+} from './kitchen-ticket.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
 import { kdsScreen, kdsVisible, waitClass, WAIT_LATE_MINUTES } from './kds-view.js';
@@ -22,6 +29,9 @@ if (demo) document.body.classList.add('ticket-demo');
 let autoOrders = true;
 let demoNotice = '';
 let renderedView = '';
+// New-order chime and highlight per kitchen screen (owner 23.11).
+const newOrders = new NewOrders();
+unlockAudioOnTouch(document);
 let branch = demo ? 'Демонстрационная точка' : 'Локальная точка';
 let boardPage = 0;
 let terminalId: string | undefined;
@@ -282,7 +292,13 @@ function render() {
   const viewKey = `${s.mode}:${s.stationId ?? ''}`;
   const scroll =
     renderedView === viewKey ? (document.querySelector('.workspace')?.scrollTop ?? 0) : 0;
+  if (renderedView !== viewKey) newOrders.enter(viewKey, Date.now());
   renderedView = viewKey;
+  const newScreen = viewKey;
+  if (s.mode === 'kitchen' && s.stationId && s.lastSync && !kdsFn) {
+    const ids = visibleOrders.filter((o) => 'orderId' in o).map((o) => o.orderId);
+    if (newOrders.update(newScreen, ids, Date.now())) chime();
+  }
   const blocked =
     s.busy ||
     !!s.pending ||
@@ -470,6 +486,7 @@ function render() {
       // A delivery ticket (KDS layout on) on an old station, e.g. an aggregator order admitted
       // before kds-switch enable: handed over with the three marks, as on the courier counter.
       courierHandover: !!o.delivery && ownerOf(o) === 'edge',
+      isNew: s.mode === 'kitchen' && newOrders.isNew(newScreen, o.orderId, Date.now()),
     });
   };
   let content: string;
@@ -505,7 +522,9 @@ function render() {
       ticket,
     });
   } else {
-    content = `<main class="workspace"><div class="tickets" data-testid="queue">${
+    const cookScreen =
+      s.mode === 'kitchen' && s.stations.find((x) => x.id === s.stationId)?.kind === 'prep';
+    content = `<main class="workspace">${cookScreen ? allDayStrip(legacyVisible, s.stationId ?? '') : ''}<div class="tickets" data-testid="queue">${
       legacyVisible.map(ticket).join('') ||
       '<div class="empty"><span>✓</span><h2>Очередь пуста</h2><p>Новые допущенные заказы появятся здесь автоматически</p></div>'
     }</div></main>`;

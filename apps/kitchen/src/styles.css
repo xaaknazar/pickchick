@@ -1897,3 +1897,83 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
   color: var(--blue);
   margin-right: 2px;
 }
+/* «Всего в работе» on the cook screen: one batch for the fryer, counts first (owner 23.11). */
+.all-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 16px 32px 0;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: #0e1524;
+  color: #fff;
+}
+.all-day-title {
+  font:
+    800 18px Montserrat,
+    Golos,
+    sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9fb4d8;
+  margin-right: 6px;
+}
+.all-day-item {
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: #1f2b44;
+  font-size: 24px;
+  font-weight: 700;
+}
+.all-day-item strong {
+  font:
+    800 30px Montserrat,
+    Golos,
+    sans-serif;
+  color: #ffb27a;
+  margin-right: 4px;
+}
+.all-day-none {
+  font-size: 20px;
+  color: #9fb4d8;
+}
+/* New order: orange ring and a «НОВЫЙ» tag for a few seconds (NEW_TICKET_MS). */
+.ticket.is-new {
+  border-color: var(--orange);
+  box-shadow:
+    0 0 0 4px #ff671f55,
+    0 4px 14px #0e15241f;
+}
+.ticket.is-new .number::after {
+  content: 'НОВЫЙ';
+  display: block;
+  margin-top: 4px;
+  font:
+    800 13px Golos,
+    sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--orange);
+}
+/* Changes to a dish: shouted, so the cook never makes the standard one. */
+.changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 10px 0 2px;
+}
+.change {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font:
+    800 22px Montserrat,
+    Golos,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.change-minus {
+  background: #c62828;
+}

@@ -146,5 +146,58 @@ test('combo contents for the cook: by slug or cashier name, times quantity, no d
   const html = render(order([bySlug]), PREP);
   assert.match(html, /<li><strong>8<\/strong> Фингерсы<\/li>/);
   const duo = task(PREP, 'Finger Duo', { productId: 'finger-duo' });
-  assert.match(render(order([duo]), PREP), /<strong>1,5<\/strong> Дольки, порции/);
+  assert.match(render(order([duo]), PREP), /<strong>1,5<\/strong> Фри/);
+});
+
+test('all day: combo contents and single items summed for the station, drinks left out', async () => {
+  const { allDay, allDayStrip } = await import('../dist/kitchen-ticket.js');
+  const a = order([
+    task(PREP, 'Finger Combo', { productId: 'pick-combo', quantity: 2 }),
+    task(ASM, 'Sprite 0.5 л'),
+  ]);
+  const b = order([
+    task(PREP, 'Фингерс 1 шт', { productId: 'f0f0-hashed', quantity: 3 }),
+    task(PREP, 'Pick Burger'),
+    task(PREP, 'Новый ролл'),
+  ]);
+  const done = task(PREP, 'Master Combo');
+  done.state = 'done';
+  const c = order([done]);
+  const ready = order([task(PREP, 'Solo Combo')], { state: 'ready' });
+  assert.deepEqual(allDay([a, b, c, ready], PREP), [
+    { name: 'Фингерсы', count: 11 },
+    { name: 'Фри', count: 2 },
+    { name: 'Тост', count: 2 },
+    { name: 'Коулслоу', count: 2 },
+    { name: 'Pick Burger', count: 1 },
+    { name: 'Новый ролл', count: 1 },
+  ]);
+  assert.match(allDayStrip([a], PREP), /Всего в работе.*<strong>8<\/strong> Фингерсы/);
+  assert.match(allDayStrip([], PREP), /ничего/);
+});
+
+test('new orders: no ring on first load or right after opening a screen, then once per order', async () => {
+  const { NewOrders, NEW_TICKET_MS } = await import('../dist/kitchen-ticket.js');
+  const n = new NewOrders();
+  n.enter('kitchen:p', 0);
+  assert.equal(n.update('kitchen:p', ['a', 'b'], 1000), false);
+  assert.equal(n.update('kitchen:p', ['a', 'b'], 5000), false);
+  assert.equal(n.update('kitchen:p', ['a', 'b', 'c'], 6000), true);
+  assert.equal(n.isNew('kitchen:p', 'c', 6000 + NEW_TICKET_MS - 1), true);
+  assert.equal(n.isNew('kitchen:p', 'c', 6000 + NEW_TICKET_MS), false);
+  assert.equal(n.isNew('kitchen:p', 'a', 6000), false);
+  assert.equal(n.update('kitchen:p', ['b', 'c'], 7000), false);
+});
+
+test('dish changes are shouted: red for a removal, orange otherwise', () => {
+  const html = render(
+    order([
+      task(PREP, 'Pick Burger', {
+        modifiers: [mod('x1', 'Изменения', 'Без лука'), mod('taste', 'Вкус', 'Острый')],
+      }),
+    ]),
+    PREP,
+  );
+  assert.match(html, /<span class="change change-minus">Без лука<\/span>/);
+  assert.match(html, /<span class="change">Острый<\/span>/);
 });
