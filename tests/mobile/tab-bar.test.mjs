@@ -196,7 +196,8 @@ test('the platter flows like iOS 26: a gel stretch mid-way, round at rest, the l
 test('tabs keep order, labels, gates and accessibility semantics', () => {
   const layout = read('app/(tabs)/_layout.tsx');
   assertHas(layout, 'tabBar={(props) => <FloatingTabBar {...props}');
-  assertHas(layout, 'onTabBarHeight={setTabBarHeight}');
+  assertHas(layout, 'onTabBarHeight={keepTabBarHeight}');
+  assertHas(layout, 'if (height > 0) setTabBarHeight(height);');
   assertHas(layout, 'onCartDockHeight={setCartDockHeight}');
   const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: (?:t\()?'([^']+)'/g)].map((m) => [
     m[1],
