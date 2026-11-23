@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   RECOVERY_MAX_RELOADS,
   RECOVERY_RELOAD_DELAY_MS,
+  RECOVERY_SLOW_RETRY_MS,
   RECOVERY_WINDOW_MS,
   UNRESPONSIVE_GRACE_MS,
   recoveryDecision,
@@ -57,23 +58,56 @@ function shell(extra = {}) {
   return { window, state, advance, crash };
 }
 
-test('the decision reloads a lost page but stops a crash loop', () => {
-  assert.deepEqual(recoveryDecision([], 5000), { reload: true, reloads: [5000] });
-  // Reloads older than the window no longer count.
-  assert.deepEqual(recoveryDecision([0, 10, 20], RECOVERY_WINDOW_MS + 20), {
-    reload: true,
-    reloads: [RECOVERY_WINDOW_MS + 20],
+test('the decision reloads a lost page quickly, then once every 5 minutes in a crash loop', () => {
+  const fresh = { reloads: [], limited: false };
+  const quick = RECOVERY_RELOAD_DELAY_MS,
+    slow = RECOVERY_SLOW_RETRY_MS;
+  assert.deepEqual(recoveryDecision(fresh, 5000), {
+    limited: false,
+    delayMs: quick,
+    reloads: [5000 + quick],
   });
+  // The limit of quick reloads inside the window: the next one is slow.
   const full = Array.from({ length: RECOVERY_MAX_RELOADS }, (_, index) => 1000 + index);
-  assert.deepEqual(recoveryDecision(full, 2000), { reload: false, reloads: full });
-  // One reload has left the window: one more is allowed.
-  assert.equal(recoveryDecision(full, 1000 + RECOVERY_WINDOW_MS).reload, true);
-  // A clock that went back never unlocks a loop by itself and never throws.
-  assert.deepEqual(recoveryDecision([9000], 5000), { reload: true, reloads: [5000] });
-  assert.deepEqual(recoveryDecision([1, 2], 3, { maxReloads: 2, windowMs: 10 }), {
-    reload: false,
-    reloads: [1, 2],
+  assert.deepEqual(recoveryDecision({ reloads: full, limited: false }, 2000), {
+    limited: true,
+    delayMs: slow,
+    reloads: [...full, 2000 + slow],
   });
+  // One reload has left the window: one more quick reload.
+  assert.equal(
+    recoveryDecision({ reloads: full, limited: false }, 1000 + RECOVERY_WINDOW_MS).limited,
+    false,
+  );
+  // Lost again soon after a slow reload: still slow, one reload per 5 minutes.
+  const looping = { reloads: [...full, 400_000], limited: true };
+  assert.deepEqual(recoveryDecision(looping, 400_500), {
+    limited: true,
+    delayMs: slow,
+    reloads: [400_000, 400_500 + slow],
+  });
+  assert.equal(recoveryDecision(looping, 400_000 + slow - 1).limited, true);
+  // A page that lived 5 minutes after the slow reload starts over.
+  assert.deepEqual(recoveryDecision(looping, 400_000 + slow), {
+    limited: false,
+    delayMs: quick,
+    reloads: [400_000 + slow + quick],
+  });
+  // A clock that went back never throws and never keeps a future reload.
+  assert.deepEqual(recoveryDecision({ reloads: [9000], limited: true }, 5000), {
+    limited: false,
+    delayMs: quick,
+    reloads: [5000 + quick],
+  });
+  assert.deepEqual(
+    recoveryDecision({ reloads: [1, 2], limited: false }, 3, {
+      maxReloads: 2,
+      windowMs: 10,
+      slowMs: 50,
+      delayMs: 1,
+    }),
+    { limited: true, delayMs: 50, reloads: [1, 2, 53] },
+  );
 });
 
 test('a crashed page is loaded again after the owner hook, a clean exit is left alone', () => {
@@ -87,30 +121,66 @@ test('a crashed page is loaded again after the owner hook, a clean exit is left 
   assert.deepEqual(state.loads, [], 'not before the pause');
   advance(RECOVERY_RELOAD_DELAY_MS);
   assert.deepEqual(state.loads, [URL_APP]);
-  assert.deepEqual(state.lines, [{ event: 'renderer_recovery_reload', reason: 'oom', reloads: 1 }]);
+  assert.deepEqual(state.lines, [
+    { event: 'renderer_recovery_reload', reason: 'oom', delay_ms: RECOVERY_RELOAD_DELAY_MS },
+  ]);
 });
 
-test('a crash loop stops reloading and leaves one log line', () => {
-  const { state, advance, crash } = shell();
+test('a crash loop slows down to one reload per 5 minutes and never leaves the window blank', () => {
+  const { window, state, advance, crash } = shell();
   for (let i = 0; i < RECOVERY_MAX_RELOADS; i++) {
     crash();
     advance(RECOVERY_RELOAD_DELAY_MS);
   }
   assert.equal(state.loads.length, RECOVERY_MAX_RELOADS);
   crash('launch-failed');
-  advance(RECOVERY_RELOAD_DELAY_MS);
-  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS, 'no reload past the limit');
   assert.deepEqual(state.lines.at(-1), {
-    event: 'renderer_recovery_stopped',
+    event: 'renderer_recovery_slowed',
     reason: 'launch-failed',
-    reloads: RECOVERY_MAX_RELOADS,
+    delay_ms: RECOVERY_SLOW_RETRY_MS,
   });
-  assert.equal(state.gone, RECOVERY_MAX_RELOADS + 1);
-  // A crash long after the loop is recovered again.
-  advance(RECOVERY_WINDOW_MS);
+  advance(RECOVERY_SLOW_RETRY_MS - 1);
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS, 'no quick reload past the limit');
+  advance(1);
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS + 1, 'the slow reload');
+  // Still looping: the next reload is slow again.
   crash();
   advance(RECOVERY_RELOAD_DELAY_MS);
   assert.equal(state.loads.length, RECOVERY_MAX_RELOADS + 1);
+  advance(RECOVERY_SLOW_RETRY_MS);
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS + 2);
+  // In the loop a page that hangs is not killed: it may answer, and a kill would blank it.
+  window.emit('unresponsive');
+  advance(UNRESPONSIVE_GRACE_MS);
+  assert.equal(state.kills, 0);
+  assert.equal(state.lines.at(-1).event, 'renderer_recovery_unresponsive_left');
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS + 2);
+  assert.equal(state.gone, RECOVERY_MAX_RELOADS + 2);
+  // A page that lived 5 minutes is recovered quickly again, also from a hang.
+  advance(RECOVERY_SLOW_RETRY_MS);
+  window.emit('unresponsive');
+  advance(UNRESPONSIVE_GRACE_MS);
+  assert.equal(state.kills, 1);
+  advance(RECOVERY_RELOAD_DELAY_MS);
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS + 3);
+});
+
+test('a hang right after the quick reloads are used up is left alone', () => {
+  const { window, state, advance, crash } = shell();
+  for (let i = 0; i < RECOVERY_MAX_RELOADS; i++) {
+    crash();
+    advance(RECOVERY_RELOAD_DELAY_MS);
+  }
+  window.emit('unresponsive');
+  advance(UNRESPONSIVE_GRACE_MS);
+  assert.equal(state.kills, 0, 'the limit is reached: no kill');
+  assert.equal(state.loads.length, RECOVERY_MAX_RELOADS);
+  // It hangs again after the window has passed: terminated and reloaded as usual.
+  window.emit('responsive');
+  advance(RECOVERY_WINDOW_MS);
+  window.emit('unresponsive');
+  advance(UNRESPONSIVE_GRACE_MS);
+  assert.equal(state.kills, 1);
 });
 
 test('a page that stays unresponsive is terminated and reloaded; responsive cancels it', () => {
