@@ -385,6 +385,44 @@ test('late operations reads cannot overwrite a newer authoritative shift count',
   assert.equal(model.state.shift.order_count, 138);
 });
 
+test('a failed background stop poll never replaces the error of an action; a lost session signs out', async () => {
+  const f = fixture();
+  let stops = () => ({ stops: [{ variant_id: f.item.variant_id, stopped: true, version: 3 }] });
+  const api = async (...args) => (args[0] === 'availability/stops' ? stops() : f.api(...args));
+  const model = new PosController(api, memory(), memory(), randomUUID);
+  await model.login(JSON.stringify(f.credential));
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true);
+  // The poll fails while the cashier looks at the result of an action.
+  const action = new Error('ACTION_RESULT');
+  model.state.error = action;
+  const down = new ApiError('EDGE_UNREACHABLE', 0);
+  stops = () => {
+    throw down;
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.error, action, 'the poll keeps its failure to itself');
+  assert.equal(model.stopsError, down);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true, 'the last list is kept');
+  assert.ok(model.state.actor);
+  // The same failure of a read the cashier asked for is shown, as before.
+  await model.refreshStops();
+  assert.equal(model.state.error, down);
+  // A good poll clears the record.
+  stops = () => ({ stops: [] });
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.size, 0);
+  // A lost session is never kept quiet.
+  stops = () => {
+    throw new ApiError('UNAUTHORIZED', 401);
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.actor, null);
+  assert.equal(model.state.error.code, 'UNAUTHORIZED');
+});
+
 test('oversized modifier drafts leave the last recoverable journal intact', async () => {
   const f = fixture(),
     sessions = memory(),

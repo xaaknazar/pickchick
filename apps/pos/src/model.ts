@@ -1266,7 +1266,14 @@ export class PosController {
       this.emit();
     }
   }
-  async refreshStops() {
+  /** The last failure of the background stop-list poll; null after a successful read. */
+  stopsError: unknown = null;
+  /**
+   * `background` is the 3 s poll: its failure is kept in `stopsError` and never replaces
+   * `state.error`, which belongs to the action the cashier started (the connection line comes
+   * from the operations read of the same cycle). A lost session still signs the desk out.
+   */
+  async refreshStops(background = false) {
     const epoch = this.generation;
     try {
       const value = parse.record(await this.request('availability/stops'));
@@ -1274,10 +1281,14 @@ export class PosController {
         throw new Error('INVALID_RESPONSE');
       const stops = value.stops.map(parse.stop);
       if (epoch !== this.generation) return;
+      this.stopsError = null;
       this.state.stops = new Map(stops.map((s) => [s.variant_id, s]));
       this.emit();
     } catch (error) {
-      if (epoch === this.generation) this.fail(error);
+      if (epoch !== this.generation) return;
+      this.stopsError = error;
+      if (!background || (error instanceof ApiError && error.code === 'UNAUTHORIZED'))
+        this.fail(error);
     }
   }
   async loadStops(ids: string[]) {

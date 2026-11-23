@@ -1287,7 +1287,8 @@ setInterval(() => {
   if (!model.state.actor || blocked() || document.hidden) return;
   if (pollStartedAt !== null && Date.now() - pollStartedAt < 60000) return;
   const started = (pollStartedAt = Date.now());
-  void Promise.all([model.refreshOperations(), model.refreshStops()])
+  // The stop poll keeps its failure to itself: it never replaces the error of an action.
+  void Promise.all([model.refreshOperations(), model.refreshStops(true)])
     .then(async () => {
       if (blocked()) return;
       // Paid mode only (no request otherwise): Webkassa states of the rows on screen.
