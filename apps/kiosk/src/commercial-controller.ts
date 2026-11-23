@@ -197,6 +197,14 @@ export type TerminalAttempt = {
 /** Kaspi: /v2/status about once a second, /v2/actualize no more often than every 10 s. */
 export const TERMINAL_POLL_MS = 1000;
 export const TERMINAL_ACTUALIZE_MS = 10000;
+/**
+ * Audit 23.11 #1: how long a payment may stay in `wait` without a single status answer from
+ * the terminal (power or LAN lost, the link gone) before it becomes `unknown`: the phase the
+ * terminal itself leads to when it cannot tell, which keeps asking (/v2/actualize), lets staff
+ * reset the kiosk and goes to the manager's review. Never a result: nothing is paid, failed
+ * or sent to the kitchen by this time alone. Any status answer starts the time again.
+ */
+export const TERMINAL_SILENT_MS = 5 * 60000;
 /** The staff terminal setup stays open this long after the staff code. */
 export const TERMINAL_SETUP_MS = 10 * 60000;
 const TERMINAL_PHASES: TerminalPhase[] = [
@@ -850,6 +858,11 @@ export class CommercialKioskController {
   /** The terminal's latest subStatus while waiting (memory only). */
   private terminalSub: string | null = null;
   /**
+   * The waiting process and when its unanswered status reads began (see TERMINAL_SILENT_MS).
+   * Memory only: after a restart the time starts again with the first unanswered read.
+   */
+  private terminalSilent: { processId: string; since: number } | null = null;
+  /**
    * Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once while the terminal
    * still holds the payment. Kaspi Smart POS has no cancel command (API v2: register, revoke,
    * payment, status, actualize, refund, deviceinfo), so the order and its attempt stay tracked
@@ -1019,7 +1032,12 @@ export class CommercialKioskController {
         (this.current.resetPending && !this.pending()) ||
         // ADR-0018: a terminal payment that never started, or whose result only the terminal
         // and the manager can tell (lost, unknown): staff checks the terminal and resets.
-        ['request', 'send_failed', 'lost', 'unknown'].includes(this.current.terminal?.phase ?? ''))
+        ['request', 'send_failed', 'lost', 'unknown'].includes(
+          this.current.terminal?.phase ?? '',
+        ) ||
+        // Audit 23.11 #1: the terminal said `fail` (no money moved) and the cloud cannot be
+        // told (no WAN). The cloud moves its open attempt to review by itself after 15 minutes.
+        (this.current.terminal?.phase === 'fail' && !this.current.terminal.reported))
     );
   }
   private snapshot(): KioskState {
@@ -2282,10 +2300,23 @@ export class CommercialKioskController {
       // 101: the terminal no longer knows the process; only actualize and staff can tell.
       if (answer.kind === 'refused' && answer.statusCode === 101 && a.phase === 'wait')
         await this.saveTerminal({ ...a, phase: 'unknown', actualizedAt: 0 });
-      else if (actualize) await this.saveTerminal({ ...a, ...stamp });
+      else if (a.phase === 'wait') {
+        // Audit 23.11 #1: no status answer at all for too long (the terminal is off, out of
+        // the network, unlinked, or refuses every read). Only the terminal can tell the result,
+        // so the payment is `unknown` from here on: asked again with actualize, never decided.
+        const silent =
+          this.terminalSilent?.processId === a.processId
+            ? this.terminalSilent
+            : (this.terminalSilent = { processId: a.processId!, since: this.io.now() });
+        if (this.io.now() - silent.since >= TERMINAL_SILENT_MS) {
+          this.terminalSilent = null;
+          await this.saveTerminal({ ...a, phase: 'unknown', actualizedAt: 0 });
+        }
+      } else if (actualize) await this.saveTerminal({ ...a, ...stamp });
       return false;
     }
     this.terminalOffline = false;
+    this.terminalSilent = null;
     const data = answer.data;
     const subStatus =
       typeof data.subStatus === 'string' && /^[A-Za-z]{1,40}$/.test(data.subStatus)
@@ -2780,7 +2811,9 @@ export class CommercialKioskController {
     } catch (error) {
       if (error instanceof KioskError && error.code === 'KIOSK_TERMINAL_TAKEN') {
         // One terminal, one kiosk: this iPad does not keep a terminal another kiosk holds.
-        await session.forget();
+        // Audit 23.11 #1: except under a payment (the terminal moved to a new address while it
+        // ran): its result can only be read through this link. The next staff check drops it.
+        if (!this.current.terminal) await session.forget();
         return 'taken';
       }
       return 'cloud';
