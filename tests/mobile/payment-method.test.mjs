@@ -402,3 +402,34 @@ test('the last TipTopPay methods are restored at launch; a fresh /config answer 
   assert.deepEqual(raced.methods(), ['card']);
   assert.deepEqual(JSON.parse(saved.get(CONNECTED_METHODS_KEY)).methods, ['card']);
 });
+
+test('the handle shows the saved TipTopPay method from the first frame (owner 23.11.2026)', async () => {
+  const { launchPaymentMethod, paymentMethods } =
+    await import('../../apps/mobile/src/payment-method.ts');
+  const saved = { method: 'apple_pay', source: 'payment', at: 1 };
+  const kaspiOnly = paymentMethods('ios', false, []);
+  const withApplePay = paymentMethods('ios', false, ['apple_pay']);
+  // No /config answer yet in this run: the last payment's method, not Kaspi.
+  assert.equal(
+    launchPaymentMethod(saved, kaspiOnly, { fresh: false, phoneCan: ['card', 'apple_pay'] }),
+    'apple_pay',
+  );
+  // This phone cannot pay with it: Kaspi.
+  assert.equal(
+    launchPaymentMethod(saved, kaspiOnly, { fresh: false, phoneCan: ['card'] }),
+    'kaspi',
+  );
+  // A fresh answer without Apple Pay: Kaspi; with it: Apple Pay.
+  assert.equal(
+    launchPaymentMethod(saved, kaspiOnly, { fresh: true, phoneCan: ['card', 'apple_pay'] }),
+    'kaspi',
+  );
+  assert.equal(
+    launchPaymentMethod(saved, withApplePay, { fresh: true, phoneCan: ['card', 'apple_pay'] }),
+    'apple_pay',
+  );
+  assert.equal(
+    launchPaymentMethod(null, kaspiOnly, { fresh: false, phoneCan: ['apple_pay'] }),
+    'kaspi',
+  );
+});

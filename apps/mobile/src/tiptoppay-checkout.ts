@@ -83,6 +83,8 @@ export function createConnectedMethodsStore(storage?: {
     version: () => version,
     /** True once the saved answer was read (or there is none to read). */
     restored: () => restored,
+    /** True once this app run had a /config answer (the restored list may be out of date). */
+    fresh: () => fresh,
     set(next: TipTopPayMethod[], env: 'live' | 'test' | null) {
       fresh = true;
       const wasRestored = restored;

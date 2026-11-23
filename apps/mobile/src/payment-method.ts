@@ -162,6 +162,28 @@ export function activePaymentMethod(
   return available[0]?.id ?? DEFAULT_PAYMENT_METHOD;
 }
 
+/**
+ * The method the cart bar handle shows from the first frame (owner 23.11.2026: «должно изначально
+ * стоять на мою последнюю оплату»). Until this app run has a fresh /config answer, the customer's
+ * saved TipTopPay method is shown even if the last known list lacks it, as long as this phone can
+ * pay with it; the cart reads /config before any payment, so nothing is paid on a guess. After a
+ * fresh answer the usual rule applies (activePaymentMethod).
+ */
+export function launchPaymentMethod(
+  saved: LastPaymentMethod | null | undefined,
+  methods: readonly PaymentMethodOption[],
+  context: { fresh: boolean; phoneCan: readonly PaymentMethodId[] },
+): PaymentMethodId {
+  if (
+    !context.fresh &&
+    saved &&
+    saved.method !== 'kaspi' &&
+    context.phoneCan.includes(saved.method)
+  )
+    return saved.method;
+  return activePaymentMethod(saved, methods);
+}
+
 /** Only a method this build can pay with now can be chosen or remembered. */
 export function paymentMethodAvailable(
   method: PaymentMethodId,

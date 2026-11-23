@@ -4,11 +4,31 @@ import { Platform } from 'react-native';
 import { useAccount } from './useAccount';
 import {
   createPaymentMethodStore,
+  launchPaymentMethod,
   paymentMethods,
   type LastPaymentSource,
   type PaymentMethodId,
 } from './payment-method';
 import { createConnectedMethodsStore } from './tiptoppay-checkout';
+import { phoneWallets } from './useTipTopPayCheckout';
+
+/**
+ * TipTopPay methods this phone could pay with, before any /config answer. A saved method exists
+ * only if it was available when it was recorded, so this list only confirms the phone still can.
+ */
+let phoneCanCache: PaymentMethodId[] | null = null;
+function phoneCan(): PaymentMethodId[] {
+  if (phoneCanCache) return phoneCanCache;
+  const phone = phoneWallets();
+  phoneCanCache = phone.module
+    ? [
+        'card',
+        ...(phone.applePay ? (['apple_pay'] as const) : []),
+        ...(Platform.OS === 'android' ? (['google_pay'] as const) : []),
+      ]
+    : [];
+  return phoneCanCache;
+}
 
 /** One store per app process, persisted per account in AsyncStorage (see payment-method.ts). */
 export const paymentMethodStore = createPaymentMethodStore({
@@ -65,7 +85,10 @@ export function usePaymentMethod() {
   );
   const { ready: accountReady } = useAccount();
   return {
-    method: paymentMethodStore.active(customerId, methods),
+    method: launchPaymentMethod(paymentMethodStore.saved(customerId), methods, {
+      fresh: connectedMethodsStore.fresh(),
+      phoneCan: phoneCan(),
+    }),
     methods,
     ready: paymentMethodStore.ready(customerId),
     /**
