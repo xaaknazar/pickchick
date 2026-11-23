@@ -99,7 +99,11 @@ import {
   usePaymentMethod,
 } from '../usePaymentMethod';
 import { phoneWallets, useTipTopPayCheckout } from '../useTipTopPayCheckout';
-import { TIPTOPPAY_TEST_BUILD, connectedTipTopPayMethods } from '../tiptoppay-checkout';
+import {
+  TIPTOPPAY_TEST_BUILD,
+  confirmConnectedMethod,
+  connectedTipTopPayMethods,
+} from '../tiptoppay-checkout';
 import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
 import { receiptShown } from '../store-build';
 import { runSlidePayIntent } from '../slide-pay-intent';
@@ -209,6 +213,8 @@ function KaspiCheckoutSession(
   // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
   const [methodStop, setMethodStop] = useState(false);
   useEffect(() => setMethodStop(false), [payment.method]);
+  const methodRef = useRef(payment.method);
+  methodRef.current = payment.method;
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
@@ -748,9 +754,45 @@ function KaspiCheckoutSession(
     // nothing is created, quoted or sent.
     if (payment.method !== 'kaspi') {
       // TipTopPay card / Apple Pay / Google Pay (18.11.2026) when this cart may offer it now.
-      if (connectedMethodsStore.methods().includes(payment.method)) {
+      if (connectedMethodsStore.fresh()) {
+        if (connectedMethodsStore.methods().includes(payment.method)) {
+          setMethodStop(false);
+          tipTopPay.start(payment.method, quote?.totalMinor ?? localTotal);
+          return;
+        }
+        setMethodStop(true);
+        return;
+      }
+      // No /config answer in this app run yet (audit 23.11 #3): the handle shows the customer's
+      // last method on the phone's word and the list is an earlier run's. The server is asked
+      // before the press is started or refused. This only reads /config; the press itself (its
+      // consent, quote, order and charge) is tipTopPay.start below, unchanged.
+      const method = payment.method;
+      const controller = new AbortController();
+      preparation.current = controller;
+      lock.current = true;
+      setTipTopPayBusy(true);
+      let connected: boolean;
+      try {
+        connected = await confirmConnectedMethod(connectedMethodsStore, method, async () => {
+          const setup = CustomerCheckoutConfigSchema.parse(
+            await request('/config', 'GET', undefined, controller.signal),
+          );
+          if (controller.signal.aborted) return;
+          noteCheckoutSwitch(customerId, setup.enabled);
+          noteConnectedMethods(setup);
+          setConfig(setup);
+        });
+      } finally {
+        if (preparation.current === controller) preparation.current = null;
+        lock.current = false;
+        setTipTopPayBusy(false);
+      }
+      // Left the cart or chose another method meanwhile: that press is over, nothing starts.
+      if (controller.signal.aborted || methodRef.current !== method) return;
+      if (connected) {
         setMethodStop(false);
-        tipTopPay.start(payment.method, quote?.totalMinor ?? localTotal);
+        tipTopPay.start(method, quote?.totalMinor ?? localTotal);
         return;
       }
       setMethodStop(true);

@@ -86,6 +86,7 @@ export function createConnectedMethodsStore(storage?: {
     /** True once this app run had a /config answer (the restored list may be out of date). */
     fresh: () => fresh,
     set(next: TipTopPayMethod[], env: 'live' | 'test' | null) {
+      const wasFresh = fresh;
       fresh = true;
       const wasRestored = restored;
       restored = true;
@@ -94,7 +95,10 @@ export function createConnectedMethodsStore(storage?: {
           .setItem(CONNECTED_METHODS_KEY, JSON.stringify({ methods: next, environment: env }))
           .catch(() => undefined);
       if (next.join() === methods.join() && env === environment) {
-        if (!wasRestored) notify();
+        // The first answer of this app run is news even with the same list: until it, the handle
+        // may show a saved method the list lacks (launchPaymentMethod), and subscribers read
+        // `fresh` only when the version moves.
+        if (!wasRestored || !wasFresh) notify();
         return;
       }
       methods = next;
@@ -138,6 +142,27 @@ export function createConnectedMethodsStore(storage?: {
     },
   };
   return store;
+}
+
+/**
+ * A press with a TipTopPay method: may this cart pay with it? Before the first /config answer of
+ * this app run the handle shows the customer's last method on the phone's word alone
+ * (launchPaymentMethod), and the list is the one of an earlier run or empty: the server is asked
+ * first, so the press is not refused as «не подключён» a moment after the handle offered it. A
+ * read that fails decides with the last known list, as before. Only decides; never pays.
+ */
+export async function confirmConnectedMethod(
+  store: { fresh(): boolean; methods(): readonly TipTopPayMethod[] },
+  method: TipTopPayMethod,
+  readConfig: () => Promise<void>,
+): Promise<boolean> {
+  if (!store.fresh())
+    try {
+      await readConfig();
+    } catch {
+      // No answer: the last known list decides.
+    }
+  return store.methods().includes(method);
 }
 
 /** "1250.00" for the wallet sheets from integer minor units. */
