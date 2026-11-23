@@ -46,12 +46,27 @@ export function shareItems<T>(
   return changed ? shared : (previous as T[]);
 }
 
+/**
+ * shareItems with a memory of its last input: the same input array returns the last result at
+ * once. After a pass that kept old items the result differs from the (memoised) input, so without
+ * this every later render compared every item again (two JSON.stringify per dish).
+ */
+export function createSharedItems<T>() {
+  let input: T[] | null = null;
+  let shared: T[] | null = null;
+  return (next: T[], key: (item: T) => string): T[] => {
+    if (shared && next === input) return shared;
+    shared = shareItems(shared, next, key);
+    input = next;
+    return shared;
+  };
+}
+
 /** A list that keeps the identity of unchanged items between renders (see shareItems). */
 export function useSharedItems<T>(next: T[], key: (item: T) => string): T[] {
-  const last = useRef<T[] | null>(null);
-  const shared = shareItems(last.current, next, key);
-  last.current = shared;
-  return shared;
+  const share = useRef<ReturnType<typeof createSharedItems<T>> | null>(null);
+  share.current ??= createSharedItems<T>();
+  return share.current(next, key);
 }
 
 /**

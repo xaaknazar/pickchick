@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { keepIfSame, sameContent, shareItems } from '../../apps/mobile/src/stable-values.ts';
+import {
+  createSharedItems,
+  keepIfSame,
+  sameContent,
+  shareItems,
+} from '../../apps/mobile/src/stable-values.ts';
 
 const source = (path) =>
   readFileSync(new URL(`../../apps/mobile/src/${path}`, import.meta.url), 'utf8');
@@ -58,6 +63,38 @@ test('unchanged dishes keep their objects; a changed dish and a changed list are
   assert.notEqual(shorter, previous);
   assert.equal(shorter[0], previous[0]);
   assert.equal(shareItems(null, previous, key), previous);
+});
+
+test('the same input list is not compared again on later renders (audit 23.11 #4)', () => {
+  let keyCalls = 0;
+  const key = (item) => {
+    keyCalls += 1;
+    return item.id;
+  };
+  const share = createSharedItems();
+  const first = [
+    { id: 'a', price: '100' },
+    { id: 'b', price: '200' },
+  ];
+  assert.equal(share(first, key), first);
+  // A re-read with one changed dish: the result keeps old items, so it is not the input array.
+  const second = [
+    { id: 'a', price: '100' },
+    { id: 'b', price: '250' },
+  ];
+  const shared = share(second, key);
+  assert.notEqual(shared, second);
+  assert.equal(shared[0], first[0]);
+  // Later renders pass the same (memoised) input: the cached result, no pass over the items.
+  keyCalls = 0;
+  assert.equal(share(second, key), shared);
+  assert.equal(share(second, key), shared);
+  assert.equal(keyCalls, 0);
+  // A new input is compared with the last result, so unchanged items keep their objects.
+  const third = second.map((item) => ({ ...item }));
+  assert.equal(share(third, key), shared);
+  assert.ok(keyCalls > 0);
+  assert.match(source('stable-values.ts'), /share\.current \?\?= createSharedItems<T>\(\)/);
 });
 
 test('polls and re-reads never hand the whole app new objects for the same data', () => {
