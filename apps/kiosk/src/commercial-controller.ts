@@ -1667,7 +1667,12 @@ export class CommercialKioskController {
     if (!this.menu) throw new KioskError('CATALOG_UNAVAILABLE');
   }
   private navigate(step: KioskStep) {
-    if (!this.ready || this.busy || this.locked()) return;
+    // Owner 23.11.2026: «Оформить заказ» stood for about a second. A tap while a save runs (an
+    // add just made, which first waits for a background refresh) was dropped, so moving
+    // between the browsing screens no longer waits for it: the save finishes underneath and
+    // the screen shows it when it lands.
+    const browsing = BROWSING.includes(this.step) && BROWSING.includes(step);
+    if (!this.ready || (this.busy && !browsing) || this.locked()) return;
     this.touch();
     this.step = step;
     this.emit();

@@ -73,6 +73,7 @@ export function drinkOptionText(
   const pack = packageOf(source) ?? packageOf(label);
   let name: string;
   let volume = '';
+  let flavour = '';
   if (linkedName) {
     const card = cardName(source);
     name = card.title;
@@ -84,7 +85,13 @@ export function drinkOptionText(
     const match = DRINK_VOLUME.exec(head);
     name = match && match.index > 0 ? head.slice(0, match.index) : head;
     if (match && match.index > 0) volume = match[1]! + ' ' + (match[2] ?? 'л');
-    if (tail && !packageOf(tail)) name += ' ' + tail;
+    // «Фирменный холодный чай, сладкий»: the flavour tells two picks apart, so it follows the
+    // volume in the caption and the name drops «Фирменный» to stay on the tile.
+    if (tail && !packageOf(tail)) {
+      flavour = lower(tail);
+      name = name.replace(SIGNATURE, '');
+      name = upper(name.trim());
+    }
   }
   name = name
     .replace(/\s*\([^()]*\)/g, '')
@@ -92,7 +99,7 @@ export function drinkOptionText(
     .replace(/\s+/g, ' ')
     .trim();
   volume = volume.replace(',', '.').replace(/\s+/, ' ');
-  const caption = [volume, pack ? PACKAGE[pack][locale] : ''].filter(Boolean).join(' · ');
+  const caption = [volume, pack ? PACKAGE[pack][locale] : '', flavour].filter(Boolean).join(' · ');
   return { name: name || tidy(label), caption };
 }
 /**
@@ -103,7 +110,13 @@ export function sauceOptionText(label: string, locale: 'ru' | 'kk' | 'en'): Opti
   const clean = tidy(label).replace(/\.$/, '');
   const comma = clean.search(/,\s/);
   const head = comma > 0 ? clean.slice(0, comma) : clean;
-  const name = head.replace(VOLUME, '').trim() || head;
+  // «Фирменный соус Pick Chick» -> «Фирменный соус»: the brand left two lines and no room for
+  // the volume on the tile.
+  const name =
+    head
+      .replace(VOLUME, '')
+      .replace(/\s+Pick\s*Chick$/i, '')
+      .trim() || head;
   return { name, caption: '60 ' + (locale === 'en' ? 'ml' : 'мл') };
 }
 /** Options that are drinks (the combo choice and «Добавить напитки») or sauces, by group id. */

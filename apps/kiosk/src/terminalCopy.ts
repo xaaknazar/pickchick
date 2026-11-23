@@ -46,9 +46,11 @@ const ru = {
   releasingTitle: 'Ждём терминал',
   releasing:
     'На терминале ещё прошлая сумма - не оплачивайте её. Новая появится сама, как только терминал освободится (до 3 минут). Быстрее: нажмите на терминале «Отмена».',
-  cancellingTitle: 'Отменяем заказ',
+  // Owner 23.11.2026: the terminal kept the sum after «Отменить»; Kaspi has no cancel command,
+  // so the screen asks for the terminal's own button first.
+  cancellingTitle: 'Нажмите «Отмена» на терминале',
   cancelling:
-    'Не оплачивайте на терминале. Сумма на нём погаснет сама (до 3 минут) или сразу по кнопке «Отмена».',
+    'Заказ отменяется. Не оплачивайте сумму на терминале: нажмите на нём красную кнопку «Отмена», иначе она погаснет сама до 3 минут.',
   noCancelTitle: 'Оплату нельзя отменить на киоске',
   noCancel: 'Если передумали, не оплачивайте на терминале и пригласите сотрудника.',
   /** Staff dialog: the service reset of a terminal payment whose result is not known. */
@@ -134,9 +136,9 @@ const kk: Strings = {
   releasingTitle: 'Терминалды күтеміз',
   releasing:
     'Терминалда әлі бұрынғы сома тұр - оны төлемеңіз. Жаңа сома терминал босаған бойда өзі шығады (3 минутқа дейін). Тезірек: терминалда «Болдырмау» түймесін басыңыз.',
-  cancellingTitle: 'Тапсырысты болдырмаймыз',
+  cancellingTitle: 'Терминалда «Отмена» басыңыз',
   cancelling:
-    'Терминалда төлемеңіз. Ондағы сома өзі өшеді (3 минутқа дейін) немесе «Болдырмау» түймесін басқанда бірден өшеді.',
+    'Тапсырыс болдырылып жатыр. Терминалдағы соманы төлемеңіз: ондағы қызыл «Отмена» түймесін басыңыз, әйтпесе ол 3 минутқа дейін өзі өшеді.',
   noCancelTitle: 'Төлемді киоскіде жоюға болмайды',
   noCancel: 'Ойыңыз өзгерсе, терминалда төлемеңіз және қызметкерді шақырыңыз.',
   staffResetBody:
@@ -218,9 +220,9 @@ const en: Strings = {
   releasingTitle: 'Waiting for the terminal',
   releasing:
     'The terminal still shows the previous amount - do not pay it. The new one appears by itself as soon as the terminal is free (up to 3 minutes). Faster: press «Cancel» on the terminal.',
-  cancellingTitle: 'Cancelling the order',
+  cancellingTitle: 'Press Cancel on the terminal',
   cancelling:
-    'Do not pay on the terminal. The amount there clears by itself (up to 3 minutes), or at once with its «Cancel» button.',
+    'The order is being cancelled. Do not pay the amount on the terminal: press its red Cancel button, or it clears by itself within 3 minutes.',
   noCancelTitle: 'The payment cannot be cancelled on the kiosk',
   noCancel: 'If you changed your mind, do not pay on the terminal and call a team member.',
   staffResetBody:
