@@ -453,8 +453,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (catalogMediaOptions(process.env).mediaEnabled) useCatalogAssetBodyParser(app);
   // Raw video parts of the back office, only while BACKOFFICE_APP_SPLASH_ENABLED is on.
   if (backofficeOptions(process.env).appSplashEnabled) useSplashPartBodyParser(app);
-  // The bank's 3-D Secure answer (PaRes) of a TipTopPay TEST card payment may exceed 16 KiB.
-  const threeDsReturn = /^\/v1\/integrations\/tiptoppay\/test-3ds-return\/?$/;
+  // The bank's 3-D Secure answer (PaRes) of a TipTopPay card payment may exceed 16 KiB.
+  const threeDsReturn = /^\/v1\/integrations\/tiptoppay\/(?:test-)?3ds-return\/?$/;
   app.useBodyParser('raw', {
     limit: 64 * 1024,
     type: (request: IncomingMessage) =>

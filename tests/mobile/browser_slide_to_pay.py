@@ -369,8 +369,8 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
-    # Owner 16.11.2026, Drinkit's bar: at most 270 pt wide (390, then 330 before), centred.
-    assert abs(bar['width'] - min(width - 32, 270)) <= 0.5 and bar['x'] >= 15, bar
+    # Owner 23.11.2026: at most 320 pt wide (270, 330, 390 before), centred.
+    assert abs(bar['width'] - min(width - 32, 320)) <= 0.5 and bar['x'] >= 15, bar
     assert abs(bar['x'] + bar['width'] / 2 - width / 2) <= 1, bar
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
@@ -1406,7 +1406,7 @@ def scenario_location(browser):
                 page.go_back()
                 branch = page.get_by_test_id('cart-shortcut-location').filter(visible=True)
                 if len(mode) > 10:
-                    # «Мейрамханада» fills the 270 pt bar (owner 16.11.2026): the restaurant is
+                    # «Мейрамханада» fills the 320 pt bar (owner 23.11.2026): the restaurant is
                     # left out rather than shown as «A…»; it stays in the button's name below.
                     page.wait_for_timeout(300)
                     if branch.count():

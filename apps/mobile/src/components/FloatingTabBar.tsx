@@ -356,7 +356,11 @@ export function FloatingTabBar({
             <GestureDetector gesture={pan}>
               <View
                 style={s.items}
-                onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
+                onLayout={(event) => {
+                  // Hidden under a full-screen page: keep the last width (no re-render).
+                  if (event.nativeEvent.layout.width > 0)
+                    setRowWidth(event.nativeEvent.layout.width);
+                }}
               >
                 {activeRoute && itemWidth > 0 ? (
                   <SelectionPlatter

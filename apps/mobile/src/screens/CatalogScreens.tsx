@@ -13,7 +13,8 @@ import { MotionPressable as Pressable, MotionModal } from '../components/Motion'
 import { RollingText } from '../components/MotionSheets';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useStableCallback } from '../stable-values';
 import Animated, {
   FadeOut,
   LinearTransition,
@@ -26,7 +27,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';
@@ -346,6 +353,13 @@ const ProductMenuCard = memo(function ProductMenuCard({
     </Pressable>
   );
 });
+/**
+ * A layout of a menu hidden under a full-screen page (product, cart) is all zeros; using it moved
+ * the sticky categories and the selected chip, then everything again on the way back (a visible
+ * jump and two renders of the whole menu). Real layouts always have a size.
+ */
+const shown = (event: LayoutChangeEvent) =>
+  event.nativeEvent.layout.width > 0 || event.nativeEvent.layout.height > 0;
 export function Menu(props: ScreenProps) {
   useLocale();
   const [cartHeight, setCartHeight] = useState(100);
@@ -463,18 +477,16 @@ export function Menu(props: ScreenProps) {
         animated: !reduced,
       });
   }, [category, width, reduced]);
-  const openProduct = useCallback(
-    (product: Product) => {
-      props.model.selectProduct(product.id);
-      if (hasPhotoPilot(product))
-        router.push({
-          pathname: '/product-photo',
-          params: { product: product.id, ...(props.preview ? { preview: '1' } : {}) },
-        });
-      else props.navigate('M07');
-    },
-    [props.model.selectProduct, props.navigate, props.preview, router],
-  );
+  // Stable for the memoised cards: a navigation (new router object) must not re-render them all.
+  const openProduct = useStableCallback((product: Product) => {
+    props.model.selectProduct(product.id);
+    if (hasPhotoPilot(product))
+      router.push({
+        pathname: '/product-photo',
+        params: { product: product.id, ...(props.preview ? { preview: '1' } : {}) },
+      });
+    else props.navigate('M07');
+  });
   const categoryBar = (
     <ScrollView
       ref={chips}
@@ -590,7 +602,7 @@ export function Menu(props: ScreenProps) {
         ) : null}
         <View
           testID="storefront-category-anchor"
-          onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
+          onLayout={(e) => shown(e) && setCategoryTop(e.nativeEvent.layout.y)}
           // Without the loyalty card the categories keep their place over the hero's lower edge,
           // so the first dishes still show on the first screen (as with the card, 393 x 852).
           style={{
@@ -622,7 +634,10 @@ export function Menu(props: ScreenProps) {
             </>
           ) : null}
         </View>
-        <View style={s.catalogSections} onLayout={(e) => setCatalogTop(e.nativeEvent.layout.y)}>
+        <View
+          style={s.catalogSections}
+          onLayout={(e) => shown(e) && setCatalogTop(e.nativeEvent.layout.y)}
+        >
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             const singleColumn = fontScale > 1.3;
@@ -630,6 +645,7 @@ export function Menu(props: ScreenProps) {
               <View
                 key={item}
                 onLayout={(e) => {
+                  if (!shown(e)) return;
                   sectionY.current[item] = e.nativeEvent.layout.y;
                   updateOffsets();
                 }}
@@ -665,11 +681,12 @@ export function Menu(props: ScreenProps) {
       </Animated.ScrollView>
       <Animated.View
         testID="storefront-header"
-        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        onLayout={(e) => shown(e) && setHeaderHeight(e.nativeEvent.layout.height)}
         style={[s.heroHeader, { paddingTop: insets.top + 8 }, headerStyle]}
       >
         <View
           onLayout={(e) =>
+            shown(e) &&
             setCollapsedHeaderHeight(
               insets.top + 18 + e.nativeEvent.layout.height + StyleSheet.hairlineWidth,
             )
@@ -679,7 +696,7 @@ export function Menu(props: ScreenProps) {
         </View>
       </Animated.View>
       <Animated.View
-        onLayout={(e) => setCategoryHeight(e.nativeEvent.layout.height)}
+        onLayout={(e) => shown(e) && setCategoryHeight(e.nativeEvent.layout.height)}
         style={[s.stickyCategories, stickyStyle]}
       >
         {categoryBar}
@@ -721,7 +738,11 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
   const { checkout } = props;
   const insets = useSafeAreaInsets();
   const [removed, setRemoved] = useState<CartLine[]>([]);
-  useEffect(() => setRemoved([]), [props.model.branch?.id, props.model.catalogMode]);
+  // A new [] on every open rendered the whole cart sheet a second time while it slid in.
+  useEffect(
+    () => setRemoved((previous) => (previous.length ? [] : previous)),
+    [props.model.branch?.id, props.model.catalogMode],
+  );
   const [clearSnapshot, setClearSnapshot] = useState<{ id: string; quantity: number }[] | null>(
     null,
   );

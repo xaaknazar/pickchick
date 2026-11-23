@@ -36,6 +36,9 @@ export async function readCheckoutOrder(
   const bank = invoice.rows[0],
     kitchen = projection.rows[0] ?? (cloud ? await cloudKitchenProjection(pool, orderId) : null);
   const paid = order.money.captured === order.totalMinor && order.money.refunded === '0';
+  // The latest attempt decides (attempts are ordered by creation): a declined TipTopPay card may
+  // be followed by a new attempt on the same order. A Kaspi order has one attempt at most.
+  const latest = order.attempts.at(-1);
   const phase =
     order.attentionRequired ||
     (BigInt(order.money.captured) > 0n && !paid) ||
@@ -52,7 +55,7 @@ export async function readCheckoutOrder(
               : 'paid'
         : bank?.state === 'unknown' || order.attempts.some((a) => a.state === 'unknown')
           ? 'checking'
-          : bank?.state === 'failed' || order.attempts.some((a) => a.state === 'failed')
+          : bank?.state === 'failed' || latest?.state === 'failed'
             ? 'failed'
             : bank?.state === 'issued' && bank.operation_id
               ? 'awaiting_payment'

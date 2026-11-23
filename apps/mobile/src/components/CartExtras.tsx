@@ -54,7 +54,10 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   style={s.extraPhoto}
                   accessible={false}
                 />
-                <Body style={s.extraName}>{localize(line.product.name)}</Body>
+                {/* Two lines at most (owner 23.11.2026): one long drink name stretched every card. */}
+                <Body numberOfLines={2} style={s.extraName}>
+                  {localize(line.product.name)}
+                </Body>
                 <Caption numberOfLines={1} style={s.extraDetail}>
                   {localize(selectionDescription(line) || line.product.servingLabel)}
                 </Caption>
@@ -180,7 +183,13 @@ const s = StyleSheet.create({
     borderColor: '#FFFFFF0F',
   },
   extraPhoto: { width: 110, height: 96, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  extraName: { fontFamily: font.heading, fontSize: 15, lineHeight: 19, marginTop: 6 },
+  extraName: {
+    fontFamily: font.heading,
+    fontSize: 15,
+    lineHeight: 19,
+    minHeight: 38,
+    marginTop: 6,
+  },
   extraDetail: { fontSize: 12, lineHeight: 17, color: '#A3B4D6' },
   extraAdd: {
     minHeight: 48,

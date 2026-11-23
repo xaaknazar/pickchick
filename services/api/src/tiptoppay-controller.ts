@@ -13,8 +13,11 @@ import {
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   CommerceError,
+  TipTopPayCheckout,
   TipTopPayReceiver,
   TipTopPayError,
+  tipTopPayCheckoutOptions,
+  tipTopPay3dsPage,
   TipTopPayTestCheckout,
   tipTopPayConfig,
   tipTopPay3dsHtml,
@@ -35,7 +38,12 @@ function page(response: ServerResponse, html: string) {
 export class TipTopPayController {
   private readonly receiver: TipTopPayReceiver;
   private readonly testCheckout: TipTopPayTestCheckout;
+  private readonly liveCheckout: TipTopPayCheckout;
   constructor(@Inject(RESOURCE) resources: Resources) {
+    this.liveCheckout = new TipTopPayCheckout(
+      resources.pool,
+      tipTopPayCheckoutOptions(process.env),
+    );
     this.receiver = new TipTopPayReceiver(resources.pool, tipTopPayConfig(process.env));
     this.testCheckout = new TipTopPayTestCheckout(
       resources.pool,
@@ -57,6 +65,26 @@ export class TipTopPayController {
     let state: 'paid' | 'failed' | 'pending' = 'pending';
     try {
       state = await this.testCheckout.complete3ds(form.get('MD'), form.get('PaRes'));
+    } catch (error) {
+      if (!(error instanceof CommerceError)) throw error;
+    }
+    page(response, tipTopPay3dsResultHtml(state));
+  }
+  /** 3-D Secure of a LIVE card payment (customer-checkout orders/:id/tiptoppay). */
+  @Get('3ds') liveThreeDsPage(@Res() response: ServerResponse) {
+    if (!this.liveCheckout.enabled) throw new HttpException('NOT_FOUND', 404);
+    page(response, tipTopPay3dsPage('/v1/integrations/tiptoppay/3ds-return'));
+  }
+  @Post('3ds-return') @HttpCode(200) async liveThreeDsReturn(
+    @Req() request: { body: unknown },
+    @Res() response: ServerResponse,
+  ) {
+    if (!this.liveCheckout.enabled) throw new HttpException('NOT_FOUND', 404);
+    if (!Buffer.isBuffer(request.body)) throw new HttpException('INVALID_REQUEST', 400);
+    const form = new URLSearchParams(request.body.toString('utf8'));
+    let state: 'paid' | 'failed' | 'pending' = 'pending';
+    try {
+      state = await this.liveCheckout.complete3ds(form.get('MD'), form.get('PaRes'));
     } catch (error) {
       if (!(error instanceof CommerceError)) throw error;
     }

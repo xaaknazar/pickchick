@@ -4,6 +4,7 @@ import { CustomerComboRewardsSchema } from '@pickchick/contracts';
 import { useAccount } from '../useAccount';
 import { commerceRequest, kaspiCheckoutEnabled } from '../commerce-checkout';
 import type { ComboProgressState } from './combo-progress';
+import { keepIfSame } from '../stable-values';
 
 /** One account-bound source shared by profile, events and cart; never stored as a balance. */
 export function useComboRewards() {
@@ -37,15 +38,18 @@ export function useComboRewards() {
           ),
         );
         if (!stopped && !controller.signal.aborted)
-          setSnapshot({
-            customerId,
-            state: data.enabled
-              ? { status: 'ready', data: null, commercial: data }
-              : { status: 'unavailable', data: null },
-          });
+          // Same answer every 15 s: keep the object, the whole app is below this state.
+          setSnapshot(
+            keepIfSame({
+              customerId,
+              state: data.enabled
+                ? ({ status: 'ready', data: null, commercial: data } as const)
+                : ({ status: 'unavailable', data: null } as const),
+            }),
+          );
       } catch {
         if (!stopped && !controller.signal.aborted)
-          setSnapshot({ customerId, state: { status: 'error', data: null } });
+          setSnapshot(keepIfSame({ customerId, state: { status: 'error', data: null } as const }));
       } finally {
         if (request === controller) request = null;
       }

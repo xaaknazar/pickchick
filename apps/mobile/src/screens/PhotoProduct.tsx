@@ -28,6 +28,7 @@ import {
 } from '../product-photo-selection';
 import { optionPhotos, extraPhotos } from '../product-photo-assets';
 import { catalogLogo } from '../catalog';
+import { hasNutrition } from '../nutrition';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { SheetModal } from '../components/MotionSheets';
@@ -247,6 +248,9 @@ export function PhotoProduct(props: Props) {
   // A transparent bottle needs no backdrop blend: show it whole, clear of the close button.
   const drinkCutout = isDrinkCutout(hero);
   const closeTop = Math.max(0, insets.top - 16);
+  // Owner 23.11.2026: КБЖУ is not filled in anywhere yet. The field stays in the catalogue, but
+  // missing or zero values are not shown: no «Пищевая ценность» button and no zero grid.
+  const nutritionKnown = hasNutrition(product.nutrition);
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
   const infoContent = (
@@ -255,7 +259,7 @@ export function PhotoProduct(props: Props) {
         {localize(servingLabel)} ·{localize(' ')}
         {localize(product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На выбранную порцию')}
       </Text>
-      {product.nutrition ? (
+      {nutritionKnown && product.nutrition ? (
         <View style={s.nutritionGrid}>
           {[
             [product.nutrition.energy_kcal, 'ккал'],
@@ -368,15 +372,17 @@ export function PhotoProduct(props: Props) {
                 {localize(servingLabel)}
                 {localize(product.category === 'На двоих' ? ' · На двоих' : '')}
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                testID="photo-nutrition-open"
-                style={s.nutritionTrigger}
-                onPress={() => setInfo(true)}
-              >
-                <Icon name="information-circle-outline" color={pageInk} size={16} />
-                <Text style={s.nutritionLabel}>{t('Пищевая ценность')}</Text>
-              </Pressable>
+              {nutritionKnown ? (
+                <Pressable
+                  accessibilityRole="button"
+                  testID="photo-nutrition-open"
+                  style={s.nutritionTrigger}
+                  onPress={() => setInfo(true)}
+                >
+                  <Icon name="information-circle-outline" color={pageInk} size={16} />
+                  <Text style={s.nutritionLabel}>{t('Пищевая ценность')}</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
           <View

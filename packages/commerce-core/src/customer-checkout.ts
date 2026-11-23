@@ -125,8 +125,8 @@ const QuoteInput = z.strictObject({
     .max(50),
 });
 const CreateInput = z.strictObject({ key: z.uuid(), quoteId: z.uuid() });
-const keyFor = (orderId: string) => {
-  const hex = createHash('sha256').update(`customer-kaspi:${orderId}`).digest('hex');
+const keyFor = (orderId: string, rail = 'customer-kaspi') => {
+  const hex = createHash('sha256').update(`${rail}:${orderId}`).digest('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 };
 
@@ -442,6 +442,77 @@ export class CustomerCheckout {
       throw error;
     }
     return this.read(customerId, orderId);
+  }
+  /**
+   * TipTopPay LIVE (card / Apple Pay / Google Pay, owner 23.11.2026): the same order, admission
+   * and checks as `pay`, the attempt on the TipTopPay payment account. Returns the attempt the
+   * caller charges (tiptoppay-checkout.ts), or null when there is nothing to charge now (paid,
+   * free, or an attempt already sent to the bank). A declined attempt may be followed by a new
+   * one; a pending or unknown attempt is never doubled, and a Kaspi one blocks it.
+   */
+  async startTipTopPayAttempt(customerId: string, orderId: string, accountId: string) {
+    const scope = await this.scope(customerId);
+    await this.assertMobileOrder(scope, orderId);
+    parse(UUIDSchema, accountId);
+    const current = await this.repository.readOrder(scope, orderId);
+    if (current.totalMinor === '0' || BigInt(current.money.captured) > 0n) return null;
+    const open = (
+      await this.pool.query<{ id: string; account_id: string; sent: boolean }>(
+        `SELECT a.id,a.account_id,EXISTS(SELECT 1 FROM commerce_tiptoppay_sessions s WHERE s.attempt_id=a.id) sent
+         FROM commerce_payment_attempts a WHERE a.order_id=$1 AND a.state IN ('pending','unknown')
+         ORDER BY a.created_at DESC`,
+        [orderId],
+      )
+    ).rows;
+    const attempt = (id: string) => ({
+      attemptId: id,
+      orderId,
+      organizationId: scope.organizationId,
+      branchId: scope.branchId,
+      customerId,
+      amountMinor: current.totalMinor,
+    });
+    if (open.length) {
+      const own = open.find((row) => row.account_id === accountId);
+      // A Kaspi invoice in flight (or an unclear payment) is never paid a second time.
+      if (!own || open.length > 1) throw new CommerceError('NOT_READY');
+      return own.sent ? null : attempt(own.id);
+    }
+    const tried = (
+      await this.pool.query<{ count: string }>(
+        'SELECT count(*)::text count FROM commerce_payment_attempts WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0]!.count;
+    try {
+      if (!this.salesEnabled) throw new CommerceError('NOT_READY');
+      assertRestaurantOrderingOpen(this.options!.hours, this.now());
+      await assertBranchItemsAvailable(
+        this.pool,
+        scope.branchId,
+        snapshotAvailabilityItems(current.snapshot),
+      );
+      // One stable command per try: a retried request never creates a second attempt.
+      const key = keyFor(`${orderId}:${tried}`, 'customer-tiptoppay');
+      const input = { orderId, providerAccountId: accountId };
+      await (this.options!.headGuardEnabled && tried === '0'
+        ? this.repository.startMobilePaymentAttempt(scope, key, input)
+        : this.repository.startPaymentAttempt(scope, key, input));
+    } catch (error) {
+      const reason = tried === '0' ? await this.refusalReason(error, orderId) : null;
+      if (reason)
+        await this.repository.abandonUnpaidOrder(scope, orderId, reason).catch(() => false);
+      throw error;
+    }
+    const started = (
+      await this.pool.query<{ id: string }>(
+        `SELECT id FROM commerce_payment_attempts WHERE order_id=$1 AND account_id=$2 AND state='pending'
+         ORDER BY created_at DESC LIMIT 1`,
+        [orderId, accountId],
+      )
+    ).rows[0];
+    if (!started) throw new CommerceError('NOT_READY');
+    return attempt(started.id);
   }
   private get salesEnabled() {
     return this.options?.salesEnabled !== false;

@@ -1,13 +1,23 @@
+import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import type { CustomerTestPayment, CustomerTestPaymentSetup } from '@pickchick/contracts';
+import type {
+  CustomerCommerceOrder,
+  CustomerTestPayment,
+  CustomerTestPaymentSetup,
+} from '@pickchick/contracts';
 import {
   NativePayments,
   PAYMENT_CANCELLED,
   nativePaymentCode,
 } from '../modules/pickchick-payments';
-import { CustomerTestPaymentSchema, CustomerTestPaymentSetupSchema } from './commerce-checkout';
+import {
+  CustomerCommerceOrderSchema,
+  CustomerTestPaymentSchema,
+  CustomerTestPaymentSetupSchema,
+} from './commerce-checkout';
+import { paymentReceived } from './commerce-presentation';
 import { CardPaymentSheet, TipTopPayResultSheet } from './components/TipTopPaySheets';
 import {
   APPLE_PAY_MERCHANT_ID,
@@ -50,9 +60,37 @@ type Request = (
 export type TipTopPayQuote = (
   signal: AbortSignal,
 ) => Promise<{ quoteId: string; totalMinor: string } | null>;
-type Shown = Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string };
+type Shown = Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string; orderId?: string };
+
+/** The live charge answer: the order view plus the 3-D Secure link or the bank's words. */
+export function liveChargeAnswer(value: unknown): {
+  order: CustomerCommerceOrder;
+  threeDsUrl?: string;
+  message?: string;
+} {
+  if (!value || typeof value !== 'object') throw new Error('INVALID_RESPONSE');
+  const { threeDsUrl, message, ...view } = value as Record<string, unknown>;
+  const order = CustomerCommerceOrderSchema.parse(view);
+  return {
+    order,
+    ...(typeof threeDsUrl === 'string' && /^https:\/\//.test(threeDsUrl) ? { threeDsUrl } : {}),
+    ...(typeof message === 'string' && message.trim()
+      ? { message: message.trim().slice(0, 200) }
+      : {}),
+  };
+}
+/** What the payment sheet shows for a live order view (the order screen takes over when paid). */
+export function liveOrderShown(order: CustomerCommerceOrder, message?: string): Shown {
+  if (paymentReceived(order.phase)) return { state: 'paid', orderId: order.orderId };
+  if (order.phase === 'failed')
+    return { state: 'failed', orderId: order.orderId, ...(message ? { message } : {}) };
+  return { state: 'pending', orderId: order.orderId };
+}
+/** Phases while the bank's answer is still coming (3-D Secure, a lost answer). */
+const LIVE_WAITING = new Set(['sending', 'checking', 'ready_to_pay', 'awaiting_payment']);
 
 const RETURN_URL = 'pickchick://tiptoppay-return';
+const randomKey = () => randomUUID();
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 45_000;
 const sleep = (ms: number, signal: AbortSignal) =>
@@ -76,18 +114,29 @@ export function useTipTopPayCheckout({
   onBusy,
   onKaspi,
   test,
+  live,
+  onOrder,
 }: {
   request: Request;
   newQuote: TipTopPayQuote;
   onBusy(busy: boolean): void;
   onKaspi(): void;
   test: boolean;
+  /**
+   * The server pays real orders on the LIVE terminal (/config paymentEnvironment 'live',
+   * 23.11.2026): the press creates the order, charges it, and hands it to the order screen.
+   */
+  live?: () => boolean;
+  /** A live order that was paid (or is still being checked): the screen shows its statuses. */
+  onOrder?: (order: CustomerCommerceOrder, method: TipTopPayMethod) => Promise<void> | void;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
   const [cardTotal, setCardTotal] = useState('');
   const [result, setResult] = useState<Shown | null>(null);
   const [lastMethod, setLastMethod] = useState<TipTopPayMethod | null>(null);
   const running = useRef<AbortController | null>(null);
+  /** A declined live order is paid again on retry (the server allows a new attempt). */
+  const retryOrder = useRef<string | null>(null);
   useEffect(() => () => running.current?.abort(), []);
 
   const poll = useCallback(
@@ -110,6 +159,26 @@ export function useTipTopPayCheckout({
     [request],
   );
 
+  const pollOrder = useCallback(
+    async (order: CustomerCommerceOrder, signal: AbortSignal) => {
+      const started = Date.now();
+      let current = order;
+      while (LIVE_WAITING.has(current.phase) && Date.now() - started < POLL_LIMIT_MS) {
+        await sleep(POLL_MS, signal);
+        if (signal.aborted) break;
+        try {
+          current = CustomerCommerceOrderSchema.parse(
+            await request(`/orders/${order.orderId}`, 'GET', undefined, signal),
+          );
+        } catch {
+          // A dropped read keeps the last known state; the loop asks again.
+        }
+      }
+      return current;
+    },
+    [request],
+  );
+
   const run = useCallback(
     async (method: TipTopPayMethod, card?: CardFields) => {
       if (running.current) return;
@@ -120,11 +189,43 @@ export function useTipTopPayCheckout({
       onBusy(true);
       let applePayOpen = false;
       try {
-        const quote = await newQuote(signal);
+        const isLive = live?.() === true;
+        // A declined live order is paid again as it is; otherwise a fresh quote (and order).
+        const again = isLive ? retryOrder.current : null;
+        retryOrder.current = null;
+        let order: CustomerCommerceOrder | null = null;
+        let quote: { quoteId: string; totalMinor: string } | null = null;
+        if (again) {
+          order = CustomerCommerceOrderSchema.parse(
+            await request(`/orders/${again}`, 'GET', undefined, signal),
+          );
+          if (order.phase !== 'failed') {
+            // Paid or in progress meanwhile: never a second charge, show the order.
+            setResult(liveOrderShown(order));
+            if (paymentReceived(order.phase) || LIVE_WAITING.has(order.phase))
+              await onOrder?.(order, method);
+            return;
+          }
+          quote = { quoteId: '', totalMinor: order.totalMinor };
+        } else {
+          quote = await newQuote(signal);
+        }
         if (!quote || signal.aborted) return;
         const setup: CustomerTestPaymentSetup = CustomerTestPaymentSetupSchema.parse(
-          await request('/test-payments-setup', 'GET', undefined, signal),
+          await request(
+            isLive ? '/payments-setup' : '/test-payments-setup',
+            'GET',
+            undefined,
+            signal,
+          ),
         );
+        if (isLive !== (setup.environment === 'live'))
+          throw new Error('PAYMENT_METHOD_UNAVAILABLE');
+        if (isLive && !order)
+          // The same create command as a Kaspi press: the order holds the kitchen admission.
+          order = CustomerCommerceOrderSchema.parse(
+            await request('/orders', 'POST', { key: randomKey(), quoteId: quote.quoteId }, signal),
+          );
         const native = NativePayments;
         if (!native) throw new Error('PAYMENT_METHOD_UNAVAILABLE');
         let cryptogram: string;
@@ -157,6 +258,34 @@ export function useTipTopPayCheckout({
           if (native.isGooglePayReady && !(await native.isGooglePayReady(input)))
             throw new Error('PAYMENT_METHOD_UNAVAILABLE');
           cryptogram = await native.startGooglePay(input);
+        }
+        if (isLive && order) {
+          const answer = liveChargeAnswer(
+            await request(
+              `/orders/${order.orderId}/tiptoppay`,
+              'POST',
+              { method, cryptogram },
+              signal,
+            ),
+          );
+          if (applePayOpen) {
+            applePayOpen = false;
+            await native
+              .completeApplePay?.(answer.order.phase !== 'failed' && !answer.message)
+              .catch(() => undefined);
+          }
+          if (answer.threeDsUrl)
+            // The bank's 3-D Secure page; it returns to pickchick://tiptoppay-return.
+            await WebBrowser.openAuthSessionAsync(answer.threeDsUrl, RETURN_URL).catch(
+              () => undefined,
+            );
+          const settled = await pollOrder(answer.order, signal);
+          if (signal.aborted) return;
+          if (settled.phase === 'failed') retryOrder.current = settled.orderId;
+          setResult(liveOrderShown(settled, answer.message));
+          if (paymentReceived(settled.phase) || LIVE_WAITING.has(settled.phase))
+            await onOrder?.(settled, method);
+          return;
         }
         let payment = CustomerTestPaymentSchema.parse(
           await request(
@@ -194,7 +323,7 @@ export function useTipTopPayCheckout({
         onBusy(false);
       }
     },
-    [newQuote, onBusy, poll, request],
+    [newQuote, onBusy, poll, pollOrder, request, live, onOrder],
   );
 
   /** One press of «Оплатить» with a TipTopPay method. */
@@ -212,6 +341,19 @@ export function useTipTopPayCheckout({
   );
 
   const refresh = useCallback(async () => {
+    const orderId = result?.orderId;
+    if (orderId) {
+      try {
+        const order = CustomerCommerceOrderSchema.parse(
+          await request(`/orders/${orderId}`, 'GET', undefined),
+        );
+        setResult(liveOrderShown(order));
+        if (order.phase === 'failed') retryOrder.current = order.orderId;
+      } catch {
+        // Keeps «Проверяем оплату»; the customer can ask again.
+      }
+      return;
+    }
     const id = result?.id;
     if (!id) return;
     try {
@@ -221,7 +363,7 @@ export function useTipTopPayCheckout({
     } catch {
       // Keeps «Проверяем оплату»; the customer can ask again.
     }
-  }, [request, result?.id]);
+  }, [request, result?.id, result?.orderId]);
 
   const sheets = (
     <>

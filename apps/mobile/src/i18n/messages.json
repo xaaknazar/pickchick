@@ -4146,9 +4146,9 @@
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:228"
   },
   {
-    "ru": "Что понравилось или что можно улучшить?",
-    "kk": "Не ұнады, нені жақсартуға болады?",
-    "en": "What did you like, or what could we improve?",
+    "ru": "Отзыв - по желанию: что понравилось или что улучшить?",
+    "kk": "Пікір - қалауыңызша: не ұнады, нені жақсартуға болады?",
+    "en": "Review - optional: what did you like, or what could we improve?",
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:244"
   },
   {

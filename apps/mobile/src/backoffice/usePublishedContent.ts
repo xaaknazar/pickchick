@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { API_URL } from '../api';
+import { keepIfSame } from '../stable-values';
 import type { ImageSourcePropType } from 'react-native';
 import { getLocale } from '../i18n';
 import { parseContent, type GameTemplate, type PublishedContent } from './content-model';
@@ -35,7 +36,8 @@ export function usePublishedContent(branch: string | null | undefined) {
         const parsed = parseContent(JSON.parse(raw), branch);
         if (alive) {
           cache.set(branch, parsed);
-          setValue(parsed);
+          // A minute re-read with the same content keeps the object (no menu render).
+          setValue(keepIfSame(parsed));
         }
       } catch {
         /* Keep only the last validated public content for this branch. */

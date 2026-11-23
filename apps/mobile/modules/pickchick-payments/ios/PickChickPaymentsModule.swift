@@ -78,6 +78,12 @@ public class PickChickPaymentsModule: Module {
     AsyncFunction("completeApplePay") { (success: Bool) in
       self.applePay?.complete(success: success)
     }.runOnQueue(.main)
+
+    /// Official Apple Pay mark (" Pay"), drawn by PassKit; see ApplePayMarkView.
+    View(ApplePayMarkView.self) {
+      Prop("markStyle") { (view, name: String) in view.setMarkStyle(name) }
+      Prop("radius") { (view, value: Double) in view.setRadius(value) }
+    }
   }
 
   static var networks: [PKPaymentNetwork] {

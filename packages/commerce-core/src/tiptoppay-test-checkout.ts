@@ -115,7 +115,7 @@ const view = (row: TestRow, now: number) => ({
 });
 
 export const TIPTOPPAY_API = 'https://api.tiptoppay.kz';
-type ChargeModel = {
+export type ChargeModel = {
   TransactionId?: number | string;
   ReasonCode?: number | null;
   Status?: string;
@@ -124,13 +124,17 @@ type ChargeModel = {
   PaReq?: string | null;
   TestMode?: boolean;
   InvoiceId?: string | null;
+  AccountId?: string | null;
+  Amount?: number | string | null;
+  Currency?: string | null;
 };
 export type TipTopPayFetch = typeof fetch;
 
 /** One bounded JSON call to the TipTopPay API with Basic auth; the secret never leaves here. */
-async function tipTopPayCall(
+export async function tipTopPayCall(
   config: { publicId: string; apiSecret: string },
-  path: '/payments/cards/charge' | '/payments/cards/post3ds',
+  path:
+    '/payments/cards/charge' | '/payments/cards/post3ds' | '/payments/find' | '/payments/refund',
   body: Record<string, unknown>,
   requestId: string,
   request: TipTopPayFetch,
@@ -151,13 +155,13 @@ async function tipTopPayCall(
   if (!response.ok || text.length > 65536) throw new CommerceError('NOT_READY');
   return JSON.parse(text) as { Success?: boolean; Message?: string | null; Model?: ChargeModel };
 }
-const operationId = (value: unknown) =>
+export const operationId = (value: unknown) =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0
     ? String(value)
     : typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value)
       ? value
       : null;
-const holderMessage = (value: unknown) =>
+export const holderMessage = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : null;
 
 export type TipTopPaySetup = {
@@ -520,12 +524,15 @@ export class TipTopPayTestCheckout {
  * fragment (never sent to our server or a referrer); the page posts them to the bank's ACS with
  * our TermUrl, exactly as the bank requires.
  */
-export const tipTopPay3dsHtml = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>PickChick: подтверждение оплаты</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1437;color:#fff;font:17px/1.5 -apple-system,system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}</style></head><body><p id="s">Открываем подтверждение банка…</p><form id="f" method="post"><input type="hidden" name="PaReq"><input type="hidden" name="MD"><input type="hidden" name="TermUrl"></form><script>
+export const tipTopPay3dsPage = (
+  returnPath: string,
+) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>PickChick: подтверждение оплаты</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1437;color:#fff;font:17px/1.5 -apple-system,system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}</style></head><body><p id="s">Открываем подтверждение банка…</p><form id="f" method="post"><input type="hidden" name="PaReq"><input type="hidden" name="MD"><input type="hidden" name="TermUrl"></form><script>
 (function(){var p=new URLSearchParams(location.hash.slice(1));history.replaceState(null,'',location.pathname);var acs=p.get('acs')||'',f=document.getElementById('f');
 try{var u=new URL(acs);if(u.protocol!=='https:'||!p.get('pareq')||!/^[1-9][0-9]{0,18}$/.test(p.get('md')||''))throw 0;
-f.action=u.toString();f.PaReq.value=p.get('pareq');f.MD.value=p.get('md');f.TermUrl.value=location.origin+'/v1/integrations/tiptoppay/test-3ds-return';f.submit();}
+f.action=u.toString();f.PaReq.value=p.get('pareq');f.MD.value=p.get('md');f.TermUrl.value=location.origin+'${returnPath}';f.submit();}
 catch(e){document.getElementById('s').textContent='Ссылка устарела. Вернитесь в приложение.';}})();
 </script></body></html>`;
+export const tipTopPay3dsHtml = tipTopPay3dsPage('/v1/integrations/tiptoppay/test-3ds-return');
 
 /** Final page after 3-D Secure: hands the customer back to the app. */
 export function tipTopPay3dsResultHtml(state: 'paid' | 'failed' | 'pending') {
