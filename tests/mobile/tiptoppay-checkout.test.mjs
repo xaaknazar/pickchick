@@ -184,11 +184,15 @@ test('a TipTopPay press before the first /config answer asks the server first (a
   assert.ok(guard.indexOf('if (connectedMethodsStore.fresh()) {') < guard.indexOf(check));
   assert.match(check, /request\('\/config', 'GET', undefined, controller\.signal\)/);
   assert.match(check, /noteConnectedMethods\(setup\);/);
+  // After the read (it can take long): the cart must still have lines, and the card sheet gets
+  // the total shown now, not the one of the render of the press (review 23.11).
   assert.match(
     check,
-    /if \(controller\.signal\.aborted \|\| methodRef\.current !== method\) return;/,
+    /if \(controller\.signal\.aborted \|\| methodRef\.current !== method \|\| !cart\.current\.length\)\s*return;/,
   );
-  assert.match(check, /tipTopPay\.start\(method, quote\?\.totalMinor \?\? localTotal\);/);
+  assert.match(check, /tipTopPay\.start\(method, shownTotal\.current\);/);
+  assert.doesNotMatch(check, /tipTopPay\.start\(method, quote\?\.totalMinor/);
+  assert.match(screen, /shownTotal\.current = quote\?\.totalMinor \?\? localTotal;/);
   for (const sent of ["'/orders'", "'/quotes'", "'POST'", 'randomUUID', 'props.authorizeLegal('])
     assert.ok(!guard.includes(sent), sent);
 });
