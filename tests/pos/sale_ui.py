@@ -124,6 +124,11 @@ with sync_playwright() as pw:
         expect(page.get_by_text('Повторите заказ гостю')).to_have_count(0)
         button(page, re.compile('^В ЗАЛЕ'), exact=False).click()
         capture(page, 'sale-order-1920.png')
+        # 23.11: the line just added is selected, so «−» works without tapping the line first.
+        tools = page.locator('.cart-tools')
+        tile.click()
+        expect(button(page, 'К ОПЛАТЕ · 6 980 ₸')).to_be_visible()
+        tools.get_by_role('button', name='−', exact=True).click()
         button(page, 'К ОПЛАТЕ · 3 490 ₸').click()
 
         # Repeat the order to the guest before payment.

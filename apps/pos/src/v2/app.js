@@ -193,6 +193,11 @@ function openModifier(product, line) {
     wiz: null,
   });
 }
+/** Select the line model.configure just wrote: it always puts that line last. */
+function selectLast() {
+  const last = model.state.error ? null : model.state.draft?.items.at(-1);
+  if (last) reference.setState({ sel: lineKey(last) });
+}
 function openWizard(product) {
   modifier = product;
   chosen = [];
@@ -439,6 +444,9 @@ function draw() {
       line: l,
     };
   });
+  // −, + and × act on the selected line. A line just added is selected (model.configure puts
+  // it last); when the selected line is gone, the last line is, so the buttons never do nothing.
+  if (!s.cart.some((l) => l.key === s.sel)) s.sel = s.cart.at(-1)?.key ?? null;
   s.mode = m.draft?.service_mode === 'dine_in' ? 'dine' : 'take';
   s.comment = m.draft?.details?.kitchen_comment ?? '';
   if (!s.guestOpen) s.board = m.draft?.details?.display_name ?? '';
@@ -733,7 +741,10 @@ function draw() {
         }
         if (p.party) openWizard(p.product);
         else if (p.product.modifier_groups?.length) openModifier(p.product);
-        else model.configure(p.variant, [], 1);
+        else {
+          model.configure(p.variant, [], 1);
+          selectLast();
+        }
       }),
     };
   });
@@ -812,6 +823,7 @@ function draw() {
         if (price === null) return;
         model.configure(modifier.variant_id, chosen, portions, previousKey ?? undefined);
         if (!model.state.error) {
+          selectLast();
           modifier = null;
           reference.setState({ mod: null });
         }
@@ -860,6 +872,7 @@ function draw() {
         }, []),
       });
       if (!model.state.error) {
+        reference.state.sel = lineKey(additions[0]);
         modifier = null;
         reference.setState({ wiz: null });
       }
