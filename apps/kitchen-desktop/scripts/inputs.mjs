@@ -32,6 +32,7 @@ export const inputPaths = [
     'preload.cjs',
     'security.mjs',
     'updater.mjs',
+    'renderer-recovery.mjs',
     'update-feed.json',
     'package.json',
     'package-lock.json',

@@ -16,6 +16,7 @@ files:
   - renderer/v2/**/*
   - journal.mjs
   - updater.mjs
+  - renderer-recovery.mjs
   - update-feed.json
   - preload.cjs
   - renderer/index.html

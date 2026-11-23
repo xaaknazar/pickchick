@@ -197,6 +197,7 @@ test('electron-builder packages every renderer asset and nothing else of the ren
       'gateway.mjs',
       'terminal-cookie.mjs',
       'updater.mjs',
+      'renderer-recovery.mjs',
       'update-feed.json',
       'package.json',
     ],

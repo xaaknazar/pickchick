@@ -46,6 +46,7 @@ for (const path of [
     'menu-assets.mjs',
     'journal.mjs',
     'updater.mjs',
+    'renderer-recovery.mjs',
     'update-feed.json',
     'preload.cjs',
     'package.json',

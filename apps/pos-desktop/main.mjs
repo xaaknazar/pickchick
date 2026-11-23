@@ -15,6 +15,7 @@ import {
   isAllowedRendererURL,
   validateConfig,
 } from './protocol.mjs';
+import { watchRenderer } from './renderer-recovery.mjs';
 import { createUpdater, readFeed } from './updater.mjs';
 
 // This origin and profile are part of the existing POS journal's storage identity.
@@ -337,7 +338,8 @@ else {
       const retitle = setInterval(() => window.setTitle(windowTitle()), 30000);
       window.on('closed', () => clearInterval(retitle));
       window.webContents.on('did-navigate', () => journal.setSession(null));
-      window.webContents.on('render-process-gone', () => journal.setSession(null));
+      // A crashed or hung page: the journal session is revoked, then the till loads again.
+      watchRenderer({ window, url: APP_URL, onGone: () => journal.setSession(null) });
       window.on('close', () => isolatedSession.flushStorageData());
       window.on('closed', () => {
         for (const sheet of sheets) if (!sheet.isDestroyed()) sheet.destroy();
