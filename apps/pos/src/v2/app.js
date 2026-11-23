@@ -495,7 +495,8 @@ function draw() {
   const paid = sells();
   Object.assign(v, deskTexts(paid, config.appVersion, deskPaid ? deskNo : null));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
-  const connection = connectionLabel(m);
+  // Yellow as well: the stop-list on screen is not being refreshed.
+  const connection = connectionLabel({ ...m, stopsStale: model.stopsStale });
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),

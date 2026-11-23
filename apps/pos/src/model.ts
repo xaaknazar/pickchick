@@ -513,16 +513,24 @@ const CLOUD_LINK_MISSING_MS = 10 * 60000;
 export const POS_CONFIG_POLL_MS = 30000;
 /** An edge that predates GET edge/v1/pos/config (404) is asked again only after this pause. */
 export const POS_CONFIG_MISSING_MS = 10 * 60000;
+/** The stop-list counts as out of date after this many failed reads in a row ... */
+export const STOPS_STALE_FAILURES = 3;
+/** ... or when a read fails this long after the last good answer. */
+export const STOPS_STALE_MS = 30000;
 /**
  * Header connection line (offline stand finding, stage 2): staff tell "no connection to the
  * cashier server" (LAN, red) from "no internet" (WAN, yellow: selling and the kitchen go on).
  */
 export function connectionLabel(
-  s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'>,
+  s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'> & {
+    /** PosController.stopsStale: the stop-list on screen may be out of date. */
+    stopsStale?: boolean;
+  },
 ): { label: string; tone: 'ok' | 'warn' | 'down' } {
   const local = s.operationsAvailable && !s.operationsError;
   if (!s.actor) return { label: 'Вход по личному PIN', tone: local ? 'ok' : 'down' };
   if (!local) return { label: 'Нет связи с кассой', tone: 'down' };
+  if (s.stopsStale) return { label: 'Стоп-лист не обновляется', tone: 'warn' };
   if (s.cloudLink?.state === 'offline')
     return { label: 'Нет интернета · касса работает', tone: 'warn' };
   return { label: 'Локальная сеть', tone: 'ok' };
@@ -1268,6 +1276,21 @@ export class PosController {
   }
   /** The last failure of the background stop-list poll; null after a successful read. */
   stopsError: unknown = null;
+  private stopsFailures = 0;
+  private stopsStaleDrawn = false;
+  /** The last good stop-list answer, or the first failure when there was none yet. */
+  private stopsFreshAt: number | null = null;
+  /**
+   * The stop-list on screen may be out of date: its reads keep failing (3 in a row, or one more
+   * than 30 s after the last good answer). The header says so; the next good read clears it.
+   */
+  get stopsStale() {
+    return (
+      this.stopsError !== null &&
+      (this.stopsFailures >= STOPS_STALE_FAILURES ||
+        this.now() - (this.stopsFreshAt ?? 0) >= STOPS_STALE_MS)
+    );
+  }
   /**
    * `background` is the 3 s poll: its failure is kept in `stopsError` and never replaces
    * `state.error`, which belongs to the action the cashier started (the connection line comes
@@ -1282,13 +1305,23 @@ export class PosController {
       const stops = value.stops.map(parse.stop);
       if (epoch !== this.generation) return;
       this.stopsError = null;
+      this.stopsFailures = 0;
+      this.stopsFreshAt = this.now();
+      this.stopsStaleDrawn = false;
       this.state.stops = new Map(stops.map((s) => [s.variant_id, s]));
       this.emit();
     } catch (error) {
       if (epoch !== this.generation) return;
       this.stopsError = error;
+      this.stopsFailures += 1;
+      this.stopsFreshAt ??= this.now();
       if (!background || (error instanceof ApiError && error.code === 'UNAUTHORIZED'))
         this.fail(error);
+      // The quiet poll draws nothing by itself: redraw when the header line has to change.
+      else if (this.stopsStale !== this.stopsStaleDrawn) {
+        this.stopsStaleDrawn = this.stopsStale;
+        this.emit();
+      }
     }
   }
   async loadStops(ids: string[]) {
