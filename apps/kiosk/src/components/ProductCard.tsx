@@ -6,7 +6,7 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
+import { cardName, fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
@@ -22,6 +22,12 @@ import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
 /** Share of a horizontal (`wide`) card given to its photo. */
 const WIDE_PHOTO = 0.58;
+/**
+ * A published cut-out is framed with a clear 5 % margin on every side (640 × 640 card rendition),
+ * so the card scales it by 1/0.9 to give the dish the tile it is laid out for (owner 23.11.2026:
+ * «фото меньше стоит»).
+ */
+const CUTOUT_FRAME = 1 / 0.9;
 /** A studio photo shot on (near) white: it multiplies onto the cream card like the design. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
@@ -82,19 +88,22 @@ export function ProductCard({
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
+  const framed = !!shot?.cutout && typeof shot.source === 'object';
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
   const wide = size === 'wide';
   const big = size === 'large' || size === 'medium';
-  const describe = (size === 'large' || wide) && !!product.description;
+  const label = cardName(product.name);
+  // A wide card has room for one quiet line: the caption, else the description.
+  const describe = (size === 'large' || (wide && !label.caption)) && !!product.description;
   const plus = px(big ? 54 : 50);
   // The name steps down (to .8 of its size) rather than break a word or lose a line to an
   // ellipsis in a narrow column; a name that still does not fit gets a third line.
   const [cardWidth, setCardWidth] = useState(0);
   const column = cardWidth * (wide ? 1 - WIDE_PHOTO : 1) - px(wide ? 22 : 36);
   const base = px(big ? 27 : 24);
-  const title = fitTitle(product.name, cardWidth ? column : 0, base, base * 0.8);
+  const title = fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
   const pick = usePress(0.92);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
@@ -137,7 +146,11 @@ export function ProductCard({
             {
               scale: zoom.interpolate({
                 inputRange: [0, 1],
-                outputRange: wide || largePick ? [1, 1.05] : [1.08, 1.13],
+                outputRange: framed
+                  ? [CUTOUT_FRAME, CUTOUT_FRAME * 1.05]
+                  : wide || largePick
+                    ? [1, 1.05]
+                    : [1.08, 1.13],
               }),
             },
           ],
@@ -148,8 +161,24 @@ export function ProductCard({
     </View>
   );
   // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
-  // size and names start on one line whether they take one line or two.
+  // size and names start on one line whether they take one line or two. The caption («в
+  // железной банке · 0.5 л») sits in that room under a one-line name.
   const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
+  const caption = label.caption ? (
+    <Text
+      {...fixedText}
+      testID={prefix + '-caption-' + product.id}
+      numberOfLines={1}
+      style={{
+        fontFamily: fonts.medium,
+        fontSize: px(big ? 16 : 15),
+        lineHeight: px(big ? 21 : 20),
+        color: redesign.cardMuted,
+      }}
+    >
+      {label.caption}
+    </Text>
+  ) : null;
   const name = (
     <Text
       {...fixedText}
@@ -162,7 +191,7 @@ export function ProductCard({
         color: redesign.cardInk,
       }}
     >
-      {product.name}
+      {label.title}
     </Text>
   );
   const note = unavailable ? (
@@ -230,7 +259,10 @@ export function ProductCard({
               gap: px(4),
             }}
           >
-            <View style={{ minHeight: nameRoom }}>{name}</View>
+            <View style={{ minHeight: nameRoom, gap: px(2) }}>
+              {name}
+              {caption}
+            </View>
             {note}
           </View>
         </Pressable>

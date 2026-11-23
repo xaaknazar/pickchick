@@ -6,6 +6,7 @@ import {
   badgeOf,
   bentoGeometry,
   bentoLayout,
+  cardName,
   fitTitle,
   sectionHit,
 } from '../../apps/kiosk/src/menu-presentation.ts';
@@ -166,4 +167,36 @@ test('names step down instead of breaking a word or losing a line to an ellipsis
   assert.equal(long.lines, 3);
   // A single word wider than the column at the minimum still shrinks to fit.
   assert.ok(fitTitle('Суперфингерсы', 100, 24, 19).size * 13 * 0.74 <= 100);
+});
+
+test('owner 23.11: published names split into a short card title and a quiet caption', () => {
+  assert.deepEqual(cardName('Coca-Cola (в железной банке) — 0.5 л'), {
+    title: 'Coca-Cola',
+    caption: '0.5 л · в железной банке',
+  });
+  assert.deepEqual(cardName('Фирменный холодный чай (сладкий / несладкий) — 0.5 л'), {
+    title: 'Фирменный холодный чай',
+    caption: '0.5 л · сладкий / несладкий',
+  });
+  assert.deepEqual(cardName('Fuse Tea Персик — 0.5 л'), {
+    title: 'Fuse Tea Персик',
+    caption: '0.5 л',
+  });
+  assert.deepEqual(cardName('Картофельные дольки, 90 г'), {
+    title: 'Картофельные дольки',
+    caption: '90 г',
+  });
+  assert.deepEqual(cardName('Фирменный соус 60 г'), { title: 'Фирменный соус', caption: '60 г' });
+  // Names that start with a number, have no size, or are only a size stay whole.
+  assert.deepEqual(cardName('25 фингерсов'), { title: '25 фингерсов', caption: '' });
+  assert.deepEqual(cardName('Mix Duo c Pick Burger'), {
+    title: 'Mix Duo c Pick Burger',
+    caption: '',
+  });
+  assert.deepEqual(cardName('0.5 л'), { title: '0.5 л', caption: '' });
+  // No long dash reaches a card.
+  for (const product of testCompleteCatalog.products) {
+    const { title, caption } = cardName(product.name);
+    assert.ok(title && !/[\u2013\u2014]/.test(title + caption), product.id);
+  }
 });

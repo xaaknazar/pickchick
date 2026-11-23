@@ -218,3 +218,35 @@ export function fitTitle(text: string, width: number, base: number, min: number,
   const size = Math.max(1, Math.min(Math.floor(min), Math.floor(width / (longest * WIDE_LETTER))));
   return { size, lines: Math.max(lines, wrappedLines(text, width / (size * LETTER))) };
 }
+
+/** A size or count at the end of a name: «0.5 л», «300 г», «1 шт» («— 0.5 л» drops the dash). */
+const CARD_AMOUNT = /\s*[-–—]?\s*(\d+(?:[.,]\d+)?\s*(?:мл|л|кг|г|шт|ml|l|kg|g|pcs)\.?)$/i;
+/**
+ * The name a menu card prints, split into a short bold title and a quiet caption (owner
+ * 23.11.2026: the published drink names «Coca-Cola (в железной банке) — 0.5 л» wrapped into
+ * three shrunken lines and the names in a row stood crooked). Text in brackets, a «, tail» and a
+ * trailing size or count move to the caption (size first), joined by « · »; long dashes become hyphens.
+ * A name that is only a size («0.5 л») or starts with a number («25 фингерсов») stays whole.
+ */
+export function cardName(name: string): { title: string; caption: string } {
+  let title = name.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  const details: string[] = [];
+  title = title.replace(/\s*\(([^()]*)\)/g, (_, inner: string) => {
+    if (inner.trim()) details.push(inner.trim());
+    return '';
+  });
+  const comma = title.search(/,\s/);
+  if (comma > 0) {
+    details.push(title.slice(comma + 1).trim());
+    title = title.slice(0, comma);
+  }
+  const amount = CARD_AMOUNT.exec(title);
+  if (amount && amount.index > 0) {
+    // The size leads, so a narrow card that cuts the caption short still shows it.
+    details.unshift(amount[1]!.replace(/\s+/g, ' '));
+    title = title.slice(0, amount.index);
+  }
+  title = title.replace(/[\s-]+$/, '').trim();
+  if (!title) return { title: name.replace(/[–—]/g, '-').trim(), caption: '' };
+  return { title, caption: details.filter(Boolean).join(' · ') };
+}
