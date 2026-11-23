@@ -8095,6 +8095,38 @@
       "updatedAt": "2026-11-22T12:12:07.505Z",
       "summary": "Cloud POS sync enabled22.11 on unchanged API b48fcd38, CI44804971188 success. Encrypted backup115942Z SHA97003ce4 and isolated restore PASS. Exact binding/producers saved, scoped receiver grants verified, two flags false->true, only API recreated12:03:37UTC,13 neighbors unchanged.21 readiness probes/300.8sec PASS, restart0, feedPOS0.5.6 200/no-store, private sales without identity401. Own server lock released12:10:26UTC. Report e4f2edc1 pushed, PR412; doc checksPASS. No cashier/order/payment/owner-folder changes.",
       "nextAction": "Root required: pickchick-pos-link absent, ops has no sudo. Owner runs prepared root command, verify sshd policy and exact key; then Claude Install/Verify on cashier, authenticated posSales probe and62event delivery. Binding and grants remain on flag rollback; guarded rollback.py in server operation dir, dry-runPASS. Do not repeat backup/apply or overwrite newer configuration; inspect current hashes first. Shared status/roadmap remain with desktop-kitchen-046-1117 and online board was not updated. Review report PR412 and integrate normally before finish."
+    },
+    {
+      "id": "audit-fixes-1123",
+      "owner": "c7752261-2524-4642-8337-1b827bbb9d7e",
+      "branch": "codex/cutover-1119",
+      "scopes": [
+        "apps/mobile/src/useAccount.tsx",
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/stable-values.ts",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/usePaymentMethod.ts",
+        "apps/mobile/src/tiptoppay-checkout.ts",
+        "apps/mobile/src/backoffice/usePublishedContent.ts",
+        "apps/mobile/src/useTipTopPayCheckout.tsx",
+        "apps/mobile/src/useTestOrders.ts",
+        "apps/kiosk/src/commercial-controller.ts",
+        "apps/kiosk/App.tsx",
+        "apps/kiosk/src/polling.ts",
+        "infra/windows/native-pos-sync-worker.mjs",
+        "packages/pos-order-sync/src",
+        "apps/pos-desktop/main.mjs",
+        "apps/pos-desktop/journal.mjs",
+        "apps/kitchen-desktop/main.mjs",
+        "services/edge/src/restore-fence.ts",
+        "services/edge/src/fulfillment-controller.ts",
+        "apps/pos/src/v2/app.js",
+        "apps/kitchen/src/app.ts",
+        "apps/operations/src"
+      ],
+      "status": "active",
+      "head": "05e98d37f2bec9e1107424e301921eb5f03dbff0",
+      "updatedAt": "2026-11-23T12:24:36.351Z"
     }
   ],
   "approvedScopeTransfers": [
