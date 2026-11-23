@@ -1,19 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { colors, useMetrics } from '../theme';
 import { ease, easeOut, type FlyRect } from './motion';
-import { awaitReveal, clearReveal, peekReveal, type RevealMode } from './reveal';
+import type { EasingFunction } from 'react-native';
+import {
+  awaitReveal,
+  clearReveal,
+  peekReveal,
+  REVEAL_COVERED,
+  REVEAL_FADE_FROM,
+  REVEAL_GROW_MS,
+  REVEAL_MS,
+  type RevealMode,
+} from './reveal';
 import { useMotionPreference } from './useMotionPreference';
 
-/** Cover the dining screen first; reveal the menu only after its parent commits it. */
+/** `curve` over [from, to] of a linear 0..1 progress, sampled for a native interpolation. */
+function segment(curve: EasingFunction, from: number, to: number, invert = false) {
+  const steps = 16;
+  const inputRange: number[] = [];
+  const outputRange: number[] = [];
+  for (let i = 0; i <= steps; i++) {
+    inputRange.push(from + ((to - from) * i) / steps);
+    const y = curve(i / steps);
+    outputRange.push(invert ? 1 - y : y);
+  }
+  return { inputRange, outputRange, extrapolate: 'clamp' as const };
+}
+/**
+ * Owner 22-23.11.2026: the dining tile grows into the menu and the menu opens right away. One
+ * native progress (0..1, linear, 800 ms) drives the whole reveal: the fill grows, the menu
+ * appears under it (`menuVeil` in reveal.ts, on the same value) and the fill fades, so no step waits for
+ * JavaScript, which is busy building the menu at that moment. `onCovered` and `onDone` only
+ * tidy up afterwards.
+ */
 export function ModeReveal({
   mode,
-  uncover = false,
+  progress,
   onCovered,
   onDone,
 }: {
   mode: RevealMode | null;
-  uncover?: boolean;
+  /** The reveal's progress; the screen under it reads it through `menuVeil`. */
+  progress?: Animated.Value;
   onCovered?: () => void;
   onDone?: () => void;
 }) {
@@ -23,8 +52,10 @@ export function ModeReveal({
   const [measured, setMeasured] = useState(!!tile);
   const [frame, setFrame] = useState<FlyRect | null>(null);
   const host = useRef<View>(null);
-  const grow = useRef(new Animated.Value(0)).current;
-  const fade = useRef(new Animated.Value(1)).current;
+  const own = useRef(new Animated.Value(0)).current;
+  const reveal = progress ?? own;
+  const grow = useRef(reveal.interpolate(segment(ease, 0, REVEAL_COVERED))).current;
+  const fade = useRef(reveal.interpolate(segment(easeOut, REVEAL_FADE_FROM, 1, true))).current;
   useEffect(() => {
     if (tile) {
       clearReveal();
@@ -48,35 +79,24 @@ export function ModeReveal({
     onDone?.();
   }, [onCovered, onDone, reduced]);
   useEffect(() => {
-    if (!frame || !measured || reduced || uncover) return;
-    const animation = Animated.timing(grow, {
+    if (!frame || !measured || reduced) return;
+    const animation = Animated.timing(reveal, {
       toValue: 1,
-      duration: 520,
-      easing: ease,
-      useNativeDriver: true,
-      isInteraction: false,
-    });
-    animation.start(({ finished }) => {
-      if (finished) onCovered?.();
-    });
-    return () => animation.stop();
-  }, [frame, grow, measured, onCovered, reduced, uncover]);
-  useEffect(() => {
-    if (!uncover || reduced) return;
-    // Runs after the menu's visible state has committed. No timer races.
-    grow.setValue(1);
-    const animation = Animated.timing(fade, {
-      toValue: 0,
-      duration: 280,
-      easing: easeOut,
+      duration: REVEAL_MS,
+      easing: Easing.linear,
       useNativeDriver: true,
       isInteraction: false,
     });
     animation.start(({ finished }) => {
       if (finished) onDone?.();
     });
-    return () => animation.stop();
-  }, [fade, grow, onDone, reduced, uncover]);
+    // Housekeeping only: the menu is already visible natively when this runs.
+    const covered = setTimeout(() => onCovered?.(), REVEAL_GROW_MS);
+    return () => {
+      clearTimeout(covered);
+      animation.stop();
+    };
+  }, [frame, measured, onCovered, onDone, reduced, reveal]);
   if (reduced) return null;
   const bounds = frame ?? { x: 0, y: 0, width, height };
   const origin = tile ?? {

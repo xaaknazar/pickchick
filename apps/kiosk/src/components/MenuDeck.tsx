@@ -12,9 +12,12 @@ import { categoryKeys, type Category } from './categories';
  * harness keeps one section at a time (its tests read a single grid).
  */
 const KEEP_SECTIONS = Platform.OS !== 'web';
-/** First background build after the menu opens, then one section per step. */
-const WARM_START = 900;
-const WARM_STEP = 260;
+/**
+ * First background build after the menu opens, then one section per step. It starts after the
+ * dining reveal (about 0.9 s) has finished, so building sections never competes with it.
+ */
+const WARM_START = 1600;
+const WARM_STEP = 320;
 const SHOW = 240;
 const HIDE = 140;
 
