@@ -202,3 +202,45 @@ test('dish changes are shouted: red for a removal, orange otherwise', () => {
   assert.match(html, /<span class="change change-minus">Без лука<\/span>/);
   assert.match(html, /<span class="change">Острый<\/span>/);
 });
+
+test('expanded combo from the back office: parts under the combo, grams, drink once', async () => {
+  const { groupTasks, allDay } = await import('../dist/kitchen-ticket.js');
+  const lineId = randomUUID();
+  const drink = mod('drink', 'Напиток на выбор', 'Coca-Cola 0.5 л');
+  const part = (title, productId, quantity, extra = {}) =>
+    task(PREP, title, {
+      lineId,
+      productId,
+      parentTitle: 'Finger Combo',
+      quantity,
+      modifiers: [drink, mod('taste', 'Вкус', 'Острый')],
+      ...extra,
+    });
+  const parts = [
+    part('Фингерс 1 шт', 'fingers', 8, { weightG: 30, lineQuantity: 2 }),
+    part('Картофельные дольки', 'wedges', 2, { weightG: 150, lineQuantity: 2 }),
+    part('Тост 1 шт', 'toast', 2, { lineQuantity: 2 }),
+  ];
+  const groups = groupTasks(parts);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].quantity, 2);
+  const o = order(parts);
+  const cook = render(o, PREP);
+  assert.match(cook, /2×<\/span><div class="line-info"><h3>Finger Combo<\/h3>/);
+  assert.match(cook, /<li><strong>8<\/strong> Фингерсы<small class="grams">30 г<\/small><\/li>/);
+  assert.match(cook, /<li><strong>2<\/strong> Фри<small class="grams">150 г<\/small><\/li>/);
+  assert.match(cook, /<li><strong>2<\/strong> Тост<\/li>/);
+  assert.equal(cook.match(/Острый/g).length, 1);
+  assert.doesNotMatch(cook, /Coca-Cola|Фингерс 1 шт/);
+  const asm = render(o, ASM);
+  assert.equal(asm.match(/Coca-Cola/g).length, 1);
+  assert.match(asm, /2×<\/span><div class="line-info"><h3>Coca-Cola 0.5 л/);
+  assert.deepEqual(allDay([o], PREP).slice(0, 3), [
+    { name: 'Фингерсы', count: 8 },
+    { name: 'Фри', count: 2 },
+    { name: 'Тост', count: 2 },
+  ]);
+  // An older edge sends no lineQuantity: the common factor of the parts.
+  const old = parts.map((t) => ({ ...t, details: { ...t.details, lineQuantity: undefined } }));
+  assert.equal(groupTasks(old)[0].quantity, 2);
+});
