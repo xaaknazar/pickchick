@@ -2,6 +2,8 @@ import { Fragment } from 'react';
 import { Text, View } from 'react-native';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, redesign, useMetrics } from '../theme';
+/** Steps still ahead: muted, yet 4.5:1 on the navy glass (axe, 22.11). */
+const UPCOMING = 'rgba(255,255,255,.82)';
 import { fixedText } from './Body';
 import { Icon } from './Icon';
 /** The four steps of the redesigned order path, in order. */
@@ -66,7 +68,6 @@ export function StepPills({ current, locale }: { current: OrderStep; locale: Loc
                 backgroundColor: active ? colors.white : redesign.glass,
                 borderWidth: active ? 0 : 1,
                 borderColor: redesign.glassLine,
-                opacity: done || active ? 1 : 0.7,
               }}
             >
               <View
@@ -87,7 +88,7 @@ export function StepPills({ current, locale }: { current: OrderStep; locale: Loc
                     style={{
                       fontFamily: fonts.black,
                       fontSize: Math.max(12, px(15)),
-                      color: active ? colors.white : 'rgba(255,255,255,.6)',
+                      color: active ? colors.white : UPCOMING,
                     }}
                   >
                     {index + 1}
@@ -100,7 +101,7 @@ export function StepPills({ current, locale }: { current: OrderStep; locale: Loc
                 style={{
                   fontFamily: fonts.heavy,
                   fontSize: Math.max(13, px(17)),
-                  color: active ? redesign.cardInk : done ? colors.white : 'rgba(255,255,255,.6)',
+                  color: active ? redesign.cardInk : done ? colors.white : UPCOMING,
                 }}
               >
                 {labels[step]}

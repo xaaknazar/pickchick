@@ -1,9 +1,8 @@
 import { Animated, Text, View } from 'react-native';
 import type { KioskCartLine } from '../model';
 import { money } from '../cart';
-import { copy, type Locale } from '../i18n';
+import type { Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
-import { Icon } from './Icon';
 import { CartTotal } from './CartTotal';
 import { selectionSummary } from './selectionSummary';
 import { useEnter } from './motion';
@@ -27,7 +26,6 @@ export function CheckoutSummary({
   estimated?: { min: number; max: number };
 }) {
   const { v } = useMetrics();
-  const t = copy(locale);
   const rise = useEnter();
   return (
     <Animated.View
@@ -110,31 +108,7 @@ export function CheckoutSummary({
         );
       })}
       <CartTotal total={total} valid={valid} locale={locale} />
-      <View
-        style={{
-          alignSelf: 'flex-start',
-          minHeight: v(40),
-          paddingLeft: v(12),
-          paddingRight: v(16),
-          borderRadius: 999,
-          backgroundColor: colors.sky,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: v(8),
-        }}
-      >
-        <Icon name="time-outline" size="small" tone="brand" />
-        <Text
-          {...fixedText}
-          style={{
-            fontFamily: fonts.medium,
-            fontSize: Math.max(15, v(15)),
-            color: colors.navy,
-          }}
-        >
-          {t.preparation} 10-13 {t.minutes}
-        </Text>
-      </View>
+      {/* 22.11.2026 owner: no preparation time until the kitchen times are set up. */}
     </Animated.View>
   );
 }

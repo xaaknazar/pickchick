@@ -1,5 +1,7 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useReducedMotion } from './Motion';
 import { useMobile } from '../store';
 import { CartShortcut } from './CartShortcut';
 import { PaymentResumeBanner } from './PaymentResumeBanner';
@@ -37,6 +39,7 @@ export function TabCartDock({
   const model = useMobile(preview);
   const router = useRouter();
   const focused = useIsFocused();
+  const reduced = useReducedMotion();
   return (
     <View
       testID="tab-cart-dock"
@@ -49,15 +52,21 @@ export function TabCartDock({
         <PaymentResumeBanner cartBelow={model.cart.length > 0} />
       ) : null}
       {focused ? (
-        <CartShortcut
-          model={model}
-          aboveTabBar
-          seenCount={seenCount}
-          // The cart (M09) never requires an account: a guest browses it and signs in to pay.
-          onPress={() =>
-            router.push({ pathname: '/cart', params: preview ? { preview: '1' } : {} })
-          }
-        />
+        // The bar comes back (a sheet over it closed, a new item) rising on a soft spring
+        // instead of appearing in one frame.
+        <Animated.View
+          entering={reduced ? undefined : FadeInDown.springify().dampingRatio(0.9).duration(420)}
+        >
+          <CartShortcut
+            model={model}
+            aboveTabBar
+            seenCount={seenCount}
+            // The cart (M09) never requires an account: a guest browses it and signs in to pay.
+            onPress={() =>
+              router.push({ pathname: '/cart', params: preview ? { preview: '1' } : {} })
+            }
+          />
+        </Animated.View>
       ) : null}
     </View>
   );

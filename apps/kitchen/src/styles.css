@@ -1109,10 +1109,9 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
 }
 .order-note {
   margin: 12px 16px 0;
-  border-left: 6px solid #f5a300;
   padding: 10px 14px;
   background: #fff4c7;
-  border-radius: 6px 12px 12px 6px;
+  border-radius: 12px;
 }
 .order-note strong {
   color: #6b4a00;
@@ -1778,4 +1777,203 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
     min-height: 48px;
     font-size: 20px;
   }
+}
+
+/* 22.11 kitchen/assembly tickets (kitchen-ticket.ts): stopwatch, cook lines, assembly checklist. */
+.timer {
+  font-variant-numeric: tabular-nums;
+  min-width: 4.2ch;
+  text-align: center;
+}
+.kitchen-ticket .ticket-head {
+  align-items: flex-start;
+}
+.ticket-cook .cook-line h3 {
+  font-size: 28px;
+  font-weight: 800;
+}
+.ticket-cook .cook-line .quantity {
+  font-size: 24px;
+  padding: 6px 12px;
+}
+.cook-line.line-done {
+  opacity: 0.55;
+}
+.cook-line:last-child,
+.pack-line:last-child,
+.add-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.line-check {
+  margin: 6px 0 0;
+  font-weight: 700;
+  color: #176142;
+}
+.pack-block {
+  margin: 12px 16px 0;
+  border-radius: 14px;
+  background: #f6f8fc;
+}
+.pack-block h4 {
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3e506d;
+}
+.pack-block h4 .done {
+  color: #176142;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+.pack-block .lines {
+  padding: 10px 14px 8px;
+  gap: 10px;
+}
+.pack-block .line {
+  padding-bottom: 10px;
+  align-items: center;
+}
+.pack-block .line h3 {
+  font-size: 22px;
+}
+.pack-add {
+  background: #fff4ee;
+  border: 2px solid #ffd2bd;
+}
+.pack-add h4 {
+  color: #9b350a;
+}
+.add-drink .quantity {
+  background: #dce7ff;
+  color: var(--blue);
+}
+.add-sauce .quantity {
+  background: #ffe7c2;
+  color: #6b4a00;
+}
+.line-state {
+  flex: none;
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5a6478;
+}
+.line-state.done {
+  font-size: 24px;
+  color: #176142;
+}
+.kitchen-ticket .ticket-actions {
+  padding-top: 16px;
+}
+.kitchen-ticket .age strong.timer {
+  font-size: 30px;
+}
+/* Combo contents for the cook: count first, big enough to read from the fryer. */
+.composition {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+.composition li {
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: #eef2f9;
+  font-size: 19px;
+  font-weight: 600;
+  color: #0e1524;
+}
+.composition li strong {
+  font:
+    800 20px Montserrat,
+    Golos,
+    sans-serif;
+  color: var(--blue);
+  margin-right: 2px;
+}
+/* «Всего в работе» on the cook screen: one batch for the fryer, counts first (owner 23.11). */
+.all-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 16px 32px 0;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: #0e1524;
+  color: #fff;
+}
+.all-day-title {
+  font:
+    800 18px Montserrat,
+    Golos,
+    sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9fb4d8;
+  margin-right: 6px;
+}
+.all-day-item {
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: #1f2b44;
+  font-size: 24px;
+  font-weight: 700;
+}
+.all-day-item strong {
+  font:
+    800 30px Montserrat,
+    Golos,
+    sans-serif;
+  color: #ffb27a;
+  margin-right: 4px;
+}
+.all-day-none {
+  font-size: 20px;
+  color: #9fb4d8;
+}
+/* New order: orange ring and a «НОВЫЙ» tag for a few seconds (NEW_TICKET_MS). */
+.ticket.is-new {
+  border-color: var(--orange);
+  box-shadow:
+    0 0 0 4px #ff671f55,
+    0 4px 14px #0e15241f;
+}
+.ticket.is-new .number::after {
+  content: 'НОВЫЙ';
+  display: block;
+  margin-top: 4px;
+  font:
+    800 13px Golos,
+    sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--orange);
+}
+/* Changes to a dish: shouted, so the cook never makes the standard one. */
+.changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 10px 0 2px;
+}
+.change {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font:
+    800 22px Montserrat,
+    Golos,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.change-minus {
+  background: #c62828;
 }

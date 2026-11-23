@@ -1,8 +1,9 @@
 import { Text } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { t, localize, useLocale } from '../i18n';
-import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
-import { useState } from 'react';
+import { MotionPressable as Pressable } from '../components/Motion';
+import { DialogModal } from '../components/MotionSheets';
+import { useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -92,11 +93,15 @@ function MountainHero({ preview }: { preview: boolean }) {
   );
 }
 
-function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
+function PeakDetails({ peak: chosen, close }: { peak: Peak | null; close(): void }) {
   useLocale();
   const safe = useSafeAreaInsets();
+  // The card keeps the last peak while it fades away after closing.
+  const last = useRef<Peak | null>(null);
+  if (chosen) last.current = chosen;
+  const peak = chosen ?? last.current;
   return (
-    <Modal visible={peak !== null} transparent animationType="none" onRequestClose={close}>
+    <DialogModal visible={chosen !== null} onRequestClose={close}>
       <View
         style={[
           s.shade,
@@ -148,7 +153,7 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
           ) : null}
         </ScrollView>
       </View>
-    </Modal>
+    </DialogModal>
   );
 }
 
@@ -189,7 +194,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
                   t('{p0}, {p1} Чиков, {p2}. Подробнее', {
                     p0: t(peak.name),
                     p1: number(peak.points),
-                    p2: peak.reward,
+                    p2: t(peak.reward),
                   }),
                 )}
                 onPress={() => setSelected(peak)}

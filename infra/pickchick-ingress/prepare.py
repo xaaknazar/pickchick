@@ -14,7 +14,7 @@ import re
 
 MARKER=b'pickchick.185.129.51.103.nip.io {\n'
 EXPECTED='5993997a230ae099d9cb9b93c3a6cdf22f691ff1e1df35ac97a16d00ac6e0e52'
-SITE_HASH='d52d0f429fba0810b3ff99895b89139dcf98dc66f8131fabe9194393758afce6'
+SITE_HASH='3846ed11a976b7e178fbb60bc999f1144a0a899d2b28ea81fe6573d606d9d29e'
 
 
 def digest(raw):return hashlib.sha256(raw).hexdigest()

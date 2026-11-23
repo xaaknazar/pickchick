@@ -30,6 +30,7 @@ import { optionPhotos, extraPhotos } from '../product-photo-assets';
 import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
+import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
 import { colors, font } from '../theme';
@@ -220,10 +221,13 @@ export function PhotoProduct(props: Props) {
     );
   };
   const groups = (product.modifierGroups ?? []).filter(
-    (g) => ['drink', 'sauce'].includes(g.id) && g.min <= 4,
+    // Included combo slots only; the finger sets' optional sauces (min 0) are counted below.
+    (g) => ['drink', 'sauce'].includes(g.id) && g.min > 0 && g.min <= 4,
   );
+  // Owner 22.11: drinks are a paid upsell on the finger sets, shown as cards like the extras.
+  const drinkExtra = product.modifierGroups?.find((g) => g.id === 'drink-extra');
   const otherGroups = (product.modifierGroups ?? []).filter(
-    (g) => g.id !== 'extras' && !groups.includes(g),
+    (g) => g.id !== 'extras' && g !== drinkExtra && !groups.includes(g),
   );
   const extras = product.modifierGroups?.find((g) => g.id === 'extras');
   const sizeGroup = product.modifierGroups?.find((g) => g.id === 'size');
@@ -459,7 +463,13 @@ export function PhotoProduct(props: Props) {
                         <View style={{ flex: 1 }}>
                           <Text style={s.choiceName}>{localize(option.label)}</Text>
                           <Text style={s.choiceLabel}>
-                            {localize(option.available === false ? 'Временно нет' : 'Включено')}
+                            {localize(
+                              option.available === false
+                                ? 'Временно нет'
+                                : option.price_delta_minor === '0'
+                                  ? 'Включено'
+                                  : `+${money(option.price_delta_minor)}`,
+                            )}
                           </Text>
                         </View>
                         <View
@@ -601,6 +611,74 @@ export function PhotoProduct(props: Props) {
                   );
                 })}
                 {companions.filter((line) => line.product.id !== 'burger').map(companionCard)}
+              </ScrollView>
+            </View>
+          ) : null}
+          {drinkExtra ? (
+            <View style={s.extrasSection}>
+              <Text style={[s.sectionTitle, { paddingHorizontal: 20 }]}>
+                {localize(drinkExtra.title)}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                directionalLockEnabled
+                nestedScrollEnabled
+                decelerationRate="fast"
+                snapToInterval={extraWidth + 12}
+                snapToAlignment="start"
+                contentContainerStyle={s.extrasTrack}
+                testID="photo-drink-extra-track"
+                accessibilityLabel={t('Напитки к сету, горизонтальный список')}
+              >
+                {drinkExtra.options.map((option) => {
+                  const count =
+                    selections.find(
+                      (v) => v.group_id === drinkExtra.id && v.option_id === option.id,
+                    )?.quantity ?? 0;
+                  const total = selections
+                    .filter((v) => v.group_id === drinkExtra.id)
+                    .reduce((n, v) => n + v.quantity, 0);
+                  const unavailable = option.available === false;
+                  const change = (delta: number) =>
+                    setSelections((current) => {
+                      const previous =
+                        current.find(
+                          (v) => v.group_id === drinkExtra.id && v.option_id === option.id,
+                        )?.quantity ?? 0;
+                      return setExtraQuantity(current, drinkExtra, option.id, previous + delta);
+                    });
+                  return (
+                    <View
+                      key={option.id}
+                      testID={`photo-drink-extra-${option.id}`}
+                      style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
+                    >
+                      <OptionImage id={option.id} size={extraWidth - 24} height={104} />
+                      <Text style={s.extraName}>{localize(option.label)}</Text>
+                      <Text style={s.choiceLabel}>
+                        {localize(
+                          unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`,
+                        )}
+                      </Text>
+                      <View style={s.extraControls}>
+                        <Counter
+                          blue={blue}
+                          value={count}
+                          name={option.label}
+                          minus={() => change(-1)}
+                          plus={() => change(1)}
+                          minusDisabled={!count}
+                          plusDisabled={
+                            unavailable ||
+                            count >= (option.max_quantity ?? drinkExtra.max) ||
+                            total >= drinkExtra.max
+                          }
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
               </ScrollView>
             </View>
           ) : null}
@@ -794,38 +872,31 @@ export function PhotoProduct(props: Props) {
           </View>
         ) : null}
       </MotionModal>
-      <MotionModal
+      <SheetModal
         visible={info}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setInfo(false)}
+        onClose={() => setInfo(false)}
+        closeLabel={t('Закрыть пищевую ценность')}
+        dim="#00000080"
+        style={{ maxWidth: 600, maxHeight: '82%' }}
       >
-        <View style={[s.nutritionOverlay, { paddingTop: insets.top + 16 }]}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            accessibilityRole="button"
-            accessibilityLabel={t('Закрыть пищевую ценность')}
-            onPress={() => setInfo(false)}
-          />
-          <View
-            style={[s.nutritionWindow, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            role="dialog"
-            aria-modal
-            accessibilityViewIsModal
-            accessibilityLabel={t('Пищевая ценность')}
-            testID="photo-nutrition-dialog"
-          >
-            <Row style={s.modalHeader}>
-              <CloseButton
-                label={t('Закрыть окно пищевой ценности')}
-                onPress={() => setInfo(false)}
-              />
-              <Text style={s.modalTitle}>{t('Пищевая ценность')}</Text>
-            </Row>
-            <ScrollView>{infoContent}</ScrollView>
-          </View>
+        <View
+          style={[s.nutritionWindow, { paddingBottom: Math.max(insets.bottom, 16) }]}
+          role="dialog"
+          aria-modal
+          accessibilityViewIsModal
+          accessibilityLabel={t('Пищевая ценность')}
+          testID="photo-nutrition-dialog"
+        >
+          <Row style={s.modalHeader}>
+            <CloseButton
+              label={t('Закрыть окно пищевой ценности')}
+              onPress={() => setInfo(false)}
+            />
+            <Text style={s.modalTitle}>{t('Пищевая ценность')}</Text>
+          </Row>
+          <ScrollView>{infoContent}</ScrollView>
         </View>
-      </MotionModal>
+      </SheetModal>
     </View>
   );
 }
@@ -1096,7 +1167,6 @@ function makeStyles(blue: boolean) {
       backgroundColor: colors.background,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
-      maxHeight: '82%',
       width: '100%',
       maxWidth: 600,
       alignSelf: 'center',

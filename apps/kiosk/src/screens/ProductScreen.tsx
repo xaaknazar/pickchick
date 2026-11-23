@@ -186,6 +186,7 @@ export function ProductScreen({
     focusOn(missing.id, false);
     setAttention((now) => ({ group: missing.id, request: (now?.request ?? 0) + 1 }));
   };
+  const summary = groups.length ? selectionSummary(groups, selections) : '';
   return (
     <RevealCircle>
       <ScreenSurface testID="kiosk-screen-product" tone="redesign">
@@ -233,8 +234,10 @@ export function ProductScreen({
           available={product.available !== false}
           busy={model.busy}
           save={!!editing}
-          summary={groups.length ? selectionSummary(groups, selections) : ''}
-          status={groups.length ? (missing ? chooseText(missing, tp) : tp.allChosen) : product.name}
+          summary={summary}
+          // «Всё выбрано» only once something is chosen: a set with its optional sauces and
+          // drinks still empty shows its name, not a promise (owner 22.11).
+          status={missing ? chooseText(missing, tp) : summary ? tp.allChosen : product.name}
           onMinus={() => setQuantity((q) => Math.max(1, Math.min(q, room) - 1))}
           onPlus={() => setQuantity((q) => Math.min(room, q + 1))}
           onAdd={() => void model.addToCart(product.id, selections, shownQuantity, editing?.lineId)}

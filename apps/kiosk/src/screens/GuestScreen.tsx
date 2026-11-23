@@ -174,6 +174,8 @@ export function GuestScreen() {
     !model.recoveryRequired;
   // A live Kaspi QR (or any commercial order) cannot be cancelled from the kiosk.
   const noCancel = !!model.commercial && !!model.order && paying && !demoCancelPayment;
+  // ADR-0018: with the kiosk's Kaspi terminal there is no QR on the kiosk screen.
+  const onTerminal = !!model.terminalPayment || !!model.terminalPaymentAvailable;
   const unresolved =
     model.recoveryRequired ||
     ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '');
@@ -416,14 +418,18 @@ export function GuestScreen() {
           {demoCancelPayment
             ? t.cancelPaymentQuestion
             : noCancel
-              ? t.qrNoCancelTitle
+              ? onTerminal
+                ? terminalCopy(locale).noCancelTitle
+                : t.qrNoCancelTitle
               : t.cancelQuestion}
         </Heading>
         <Body>
           {demoCancelPayment
             ? t.cancelPaymentBody
             : noCancel
-              ? t.qrNoCancel
+              ? onTerminal
+                ? terminalCopy(locale).noCancel
+                : t.qrNoCancel
               : unresolved
                 ? t.unknownBody
                 : model.order

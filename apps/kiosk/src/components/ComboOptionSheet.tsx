@@ -169,7 +169,9 @@ function Sheet({
               color: 'rgba(255,255,255,.75)',
             }}
           >
-            {tp.includedIn.replace('{product}', productName)}
+            {group.min === 0 && group.max > 1
+              ? tp.upTo.replace('{max}', String(group.max))
+              : tp.includedIn.replace('{product}', productName)}
           </Text>
           <Animated.View style={{ transform: [{ scale: close.scale }] }}>
             <GlassPanel shape="circle">

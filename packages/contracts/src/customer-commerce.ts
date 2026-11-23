@@ -1,7 +1,37 @@
 import { z } from 'zod';
 const amount = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
+export const CustomerPaymentMethodSchema = z.enum(['kaspi', 'card', 'apple_pay', 'google_pay']);
+/** TipTopPay TEST payment of a quote (sandbox: no order, no money, no kitchen). */
+export const CustomerTestPaymentSchema = z.strictObject({
+  id: z.uuid(),
+  quoteId: z.uuid(),
+  amountMinor: amount,
+  method: z.enum(['card', 'apple_pay', 'google_pay']),
+  state: z.enum(['pending', 'paid', 'failed', 'expired']),
+  expiresAt: z.iso.datetime(),
+  threeDsUrl: z.url().optional(),
+  message: z.string().max(200).optional(),
+});
+export const CustomerTestPaymentSetupSchema = z.strictObject({
+  publicId: z.string().regex(/^(pk_|test_api_)[a-zA-Z0-9]+$/),
+  publicKey: z.strictObject({ pem: z.string().max(4096), version: z.int().nonnegative() }),
+  googlePay: z
+    .strictObject({ gateway: z.string().max(60), gatewayMerchantId: z.string().max(100) })
+    .nullable(),
+  environment: z.literal('test'),
+});
+export type CustomerTestPaymentSetup = z.infer<typeof CustomerTestPaymentSetupSchema>;
+export type CustomerTestPayment = z.infer<typeof CustomerTestPaymentSchema>;
 export const CustomerCheckoutConfigSchema = z.strictObject({
   enabled: z.boolean(),
+  // Only with the wallets profile (pickchick.checkout-wallets-v1).
+  paymentMethods: z.array(CustomerPaymentMethodSchema).max(4).optional(),
+  paymentEnvironment: z.enum(['live', 'test']).optional(),
+  // Public terminal id for the card cryptogram and wallet requests (never a secret).
+  tipTopPayPublicId: z
+    .string()
+    .regex(/^(pk_|test_api_)[a-zA-Z0-9]+$/)
+    .optional(),
   orderCommentEnabled: z.boolean().optional().default(false),
   branchId: z.uuid(),
   restaurant: z.string(),

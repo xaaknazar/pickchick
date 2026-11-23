@@ -9,6 +9,7 @@ import { productCopy } from '../productCopy';
 import {
   applyPick,
   chooseText,
+  fillTarget,
   gridColumns,
   groupComplete,
   groupCount,
@@ -185,11 +186,28 @@ export function ComboSection({
     selections
       .filter((s) => s.group_id === group.id && s.option_id === id)
       .reduce((sum, s) => sum + s.quantity, 0);
-  const value = done
-    ? pickedNames(items) + (BigInt(extra) > 0n ? ' +' + money(extra) : '')
-    : total > 0 && group.max > 1
-      ? t.chosenOf.replace('{n}', String(total)).replace('{max}', String(group.max))
-      : chooseText(group, tp);
+  // An optional group (sauces and paid drinks of a set) is never «done» with nothing in it:
+  // it says how many fit and that they are optional, then how many are in (owner 22.11).
+  const optional = group.min === 0;
+  const idle = optional && total === 0;
+  const plus = BigInt(extra) > 0n ? ' · +' + money(extra) : '';
+  const value = idle
+    ? group.max > 1
+      ? tp.upTo.replace('{max}', String(group.max))
+      : t.optional
+    : optional && group.max > 1
+      ? (group.max <= 12
+          ? t.chosenOf.replace('{n}', String(total)).replace('{max}', String(group.max))
+          : tp.addedN.replace('{n}', String(total))) + plus
+      : done
+        ? pickedNames(items) + (BigInt(extra) > 0n ? ' +' + money(extra) : '')
+        : total > 0 && group.max > 1
+          ? t.chosenOf.replace('{n}', String(total)).replace('{max}', String(group.max))
+          : chooseText(group, tp);
+  const fill = group.id === 'sauce' && optional ? fillTarget(group, selections) : null;
+  const fillPress = usePress(0.95);
+  const check = done && !idle;
+  const calm = done || idle;
   const pop = usePopIn(value, 360, 0, false);
   const cells: (Option | 'more')[] = [
     ...grid.shown,
@@ -236,18 +254,51 @@ export function ComboSection({
           {sectionTitle(group, tp)}
         </Text>
         <View style={{ flex: 1 }} />
+        {fill ? (
+          <Animated.View style={{ transform: [{ scale: fillPress.scale }] }}>
+            <Pressable
+              testID={`kiosk-section-fill-${group.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={tp.fillSignature}
+              onPress={() =>
+                setSelections(applyPick(group, selections, fill.option.id, fill.quantity))
+              }
+              onPressIn={fillPress.onPressIn}
+              onPressOut={fillPress.onPressOut}
+              style={{
+                height: px(44),
+                paddingLeft: px(12),
+                paddingRight: px(18),
+                borderRadius: 999,
+                backgroundColor: colors.white,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: px(6),
+              }}
+            >
+              <Icon name="add" size="small" tone="brand" />
+              <Text
+                {...fixedText}
+                numberOfLines={1}
+                style={{ fontFamily: fonts.heavy, fontSize: px(17), color: colors.blue }}
+              >
+                {tp.fillSignature}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
         <Animated.View
           testID={`kiosk-section-value-${group.id}`}
           style={{
             flexShrink: 1,
             maxWidth: '55%',
             height: px(44),
-            paddingLeft: done ? px(8) : px(18),
+            paddingLeft: check ? px(8) : px(18),
             paddingRight: px(18),
             borderRadius: 999,
-            backgroundColor: done ? 'rgba(255,255,255,.12)' : '#FFE7D6',
+            backgroundColor: calm ? 'rgba(255,255,255,.12)' : '#FFE7D6',
             borderWidth: 1,
-            borderColor: done ? 'rgba(255,255,255,.24)' : '#FFE7D6',
+            borderColor: calm ? 'rgba(255,255,255,.24)' : '#FFE7D6',
             flexDirection: 'row',
             alignItems: 'center',
             gap: px(8),
@@ -255,7 +306,7 @@ export function ComboSection({
             transform: [{ scale: pop.scale }],
           }}
         >
-          {done ? (
+          {check ? (
             <View
               style={{
                 width: px(28),
@@ -276,7 +327,7 @@ export function ComboSection({
               flexShrink: 1,
               fontFamily: fonts.heavy,
               fontSize: px(17),
-              color: done ? colors.white : colors.orangeInk,
+              color: calm ? colors.white : colors.orangeInk,
               fontVariant: ['tabular-nums'],
             }}
           >

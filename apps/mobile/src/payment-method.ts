@@ -45,13 +45,15 @@ export type PaymentMethodOption = {
 export function paymentMethods(
   platform: string,
   upcoming: boolean = UPCOMING_PAYMENTS,
+  connected: readonly PaymentMethodId[] = [],
 ): PaymentMethodOption[] {
+  // TipTopPay (18.11.2026): a method is available when the server, the build and the phone all
+  // allow it (tiptoppay-checkout.ts connectedTipTopPayMethods).
+  const wallet: PaymentMethodId = platform === 'android' ? 'google_pay' : 'apple_pay';
   const methods: PaymentMethodOption[] = [
     { id: 'kaspi', label: paymentMethodLabel('kaspi'), available: true },
-    platform === 'android'
-      ? { id: 'google_pay', label: paymentMethodLabel('google_pay'), available: false }
-      : { id: 'apple_pay', label: paymentMethodLabel('apple_pay'), available: false },
-    { id: 'card', label: paymentMethodLabel('card'), available: false },
+    { id: wallet, label: paymentMethodLabel(wallet), available: connected.includes(wallet) },
+    { id: 'card', label: paymentMethodLabel('card'), available: connected.includes('card') },
   ];
   return upcoming ? methods : methods.filter((method) => method.available);
 }

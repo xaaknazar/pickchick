@@ -224,6 +224,21 @@ def add(page, product='pick-combo'):
     page.get_by_test_id('product-add').click()
     expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
     expect(page.get_by_test_id('cart-shortcut')).to_be_visible()
+    settle(page)
+
+
+def settle(page):
+    # The bar rises in and gives one springy bump when a dish lands (owner 20.11, Apple motion):
+    # measure it only once two reads 120 ms apart agree.
+    bar = page.get_by_test_id('cart-shortcut').filter(visible=True)
+    previous = None
+    for _ in range(40):
+        box = bar.bounding_box()
+        if previous and box and all(abs(box[k] - previous[k]) < 0.25 for k in box):
+            return
+        previous = box
+        page.wait_for_timeout(120)
+    raise AssertionError(('cart bar never settled', previous))
 
 
 def geometry(page):
@@ -921,7 +936,9 @@ def scenario_payment_method(browser):
 
 
 # Apple Pay and the card as a future build would list them: available, without their own flow yet.
-FUTURE_METHODS = re.compile(r"(\{id:'(apple_pay|card)',label:\w+\('\2'\),available:)!1\}")
+# PR #400 (TipTopPay, 18.11.2026): availability is `connected.includes(id)`; the wallet id is a
+# variable (apple_pay / google_pay by platform), the card a literal.
+FUTURE_METHODS = re.compile(r"(\{id:('card'|\w+),label:\w+\(\2\),available:)\w+\.includes\(\2\)\}")
 
 
 def text(locator):

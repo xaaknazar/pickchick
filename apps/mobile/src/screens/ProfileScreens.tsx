@@ -1,7 +1,8 @@
 import { TextInput } from '../components/LocalizedText';
 import { useNotifications } from '../notifications/provider';
 import { t, localize, useLocale } from '../i18n';
-import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
+import { MotionPressable as Pressable } from '../components/Motion';
+import { DialogModal } from '../components/MotionSheets';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -124,10 +125,8 @@ export function DeleteAccount(props: ScreenProps) {
   };
   return (
     <Page props={props} title={t('Удалить аккаунт')}>
-      <Modal
+      <DialogModal
         visible={deleteConfirmVisible}
-        transparent
-        animationType="none"
         // Android Back is «Оставить аккаунт»: not while the deletion runs (its answer and any
         // error are shown in this dialog), like the disabled button.
         onRequestClose={() => {
@@ -165,14 +164,9 @@ export function DeleteAccount(props: ScreenProps) {
             {demo.error ? <Body style={s.authError}>{localize(demo.error)}</Body> : null}
           </View>
         </ScrollView>
-      </Modal>
+      </DialogModal>
       {Platform.OS === 'web' ? (
-        <Modal
-          visible={confirmVisible}
-          transparent
-          animationType="none"
-          onRequestClose={() => setConfirmVisible(false)}
-        >
+        <DialogModal visible={confirmVisible} onRequestClose={() => setConfirmVisible(false)}>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
             <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
               <Heading small>{t('Очистить данные устройства?')}</Heading>
@@ -189,7 +183,7 @@ export function DeleteAccount(props: ScreenProps) {
               />
             </View>
           </ScrollView>
-        </Modal>
+        </DialogModal>
       ) : null}
       <Heading>
         {t('Всё под вашим')}

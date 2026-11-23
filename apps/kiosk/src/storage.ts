@@ -9,7 +9,8 @@ import {
   commercialKioskSend,
   exchangeKioskEnrollment,
 } from './commercial-api';
-import { kaspiTerminalCall } from './kaspi-terminal';
+import { kaspiTerminalCall, kaspiTerminalProbe, kaspiTlsFrom } from './kaspi-terminal';
+import { KaspiTlsModule } from '../modules/kaspi-tls';
 import { KASPI_TERMINAL_LINK_KEY } from './kaspi-terminal-link';
 import { enrollDevice, KIOSK_ENROLLMENT_REQUEST_KEY } from './enrollment';
 import {
@@ -43,6 +44,9 @@ export function createKioskIO(): KioskIO {
     uuid: () => Crypto.randomUUID(),
   };
 }
+
+/** Native pinned TLS on iOS; elsewhere (web) HTTPS is unsupported and nothing is sent. */
+const terminalTls = kaspiTlsFrom(KaspiTlsModule);
 
 /** Operator provisioning is device-local; no secret is bundled in Expo configuration. */
 export function createCommercialKioskIO(): CommercialKioskIO {
@@ -80,7 +84,8 @@ export function createCommercialKioskIO(): CommercialKioskIO {
       commercialKioskRead(path, token, fetch, await credentials(), readOptions),
     send: async (method, path, token, body) =>
       commercialKioskSend(method, path, token, body, fetch, await credentials()),
-    // ADR-0018: the terminal link and its token live only in this iPad's SecureStore.
+    // ADR-0018: the terminal link, its token and certificate pin live only in this iPad's
+    // SecureStore. HTTPS goes through the native kaspi-tls module (pinned leaf certificate).
     terminal: {
       store: {
         read: () => read(KASPI_TERMINAL_LINK_KEY),
@@ -88,7 +93,8 @@ export function createCommercialKioskIO(): CommercialKioskIO {
         remove: () => SecureStore.deleteItemAsync(KASPI_TERMINAL_LINK_KEY),
       },
       call: (host, method, params, callOptions) =>
-        kaspiTerminalCall(host, method, params, callOptions, fetch),
+        kaspiTerminalCall(host, method, params, callOptions, fetch, terminalTls),
+      probe: (host) => kaspiTerminalProbe(host, fetch, terminalTls),
     },
     // Audit 19.10: the staff code is sent once for the server check and never stored.
     verifyStaff: async (pin) => {
