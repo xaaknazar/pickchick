@@ -221,27 +221,22 @@ export function ComboOptionTile({
       {multi && option.available ? (
         // Room for the stepper laid over the tile's bottom edge.
         <View style={{ height: px(40), marginTop: px(8) }} />
-      ) : (
+      ) : !option.available ? (
         <View style={{ height: px(26), marginTop: px(6), justifyContent: 'center' }}>
-          {option.available && surcharge ? (
-            <Surcharge text={status} />
-          ) : !option.available ? (
-            <Text
-              {...fixedText}
-              numberOfLines={1}
-              style={{
-                fontFamily: fonts.bold,
-                fontSize: px(13),
-                lineHeight: px(17),
-                color: SOLD_OUT,
-              }}
-            >
-              {status}
-            </Text>
-          ) : null}
-          {/* A free option carries no «Входит в комбо» line (owner 22.11): only a surcharge is news. */}
+          <Text
+            {...fixedText}
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.bold,
+              fontSize: px(13),
+              lineHeight: px(17),
+              color: SOLD_OUT,
+            }}
+          >
+            {status}
+          </Text>
         </View>
-      )}
+      ) : null}
     </>
   );
   const surface = {
@@ -355,7 +350,10 @@ export function ComboOptionTile({
           <Icon name="checkmark" size="small" tone="inverse" />
         </Animated.View>
       )}
-      {multi && option.available && surcharge ? (
+      {/* Owner 23.11.2026 («фото по больше»): the surcharge sits in the top corner, so the
+          photo takes the row it used to keep. A free option carries no line (owner 22.11): only a
+          surcharge is news. */}
+      {option.available && surcharge ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: px(10), left: px(10) }}>
           <Surcharge text={status} />
         </View>

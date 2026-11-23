@@ -22,8 +22,8 @@ import { fixedText } from './Body';
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
   [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
-/** Share of the hero given to the photo (design: photo left, text from x 533 of 1024). */
-const PHOTO = 0.5;
+/** Share of the hero given to the photo (design: text from x 533 of 1024; 0.54 since owner 23.11). */
+const PHOTO = 0.54;
 /**
  * Product card hero (kiosk redesign 2026-10-13, product-and-payment.md §1): a cream #FEF8F0
  * card (radius 32, shadow 0 14 30 navy .25, at least 380 high) on the bg1 illustration. The
@@ -103,9 +103,11 @@ export function ComboHero({
         <View
           style={{
             width: `${PHOTO * 100}%`,
-            paddingVertical: px(largePick ? 0 : 24),
-            paddingLeft: px(largePick ? 8 : 28),
-            paddingRight: px(largePick ? 8 : 12),
+            // Owner 23.11.2026: «фото по больше на странице комбо» - the dish takes the whole
+            // left half, scaled past the photo's own white (or clear 5 %) margin.
+            paddingVertical: px(largePick ? 0 : 6),
+            paddingLeft: px(largePick ? 8 : 10),
+            paddingRight: px(largePick ? 8 : 0),
             // A direct layer of the clip, so its multiply sees the cream and the illustration
             // (every web view is its own stacking context).
             zIndex: 1,
@@ -120,7 +122,14 @@ export function ComboHero({
               backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),
             }}
           >
-            <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+            <View
+              style={{
+                flex: 1,
+                transform: [{ scale: largePick ? 1 : shot?.cutout ? 1 / 0.9 : 1.12 }],
+              }}
+            >
+              <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+            </View>
           </View>
         </View>
         <View
