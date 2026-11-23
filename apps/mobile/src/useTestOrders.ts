@@ -4,7 +4,7 @@ import { orderPollDelay } from './poll-cadence';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import { TestApiError } from './test-client';
 import { useOrderClient } from './useOrderClient';
-import { mergeObservedOrder, mergeObservedOrders } from './test-order-session';
+import { mergeObservedOrder, mergeObservedOrders, mergeWatchedOrders } from './test-order-session';
 import { canCreateTestOrder, observeSavedOrders } from './test-order-observation';
 import type { CartLine, DiningMode, PaymentMethod } from './model';
 import { useAccount } from './useAccount';
@@ -207,10 +207,14 @@ export function useTestOrders(
       try {
         const next = await client.watchOrders(ordersRef.current, controller.signal);
         if (stopped || controller.signal.aborted || epoch !== generation.current) return;
-        // Advance the watch cursor before React renders, avoiding an immediate repeat response.
-        ordersRef.current = mergeObservedOrders(ordersRef.current, next);
-        setOrders(ordersRef.current);
-        setObservedAt(new Date().toISOString());
+        // An answer without a change (the connection heartbeat) keeps the list: no render.
+        const merged = mergeWatchedOrders(ordersRef.current, next);
+        if (merged !== ordersRef.current) {
+          // Advance the watch cursor before React renders, avoiding an immediate repeat response.
+          ordersRef.current = merged;
+          setOrders(merged);
+          setObservedAt(new Date().toISOString());
+        }
         setError(null);
         failures.current = 0;
         const pending = await client.hasPending();
