@@ -68,6 +68,8 @@ export type State = {
   conflict: boolean;
   reviewed: Order | null;
   busy: boolean;
+  /** The running operation is the 5-second background read: the screen stays usable. */
+  background: boolean;
   error: string | null;
   lastSync: number | null;
   storageBlocked: boolean;
@@ -143,6 +145,8 @@ export function screen(v: unknown): Screen {
   };
 }
 class StaleOperation extends Error {}
+/** Answers that say nothing about the order: no answer at all, or the point server is starting. */
+const TRANSIENT = new Set(['CONNECTION_UNKNOWN', 'SERVICE_UNAVAILABLE']);
 /** The cloud rejected this browser's screen (revoked or rotated): pair again with a new code. */
 class ScreenRevoked extends Error {
   constructor() {
@@ -169,6 +173,7 @@ export class KitchenModel {
     conflict: false,
     reviewed: null,
     busy: false,
+    background: false,
     error: null,
     lastSync: null,
     storageBlocked: false,
@@ -373,19 +378,50 @@ export class KitchenModel {
     this.state.streams.cloud = 'signed_out';
     this.mergeStations();
   }
-  private async run(fn: () => Promise<void>) {
-    if (this.state.busy) return;
+  /** Consecutive background reads that got no answer (Wi-Fi drop, slow point server). */
+  private missedPolls = 0;
+  private running: Promise<void> | null = null;
+  /** Idempotency keys of commands tapped on this page; only these are repeated by the poll. */
+  private retryable = new Set<string>();
+  private run(fn: () => Promise<void>, background = false): Promise<void> {
+    // A tap during the background read waits for it (at most one read timeout) instead of
+    // being dropped; a second poll or a tap during another tap is ignored as before.
+    if (this.state.busy && this.state.background && !background && this.running)
+      return this.running.then(() => (this.state.busy ? undefined : this.run(fn)));
+    if (this.state.busy) return Promise.resolve();
+    const done = this.exec(fn, background).finally(() => {
+      if (this.running === done) this.running = null;
+    });
+    this.running = done;
+    return done;
+  }
+  private async exec(fn: () => Promise<void>, background: boolean) {
     const epoch = this.epoch;
     this.state.busy = true;
-    this.state.error = null;
+    this.state.background = background;
+    // A background read keeps a shown error until it succeeds; a tap starts clean.
+    if (!background) this.state.error = null;
     this.emit();
     try {
       await fn();
+      if (background && epoch === this.epoch) {
+        this.missedPolls = 0;
+        if (this.state.error && TRANSIENT.has(this.state.error)) this.state.error = null;
+      }
     } catch (e) {
-      if (epoch === this.epoch) this.fail(e);
+      if (epoch === this.epoch) {
+        // Owner 23.11: «периодично она чуть зависает и кнопки становятся недоступны… ошибка
+        // узла». One lost 5-second read over Wi-Fi is not shown and does not block the
+        // buttons; the error appears after three reads in a row (~15-25 s) without an answer.
+        const transient = e instanceof ApiError && TRANSIENT.has(e.code);
+        if (background && transient && ++this.missedPolls < 3) {
+          /* the next poll tries again */
+        } else this.fail(e);
+      }
     } finally {
       if (epoch === this.epoch) {
         this.state.busy = false;
+        this.state.background = false;
         this.emit();
       } else if (!this.state.actor || (this.state.cloud && !this.state.screen)) this.emit();
     }
@@ -622,8 +658,26 @@ export class KitchenModel {
     this.state.error = null;
     this.emit();
   }
-  async refresh() {
+  /**
+   * `background` is the 5-second poll. It first repeats an unfinished command (same action,
+   * versions and Idempotency-Key, so the point server applies it at most once): a tap whose
+   * answer was lost over Wi-Fi finishes by itself instead of blocking the screen until a cook
+   * presses «Проверить повтором». A conflict is never repeated; it waits for the cook.
+   */
+  async refresh(background = false) {
     await this.run(async () => {
+      if (background)
+        for (const owner of ['edge', 'cloud'] as const) {
+          const slot = this.slot(owner);
+          if (!slot.pending || slot.conflict || this.state.storageBlocked) continue;
+          // Only a command tapped on this page: after a restart the cook still decides.
+          if (!this.retryable.has(slot.pending.key)) continue;
+          if (owner === 'cloud' ? !this.state.cloud || !this.state.screen : !this.state.actor)
+            continue;
+          if (this.state.cloud && this.state.streams[owner] !== 'online') continue;
+          await this.sendPending(owner);
+          return;
+        }
       if (this.state.cloud) {
         // Bindings that could not be confirmed earlier are retried before reading.
         if (this.state.screenPaired && !this.state.screen)
@@ -646,7 +700,7 @@ export class KitchenModel {
         }
       }
       await this.read();
-    });
+    }, background);
   }
   private async read() {
     const c = this.state.actor;
@@ -986,12 +1040,14 @@ export class KitchenModel {
       // restart), not for the second a tap takes (owner 18.11: «на секунду вышла ошибка»).
       this.state.sending = owner;
       try {
+        const key = this.newId();
+        this.retryable.add(key);
         this.persist(owner, {
           version: 1,
           scope: j.scope,
           orderId: o.orderId,
           stationId: s,
-          key: this.newId(),
+          key,
           body: action(body),
           ...(owner === 'cloud' ? { owner: 'cloud' as const } : {}),
         });
