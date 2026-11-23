@@ -237,31 +237,45 @@ export const lineQuantity = (parts: Task[]) =>
   (parts[0]?.details.lineQuantity ?? parts.reduce((g, t) => gcd(g, t.details.quantity), 0)) || 1;
 export type Group =
   | { kind: 'task'; task: Task }
-  | { kind: 'combo'; lineId: string; title: string; quantity: number; parts: Task[] };
-/** Tasks in ticket order, the components of one combo line gathered under the combo. */
+  | {
+      kind: 'combo';
+      lineId: string;
+      title: string;
+      quantity: number;
+      parts: Task[];
+      /** A dish with linked additions: the dish itself; its parts are the additions. */
+      base?: Task;
+    };
 export function groupTasks(tasks: Task[]): Group[] {
   const result: Group[] = [];
   const combos = new Map<string, Extract<Group, { kind: 'combo' }>>();
-  for (const t of tasks) {
-    if (!isComponent(t)) {
-      result.push({ kind: 'task', task: t });
-      continue;
-    }
+  const bases = new Map(tasks.filter((t) => !isComponent(t)).map((t) => [t.details.lineId, t]));
+  const withParts = new Set(tasks.filter(isComponent).map((t) => t.details.lineId));
+  const group = (t: Task) => {
     let g = combos.get(t.details.lineId);
     if (!g) {
+      const base = bases.get(t.details.lineId);
       g = {
         kind: 'combo',
         lineId: t.details.lineId,
-        title: t.details.parentTitle,
+        title: t.details.parentTitle || t.details.title,
         quantity: 1,
         parts: [],
+        ...(base ? { base } : {}),
       };
       combos.set(t.details.lineId, g);
       result.push(g);
     }
-    g.parts.push(t);
+    return g;
+  };
+  for (const t of tasks) {
+    if (!isComponent(t)) {
+      if (withParts.has(t.details.lineId)) group(t);
+      else result.push({ kind: 'task', task: t });
+    } else group(t).parts.push(t);
   }
-  for (const g of combos.values()) g.quantity = lineQuantity(g.parts);
+  for (const g of combos.values())
+    g.quantity = g.base ? g.base.details.quantity : lineQuantity(g.parts);
   return result;
 }
 
@@ -368,6 +382,14 @@ export function kitchenTicket(input: TicketInput) {
       ? `<p class="parent">${escape(t.details.parentTitle)}</p>`
       : '';
 
+  /** Expanded combo: its parts; a dish with linked additions: «+» before each addition. */
+  const comboInfo = (g: Extract<Group, { kind: 'combo' }>) =>
+    `<h3>${escape(g.title)}</h3>${pieceList(
+      g.parts.map((t) => {
+        const p = piece(t);
+        return g.base ? { ...p, name: '+ ' + p.name } : p;
+      }),
+    )}${cookChanges(cookModifiers(g.base ?? g.parts[0]!))}`;
   const doneMark = (done: boolean) => (done ? '<p class="line-check">✓ Готово</p>' : '');
   const allDone = (list: Task[]) => list.every((t) => t.state === 'done');
   /** One dish line; an expanded combo shows its parts from the order, with grams when known. */
@@ -380,8 +402,9 @@ export function kitchenTicket(input: TicketInput) {
               ? pieceList([{ ...piece(g.task), count: g.task.details.quantity }])
               : ''
         }${cookChanges(cookModifiers(g.task))}`
-      : `<h3>${escape(g.title)}</h3>${pieceList(g.parts.map(piece))}${cookChanges(cookModifiers(g.parts[0]!))}`;
-  const groupTasksOf = (g: Group) => (g.kind === 'task' ? [g.task] : g.parts);
+      : comboInfo(g);
+  const groupTasksOf = (g: Group) =>
+    g.kind === 'task' ? [g.task] : g.base ? [g.base, ...g.parts] : g.parts;
   const groupQty = (g: Group) => (g.kind === 'task' ? g.task.details.quantity : g.quantity);
 
   let body: string;
@@ -410,28 +433,21 @@ export function kitchenTicket(input: TicketInput) {
         const info =
           g.kind === 'task'
             ? `<h3>${escape(g.task.details.title)}</h3>${parent(g.task)}${cookChanges(cookModifiers(g.task))}`
-            : `<h3>${escape(g.title)}</h3>${pieceList(g.parts.map(piece))}${cookChanges(cookModifiers(g.parts[0]!))}`;
+            : comboInfo(g);
         return `<section class="line pack-line">${qty(groupQty(g))}<div class="line-info">${info}</div><span class="line-state${done ? ' done' : ''}">${state}</span></section>`;
       })
       .join('');
     // Drinks and sauces chosen inside combos: one checklist line each, total quantity. An
     // expanded combo repeats its choices on every component task: counted once per order line.
-    const seenLines = new Set<string>();
-    const extras = o.tasks.flatMap((t) => {
-      if (isComponent(t)) {
-        if (seenLines.has(t.details.lineId)) return [];
-        seenLines.add(t.details.lineId);
-      }
-      const lineQty = isComponent(t)
-        ? lineQuantity(o.tasks.filter((x) => x.details.lineId === t.details.lineId))
-        : t.details.quantity;
-      return t.details.modifiers
+    const extras = groupTasks(o.tasks).flatMap((g) => {
+      const first = g.kind === 'task' ? g.task : (g.base ?? g.parts[0]!);
+      return first.details.modifiers
         .filter((m) => modifierKind(m) !== 'cook')
         .map((m) => ({
           kind: modifierKind(m),
           title: m.label.ru,
-          quantity: m.quantity * lineQty,
-          of: isComponent(t) ? t.details.parentTitle : t.details.title,
+          quantity: m.quantity * groupQty(g),
+          of: g.kind === 'task' ? g.task.details.title : g.title,
         }));
     });
     const addLines = [

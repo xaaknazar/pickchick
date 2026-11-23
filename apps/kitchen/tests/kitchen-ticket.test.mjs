@@ -244,3 +244,23 @@ test('expanded combo from the back office: parts under the combo, grams, drink o
   const old = parts.map((t) => ({ ...t, details: { ...t.details, lineQuantity: undefined } }));
   assert.equal(groupTasks(old)[0].quantity, 2);
 });
+
+test('a dish with a linked addition stays one line, the addition with «+», drink once', () => {
+  const lineId = randomUUID();
+  const drink = mod('drink', 'Напиток на выбор', 'Sprite');
+  const burger = task(PREP, 'Pick Burger', { lineId, quantity: 2, modifiers: [drink] });
+  const extra = task(PREP, 'Фингерс 1 шт', {
+    lineId,
+    productId: 'fingers',
+    parentTitle: 'Pick Burger',
+    quantity: 4,
+    modifiers: [drink],
+  });
+  const o = order([burger, extra]);
+  const cook = render(o, PREP);
+  assert.equal(cook.match(/<h3>Pick Burger<\/h3>/g).length, 1);
+  assert.match(cook, /<li><strong>4<\/strong> \+ Фингерсы<\/li>/);
+  const asm = render(o, ASM);
+  assert.equal(asm.match(/Sprite/g).length, 1);
+  assert.match(asm, /2×<\/span><div class="line-info"><h3>Sprite/);
+});
