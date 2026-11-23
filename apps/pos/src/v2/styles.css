@@ -1916,3 +1916,18 @@ button:focus-visible {
 .day-dialog .day-grid button.selected.today {
   border-color: #0047bb;
 }
+
+/* 23.11 owner: the cart list gets the height; totals sit beside −/+/✕, promo beside the comment. */
+@media (max-width: 1100px) {
+  .cart-extras {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) !important;
+  }
+  .cart-extras > [role='button'] {
+    font-size: 15px !important;
+    padding-inline: 4px !important;
+    line-height: 1.1;
+  }
+  .cart-sum > div:last-child {
+    font-size: 24px !important;
+  }
+}
