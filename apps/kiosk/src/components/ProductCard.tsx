@@ -161,8 +161,9 @@ export function ProductCard({
     </View>
   );
   // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
-  // size and names start on one line whether they take one line or two. The caption («в
-  // железной банке · 0.5 л») sits in that room under a one-line name.
+  // size. Owner 23.11.2026: a one-line name sits on the price («Finger Combo» floated above
+  // it), so the spare line stays above the name. The caption («0.5 л · в железной банке»)
+  // shares that room.
   const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
   const caption = label.caption ? (
     <Text
@@ -259,7 +260,7 @@ export function ProductCard({
               gap: px(4),
             }}
           >
-            <View style={{ minHeight: nameRoom, gap: px(2) }}>
+            <View style={{ minHeight: nameRoom, gap: px(2), justifyContent: 'flex-end' }}>
               {name}
               {caption}
             </View>
