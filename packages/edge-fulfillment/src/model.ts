@@ -278,8 +278,15 @@ export type TaskPlan = {
     description: string;
     modifiers: unknown[];
     kds?: KdsTaskDetails;
+    /** Grams of one portion (catalog weight_g of the product), when the order carries it. */
+    weightG?: number;
+    /** Quantity of the order line; lets the kitchen show «2× Finger Combo» over its parts. */
+    lineQuantity?: number;
   };
 };
+/** weight_g of the cloud order snapshot (catalog-pricing); anything else is left out. */
+const grams = (v: unknown) =>
+  typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && v <= 100_000 ? v : undefined;
 /** Explicit routes for every leaf and parent item; no inferred "default station". */
 export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
   const routes = new Map(routing.routes.map((v) => [v.productId, v]));
@@ -314,6 +321,7 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
               quantity: 1,
               title: line.title,
               description: line.description,
+              weightG: grams((selected as { weightG?: unknown } | undefined)?.weightG),
               key: 'parent',
             },
           ]
@@ -323,6 +331,7 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
         quantity: c.quantity,
         title: c.name.ru,
         description: c.description.ru,
+        weightG: grams((c as { weightG?: unknown }).weightG),
         key: 'component:' + c.productId,
       })),
     ];
@@ -343,6 +352,8 @@ export function taskPlan(snapshot: Snapshot, routing: Routing): TaskPlan[] {
           parentTitle: line.title,
           description: part.description,
           modifiers: selected?.modifiers ?? [],
+          ...(part.weightG ? { weightG: part.weightG } : {}),
+          ...(part.key === 'parent' ? {} : { lineQuantity: line.quantity }),
         },
       });
     }
