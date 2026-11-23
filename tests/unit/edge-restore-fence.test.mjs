@@ -55,8 +55,19 @@ test('schema023 is additive, append-only, owner-rights with a pinned search_path
 });
 
 test('the edge retries the restore fence until PostgreSQL answers, but not a missing grant (6.4)', async (t) => {
-  const { RestoreFenceOnStart, RESTORE_FENCE_RETRY_MS } =
+  const { RestoreFenceGuard, RestoreFenceOnStart, RESTORE_FENCE_RETRY_MS } =
     await import('../../services/edge/dist/restore-fence.js');
+  // The guard of every edge route, asked the way Nest asks it.
+  const admits = (fence, method) => {
+    try {
+      return new RestoreFenceGuard(fence).canActivate({
+        switchToHttp: () => ({ getRequest: () => ({ method }) }),
+      });
+    } catch (error) {
+      assert.equal(error.getStatus(), 503);
+      return false;
+    }
+  };
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const logs = [];
   for (const level of ['log', 'warn'])
@@ -80,14 +91,23 @@ test('the edge retries the restore fence until PostgreSQL answers, but not a mis
   // A reboot right after a restore: PostgreSQL is not up when the edge starts.
   const starting = fake('ECONNREFUSED');
   const fence = new RestoreFenceOnStart({ pool: starting.pool });
+  assert.equal(fence.pending, true);
   await fence.onApplicationBootstrap();
   t.mock.timers.tick(RESTORE_FENCE_RETRY_MS);
   await flush();
   assert.equal(starting.fenced, 0);
+  // Until the fence has run the edge serves reads and health but refuses every write.
+  assert.equal(fence.pending, true);
+  for (const method of ['GET', 'HEAD', 'OPTIONS', 'get']) assert.equal(admits(fence, method), true);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', undefined])
+    assert.equal(admits(fence, method), false, `${method} before the fence`);
   starting.failure = null;
   t.mock.timers.tick(RESTORE_FENCE_RETRY_MS);
   await flush();
   assert.equal(starting.fenced, 1, 'the fence runs as soon as the database answers');
+  assert.equal(fence.pending, false);
+  for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+    assert.equal(admits(fence, method), true);
   t.mock.timers.tick(RESTORE_FENCE_RETRY_MS * 3);
   await flush();
   assert.equal(starting.fenced, 1, 'and only once');
@@ -109,5 +129,8 @@ test('the edge retries the restore fence until PostgreSQL answers, but not a mis
   await flush();
   assert.equal(queries, 1);
   assert.deepEqual(logs, [{ event: 'edge_restore_fence_unavailable', reason: 'NOT_GRANTED' }]);
+  // A runtime without the grant keeps serving with the previous behaviour.
+  assert.equal(ungranted.pending, false);
+  assert.equal(admits(ungranted, 'POST'), true);
   await ungranted.onModuleDestroy();
 });

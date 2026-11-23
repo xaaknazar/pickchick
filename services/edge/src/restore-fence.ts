@@ -1,5 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import type {
+  CanActivate,
+  ExecutionContext,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { RESOURCE, Resources } from '@pickchick/platform';
 import { fenceRestoredEdge } from '@pickchick/local-orders';
 
@@ -11,8 +16,9 @@ export const RESTORE_FENCE_RETRY_MS = 5000;
  * move every edge-to-cloud producer sequence past the lost timeline once
  * (docs/operations/edge-restore.md). A runtime without the schema or the grant keeps serving
  * with the previous behaviour; the log line tells the operator. Any other failure (database
- * still starting) is retried in the background until the check runs, so a reboot right after a
- * restore does not leave the first new orders on sequence numbers the cloud already holds.
+ * still starting) is retried in the background until the check runs; until then `pending` is
+ * true and RestoreFenceGuard refuses every writing request, so a reboot right after a restore
+ * does not leave the first new orders on sequence numbers the cloud already holds.
  */
 @Injectable()
 export class RestoreFenceOnStart implements OnApplicationBootstrap, OnModuleDestroy {
@@ -20,6 +26,12 @@ export class RestoreFenceOnStart implements OnApplicationBootstrap, OnModuleDest
   private running: Promise<boolean> | undefined;
   private stopped = false;
   private failed = false;
+  private done = false;
+
+  /** True until the check has run once (fenced, current, unsupported schema or no grant). */
+  get pending() {
+    return !this.done;
+  }
 
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
 
@@ -47,6 +59,12 @@ export class RestoreFenceOnStart implements OnApplicationBootstrap, OnModuleDest
 
   /** True when no retry is needed: fenced, current, unsupported schema or no grant. */
   private async attempt(): Promise<boolean> {
+    const done = await this.check();
+    if (done) this.done = true;
+    return done;
+  }
+
+  private async check(): Promise<boolean> {
     try {
       const fence = await fenceRestoredEdge(this.resources.pool);
       if (fence.state === 'restore' || fence.state === 'operator')
@@ -75,5 +93,23 @@ export class RestoreFenceOnStart implements OnApplicationBootstrap, OnModuleDest
       this.failed = true;
       return denied;
     }
+  }
+}
+
+/**
+ * While the restore fence has not run, the edge answers reads and health but refuses every
+ * writing request with 503: an order, sale, shift or kitchen event written now could take a
+ * producer sequence the cloud already holds. The fence only needs the local PostgreSQL, never
+ * the WAN, so this lasts as long as the database does not answer the check.
+ */
+@Injectable()
+export class RestoreFenceGuard implements CanActivate {
+  constructor(@Inject(RestoreFenceOnStart) private readonly fence: RestoreFenceOnStart) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    if (!this.fence.pending) return true;
+    const method = context.switchToHttp().getRequest<{ method?: string }>().method ?? '';
+    if (['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) return true;
+    throw new ServiceUnavailableException();
   }
 }
