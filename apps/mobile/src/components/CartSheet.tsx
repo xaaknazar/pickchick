@@ -18,7 +18,7 @@ import { usePaymentMethod } from '../usePaymentMethod';
 import { bannerAnnouncement } from '../payment-availability';
 import { MotionPressable } from './Motion';
 import { SheetModal } from './MotionSheets';
-import { PaymentMark } from './PaymentChoice';
+import { PaymentMark, markSpellsName } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
 import { colors, font } from '../theme';
 
@@ -237,15 +237,17 @@ export function PaymentMethodSelector() {
           {t('Способ оплаты')}
         </Caption>
         <View style={s.methodRow}>
-          <PaymentMark method={payment.method} size={24} />
-          <Text
-            testID="cart-payment-method-name"
-            style={s.methodName}
-            numberOfLines={1}
-            maxFontSizeMultiplier={1.4}
-          >
-            {name}
-          </Text>
+          <PaymentMark method={payment.method} size={markSpellsName(payment.method) ? 28 : 24} />
+          {markSpellsName(payment.method) ? null : (
+            <Text
+              testID="cart-payment-method-name"
+              style={s.methodName}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.4}
+            >
+              {name}
+            </Text>
+          )}
           <Icon name="chevron-down" size={18} color={colors.muted} />
         </View>
       </MotionPressable>
@@ -425,10 +427,12 @@ export function CartPaymentFooter({
           ) : null}
           {branded ? (
             <View style={s.payBrand}>
-              <PaymentMark method={method} size={30} />
-              <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
-                {name}
-              </Text>
+              <PaymentMark method={method} size={markSpellsName(method) ? 34 : 30} />
+              {markSpellsName(method) ? null : (
+                <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
+                  {name}
+                </Text>
+              )}
             </View>
           ) : null}
           {words.after ? (

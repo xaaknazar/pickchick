@@ -3,7 +3,7 @@ import { useAccount } from '../../useAccount';
 import { guestCanOpen } from '../../account-access';
 import { Tabs, useRouter } from 'expo-router';
 import { SheetStackBackground } from '../../components/SheetStack';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -40,6 +40,11 @@ export default function TabLayout() {
   // The tab bar and the cart bar docked on it are measured (owner 28.10.2026): screens reserve
   // their real height, not a formula that a taller tab bar could outgrow.
   const [tabBarHeight, setTabBarHeight] = useState(0);
+  // A tab bar hidden under a full-screen page lays out at 0: keep the last real height, so
+  // opening and closing a product does not re-render every tab twice (smoothness, 23.11.2026).
+  const keepTabBarHeight = useCallback((height: number) => {
+    if (height > 0) setTabBarHeight(height);
+  }, []);
   const [cartDockHeight, setCartDockHeight] = useState<number | null>(null);
   const inset = measuredTabBarInset(tabBarMetrics(insets, fontScale), tabBarHeight);
   // Orange counter of the «Сейчас» orders, from data the app already holds.
@@ -60,7 +65,7 @@ export default function TabLayout() {
             tabBar={(props) => (
               <FloatingTabBar
                 {...props}
-                onTabBarHeight={setTabBarHeight}
+                onTabBarHeight={keepTabBarHeight}
                 onCartDockHeight={setCartDockHeight}
               />
             )}

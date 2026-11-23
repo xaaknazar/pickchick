@@ -14,6 +14,7 @@ import { tabContentInset } from './tab-bar-metrics';
 import { useHasPaymentResume } from './components/PaymentRecovery';
 import { MobileScreen } from './screens/MobileScreen';
 import { storeHidesScreen } from './store-build';
+import { useStableCallback } from './stable-values';
 
 const tabRoutes = {
   M06: '/(tabs)/menu',
@@ -48,7 +49,9 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu')),
     [router],
   );
-  const navigate = (next: ScreenId) => {
+  // Stable identity: memoised menu cards and lines receive callbacks built on it and must not
+  // render again each time this host does (every model update).
+  const navigate = useStableCallback((next: ScreenId) => {
     if (!preview && (next === 'M02' || (!account.account && requiresAccount(next, false)))) {
       router.push({ pathname: '/auth', params: { returnTo: next === 'M02' ? 'M30' : next } });
       return;
@@ -119,7 +122,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           ...(!preview && returnTo && ['M02', 'M03', 'M04'].includes(next) ? { returnTo } : {}),
         },
       });
-  };
+  });
   if (!preview && ['M01', 'M02', 'M03'].includes(id))
     return (
       <Redirect

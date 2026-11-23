@@ -203,6 +203,9 @@ function Field({
 }
 
 /** «Оплата прошла» / «Оплата не прошла» / «Проверяем оплату» after a TipTopPay payment. */
+/** A successful payment notice closes itself after this long (owner 23.11.2026). */
+export const TIPTOPPAY_SUCCESS_AUTO_CLOSE_MS = 2500;
+
 export function TipTopPayResultSheet({
   payment,
   test,
@@ -227,6 +230,15 @@ export function TipTopPayResultSheet({
       : copy?.tone === 'danger'
         ? { name: 'close-circle' as const, color: colors.danger }
         : { name: 'time-outline' as const, color: colors.warning };
+  // Owner 23.11.2026: a successful payment closes its notice by itself after a short look.
+  const success = copy?.tone === 'success';
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => closeRef.current(), TIPTOPPAY_SUCCESS_AUTO_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [success, payment?.id]);
   return (
     <MotionModal visible={!!payment} transparent onRequestClose={onClose}>
       <ScrollView
@@ -244,7 +256,9 @@ export function TipTopPayResultSheet({
             accessibilityLabel={localize(copy.title)}
             style={s.card}
           >
-            <Icon name={icon.name} size={56} color={icon.color} />
+            <View style={s.iconRow} testID="tiptoppay-result-icon">
+              <Icon name={icon.name} size={56} color={icon.color} />
+            </View>
             <Heading small testID="tiptoppay-result-title" style={s.center}>
               {localize(copy.title)}
             </Heading>
@@ -355,4 +369,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   center: { textAlign: 'center', alignSelf: 'center' },
+  // The card stretches its children; the result icon sits in the middle (owner 23.11.2026).
+  iconRow: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
 });

@@ -95,15 +95,21 @@ export function Body({
   muted = false,
   style,
   testID,
+  numberOfLines,
 }: {
   children: ReactNode;
   muted?: boolean;
   style?: StyleProp<TextStyle>;
   testID?: string;
+  numberOfLines?: number;
 }) {
   useLocale();
   return (
-    <Text testID={testID} style={[styles.body, muted && styles.muted, style]}>
+    <Text
+      testID={testID}
+      numberOfLines={numberOfLines}
+      style={[styles.body, muted && styles.muted, style]}
+    >
       {children}
     </Text>
   );

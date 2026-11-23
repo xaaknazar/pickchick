@@ -38,6 +38,9 @@ import {
 import { unpaidTestOrdersEnabled } from './order-simulator';
 import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
+import { keepIfSame, sameContent, useSharedItems } from './stable-values';
+
+const productKey = (product: { id: string }) => product.id;
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
   parsePreferences,
@@ -198,14 +201,17 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         const changed = serverRelease.current !== null && serverRelease.current !== nextRelease;
         serverRelease.current = nextRelease;
         // Friendly names are presentation only; IDs and availability remain server-owned.
+        // A re-read with the same content keeps the previous objects (no app-wide render).
         setBranches(
-          result.branches.map((branch) => ({
-            ...branch,
-            name: restaurantLocation(branch.id)?.name ?? branch.name,
-          })),
+          keepIfSame(
+            result.branches.map((branch) => ({
+              ...branch,
+              name: restaurantLocation(branch.id)?.name ?? branch.name,
+            })),
+          ),
         );
-        setMenu(result.menu);
-        setPublication(result.publication);
+        setMenu(keepIfSame(result.menu));
+        setPublication(keepIfSame(result.publication));
         // Media is read after the menu; meanwhile the previous photos stay on screen.
         const nextMedia =
           mediaRef.current?.version === result.publication?.version
@@ -213,7 +219,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
             : interimMedia(mediaRef.current, result.media);
         mediaRef.current = nextMedia;
         setMedia(nextMedia);
-        setConnectedCatalog(testCatalog);
+        setConnectedCatalog(keepIfSame(testCatalog));
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
           const legacy = result.publication && !restoration.current.publication;
@@ -259,14 +265,15 @@ export function MobileProvider({ children }: { children: ReactNode }) {
                 newTotal: changes.newTotal,
               }));
             }
-            return repriced.cart;
+            // The same basket after a re-read keeps its array (no render of the cart).
+            return sameContent(previous, repriced.cart) ? previous : repriced.cart;
           });
         } else if (changed && modeRef.current === 'server') setCart([]);
-        setConnection({
-          status: 'online',
-          checkedAt: new Date().toISOString(),
-          message: null,
-        });
+        setConnection((previous) =>
+          previous.status === 'online' && previous.message === null
+            ? previous
+            : { status: 'online', checkedAt: new Date().toISOString(), message: null },
+        );
       },
       onFailure: (_error, background) => {
         // A failed background re-read keeps the loaded menu; activation and retries still report.
@@ -331,9 +338,14 @@ export function MobileProvider({ children }: { children: ReactNode }) {
             : serverProducts(menu, locale),
     [catalogMode, menu, locale, connectedCatalog, publication, media],
   );
-  const products = useMemo(
-    () => withAvailability(baseProducts, catalogMode === 'server' ? availability.data : null),
-    [baseProducts, availability, catalogMode],
+  const availabilityData = catalogMode === 'server' ? availability.data : null;
+  // Unchanged dishes keep their objects across re-reads, so memoised cards skip the render.
+  const products = useSharedItems(
+    useMemo(
+      () => withAvailability(baseProducts, availabilityData),
+      [baseProducts, availabilityData],
+    ),
+    productKey,
   );
   const branch =
     branches.find((candidate) => candidate.id === requestedBranchId) ?? branches[0] ?? null;
@@ -458,6 +470,19 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     !combo.progress.commercial.reconciliationRequired
       ? cart[giftItemIndex]!.product.priceMinor
       : '0';
+  const modelCart = useSharedItems(
+    useMemo(
+      () =>
+        cart.map((line) => ({
+          ...line,
+          product: publication
+            ? withAvailability([line.product], availability.data)[0]!
+            : (products.find((p) => p.id === line.product.id) ?? line.product),
+        })),
+      [cart, publication, availability.data, products],
+    ),
+    cartLineKey,
+  );
   const model: MobileModel = {
     comboRewards: combo.enabled
       ? {
@@ -518,12 +543,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           ? connectedCatalog.upsell_product_ids
           : ['toast', 'sauce', 'cola'],
     recentCartProductIds: recentProducts,
-    cart: cart.map((line) => ({
-      ...line,
-      product: publication
-        ? withAvailability([line.product], availability.data)[0]!
-        : (products.find((p) => p.id === line.product.id) ?? line.product),
-    })),
+    cart: modelCart,
     ...catalogAvailability(availability, catalogMode === 'server'),
     catalogMode,
     diningMode,
