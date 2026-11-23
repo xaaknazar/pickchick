@@ -126,19 +126,18 @@ export function CompletedOrderScreen({
             ) : null}
             <Caption style={s.muted}>
               {localize(order.serviceMode === 'takeaway' ? 'С собой' : 'В зале')}
-              {preparationMinutes !== null ? (
-                <Caption testID="completed-order-duration" style={s.muted}>
-                  {localize(' · ')}
-                  {t('Приготовление:')}
-                  {localize(' ')}
-                  {localize(
-                    preparationMinutes < 1
-                      ? 'меньше минуты'
-                      : t('{p0} мин', { p0: preparationMinutes }),
-                  )}
-                </Caption>
-              ) : null}
             </Caption>
+            {preparationMinutes !== null ? (
+              <Caption testID="completed-order-duration" style={s.muted}>
+                {t('Приготовление:')}
+                {localize(' ')}
+                {localize(
+                  preparationMinutes < 1
+                    ? 'меньше минуты'
+                    : t('{p0} мин', { p0: preparationMinutes }),
+                )}
+              </Caption>
+            ) : null}
           </View>
         </View>
 
