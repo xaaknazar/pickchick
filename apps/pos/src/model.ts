@@ -499,7 +499,76 @@ export type State = {
   terminal: TerminalPayment | null;
   /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
   terminalOpen: TerminalPayment[];
+  /**
+   * 23.11: every order of the branch (desk, app, kiosk, aggregators) for the days chosen in
+   * «Заказы»; null until read, and while the edge has no such route (branchOrdersMissing).
+   */
+  branchOrders: BranchOrders | null;
+  branchOrdersMissing: boolean;
 };
+export type BranchOrder = {
+  order_id: string;
+  number: string | null;
+  created_at: string;
+  channel: 'pos' | 'mobile' | 'kiosk' | 'yandex_eda' | 'glovo';
+  external_number: string | null;
+  service_mode: 'takeaway' | 'dine_in';
+  display_name: string | null;
+  total_minor: string;
+  state: string;
+  paid: boolean;
+  desk: boolean;
+  lines: { title: string; quantity: number }[];
+};
+export type BranchOrders = {
+  from: string;
+  to: string;
+  truncated: boolean;
+  orders: BranchOrder[];
+};
+const DAY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+const BRANCH_CHANNELS = ['pos', 'mobile', 'kiosk', 'yandex_eda', 'glovo'];
+/** GET pos/branch-orders, checked field by field: nothing unexpected reaches the screen. */
+export function parseBranchOrders(value: unknown, from: string, to: string): BranchOrders {
+  const v = value as Record<string, unknown>;
+  if (!v || v.from !== from || v.to !== to || !Array.isArray(v.orders) || v.orders.length > 2000)
+    throw new Error('INVALID_RESPONSE');
+  const text = (x: unknown, max = 200) => (typeof x === 'string' && x.length <= max ? x : null);
+  const orders = v.orders.map((raw) => {
+    const o = raw as Record<string, unknown>;
+    const id = text(o.order_id, 36),
+      at = text(o.created_at, 40),
+      total = text(o.total_minor, 17);
+    if (
+      !id ||
+      !at ||
+      !Number.isFinite(Date.parse(at)) ||
+      !total ||
+      !/^(0|[1-9][0-9]*)$/.test(total) ||
+      !BRANCH_CHANNELS.includes(o.channel as string) ||
+      !Array.isArray(o.lines)
+    )
+      throw new Error('INVALID_RESPONSE');
+    return {
+      order_id: id,
+      number: text(o.number, 20),
+      created_at: at,
+      channel: o.channel as BranchOrder['channel'],
+      external_number: text(o.external_number, 40),
+      service_mode: o.service_mode === 'dine_in' ? 'dine_in' : 'takeaway',
+      display_name: text(o.display_name, 40),
+      total_minor: total,
+      state: text(o.state, 30) ?? '',
+      paid: o.paid === true,
+      desk: o.desk === true,
+      lines: (o.lines as Record<string, unknown>[]).slice(0, 100).map((l) => ({
+        title: text(l?.title, 200) ?? '',
+        quantity: Number.isInteger(l?.quantity) ? (l.quantity as number) : 1,
+      })),
+    } satisfies BranchOrder;
+  });
+  return { from, to, truncated: v.truncated === true, orders };
+}
 /** The terminal still decides: the cart stays as it is and nothing else is sent to it. */
 export const terminalActive = (t: TerminalPayment | null) =>
   Boolean(t && ['created', 'sending', 'wait', 'unknown'].includes(t.state));
@@ -517,6 +586,8 @@ const blankOperations = () => ({
   saleReceipts: {},
   terminal: null as TerminalPayment | null,
   terminalOpen: [] as TerminalPayment[],
+  branchOrders: null as BranchOrders | null,
+  branchOrdersMissing: false,
 });
 /** GET pos/sales/{id} reads for the receipt state of the "ЗАКАЗЫ" rows, at most per call. */
 export const RECEIPT_READS = 10;
@@ -2306,6 +2377,31 @@ export class PosController {
     if (this.state.saleReceipts[sale.order_id] === receipt.state) return false;
     this.state.saleReceipts = { ...this.state.saleReceipts, [sale.order_id]: receipt.state };
     return true;
+  }
+  private branchReading = false;
+  /**
+   * «Заказы» (23.11): every order of the branch from `from` to `to` (Almaty days). An edge
+   * without the route (404) keeps the desk's own list (branchOrdersMissing).
+   */
+  async refreshBranchOrders(from: string, to: string) {
+    if (!this.credential || this.branchReading || this.state.branchOrdersMissing) return;
+    if (!DAY_TEXT.test(from) || !DAY_TEXT.test(to)) return;
+    this.branchReading = true;
+    const epoch = this.generation;
+    try {
+      const value = await this.request(`pos/branch-orders?from=${from}&to=${to}`);
+      if (epoch !== this.generation) return;
+      this.state.branchOrders = parseBranchOrders(value, from, to);
+      this.emit();
+    } catch (error) {
+      if (epoch !== this.generation) return;
+      if (error instanceof ApiError && error.status === 404) {
+        this.state.branchOrdersMissing = true;
+        this.emit();
+      } else if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+    } finally {
+      this.branchReading = false;
+    }
   }
   /**
    * "ЗАКАЗЫ" in the paid mode (CR client-5): the Webkassa state of the sale receipt of each

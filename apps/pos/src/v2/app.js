@@ -2,7 +2,8 @@ import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
-import { OpsView, ordersDay, paidDayStats, receiptRow } from './ops-view.js';
+import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
+import { almatyToday, openRangeDialog, rangeLabel, stepRange } from './day-range.js';
 import {
   PAID_TEXTS,
   awaitingValues,
@@ -82,8 +83,10 @@ let lastRender = '',
   commentPurpose = 'order',
   errorShown = '',
   menuNoticeShown = 0,
-  // Days from today on the «Заказы» screen; 0 stays today after midnight too (ordersDay).
-  dayOffset = 0;
+  // Days of the «Заказы» screen (day-range.js); null is today and stays today after midnight.
+  dayRange = null,
+  // The days last asked of GET pos/branch-orders, so a render asks once per choice.
+  branchAsked = '';
 // 4 by default; 6 once the operator re-enrolled every PIN of the branch (6.5).
 const pinLength = config.pinLength === 6 ? 6 : 4;
 reference.setState({ pinLength });
@@ -192,6 +195,11 @@ function openModifier(product, line) {
     },
     wiz: null,
   });
+}
+/** Select the line model.configure just wrote: it always puts that line last. */
+function selectLast() {
+  const last = model.state.error ? null : model.state.draft?.items.at(-1);
+  if (last) reference.setState({ sel: lineKey(last) });
 }
 function openWizard(product) {
   modifier = product;
@@ -439,6 +447,9 @@ function draw() {
       line: l,
     };
   });
+  // −, + and × act on the selected line. A line just added is selected (model.configure puts
+  // it last); when the selected line is gone, the last line is, so the buttons never do nothing.
+  if (!s.cart.some((l) => l.key === s.sel)) s.sel = s.cart.at(-1)?.key ?? null;
   s.mode = m.draft?.service_mode === 'dine_in' ? 'dine' : 'take';
   s.comment = m.draft?.details?.kitchen_comment ?? '';
   if (!s.guestOpen) s.board = m.draft?.details?.display_name ?? '';
@@ -499,9 +510,13 @@ function draw() {
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
-    dayDateLabel: date(ordersDay(dayOffset) + 'T12:00:00+05:00'),
+    dayDateLabel: rangeLabel(daysShown()),
     dayPrevious: () => changeDay(-1),
     dayNext: () => changeDay(1),
+    // 23.11: a day, a period or a month in the calendar; never days after today.
+    dayPick: () => openRangeDialog(daysShown(), almatyToday(), pickDays),
+    // The arrow fades once the days shown reach today.
+    dayNextFg: daysShown().to < almatyToday() ? 'var(--n600)' : 'var(--n300)',
     pinKeys: pinKeys('pin'),
     closePinKeys: pinKeys('closePin', true),
     pinError: signing ? 'Проверяем PIN...' : s.pinErr,
@@ -733,7 +748,10 @@ function draw() {
         }
         if (p.party) openWizard(p.product);
         else if (p.product.modifier_groups?.length) openModifier(p.product);
-        else model.configure(p.variant, [], 1);
+        else {
+          model.configure(p.variant, [], 1);
+          selectLast();
+        }
       }),
     };
   });
@@ -812,6 +830,7 @@ function draw() {
         if (price === null) return;
         model.configure(modifier.variant_id, chosen, portions, previousKey ?? undefined);
         if (!model.state.error) {
+          selectLast();
           modifier = null;
           reference.setState({ mod: null });
         }
@@ -860,6 +879,7 @@ function draw() {
         }, []),
       });
       if (!model.state.error) {
+        reference.state.sel = lineKey(additions[0]);
         modifier = null;
         reference.setState({ wiz: null });
       }
@@ -924,7 +944,7 @@ function draw() {
     });
   }
   const rows = dayOrders();
-  v.dayRows = rows.map((o) => ({
+  const deskRow = (o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
     // No row is called a test; "Без оплаты" says what an unpaid row is.
@@ -968,7 +988,8 @@ function draw() {
     canSwapMode: false,
     modeLabel: o.snapshot.service_mode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ',
     modeFg: 'var(--blue)',
-  }));
+  });
+  v.dayRows = rows.map(deskRow);
   v.dayStats = [
     ['ВСЕ ЗАКАЗЫ', rows],
     ['ЗАЛ И НАВЫНОС', rows],
@@ -996,6 +1017,23 @@ function draw() {
     // takings: the cards say so, takings are in the X report.
     v.dayStats = paidDayStats(rows);
   }
+  // 23.11 owner: every order of the branch, whatever its channel, once the cashier server
+  // answers GET pos/branch-orders for the days shown; a desk order keeps its card and receipt.
+  if (s.tab === 'orders') readBranch();
+  const branch = branchShown();
+  if (branch) {
+    const desk = new Map(m.orders.map((o) => [o.order_id, o]));
+    const listed = branch.orders.filter(
+      (b) => s.dayFilter === 'all' || BRANCH_CHANNELS[b.channel].filter === s.dayFilter,
+    );
+    v.dayRows = listed.map((b) =>
+      desk.has(b.order_id) ? deskRow(desk.get(b.order_id)) : branchRow(b, paid),
+    );
+    v.dayStats = branchDayStats(listed);
+    v.dayTotal = ordersCount(listed.length) + (branch.truncated ? ' · первые 2000' : '');
+    v.dayEmpty = listed.length === 0;
+  }
+  v.dayFilters = dayFilterChips(Boolean(branch) || !m.branchOrdersMissing);
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
       p,
@@ -1086,7 +1124,11 @@ function draw() {
     else void document.documentElement.requestFullscreen();
   };
   root.querySelector('.topbar')?.append(fullscreen);
-  if (m.pending) {
+  // The journal names every request before it is sent, so m.pending is set for the whole
+  // flight of an ordinary request (a stop-list toggle too). Only once nothing is in flight
+  // is the result really unknown (23.11: the panel flashed on every stop-list tap). While the
+  // desk starts it stays on screen, disabled, until startup can check it.
+  if (m.pending && (starting || !m.busy)) {
     const box = document.createElement('div');
     box.className = 'recovery';
     const text = document.createElement('span');
@@ -1153,18 +1195,191 @@ function dayChannel(o) {
     }
   );
 }
-/** Orders of the day chosen in "ЗАКАЗЫ" (this desk's; a shift manager's are the branch's). */
+/**
+ * Every channel of GET pos/branch-orders (23.11 owner: «видеть все заказы»): the desk (hall,
+ * takeaway and the aggregators entered at the desk), the app and the kiosk.
+ */
+const BRANCH_CHANNELS = Object.freeze({
+  pos: { filter: 'pos', label: 'КАССА', color: 'var(--blue)' },
+  // The channel column is 132 px: «ПРИЛОЖЕНИЕ» was cut to «ПРИЛОЖ…».
+  mobile: { filter: 'app', label: 'ПРИЛОЖ.', color: '#6A3FB5' },
+  kiosk: { filter: 'kiosk', label: 'КИОСК', color: '#B4530A' },
+  yandex_eda: DAY_CHANNELS.yandex_eda,
+  glovo: DAY_CHANNELS.glovo,
+});
+const BRANCH_STATES = Object.freeze({
+  accepted: 'На кухне',
+  in_production: 'Готовится',
+  ready: 'Готов к выдаче',
+  handed_over: 'Выдан',
+  cancel_requested: 'Ожидает отмены',
+  cancelled: 'Отменён',
+});
+/** The chips over the list; the app and kiosk ones once the server lists the whole branch. */
+function dayFilterChips(branch) {
+  const s = reference.state;
+  return [
+    ['all', 'Все'],
+    ['pos', 'Касса'],
+    ...(branch
+      ? [
+          ['app', 'Приложение'],
+          ['kiosk', 'Киоск'],
+        ]
+      : []),
+    ['ya', 'Яндекс Еда'],
+    ['glovo', 'Glovo'],
+  ].map(([key, label]) => ({
+    label,
+    bg: s.dayFilter === key ? 'var(--blue)' : '#fff',
+    fg: s.dayFilter === key ? '#fff' : 'var(--n900)',
+    pick: () => reference.setState({ dayFilter: key }),
+  }));
+}
+/** The days shown: today unless the cashier chose a day, a period or a month. */
+function daysShown() {
+  const today = almatyToday();
+  return dayRange && dayRange.from <= today ? dayRange : { mode: 'day', from: today, to: today };
+}
+/** GET pos/branch-orders of the days shown; null until it answers (the desk list meanwhile). */
+function branchShown() {
+  const b = model.state.branchOrders,
+    d = daysShown();
+  return b && b.from === d.from && b.to === d.to ? b : null;
+}
+/** Asks the cashier server for the days shown; `again` for the 3 s refresh. */
+function readBranch(again = false) {
+  const d = daysShown(),
+    key = d.from + '/' + d.to;
+  if (!again && branchAsked === key) return;
+  branchAsked = key;
+  if (model.state.actor && !model.state.branchOrdersMissing)
+    void model.refreshBranchOrders(d.from, d.to).then(() => schedule());
+}
+/** A row of an order the desk did not enter (app, kiosk) or no longer lists: read-only. */
+function branchRow(b, paid) {
+  const ch = BRANCH_CHANNELS[b.channel];
+  return {
+    no: b.number ?? b.order_id.slice(0, 8),
+    time: time(b.created_at),
+    channel: ch.label,
+    chBg: ch.color,
+    guest: b.display_name || '-',
+    items: b.lines.map((l) => l.title + ' ×' + l.quantity).join(', '),
+    sum: money(b.total_minor),
+    pay: b.paid ? 'Оплачен' : 'Без оплаты',
+    status: BRANCH_STATES[b.state] ?? '-',
+    stBg: b.state === 'ready' ? '#12833F' : 'var(--n100)',
+    stFg: b.state === 'ready' ? '#fff' : 'var(--n900)',
+    fiscal: 'var(--n300)',
+    fiscalLabel: b.desk ? (paid ? '-' : 'без чека') : 'онлайн',
+    rowBg: '#fff',
+    canRefund: false,
+    // A desk order of an earlier day opens as the desk's own; the others show what they hold.
+    open: safe(() =>
+      b.desk
+        ? model.saleMode && b.paid
+          ? ops.openCard(b.order_id)
+          : orderDialog(b.order_id)
+        : branchDialog(b),
+    ),
+    reprint: !b.desk
+      ? () => say('Чек заказа из приложения и киоска выдаёт приложение')
+      : !paid
+        ? unavailable
+        : !b.paid
+          ? () => say(PAID_TEXTS.unpaidReceipt)
+          : model.saleMode
+            ? safe(() => ops.printReceipt(b.order_id))
+            : () => say(PAID_TEXTS.kitchenWait),
+    note: '',
+    hasNote: false,
+    canEditNote: false,
+    canSwapMode: false,
+    modeLabel: b.service_mode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ',
+    modeFg: 'var(--blue)',
+  };
+}
+/** Order sums of the listed branch orders; cancelled orders bring no money. */
+function branchDayStats(orders) {
+  const live = orders.filter((o) => o.state !== 'cancelled' && o.state !== 'cancel_requested');
+  const stat = (label, list) => {
+    const sum = list.reduce((n, o) => n + BigInt(o.total_minor), 0n);
+    return {
+      label,
+      note: 'Сумма заказов',
+      color: 'var(--blue)',
+      orders: String(list.length),
+      revenue: money(sum.toString()),
+      avg: list.length ? money((sum / BigInt(list.length)).toString()) : '-',
+      share: 'Без отменённых заказов',
+    };
+  };
+  const delivery = (o) => o.channel === 'yandex_eda' || o.channel === 'glovo';
+  return [
+    stat('ВСЕ ЗАКАЗЫ', live),
+    stat(
+      'КАССА, ПРИЛОЖЕНИЕ, КИОСК',
+      live.filter((o) => !delivery(o)),
+    ),
+    stat('ДОСТАВКА', live.filter(delivery)),
+  ];
+}
+function branchDialog(b) {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'order-dialog';
+  const title = document.createElement('h2');
+  title.textContent = 'Заказ № ' + (b.number ?? b.order_id.slice(0, 8));
+  const state = document.createElement('p');
+  state.textContent = [
+    BRANCH_CHANNELS[b.channel].label,
+    BRANCH_STATES[b.state] ?? '-',
+    b.paid ? 'оплачен' : 'без оплаты',
+    b.service_mode === 'dine_in' ? 'в зале' : 'с собой',
+  ].join(' · ');
+  state.dataset.testid = 'order-status';
+  const list = document.createElement('div');
+  for (const line of b.lines) {
+    const row = document.createElement('p');
+    row.textContent = line.title + ' × ' + line.quantity;
+    list.append(row);
+  }
+  const total = document.createElement('p');
+  total.textContent =
+    'Сумма: ' + money(b.total_minor) + (b.display_name ? ' · ' + b.display_name : '');
+  const actions = document.createElement('div');
+  actions.className = 'cash-actions';
+  const close = document.createElement('button');
+  close.textContent = 'Закрыть';
+  close.onclick = () => dialog.close();
+  actions.append(close);
+  dialog.append(title, state, list, total, actions);
+  dialog.onclose = () => dialog.remove();
+  document.body.append(dialog);
+  dialog.showModal();
+}
+/** Desk orders of the days shown (this desk's; a shift manager's are the branch's). */
 function dayOrders() {
   const s = reference.state,
-    day = ordersDay(dayOffset);
-  return model.state.orders.filter(
-    (o) =>
+    d = daysShown();
+  return model.state.orders.filter((o) => {
+    const day = new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
+    return (
       (s.dayFilter === 'all' || dayChannel(o).filter === s.dayFilter) &&
-      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) === day,
-  );
+      day >= d.from &&
+      day <= d.to
+    );
+  });
 }
-function changeDay(days) {
-  dayOffset += days;
+function changeDay(direction) {
+  // Orders exist only up to today: «›» on today does nothing (23.11 owner).
+  const next = stepRange(daysShown(), direction, almatyToday());
+  if (next) pickDays(next);
+}
+function pickDays(range) {
+  const today = almatyToday();
+  dayRange = range.mode === 'day' && range.from === today ? null : range;
+  readBranch();
   schedule();
 }
 function showReason() {
@@ -1325,8 +1540,10 @@ setInterval(() => {
     void Promise.all([model.refreshOperations(), model.refreshStops()]).then(async () => {
       if (blocked()) return;
       // Paid mode only (no request otherwise): Webkassa states of the rows on screen.
-      if (reference.state.tab === 'orders')
+      if (reference.state.tab === 'orders') {
+        readBranch(true);
         await model.refreshSaleReceipts(dayOrders().map((o) => o.order_id));
+      }
       if (!blocked()) await model.syncMenu();
     });
 }, 3000);

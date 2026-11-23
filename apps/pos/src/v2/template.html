@@ -2111,7 +2111,7 @@
           >
             <div class="orders-toolbar" style="display: flex; align-items: center; gap: 12px">
               <div style="font-family: Montserrat, sans-serif; font-weight: 800; font-size: 32px">
-                Последние заказы
+                Заказы
               </div>
               <div
                 class="orders-date"
@@ -2129,9 +2129,12 @@
                 "
               >
                 <span onClick="{{ dayPrevious }}" style="color: var(--n600); padding: 14px">‹</span
-                >{{ dayDateLabel }}<span
-                  onClick="{{ dayNext }}"
-                  style="color: var(--n600); padding: 14px"
+                ><span
+                  onClick="{{ dayPick }}"
+                  data-testid="day-pick"
+                  style="padding: 14px 4px; cursor: pointer; white-space: nowrap"
+                  >{{ dayDateLabel }} ▾</span
+                ><span onClick="{{ dayNext }}" style="color: {{ dayNextFg }}; padding: 14px"
                   >›</span
                 >
               </div>
@@ -5372,9 +5375,11 @@
               <sc-for list="{{ saleTerminalSteps }}" as="t" hint-placeholder-count="3">
                 <div class="sale-step">{{ t }}</div>
               </sc-for>
-              <div onClick="{{ saleTerminalDecline }}" class="sale-button sale-secondary">
-                Терминал отклонил
-              </div>
+              <sc-if value="{{ saleTerminalDeclineLabel }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ saleTerminalDecline }}" class="sale-button sale-secondary">
+                  {{ saleTerminalDeclineLabel }}
+                </div>
+              </sc-if>
             </div>
           </sc-if>
           <sc-if value="{{ salePanelManual }}" hint-placeholder-val="{{ false }}">

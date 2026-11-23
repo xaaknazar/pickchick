@@ -1416,6 +1416,13 @@ button:focus-visible {
   flex-direction: column;
   gap: 14px;
 }
+/* 23.11: a button among the steps keeps its own size; stretched over the empty panel it
+   read as the terminal's answer («Терминал отклонил») while the guest was still paying. */
+.sale-steps > .sale-button {
+  flex: none;
+  align-self: flex-start;
+  min-width: 320px;
+}
 .sale-step {
   font-size: 22px;
   font-weight: 600;
@@ -1834,4 +1841,78 @@ button:focus-visible {
 .ops-danger {
   border-color: #e3a19b;
   color: #b42318;
+}
+
+/* «Заказы» calendar (23.11): a day, a period or a month; days after today are disabled. */
+.day-dialog {
+  width: min(600px, 92vw);
+  padding: 20px 24px;
+}
+/* The whole month fits a 768 px high screen: smaller buttons than the other dialogs. */
+.day-dialog button {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 16px;
+}
+.day-dialog .day-tabs,
+.day-dialog .day-quick,
+.day-dialog .day-months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.day-dialog .day-tabs button {
+  flex: 1;
+}
+.day-dialog button {
+  background: #fff;
+  color: var(--n900, #001943);
+  border: 2px solid var(--n300, #c9d1de);
+}
+.day-dialog button.selected {
+  background: #0047bb;
+  border-color: #0047bb;
+  color: #fff;
+}
+.day-dialog button:disabled {
+  color: #b5bfcd;
+  border-color: #eef1f5;
+}
+.day-dialog .day-months button {
+  flex: 1 1 30%;
+}
+.day-dialog .day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.day-dialog .day-head strong {
+  font-size: 20px;
+}
+.day-dialog .day-hint {
+  color: #56647b;
+  margin: 4px 0 6px;
+}
+.day-dialog .day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.day-dialog .day-grid span {
+  text-align: center;
+  color: #56647b;
+  font-weight: 600;
+}
+.day-dialog .day-grid button {
+  min-height: 42px;
+  padding: 0;
+}
+.day-dialog .day-grid button.today {
+  border-color: #ff6b00;
+}
+.day-dialog .day-grid button.selected.today {
+  border-color: #0047bb;
 }

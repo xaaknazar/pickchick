@@ -24,7 +24,15 @@ import {
   printMessage,
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
-import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
+import { RECEIPT_READS, parseBranchOrders } from '../../apps/pos/dist/model.js';
+import {
+  MAX_RANGE_DAYS,
+  monthGrid,
+  normalizeRange,
+  quickRanges,
+  rangeLabel,
+  stepRange,
+} from '../../apps/pos/dist/v2/day-range.js';
 import { ordersDay, receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   DESK_MODE_KEY,
@@ -4768,9 +4776,12 @@ test('Kaspi terminal linked: the pay screen sends, waits and blocks going back',
   view.setState({ screen: 'pay', method: 'kaspi_terminal' });
   let values = view.payValues();
   assert.match(values.salePayLabel, /^Отправить .* на терминал$/);
+  assert.equal(values.saleTerminalDeclineLabel, 'Другой способ оплаты');
   await values.salePayConfirm();
   values = view.payValues();
   assert.equal(values.salePayLabel, 'Ждём оплату на терминале…');
+  // 23.11: while the guest pays nothing on screen reads like the terminal's answer.
+  assert.equal(values.saleTerminalDeclineLabel, false);
   assert.equal(values.salePayDisabled, 'true');
   view.values().salePayBack();
   assert.equal(view.state.screen, 'pay', 'the order stays on screen while the terminal decides');
@@ -4780,4 +4791,158 @@ test('Kaspi terminal linked: the pay screen sends, waits and blocks going back',
   assert.equal(view.state.screen, 'done');
   assert.ok(model.state.sale);
   assert.equal(said.length, 0, said.join('; '));
+});
+
+// ---- 23.11 owner: «Заказы» lists every order of the branch for a day, a period or a month ----
+const branchOrder = (over = {}) => ({
+  order_id: randomUUID(),
+  number: '12',
+  created_at: '2026-11-23T05:00:00.000Z',
+  channel: 'mobile',
+  external_number: null,
+  service_mode: 'takeaway',
+  display_name: 'Аня',
+  total_minor: '349000',
+  state: 'ready',
+  paid: true,
+  desk: false,
+  lines: [{ title: 'Комбо', quantity: 2 }],
+  ...over,
+});
+
+test('days of ЗАКАЗЫ: never after today, a period up to 31 days, a month cut at today', () => {
+  const today = '2026-11-23';
+  assert.equal(normalizeRange({ mode: 'day', from: '2026-11-24', to: '2026-11-24' }, today), null);
+  assert.deepEqual(normalizeRange({ mode: 'range', from: '2026-11-25', to: '2026-11-20' }, today), {
+    mode: 'range',
+    from: '2026-11-20',
+    to: today,
+  });
+  assert.deepEqual(normalizeRange({ mode: 'range', from: '2026-11-05', to: '2026-11-05' }, today), {
+    mode: 'day',
+    from: '2026-11-05',
+    to: '2026-11-05',
+  });
+  assert.equal(MAX_RANGE_DAYS, 31);
+  assert.ok(normalizeRange({ mode: 'range', from: '2026-10-24', to: today }, today));
+  assert.equal(normalizeRange({ mode: 'range', from: '2026-10-23', to: today }, today), null);
+  assert.deepEqual(normalizeRange({ mode: 'month', from: '2026-11-01', to: '2026-11-30' }, today), {
+    mode: 'month',
+    from: '2026-11-01',
+    to: today,
+  });
+  // «›» on today stays; «‹» goes back a day, a month, a period of the same length.
+  const day = { mode: 'day', from: today, to: today };
+  assert.equal(stepRange(day, 1, today), null);
+  assert.deepEqual(stepRange(day, -1, today), {
+    mode: 'day',
+    from: '2026-11-22',
+    to: '2026-11-22',
+  });
+  const month = { mode: 'month', from: '2026-11-01', to: today };
+  assert.deepEqual(stepRange(month, -1, today), {
+    mode: 'month',
+    from: '2026-10-01',
+    to: '2026-10-31',
+  });
+  assert.equal(stepRange(month, 1, today), null);
+  assert.deepEqual(
+    stepRange({ mode: 'month', from: '2026-10-01', to: '2026-10-31' }, 1, today),
+    month,
+  );
+  const week = { mode: 'range', from: '2026-11-17', to: today };
+  assert.deepEqual(stepRange(week, -1, today), {
+    mode: 'range',
+    from: '2026-11-10',
+    to: '2026-11-16',
+  });
+  assert.equal(stepRange(week, 1, today), null);
+  assert.equal(rangeLabel(day), '23 ноября 2026');
+  assert.equal(rangeLabel(week), '17 – 23 ноября 2026');
+  assert.equal(rangeLabel(month), 'Ноябрь 2026');
+  assert.equal(
+    rangeLabel({ mode: 'range', from: '2026-10-28', to: '2026-11-03' }),
+    '28 октября – 3 ноября 2026',
+  );
+  assert.deepEqual(
+    quickRanges(today).map(([label, r]) => [label, r.from, r.to]),
+    [
+      ['Сегодня', today, today],
+      ['Вчера', '2026-11-22', '2026-11-22'],
+      ['7 дней', '2026-11-17', today],
+      ['Этот месяц', '2026-11-01', today],
+      ['Прошлый месяц', '2026-10-01', '2026-10-31'],
+    ],
+  );
+  // November 2026 starts on a Sunday: six empty cells before the 1st.
+  const weeks = monthGrid('2026-11');
+  assert.deepEqual(weeks[0], [null, null, null, null, null, null, '2026-11-01']);
+  assert.ok(weeks.every((w) => w.length === 7));
+  assert.equal(weeks.flat().filter(Boolean).length, 30);
+});
+
+test('GET pos/branch-orders is checked field by field', () => {
+  const ok = { from: '2026-11-01', to: '2026-11-23', truncated: false, orders: [branchOrder()] };
+  const parsed = parseBranchOrders(ok, '2026-11-01', '2026-11-23');
+  assert.equal(parsed.orders[0].channel, 'mobile');
+  assert.equal(parsed.orders[0].lines[0].title, 'Комбо');
+  assert.throws(() => parseBranchOrders(ok, '2026-11-02', '2026-11-23'), /INVALID_RESPONSE/);
+  for (const bad of [
+    { channel: 'wolt' },
+    { total_minor: '-1' },
+    { total_minor: 12 },
+    { created_at: 'вчера' },
+    { order_id: null },
+    { lines: null },
+  ])
+    assert.throws(
+      () => parseBranchOrders({ ...ok, orders: [branchOrder(bad)] }, ok.from, ok.to),
+      /INVALID_RESPONSE/,
+      JSON.stringify(bad),
+    );
+  // Unknown extra text is cut to null, not shown.
+  const long = parseBranchOrders(
+    { ...ok, orders: [branchOrder({ display_name: 'x'.repeat(41), number: null })] },
+    ok.from,
+    ok.to,
+  );
+  assert.equal(long.orders[0].display_name, null);
+  assert.equal(long.orders[0].number, null);
+});
+
+test('ЗАКАЗЫ reads the whole branch; an edge without the route keeps the desk list', async () => {
+  const edge = saleEdge();
+  const app = branchOrder();
+  let answer = 'ok';
+  const calls = [];
+  const branchEdge = {
+    ...edge,
+    api: async (path, auth, options) => {
+      if (!path.startsWith('pos/branch-orders')) return edge.api(path, auth, options);
+      calls.push(path);
+      if (answer === 'missing') throw new ApiError('NOT_FOUND', 404);
+      if (answer === 'down') throw new ApiError('UNAVAILABLE', 503);
+      return { from: '2026-11-01', to: '2026-11-23', truncated: false, orders: [app] };
+    },
+  };
+  const model = await saleCashier(branchEdge);
+  assert.equal(model.state.branchOrders, null);
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.deepEqual(calls, ['pos/branch-orders?from=2026-11-01&to=2026-11-23']);
+  assert.equal(model.state.branchOrders.orders[0].order_id, app.order_id);
+  // Not a day: nothing is asked.
+  await model.refreshBranchOrders('1 ноября', '2026-11-23');
+  assert.equal(calls.length, 1);
+  // A dropped connection keeps the last list and the error banner stays away.
+  answer = 'down';
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(model.state.branchOrders.orders.length, 1);
+  assert.equal(model.state.error, null);
+  // A cashier server still without the route: the desk list, and no more asks.
+  answer = 'missing';
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(model.state.branchOrdersMissing, true);
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(calls.length, 3);
+  assert.equal(model.state.error, null);
 });

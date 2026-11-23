@@ -7,6 +7,8 @@ import {
   MENU_MEDIA_PATH,
   SALE_ROUTES,
   SHIFT_FILTERED,
+  DAY_RANGE_PATH,
+  DAY_RANGE_QUERY,
   createMenuMediaCache,
   menuMediaResponse,
 } from '../pos-desktop/protocol.mjs';
@@ -19,10 +21,12 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const SALE_READS = SALE_ROUTES.read.join('|');
 const SALE_WRITES = SALE_ROUTES.write.join('|');
 const FILTERED = SHIFT_FILTERED.map((path) => `${path}\\?shift_id=${UUID}`).join('|');
+// 23.11: «Заказы» of every channel between two days (pos-desktop protocol.mjs).
+const DAY_RANGE = `${DAY_RANGE_PATH}${DAY_RANGE_QUERY}`;
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|${DAY_RANGE}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
         'i',
       ).test(path)
     : method === 'POST' &&
