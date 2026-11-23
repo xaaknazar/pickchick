@@ -43,6 +43,12 @@ export interface BackofficeOptions {
   /** A bank refund adapter consumes refund.submit_requested. None exists yet: never from env. */
   refundAdapterEnabled?: boolean;
   /**
+   * BACKOFFICE_TIPTOPPAY_REFUNDS_ENABLED: «Запросить возврат» for payments of the TipTopPay
+   * account; the TipTopPay worker (tiptoppay-worker.ts) sends them to the bank. Kaspi payments
+   * keep the manual path. Default off.
+   */
+  tipTopPayRefundsEnabled?: boolean;
+  /**
    * BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED: a station publication becomes the next station
    * plan version for the cashier edge (cloud070), and the edge pull/receipt routes answer.
    * Default off; needs stationPlanGrants on the API role.
@@ -101,6 +107,7 @@ export function backofficeOptions(
   return {
     remoteStopsEnabled: flag(env, 'BACKOFFICE_REMOTE_STOPS_ENABLED'),
     manualRefundsEnabled: flag(env, 'BACKOFFICE_MANUAL_REFUNDS_ENABLED'),
+    tipTopPayRefundsEnabled: flag(env, 'BACKOFFICE_TIPTOPPAY_REFUNDS_ENABLED'),
     stationPlanDeliveryEnabled: flag(env, 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED'),
     rolesEnabled: flag(env, 'BACKOFFICE_ROLES_ENABLED'),
     stockV2Enabled: flag(env, 'BACKOFFICE_STOCK_V2_ENABLED'),

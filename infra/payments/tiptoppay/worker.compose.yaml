@@ -1,0 +1,32 @@
+# Exact CI-verified API image; TipTopPay LIVE reconciliation and refunds (tiptoppay-worker.ts).
+# The env file holds the same TIPTOPPAY_* keys as the API, the worker role's database URL and
+# nothing else; it is never in git.
+name: pickchick-tiptoppay-worker
+services:
+  worker:
+    image: pickchick-api:${API_RELEASE_SHA:?Set verified API SHA}
+    container_name: pickchick-tiptoppay-worker
+    networks: [pickchick]
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    command:
+      - node
+      - --env-file=/run/pickchick/tiptoppay-worker.env
+      - services/api/dist/tiptoppay-worker.js
+    volumes:
+      - ${TIPTOPPAY_SECRETS_DIR:?Set protected directory}/tiptoppay-worker.env:/run/pickchick/tiptoppay-worker.env:ro
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+networks:
+  pickchick:
+    external: true
+    name: ${PICKCHICK_NETWORK:?Set the API network name}
