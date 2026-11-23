@@ -55,6 +55,8 @@ const ru = {
   terminalOpenTitle: 'Нажмите «Отмена» на терминале',
   terminalOpenBody:
     'На терминале ещё прошлая сумма - не оплачивайте её. Отменить её с экрана нельзя: нажмите на терминале «Отмена», иначе он освободится сам за 3 минуты.',
+  menuNextSection: 'Дальше: {name}',
+  menuPrevSection: 'Назад: {name}',
   optionStopped: '«{name}» больше нет в наличии. Выберите другой вариант.',
   menuUpdatingTitle: 'Меню обновляется',
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
@@ -373,6 +375,8 @@ const kk: Strings = {
   terminalOpenTitle: 'Терминалда «Отмена» басыңыз',
   terminalOpenBody:
     'Терминалда әлі алдыңғы сома тұр - оны төлемеңіз. Оны экраннан болдырмау мүмкін емес: терминалда «Отмена» басыңыз, әйтпесе ол 3 минутта өзі босайды.',
+  menuNextSection: 'Келесі: {name}',
+  menuPrevSection: 'Алдыңғы: {name}',
   optionStopped: '«{name}» енді жоқ. Басқа нұсқаны таңдаңыз.',
   menuUpdatingTitle: 'Мәзір жаңартылып жатыр',
   menuUpdatingBody:
@@ -691,6 +695,8 @@ const en: Strings = {
   terminalOpenTitle: 'Press Cancel on the terminal',
   terminalOpenBody:
     'The terminal still shows the previous amount - do not pay it. It cannot be cancelled from this screen: press Cancel on the terminal, or it clears by itself within 3 minutes.',
+  menuNextSection: 'Next: {name}',
+  menuPrevSection: 'Back: {name}',
   optionStopped: '{name} is no longer available. Please choose another option.',
   menuUpdatingTitle: 'The menu is updating',
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',

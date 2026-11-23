@@ -219,6 +219,15 @@ export function fitTitle(text: string, width: number, base: number, min: number,
   return { size, lines: Math.max(lines, wrappedLines(text, width / (size * LETTER))) };
 }
 
+/**
+ * Lines `text` takes at `size` in a `width` column (the estimate `fitTitle` uses). A card whose
+ * name takes one line gives the spare line to its photo (owner 23.11.2026: «фото больше»).
+ */
+export function titleLines(text: string, width: number, size: number) {
+  if (!(width > 0) || !(size > 0)) return 2;
+  return wrappedLines(text, width / (size * LETTER));
+}
+
 /** A size or count at the end of a name: «0.5 л», «300 г», «1 шт» («— 0.5 л» drops the dash). */
 const CARD_AMOUNT = /\s*[-–—]?\s*(\d+(?:[.,]\d+)?\s*(?:мл|л|кг|г|шт|ml|l|kg|g|pcs)\.?)$/i;
 /**

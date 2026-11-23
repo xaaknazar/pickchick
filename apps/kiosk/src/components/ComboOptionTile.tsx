@@ -185,7 +185,12 @@ export function ComboOptionTile({
         }}
       >
         {photo ? (
-          <PhotoImage imageId={option.id} variant="option" />
+          <PhotoImage
+            imageId={option.id}
+            variant="option"
+            // A drink's published menu photo is fitted by the bottle, like the bundled ones.
+            fit={typeof photo.source === 'object'}
+          />
         ) : (
           <OptionMark id={option.id} name={name} />
         )}

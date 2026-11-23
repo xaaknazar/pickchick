@@ -6,7 +6,13 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { cardName, fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
+import {
+  cardName,
+  fitTitle,
+  titleLines,
+  type BadgeKind,
+  type CardSize,
+} from '../menu-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
@@ -125,6 +131,20 @@ export function ProductCard({
           : badge === 'recipe'
             ? t.recipeTag
             : null;
+  // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
+  // size. Owner 23.11.2026: a one-line name sits on the price («Finger Combo» floated above
+  // it), so the spare line stays above the name. The caption («0.5 л · в железной банке»)
+  // shares that room.
+  const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
+  // Owner 23.11.2026 («в разделе комбо сделать фотографии больше»): a fitted dish over a
+  // one-line name without a caption takes the empty line above the name too.
+  const spare =
+    fitted && !wide && !label.caption && cardWidth > 0 && title.lines <= 2
+      ? Math.max(
+          0,
+          nameRoom - Math.round(title.size * 1.16) * titleLines(label.title, column, title.size),
+        )
+      : 0;
   const photo = (
     <View
       style={{
@@ -137,9 +157,11 @@ export function ProductCard({
         // Owner 22.11.2026: the dish fills its tile (the photos read small with wider margins).
         // Owner 23.11.2026: a fitted dish fills the same box on every card, a little clear of
         // the edges and the name.
-        paddingTop: px(fitted ? 14 : largePick ? 4 : wide ? 18 : 10),
-        paddingBottom: px(fitted ? (wide ? 14 : 4) : largePick ? 0 : wide ? 18 : 0),
-        paddingHorizontal: px(fitted ? 12 : largePick ? 6 : wide ? 18 : 6),
+        // Owner 23.11.2026 (later): bigger still, so a fitted dish keeps only a thin margin.
+        paddingTop: px(fitted ? 8 : largePick ? 4 : wide ? 18 : 10),
+        paddingBottom: px(fitted ? (wide ? 10 : 2) : largePick ? 0 : wide ? 18 : 0),
+        paddingHorizontal: px(fitted ? 6 : largePick ? 6 : wide ? 18 : 6),
+        marginBottom: -spare,
       }}
     >
       <Animated.View
@@ -168,11 +190,6 @@ export function ProductCard({
       </Animated.View>
     </View>
   );
-  // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
-  // size. Owner 23.11.2026: a one-line name sits on the price («Finger Combo» floated above
-  // it), so the spare line stays above the name. The caption («0.5 л · в железной банке»)
-  // shares that room.
-  const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
   const caption = label.caption ? (
     <Text
       {...fixedText}

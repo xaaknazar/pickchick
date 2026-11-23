@@ -157,3 +157,41 @@ test('card illustrations bg1-bg4 are bundled', () => {
     assert.ok(existsSync(resolve(src, source)));
   });
 });
+
+test('owner 23.11: a combo drink option without its own photo shows its drink product photo', () => {
+  const sha = 'b'.repeat(64);
+  const product = (id, imageId, media) => ({
+    ...catalog.products.find((p) => p.id === 'cola'),
+    id,
+    image_id: imageId,
+    media,
+  });
+  const live = {
+    ...catalog,
+    products: [
+      ...catalog.products,
+      product('fanta-can', 'generic-drink', {
+        sha256: sha,
+        card: `/v1/media/catalog/${sha}.card.webp`,
+        hero: `/v1/media/catalog/${sha}.hero.webp`,
+        thumb: `/v1/media/catalog/${sha}.thumb.webp`,
+        cutout: true,
+      }),
+      product('fuse-lemon', 'generic-drink', undefined),
+    ],
+  };
+  assert.equal(assets.optionPhoto('fanta-can'), null, 'unknown before the catalog loads');
+  assets.rememberCatalogMedia(live);
+  try {
+    const can = assets.optionPhoto('fanta-can');
+    assert.match(can?.source?.uri ?? '', new RegExp(`${sha}\\.card\\.webp$`));
+    assert.equal(can.cutout, true);
+    // The catalog ids of the cola can and the iced tea have bundled option photos.
+    assertBundled(assets.optionPhoto('cola')?.source, 'cola option');
+    assertBundled(assets.optionPhoto('iced-tea')?.source, 'iced-tea option');
+    // Only the generic placeholder: the tile keeps the name mark, never another drink.
+    assert.equal(assets.optionPhoto('fuse-lemon'), null);
+  } finally {
+    assets.rememberCatalogMedia(null);
+  }
+});

@@ -128,6 +128,9 @@ const options: Record<string, Photo> = {
   'sauce-hot': photo(require('../assets/v3/hd/sauce-hot.png'), null),
   toast: photo(require('../assets/v3/hd/toast.png'), null),
   coleslaw: photo(require('../assets/v3/options/coleslaw.webp'), null),
+  // Catalog option ids of the can and the iced tea (live catalog v20, 23.11.2026).
+  cola: photo(require('../assets/v3/options/cola-can.webp'), null),
+  'iced-tea': photo(require('../assets/v3/options/iced-tea.webp'), null),
   wedges: photo(require('../assets/v3/hd/wedges.png'), null),
 };
 // Preserve the owner's exact cropped photographs from the shared development branch.
@@ -166,7 +169,23 @@ export const productPhoto = (imageId: string): Photo | null => media.photo(image
 /** Large product-page photo: blue studio shot for combos, warm shot for singles. */
 export const heroPhoto = (imageId: string): Photo | null => media.photo(imageId, 'hero');
 /** Modifier option artwork by option id (drinks, sauces, extras). */
-export const optionPhoto = (optionId: string): Photo | null => options[optionId] ?? null;
+export const optionPhoto = (optionId: string): Photo | null =>
+  options[optionId] ?? linkedProductPhoto(optionId);
+/**
+ * Owner 23.11.2026: «внутри комбо в некоторых напитках нет фотографий», while «Напитки» shows
+ * them all. Catalog options carry no photo (linked_product_id is empty); a drink option shares
+ * its id with the drink product (fanta-can, sprite-can, cola-zero-can, fuse-mango-pineapple…),
+ * so an option without its own artwork shows that product's menu photo. A product with only
+ * the generic drink placeholder keeps the option's name mark instead of a wrong drink.
+ */
+const catalogProducts = new Map<string, KioskCatalog['products'][number]>();
+function linkedProductPhoto(optionId: string): Photo | null {
+  const product = catalogProducts.get(optionId);
+  if (!product) return null;
+  const id = productArtworkId(product);
+  if (id === 'generic-drink') return null;
+  return media.photo(id, 'card');
+}
 /** Fallback brand mark if a future Heinz option has no artwork. */
 export const heinzColor = (optionId: string): string | null =>
   /cheese/.test(optionId) ? '#E7A51A' : /bbq/.test(optionId) ? '#7A2E12' : null;
@@ -236,8 +255,11 @@ export function shownPhotoBounds(imageId: string, variant: 'card' | 'hero') {
 export const photoCandidates = (imageId: string, variant: 'card' | 'hero') =>
   media.candidates(imageId, variant);
 /** Registers the loaded publication's photos; returns the remote URLs to keep on disk. */
-export const rememberCatalogMedia = (catalog: KioskCatalog | null): string[] =>
-  catalog ? media.sync(catalog.products) : [];
+export function rememberCatalogMedia(catalog: KioskCatalog | null): string[] {
+  catalogProducts.clear();
+  for (const product of catalog?.products ?? []) catalogProducts.set(product.id, product);
+  return catalog ? media.sync(catalog.products) : [];
+}
 /**
  * Downloads every published photo to the expo-image disk cache so the kiosk stays offline-safe,
  * and keeps it decoded in memory too: owner 22.11.2026, switching menu tabs showed an empty grid

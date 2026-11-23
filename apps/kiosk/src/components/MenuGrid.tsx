@@ -1,5 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, ScrollView, View } from 'react-native';
+import { Animated, ScrollView, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
 import {
@@ -10,7 +11,8 @@ import {
   sectionHit,
   type BentoFrame,
 } from '../menu-presentation';
-import { useMetrics } from '../theme';
+import { colors, fonts, useMetrics } from '../theme';
+import { fixedText } from './Body';
 import { ProductCard } from './ProductCard';
 import { MENU_BOTTOM, RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
@@ -43,6 +45,9 @@ export const MenuGrid = memo(function MenuGrid({
   onAdd,
   onInteraction,
   active = true,
+  next,
+  previous,
+  onPage,
 }: {
   /** Every product of the section, in catalog order. */
   products: KioskProduct[];
@@ -59,10 +64,17 @@ export const MenuGrid = memo(function MenuGrid({
   onInteraction: () => void;
   /** False while the section is kept built under the open one (MenuDeck). */
   active?: boolean;
+  /** Names of the sections below and above this one in the rail (none at the ends). */
+  next?: string;
+  previous?: string;
+  /** A pull past the end (1) or the top (-1) of the section opens the neighbouring one. */
+  onPage?: (section: Category, direction: 1 | -1) => void;
 }) {
   const { px, width: screenWidth, height: screenHeight } = useMetrics();
   const t = copy(locale);
   const list = useRef<ScrollView>(null);
+  // Native scroll position, for the «Дальше» / «Назад» hints shown while the guest pulls.
+  const scrollY = useRef(new Animated.Value(0)).current;
   // Before the first layout the grid assumes the header's 128 pt; the measured box wins.
   const [box, setBox] = useState({
     width: screenWidth - px(RAIL_WIDTH),
@@ -81,6 +93,8 @@ export const MenuGrid = memo(function MenuGrid({
     px(GRID.scrollRow),
   );
   const initial = memory.offsets[category] ?? 0;
+  // Furthest scroll position: the grid plus the room kept under the checkout panel.
+  const end = Math.max(0, geometry.height + px(MENU_BOTTOM) - box.height);
   const restoration = useMemo(() => ({ done: initial === 0, viewport: 0, content: 0 }), [initial]);
   useLayoutEffect(
     () => () => {
@@ -105,12 +119,22 @@ export const MenuGrid = memo(function MenuGrid({
     });
   };
   return (
-    <ScrollView
+    <Animated.ScrollView
       ref={list}
       testID={active ? 'kiosk-menu-scroll' : undefined}
       style={{ flex: 1, minHeight: 0 }}
       showsVerticalScrollIndicator={false}
+      // Owner 23.11.2026: a pull past the end of a section turns to the next one, a pull down
+      // at its top to the previous one, also in a section short enough not to scroll.
+      alwaysBounceVertical={!!onPage}
       onScrollBeginDrag={onInteraction}
+      onScrollEndDrag={(e) => {
+        if (!active || !onPage) return;
+        const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+        const end = Math.max(0, contentSize.height - layoutMeasurement.height);
+        if (next && contentOffset.y > end + px(PAGE_PULL)) onPage(category, 1);
+        else if (previous && contentOffset.y < -px(PAGE_PULL)) onPage(category, -1);
+      }}
       contentOffset={{ x: 0, y: initial }}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -124,11 +148,14 @@ export const MenuGrid = memo(function MenuGrid({
         restoration.content = h;
         restore();
       }}
-      scrollEventThrottle={64}
-      onScroll={(e) => {
-        if (restoration.done && active)
-          memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
-      }}
+      scrollEventThrottle={16}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+          if (restoration.done && active)
+            memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
+        },
+      })}
       contentContainerStyle={{ paddingRight: px(GRID.right), paddingBottom: px(MENU_BOTTOM) }}
     >
       <View style={{ height: geometry.height }}>
@@ -167,10 +194,87 @@ export const MenuGrid = memo(function MenuGrid({
             </Rise>
           );
         })}
+        {onPage && previous ? (
+          <PageHint
+            label={t.menuPrevSection.replace('{name}', previous)}
+            icon="chevron-down"
+            top={-px(56)}
+            shown={scrollY.interpolate({
+              inputRange: [-px(PAGE_PULL), -px(16)],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            })}
+          />
+        ) : null}
+        {onPage && next ? (
+          <PageHint
+            label={t.menuNextSection.replace('{name}', next)}
+            icon="chevron-up"
+            top={geometry.height + px(18)}
+            shown={scrollY.interpolate({
+              inputRange: [end + px(16), end + px(PAGE_PULL)],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            })}
+          />
+        ) : null}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 });
+/** How far (design points) a guest pulls past either end of a section to turn the page. */
+const PAGE_PULL = 84;
+/** The quiet «Дальше: На двоих» pill revealed by a pull, fully shown once the pull counts. */
+function PageHint({
+  label,
+  icon,
+  top,
+  shown,
+}: {
+  label: string;
+  icon: 'chevron-up' | 'chevron-down';
+  top: number;
+  shown: Animated.AnimatedInterpolation<number>;
+}) {
+  const { px } = useMetrics();
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top,
+        height: px(40),
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: shown,
+        transform: [{ scale: shown.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: px(8),
+          height: px(40),
+          paddingHorizontal: px(18),
+          borderRadius: px(20),
+          backgroundColor: 'rgba(255,255,255,0.16)',
+        }}
+      >
+        <Ionicons name={icon} size={px(20)} color={colors.white} />
+        <Text
+          {...fixedText}
+          numberOfLines={1}
+          style={{ fontFamily: fonts.heavy, fontSize: px(17), color: colors.white }}
+        >
+          {label}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+}
 /** Places a tile on its frame and plays the prototype rise (staggered, static when reduced). */
 function Rise({
   index,
