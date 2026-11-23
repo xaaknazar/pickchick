@@ -101,3 +101,20 @@ ESLint, Prettier. Банк не вызывался: ответы TipTopPay по�
 Боевые способы видны в любой сборке, когда `/config` отвечает `paymentEnvironment: 'live'`
 (`connectedTipTopPayMethods`). Сборки с боевой оплатой до отдельного «да» владельца идут только в
 TestFlight «PickChick Internal»; App Store - после его решения.
+
+## Выпуск 23.11.2026
+
+- 12:13 UTC тестовая оплата выключена (`TIPTOPPAY_TEST_CHECKOUT_ENABLED=false`): сайт 8194419
+  стал боевым с теми же ключами, тестовый поток списывал бы настоящие деньги. Таких оплат не было.
+- 12:34-12:38 UTC боевая оплата включена с `b9127817` (решение владельца «без CI, сразу»; CI
+  после выпуска). Копия базы `cloud-20261123T121949Z.dump.age` (SHA-256 `13b6d179…4450`),
+  миграция 082, счёт `6c6b8dcd-1cdf-4e6a-9ace-92516c974e7a`, роль воркера
+  `pickchick_tiptoppay_worker`, контейнер `pickchick-tiptoppay-worker`, шлюз и входной Caddy,
+  уведомления кабинета на `/check`, `/pay`, `/fail`. Снаружи: `/check` без подписи 401,
+  подписанное уведомление о несуществующей оплате 409, `/3ds` 200.
+- ~13:05 UTC в установленном шлюзе `3ds-return` добавлен к исключению 64 КБ рядом с
+  `test-3ds-return` (`@small_body` и `@tiptoppay_3ds_body`; это исключение ставилось вручную
+  20.11 и скриптами не воспроизводится). Копия до правки
+  `rehearsal/tiptoppay-test-1120/gateway.before-3ds64.Caddyfile`; POST 30 КБ -> 200.
+- Откат: API `b48fcd38` и прежний шлюз, `TIPTOPPAY_CHECKOUT_ENABLED=false`, 503 во входном
+  Caddy, остановить воркер. Базу не откатывать.
