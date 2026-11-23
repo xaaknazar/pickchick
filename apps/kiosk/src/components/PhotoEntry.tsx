@@ -151,13 +151,24 @@ export function PhotoEntry({
             paddingVertical: px(8),
           }}
         >
-          <Ionicons name="camera-outline" size={20} color={colors.white} accessible={false} />
+          {/* Owner 22.11.2026: a larger camera, centred with the caption as one group. */}
+          <Ionicons
+            name="camera-outline"
+            size={Math.max(24, px(26))}
+            color={colors.white}
+            accessible={false}
+          />
           <Text
             {...fixedText}
+            // One line on the iPad (shrinks to fit); the web has no fitting, so it may wrap there.
+            numberOfLines={Platform.OS === 'web' ? undefined : 1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
             style={{
               color: colors.white,
               fontFamily: fonts.bold,
-              fontSize: Math.max(15, px(17)),
+              fontSize: Math.max(13, px(15)),
+              letterSpacing: -0.2,
               textAlign: 'center',
               flexShrink: 1,
             }}

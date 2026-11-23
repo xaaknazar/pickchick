@@ -15,7 +15,6 @@ import { terminalCopy } from '../terminalCopy';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
 import { useEnter } from './motion';
-const CTA_ORDER: readonly Locale[] = ['kk', 'ru', 'en'];
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
 /** Kaspi brand mark for the terminal payment chip. */
@@ -30,7 +29,7 @@ function CtaCaption({ shown }: { shown: Locale }) {
       importantForAccessibility="no-hide-descendants"
       aria-hidden
       pointerEvents="none"
-      style={{ flex: 1, height: lineHeight, overflow: 'hidden', marginBottom: px(12) }}
+      style={{ flex: 1, height: lineHeight, overflow: 'hidden' }}
     >
       <Text
         {...fixedText}
@@ -51,41 +50,6 @@ function CtaCaption({ shown }: { shown: Locale }) {
     </View>
   );
 }
-/** Three decorative dots KZ, RU, EN under the caption; the shown language is stretched. */
-function CtaDots({ shown }: { shown: Locale }) {
-  const { v } = useMetrics();
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      aria-hidden
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        bottom: v(14),
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: v(8),
-      }}
-    >
-      {CTA_ORDER.map((locale) => (
-        <View
-          key={locale}
-          testID={locale === shown ? 'kiosk-start-dot-active' : undefined}
-          style={{
-            width: locale === shown ? v(22) : v(8),
-            height: v(8),
-            borderRadius: 999,
-            backgroundColor: locale === shown ? colors.white : 'rgba(255,255,255,.45)',
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 function StartCta({
   locale,
   busy,
@@ -111,7 +75,6 @@ function StartCta({
     >
       <SaluteButton testID="kiosk-start" label={label} busy={busy} onPress={onPress} delay={910}>
         <CtaCaption shown={locale} />
-        <CtaDots shown={locale} />
       </SaluteButton>
     </Animated.View>
   );

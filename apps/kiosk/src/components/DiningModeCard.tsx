@@ -48,7 +48,7 @@ export function DiningModeTitle({ children }: { children?: ReactNode }) {
 }
 /**
  * v3 dining tile: a blue (here) or orange (to go) slab with a soft glow, the
- * chef sliding in from the right and bobbing, a glass tag and a white arrow disc.
+ * chef standing still in the corner, a glass tag and a white arrow disc.
  */
 export function DiningModeCard({
   mode,
@@ -68,11 +68,7 @@ export function DiningModeCard({
   // Large white headings use the accessible orange surface; the glow stays brand orange.
   const tint = here ? colors.blue : colors.orangeCta;
   const rise = useEnter(here ? 90 : 180, 620);
-  // Prototype `chefIn` (700 ms, spring curve): slides in from 120 pt at 8deg, overshoots.
-  const chef = useEnter(here ? 320 : 420, 700, 'spring');
-  // Prototype `bob` 3.4 s: here waits 1 s, to go starts .8 s into its cycle, so
-  // the two chefs alternate.
-  const bob = useLoop(3400, here ? 1000 : 0, true, here ? 0 : 800);
+  // Owner 22.11.2026: Alex stands still on this screen; he only appears with his card.
   const glow = useLoop(4000, 0, true);
   const nudge = useLoop(1400, 0, true);
   const scale = useRef(new Animated.Value(1)).current;
@@ -213,16 +209,6 @@ export function DiningModeCard({
             bottom: -v(30),
             width: chefSize,
             height: chefSize,
-            opacity: chef.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1],
-              extrapolate: 'clamp',
-            }),
-            transform: [
-              { translateX: chef.interpolate({ inputRange: [0, 1], outputRange: [v(120), 0] }) },
-              { rotate: chef.interpolate({ inputRange: [0, 1], outputRange: ['8deg', '0deg'] }) },
-              { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -v(12)] }) },
-            ],
           }}
         >
           <Image

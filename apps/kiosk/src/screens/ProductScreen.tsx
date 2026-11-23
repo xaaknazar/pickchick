@@ -39,6 +39,7 @@ import { ComboOptionSheet } from '../components/ComboOptionSheet';
 import { ComboPanel } from '../components/ComboPanel';
 import { ProductNutrition } from '../components/ProductNutrition';
 import { Toast } from '../components/Toast';
+import { useOpeningFrames } from '../components/motion';
 // Prototype: 420 ms after a pick completes a section, the next section scrolls up.
 const advanceDelay = 420;
 const signature = (selections: KioskSelection[], group: KioskModifierGroup) =>
@@ -187,6 +188,11 @@ export function ProductScreen({
     setAttention((now) => ({ group: missing.id, request: (now?.request ?? 0) + 1 }));
   };
   const summary = groups.length ? selectionSummary(groups, selections) : '';
+  // Owner 22.11.2026: the page must start opening on the tap, not after a stall. The circle
+  // starts with the header, hero and first section; the other sections are built on the next
+  // frames, while it grows (their tiles rise in after a delay anyway).
+  const built = useOpeningFrames();
+  const shownGroups = built ? groups : groups.slice(0, 1);
   return (
     <RevealCircle>
       <ScreenSurface testID="kiosk-screen-product" tone="redesign">
@@ -207,7 +213,7 @@ export function ProductScreen({
               locale={context.locale}
               onDetails={() => setDetails(true)}
             />
-            {groups.map((group, index) => (
+            {shownGroups.map((group, index) => (
               <ComboSection
                 key={group.id}
                 number={index + 1}

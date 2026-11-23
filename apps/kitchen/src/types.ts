@@ -114,6 +114,10 @@ export type Task = {
       linkedProductId: string | null;
     }[];
     kds?: TaskKds;
+    /** Grams of one portion of this dish (catalog «Вес, г»), when the edge sends it. */
+    weightG?: number;
+    /** Quantity of the order line (a combo) this task belongs to, when the edge sends it. */
+    lineQuantity?: number;
   };
 };
 export type Order = Summary & {
@@ -269,6 +273,8 @@ export function order(v: unknown, branch: string): Order {
           };
         }),
         ...(d.kds === undefined ? {} : { kds: taskKds(d.kds) }),
+        ...(d.weightG === undefined ? {} : { weightG: int(d.weightG, 100000) }),
+        ...(d.lineQuantity === undefined ? {} : { lineQuantity: int(d.lineQuantity, 1000000) }),
       },
     };
   });

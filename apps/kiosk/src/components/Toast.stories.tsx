@@ -20,3 +20,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Saved: Story = { args: { message: 'Изменения сохранены', trigger: 'saved' } };
+export const Hint: Story = {
+  args: { message: 'Сначала выберите блюдо', trigger: 'hint', tone: 'hint' },
+};

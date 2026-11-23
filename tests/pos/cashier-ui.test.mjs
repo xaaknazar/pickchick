@@ -565,6 +565,9 @@ const METHODS = [
 ];
 const MIXABLE = ['cash', 'kaspi_terminal', 'kaspi_manual'];
 const MANAGER_PIN = '2468';
+// The PIN as a value of its own. A plain substring search also hit the four digits inside a
+// random id or a timestamp of the journal and failed the run by chance (CI 22.11.2026).
+const PIN_STORED = new RegExp(`(?<![0-9a-f-])${MANAGER_PIN}(?![0-9a-f-])`, 'i');
 const posConfigFor = (overrides = {}) => ({
   mode: 'pos_sale',
   methods: METHODS.map((code) => ({
@@ -1708,7 +1711,7 @@ test('staff meal and marketing need a one-time shift manager approval; the PIN i
   assert.equal(model.state.sale.revenue_kind, 'staff_meal');
   assert.equal(model.state.approval, null, 'an approval is used once');
   for (const value of storage.data.values())
-    assert.ok(!value.includes(`"pin"`) && !value.includes(MANAGER_PIN), 'no PIN in the journal');
+    assert.ok(!value.includes(`"pin"`) && !PIN_STORED.test(value), 'no PIN in the journal');
 });
 
 test('marketing: a reason of 3..300 characters and a marketing approval', async () => {
@@ -2378,7 +2381,7 @@ test('void before the kitchen starts: reason, the Webkassa answer and a void PIN
   assert.equal(model.state.error.message, 'SALE_NOT_ACTIVE');
   assert.equal(saleErrorMessage(model.state.error), 'Заказ уже отменён или возвращён полностью');
   for (const value of storage.data.values())
-    assert.ok(!value.includes(MANAGER_PIN), 'no PIN in the journal');
+    assert.ok(!PIN_STORED.test(value), 'no PIN in the journal');
 });
 
 test('void after the kitchen started is refused before sending; the edge refusal ends it too', async () => {
