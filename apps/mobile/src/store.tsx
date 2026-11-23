@@ -583,6 +583,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setRecentProducts([]);
       setOrderComment('');
       setMenu(null);
+      // The published menu, its photos and the cart's publication belong to the old restaurant:
+      // until the new one is read nothing of it may be shown or added to the (now empty) cart.
+      setPublication(null);
+      setMedia(null);
+      setMediaReadVersion(null);
+      cartPublication.current = null;
       setConnectedCatalog(null);
       setRequestedBranchId(id);
     },

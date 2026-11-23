@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { setImmediate } from 'node:timers';
 import {
   publishedProductData,
@@ -334,4 +335,21 @@ test('legacy checkout upgrade rejection has an actionable application update mes
     checkoutError(new Error('CATALOG_UPGRADE_REQUIRED')),
     'Обновите приложение, чтобы получить актуальное меню и цены ресторана.',
   );
+});
+
+test('a restaurant switch drops the old published menu, its photos and the cart publication (audit 23.11 #7)', () => {
+  const store = readFileSync(new URL('../../apps/mobile/src/store.tsx', import.meta.url), 'utf8');
+  const start = store.search(/setBranch(?:: | = useStableCallback\()\(id(?:: string)?\) => \{/);
+  assert.ok(start > 0);
+  const setBranch = store.slice(start, store.indexOf('setRequestedBranchId(id);', start));
+  for (const call of [
+    'setCart([]);',
+    'setMenu(null);',
+    'setPublication(null);',
+    'setMedia(null);',
+    'setMediaReadVersion(null);',
+    'cartPublication.current = null;',
+    'setConnectedCatalog(null);',
+  ])
+    assert.ok(setBranch.includes(call), call);
 });
