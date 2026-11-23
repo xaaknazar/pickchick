@@ -40,7 +40,12 @@ import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
-import { createWatchCursor, watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
+import {
+  createWatchCursor,
+  createWatchRestart,
+  watchCommerceOrder,
+  watchRetryDelay,
+} from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -572,9 +577,13 @@ function KaspiCheckoutSession(
   const historyRef = useRef(history);
   historyRef.current = history;
   const watchedHistory = watchedHistoryKey(history);
+  // A watch that ended for good (an error it does not retry) is started again a minute later,
+  // with the others: before, any change of the list did that; now the list no longer restarts.
+  const [historyWatchRun, setHistoryWatchRun] = useState(0);
   useEffect(() => {
     if (props.screenId !== 'M19' || order || !foreground || !watchedHistory) return;
     const controller = new AbortController();
+    const restart = createWatchRestart(() => setHistoryWatchRun((run) => run + 1));
     // Each watch starts from the revision the list shows now and then follows its own answers.
     for (const item of historyRef.current.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
       let revision = item.revision;
@@ -599,12 +608,17 @@ function KaspiCheckoutSession(
               items.map((entry) => (entry.orderId === next.orderId ? next : entry)),
             );
         },
-        onError: () => {},
+        onError: (_error, reconnecting) => {
+          if (!reconnecting) restart.ended();
+        },
         onRecovered: () => {},
       });
     }
-    return () => controller.abort();
-  }, [props.screenId, order, foreground, watchedHistory, request, key]);
+    return () => {
+      restart.stop();
+      controller.abort();
+    };
+  }, [props.screenId, order, foreground, watchedHistory, historyWatchRun, request, key]);
 
   // Tab badge mirrors the list already loaded here; no extra request or poll.
   const activeCount =

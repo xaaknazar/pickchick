@@ -166,7 +166,7 @@ test('an answer of one watched order does not restart the other watches (audit 2
   assert.match(screen, /const watchedHistory = watchedHistoryKey\(history\);/);
   assert.match(
     screen,
-    /\}, \[props\.screenId, order, foreground, watchedHistory, request, key\]\);/,
+    /\}, \[props\.screenId, order, foreground, watchedHistory, historyWatchRun, request, key\]\);/,
   );
   assert.doesNotMatch(screen, /foreground, history, request, key\]/);
 });

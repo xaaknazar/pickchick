@@ -45,6 +45,30 @@ export function createWatchCursor<R>(shown: { orderId: string; revision: R }) {
   };
 }
 
+/** How long a group of watches waits before it starts again after one of them ended for good. */
+export const WATCH_RESTART_MS = 60_000;
+/**
+ * A bounded retry for watches that ended on an error they do not retry themselves (a refusal, a
+ * broken answer, a storage failure): one restart of the group, `ms` after the first such end.
+ * `stop` (the group was restarted or left for another reason) cancels it.
+ */
+export function createWatchRestart(restart: () => void, ms: number = WATCH_RESTART_MS) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+  return {
+    ended() {
+      if (stopped || timer) return;
+      timer = setTimeout(() => {
+        if (!stopped) restart();
+      }, ms);
+    },
+    stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    },
+  };
+}
+
 /** Foreground, sequential long polling. Abort cancels both HTTP and reconnect timers. */
 export async function watchCommerceOrder<T>(options: {
   signal: AbortSignal;

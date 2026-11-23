@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
+  WATCH_RESTART_MS,
   createWatchCursor,
+  createWatchRestart,
   wait,
   watchCommerceOrder,
   watchRetryDelay,
@@ -199,4 +201,54 @@ test('the read after an accepted answer asks with the new revision (audit 23.11 
   // An order opened from the list is the order the ref holds too.
   assert.equal(screen.match(/orderRef\.current = item;\n\s+setOrder\(item\);/g)?.length, 2);
   assert.doesNotMatch(screen, /(?<!orderRef\.current = item;\n\s+)setOrder\(item\);/);
+});
+
+test('watches that ended for good start again once, a minute later (review 23.11)', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  assert.equal(WATCH_RESTART_MS, 60_000);
+  let restarts = 0;
+  const group = createWatchRestart(() => restarts++);
+  // Nothing ended: no timer, no restart.
+  t.mock.timers.tick(10 * WATCH_RESTART_MS);
+  assert.equal(restarts, 0);
+  // Several watches of the group end: one restart, a minute after the first.
+  group.ended();
+  t.mock.timers.tick(30_000);
+  group.ended();
+  t.mock.timers.tick(29_999);
+  assert.equal(restarts, 0);
+  t.mock.timers.tick(1);
+  assert.equal(restarts, 1);
+  t.mock.timers.tick(10 * WATCH_RESTART_MS);
+  assert.equal(restarts, 1);
+  // The group restarted or left for another reason first: its retry is cancelled.
+  const left = createWatchRestart(() => restarts++);
+  left.ended();
+  left.stop();
+  left.ended();
+  t.mock.timers.tick(10 * WATCH_RESTART_MS);
+  assert.equal(restarts, 1);
+  // A watch reports its final end through onError(_, false); a retried failure does not count.
+  const ended = createWatchRestart(() => restarts++, 5);
+  await watchCommerceOrder({
+    signal: new AbortController().signal,
+    read: async () => {
+      throw new CustomerSessionError('FORBIDDEN', 403, true);
+    },
+    accept: async () => assert.fail('accepted'),
+    onError: (_error, reconnecting) => {
+      if (!reconnecting) ended.ended();
+    },
+    onRecovered: () => {},
+  });
+  t.mock.timers.tick(5);
+  assert.equal(restarts, 2);
+  const screen = readFileSync(
+    new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(screen, /createWatchRestart\(\(\) => setHistoryWatchRun\(\(run\) => run \+ 1\)\)/);
+  assert.match(screen, /if \(!reconnecting\) restart\.ended\(\);/);
+  assert.match(screen, /restart\.stop\(\);\s*controller\.abort\(\);/);
+  assert.match(screen, /foreground, watchedHistory, historyWatchRun, request, key\]\);/);
 });
