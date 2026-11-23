@@ -26,15 +26,27 @@ test('only a whitelisted error code is ever logged', () => {
   assert.equal(syncErrorCode(coded('FORBIDDEN')), 'FORBIDDEN');
   assert.equal(syncErrorCode(coded('42501')), '42501');
   assert.equal(syncErrorCode(coded('ECONNREFUSED')), 'ECONNREFUSED');
+  // The code of the cause, then the error class: different code-less failures stay apart.
+  assert.equal(
+    syncErrorCode(Object.assign(new Error('wrapped'), { cause: coded('ECONNRESET') })),
+    'ECONNRESET',
+  );
+  assert.equal(syncErrorCode(new TypeError('postgresql://user:secret@127.0.0.1/db')), 'TypeError');
+  assert.equal(syncErrorCode(Object.assign(new Error('x'), { name: 'ZodError' })), 'ZodError');
   for (const error of [
     new Error('postgresql://user:secret@127.0.0.1/db'),
     coded('postgresql://user:secret@127.0.0.1/db'),
     coded(identity.token),
     coded('A'.repeat(41)),
     coded(42501),
+  ])
+    assert.equal(syncErrorCode(error), 'Error');
+  for (const error of [
     null,
     undefined,
     'text',
+    Object.assign(new Error('x'), { name: 'postgresql://user:secret@127.0.0.1/db' }),
+    { name: identity.token + '!' },
   ])
     assert.equal(syncErrorCode(error), 'UNKNOWN');
 });
@@ -178,8 +190,11 @@ test('a standing retry or dead letter is logged when it changes and then every 1
   assert.deepEqual(lines.log, [
     { event: 'pos_order_sync', state: 'retry' },
     { event: 'pos_kitchen_sync', state: 'dead_letter' },
+    // One line when a stream is back to normal, here with the delivery that ended the retry.
+    { event: 'native_pos_sync_recovered', stream: 'pos_order_sync' },
     { event: 'pos_order_sync', state: 'delivered' },
     { event: 'pos_order_sync', state: 'delivered' },
+    { event: 'native_pos_sync_recovered', stream: 'pos_kitchen_sync' },
     { event: 'pos_order_sync', state: 'retry' },
     { event: 'pos_order_sync', state: 'retry' },
   ]);
@@ -221,6 +236,7 @@ test('an expired identity is read again with backoff and logged once', async () 
   // 2 s, 4 s, 8 s, 16 s between the reads instead of one read per pass.
   assert.deepEqual(readAt, [0, 2000, 6000, 14000, 30000]);
   assert.equal(orders, 1);
+  assert.deepEqual(lines.log, [{ event: 'native_pos_sync_recovered', stream: 'identity' }]);
   assert.deepEqual(lines.fail, [
     {
       event: 'native_pos_sync_failed',

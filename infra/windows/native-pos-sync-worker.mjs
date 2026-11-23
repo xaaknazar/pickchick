@@ -98,14 +98,35 @@ export async function runPosSalesLoop({
 }
 /**
  * Whitelisted error code of a failed step: PosSyncError.code, a PostgreSQL SQLSTATE or a Node
- * system code. Anything else (messages, driver text, URLs, credentials) is never logged.
+ * system code, of the error or of its cause; without one the error class (ZodError,
+ * TypeError), so that different code-less failures are not one line. Anything else (messages,
+ * driver text, URLs, credentials) is never logged.
  */
 export function syncErrorCode(error) {
-  const code = error?.code;
-  return typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code) ? code : 'UNKNOWN';
+  for (const code of [error?.code, error?.cause?.code])
+    if (typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code)) return code;
+  const name = error?.name;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(name) ? name : 'UNKNOWN';
 }
 /** An unchanged retry, dead letter or failure is written again only after this long. */
 export const POS_SYNC_REPEAT_LOG_MS = 600_000;
+/**
+ * Which standing states (retry, dead letter, failure) were already written, per stream.
+ * `due` says whether the state needs a line: when it changed, and again every 10 minutes.
+ * `clear` forgets it and says whether there was one, which is when the stream recovered.
+ */
+function standingStates(once, now) {
+  const seen = new Map();
+  return {
+    due(stream, key) {
+      const last = seen.get(stream);
+      if (!once && last?.key === key && now() - last.at < POS_SYNC_REPEAT_LOG_MS) return false;
+      seen.set(stream, { key, at: now() });
+      return true;
+    },
+    clear: (stream) => seen.delete(stream),
+  };
+}
 /**
  * The order and kitchen streams of main(). Each stream has its own try/catch: a stream that
  * throws on every pass never keeps the other one from running, and its failure line names the
@@ -113,8 +134,9 @@ export const POS_SYNC_REPEAT_LOG_MS = 600_000;
  *
  * The loop passes about once a second, so a line is written when a stream's state changes, not
  * on every pass: `delivered` always, `idle`/`busy`/`disabled` never, a standing `retry`,
- * `dead_letter` or failure once and then every 10 minutes. An unreadable (for example expired)
- * identity file is read again with the 2 s .. 60 s backoff of the streams instead of every pass.
+ * `dead_letter` or failure once and then every 10 minutes, and one `native_pos_sync_recovered`
+ * line when it is over. An unreadable (for example expired) identity file is read again with
+ * the 2 s .. 60 s backoff of the streams instead of every pass.
  */
 export async function runPosStreamsLoop({
   pool,
@@ -130,17 +152,13 @@ export async function runPosStreamsLoop({
     delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
   now = Date.now,
 }) {
-  const seen = new Map();
-  // Whether the standing state `key` of `stream` is due for a line.
-  const changed = (stream, key) => {
-    const last = seen.get(stream);
-    if (!once && last?.key === key && now() - last.at < POS_SYNC_REPEAT_LOG_MS) return false;
-    seen.set(stream, { key, at: now() });
-    return true;
+  const standing = standingStates(once, now);
+  const recovered = (stream) => {
+    if (standing.clear(stream)) log(JSON.stringify({ event: 'native_pos_sync_recovered', stream }));
   };
   const failed = (stream, error) => {
     const code = syncErrorCode(error);
-    if (changed(stream, `failed:${code}`))
+    if (standing.due(stream, `failed:${code}`))
       fail(JSON.stringify({ event: 'native_pos_sync_failed', stream, code, retrying: !once }));
     if (once) process.exitCode = 1;
   };
@@ -153,7 +171,7 @@ export async function runPosStreamsLoop({
       try {
         current = await identity();
         identityFailures = 0;
-        seen.delete('identity');
+        recovered('identity');
       } catch (error) {
         identityFailures = Math.min(identityFailures + 1, 1000000);
         identityAt = now() + Math.min(60000, 1000 * 2 ** Math.min(identityFailures, 6));
@@ -178,9 +196,9 @@ export async function runPosStreamsLoop({
           // `busy` is another holder of the same stream: it says nothing about its state.
           if (state === 'busy' && !once) continue;
           if (['idle', 'busy', 'disabled', 'delivered'].includes(state)) {
-            seen.delete(event);
+            recovered(event);
             if (once || state === 'delivered') log(JSON.stringify({ event, state }));
-          } else if (changed(event, state)) log(JSON.stringify({ event, state }));
+          } else if (standing.due(event, state)) log(JSON.stringify({ event, state }));
         } catch (error) {
           failed(event, error);
         }
