@@ -1292,3 +1292,98 @@ test('audit 23.11 #1: a terminal that moved under a payment keeps its link when 
   await c.pollTerminal();
   assert.equal(c.getSnapshot().order.payment_state, 'paid', 'the result was read through it');
 });
+
+// Audit 23.11 #2 (review): the app's error boundary builds a new controller on the same storage
+// while the old one may be in the middle of a payment step. Only the new one drives it.
+const settle = async () => {
+  for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+};
+
+test('audit 23.11 #2: a retired controller waiting for the cloud never sends /v2/payment after the new one', async () => {
+  const h = terminalFixture();
+  let release;
+  const hold = new Promise((resolve) => (release = resolve));
+  let first = true;
+  const request = h.io.request;
+  h.io.request = async (path, token, body, key) => {
+    if (path.endsWith('/payment') && body?.method === 'kaspi_terminal' && first) {
+      first = false;
+      await hold;
+    }
+    return request(path, token, body, key);
+  };
+  const old = await cart(h);
+  const step = old.beginPayment();
+  await settle();
+  assert.equal(flowOf(h).terminal.phase, 'request', 'the old controller waits for the cloud');
+  assert.equal(sent(h, 'payment').length, 0);
+
+  const next = new CommercialKioskController(h.io);
+  assert.equal(await next.restore(), true);
+  assert.equal(flowOf(h).terminal.phase, 'wait');
+  assert.equal(sent(h, 'payment').length, 1);
+  const stored = h.rawFlow;
+  let told = 0;
+  old.subscribe(() => told++);
+
+  release();
+  await step;
+  await settle();
+  assert.equal(sent(h, 'payment').length, 1, 'no second /v2/payment');
+  assert.equal(h.rawFlow, stored, "the stored state is the new controller's");
+  assert.equal(h.terminal.attempts, 1);
+  // Nothing of the old controller works any more.
+  const calls = h.calls.length;
+  const terminalCalls = h.terminal.calls.length;
+  assert.equal(await old.pollTerminal(), false);
+  assert.equal(await old.refresh(), false);
+  assert.equal(await old.newGuest(), false);
+  await old.tick();
+  assert.equal(await old.watchAvailability(), 'idle');
+  assert.equal(h.calls.length, calls);
+  assert.equal(h.terminal.calls.length, terminalCalls);
+  assert.equal(h.rawFlow, stored);
+  assert.equal(told, 0, 'and it tells no screen');
+  // The new one finishes the payment.
+  h.terminal.statuses = [success()];
+  assert.equal(await next.pollTerminal(), true);
+  assert.equal(next.getSnapshot().order.payment_state, 'paid');
+  assert.equal(sent(h, 'payment').length, 1);
+});
+
+test('audit 23.11 #2: a retired controller whose /v2/payment answer arrives late does not save it', async () => {
+  const h = terminalFixture();
+  let release;
+  const hold = new Promise((resolve) => (release = resolve));
+  h.terminal.payment = () => hold;
+  const old = await cart(h);
+  const step = old.beginPayment();
+  await settle();
+  assert.equal(flowOf(h).terminal.phase, 'sending');
+  const next = new CommercialKioskController(h.io);
+  assert.equal(await next.restore(), true);
+  // As after an app restart: a sent payment without its answer is never sent again.
+  assert.equal(flowOf(h).terminal.phase, 'lost');
+  const stored = h.rawFlow;
+  release({ kind: 'ok', data: { processId: 'P-1', status: 'wait' } });
+  await step;
+  await settle();
+  assert.equal(h.rawFlow, stored);
+  assert.equal(sent(h, 'payment').length, 1);
+  assert.equal(h.terminal.events.length, 0, 'the old controller reports nothing');
+  assert.equal(next.getSnapshot().terminalPayment.phase, 'lost');
+});
+
+test('audit 23.11 #2: controllers on different storages do not retire each other', async () => {
+  const h1 = terminalFixture();
+  const c1 = await pay(h1);
+  const h2 = terminalFixture();
+  const c2 = await pay(h2);
+  h1.terminal.statuses = [success()];
+  h2.terminal.statuses = [success()];
+  assert.equal(await c1.pollTerminal(), true);
+  assert.equal(await c2.pollTerminal(), true);
+  assert.equal(c1.getSnapshot().order.payment_state, 'paid');
+  assert.equal(c2.getSnapshot().order.payment_state, 'paid');
+  assert.equal(await c1.refresh(), true);
+});

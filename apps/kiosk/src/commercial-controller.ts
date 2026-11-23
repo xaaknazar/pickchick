@@ -791,6 +791,31 @@ const sameSnapshot = (a: KioskState, b: KioskState) => {
   );
 };
 
+/**
+ * Audit 23.11 #2 (review): the controller that owns each storage. The app's error boundary
+ * mounts the app again and builds a new controller on the same storage while the old one may
+ * still be in the middle of a payment step. Building a controller on a storage retires the
+ * previous one: from then on it reads and writes nothing, starts no cloud request and no
+ * terminal call and tells no listener, so only one controller ever drives a stored payment.
+ * A request it had already sent may still finish; its answer is not saved, and the new
+ * controller restores the stored flow as after an app restart (a payment marked `sending` is
+ * never sent again). Keyed by the IO object: controllers on different storages are unrelated.
+ */
+const owners = new WeakMap<object, { retired: boolean }>();
+/** `io` with every asynchronous call refused once `retired`; `now` and `uuid` stay. */
+const fenced = <T extends object>(io: T, owner: { retired: boolean }): T =>
+  new Proxy(io, {
+    get(target, key) {
+      const value: unknown = Reflect.get(target, key);
+      if (typeof value !== 'function') return isObject(value) ? fenced(value, owner) : value;
+      const call = value as (...args: unknown[]) => unknown;
+      return (...args: unknown[]) =>
+        owner.retired && key !== 'now' && key !== 'uuid'
+          ? Promise.reject(new KioskError('QUIET'))
+          : call.apply(target, args);
+    },
+  });
+
 /** Commercial guest flow has separate storage and cannot invoke simulated payments. */
 export class CommercialKioskController {
   private current: Flow;
@@ -884,7 +909,13 @@ export class CommercialKioskController {
   private listeners = new Set<() => void>();
   private view: KioskState;
   private io: CommercialKioskIO;
-  constructor(io: CommercialKioskIO) {
+  /** Set when a newer controller took over this one's storage (see `owners`). */
+  private owner = { retired: false };
+  constructor(source: CommercialKioskIO) {
+    const previous = owners.get(source);
+    if (previous) previous.retired = true;
+    owners.set(source, this.owner);
+    const io = fenced(source, this.owner);
     this.io = io;
     if (io.terminal) {
       this.terminalSession = new TerminalSession(
@@ -1210,6 +1241,7 @@ export class CommercialKioskController {
    * is for a change the snapshot does not carry (the clock passing a QR's expiry).
    */
   private emit(force = false) {
+    if (this.owner.retired) return;
     const next = this.snapshot();
     if (!force && sameSnapshot(this.view, next)) return;
     this.view = next;
@@ -1275,6 +1307,7 @@ export class CommercialKioskController {
    * marks the kiosk busy, and a transient failure of it stays silent: the poll simply retries.
    */
   private async run(fn: () => Promise<void>, unready = false, background = false) {
+    if (this.owner.retired) return false;
     if (this.busy || (!this.ready && !unready) || (background && this.backgroundTask)) return false;
     if (!background) {
       this.busy = true;
@@ -1491,6 +1524,7 @@ export class CommercialKioskController {
    * A fresh body after a stale one gives checkout back at once (the last `/config` decides).
    */
   watchAvailability = async (): Promise<AvailabilityWatch> => {
+    if (this.owner.retired) return 'idle';
     if (!this.io.read) return 'unsupported';
     if (
       !this.ready ||
@@ -2430,7 +2464,7 @@ export class CommercialKioskController {
   }
   /** One background step of the terminal payment; the screen calls it every second. */
   pollTerminal = async (): Promise<boolean> => {
-    if (!this.ready || this.busy || this.backgroundTask) return false;
+    if (this.owner.retired || !this.ready || this.busy || this.backgroundTask) return false;
     // The terminal is free again: the changed order goes to payment at once.
     if (this.afterEdit === 'pay' && !this.terminalEdit) return this.payChangedOrder();
     const a = this.current.terminal;
@@ -2984,7 +3018,8 @@ export class CommercialKioskController {
    * abandoned guest's token: never a quote, an order read or a payment.
    */
   endAbandoned = async (): Promise<void> => {
-    if (!this.initialized || this.ending || !this.current.abandoned.length) return;
+    if (this.owner.retired || !this.initialized || this.ending || !this.current.abandoned.length)
+      return;
     this.ending = true;
     try {
       const now = this.io.now();
@@ -3092,6 +3127,7 @@ export class CommercialKioskController {
     this.emit();
   };
   tick = async () => {
+    if (this.owner.retired) return;
     // Abandoned guests are ended alongside, never awaited: the next guest does not wait.
     if (this.current.abandoned.length) void this.endAbandoned();
     if (!this.ready || this.busy) return;
