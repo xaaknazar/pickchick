@@ -3,6 +3,7 @@ import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
+import { hasNutrition } from '../product-presentation';
 /**
  * v3 nutrition on the blue product page. `facts` is the row of four white KBJU tiles,
  * `details` the basis, ingredients and allergens in white on blue; `all` shows both.
@@ -19,7 +20,9 @@ export function ProductNutrition({
   const { v } = useMetrics();
   const t = copy(locale);
   const n = product.nutrition;
-  const facts = (
+  // Owner 23.11.2026: KBJU of zeros (not filled in yet) is not shown at all.
+  const known = hasNutrition(product);
+  const facts = !known ? null : (
     <View testID="kiosk-product-nutrition" style={{ flexDirection: 'row', gap: v(10) }}>
       {[
         [t.kcal, String(n.energy_kcal)],
@@ -87,9 +90,11 @@ export function ProductNutrition({
         gap: v(10),
       }}
     >
-      <Text {...fixedText} style={{ ...caption, fontFamily: fonts.medium }}>
-        {t.nutrition} · {n.basis === 'per_100_g' ? t.per100 : t.perServing} · {t.baseRecipe}
-      </Text>
+      {known ? (
+        <Text {...fixedText} style={{ ...caption, fontFamily: fonts.medium }}>
+          {t.nutrition} · {n.basis === 'per_100_g' ? t.per100 : t.perServing} · {t.baseRecipe}
+        </Text>
+      ) : null}
       <Text
         {...fixedText}
         style={{

@@ -15,7 +15,14 @@ import type { KioskProduct } from '../model';
 import type { UpsellBadgeKind } from '../smartUpsell';
 import { money } from '../cart';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { cardBackgroundRatio, cardBackgrounds, productArtworkId, productPhoto } from '../assets';
+import {
+  cardBackgroundRatio,
+  cardBackgrounds,
+  productArtworkId,
+  productPhoto,
+  shownPhotoBounds,
+} from '../assets';
+import { CARD_NAME, sauceFill } from '../menu-presentation';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { fixedText } from './Body';
 import { Icon } from './Icon';
@@ -143,6 +150,8 @@ export function UpsellHero({
     </Card>
   );
 }
+/** Height of every row tile in «Допы» (1024-pt layout). */
+const TILE_HEIGHT = 330;
 export function UpsellTile({
   product,
   name,
@@ -176,14 +185,19 @@ export function UpsellTile({
   const { px } = useMetrics();
   const toggle = Math.max(44, px(50));
   const wide = layout === 'wide';
+  // Owner 23.11.2026 («на странице допы… карточки, фотографии все были одного размера»): a
+  // tall tile prints its name at the menu card size in a fixed two-line room, so every tile and
+  // every photo in a row is the same size.
+  const nameSize = wide ? px(24) : px(CARD_NAME);
+  const nameLine = Math.round(nameSize * 1.18);
   const nameText = (
     <Text
       {...fixedText}
       numberOfLines={2}
       style={{
         fontFamily: fonts.black,
-        fontSize: px(24),
-        lineHeight: px(29),
+        fontSize: nameSize,
+        lineHeight: nameLine,
         letterSpacing: -0.3,
         color: redesign.cardInk,
       }}
@@ -216,7 +230,8 @@ export function UpsellTile({
       onAdd={onAdd}
       controls={controls}
       grow={0}
-      minHeight={px(342)}
+      minHeight={px(wide ? 342 : TILE_HEIGHT)}
+      height={wide ? undefined : px(TILE_HEIGHT)}
       toggle={toggle}
       inset={px(20)}
     >
@@ -269,14 +284,14 @@ export function UpsellTile({
         ) : (
           <>
             {photo({
-              height: px(150),
-              flexShrink: 0,
-              marginTop: px(34),
-              marginHorizontal: px(22),
+              flex: 1,
+              minHeight: 0,
+              marginTop: px(38),
+              marginHorizontal: px(12),
               marginBottom: px(6),
             })}
-            <View style={{ paddingHorizontal: px(20), paddingBottom: px(4) }}>
-              {nameText}
+            <View style={{ paddingHorizontal: px(20), paddingBottom: px(14) }}>
+              <View style={{ height: nameLine * 2, justifyContent: 'flex-end' }}>{nameText}</View>
               {price}
             </View>
             {badge ? <Badge kind={badge} locale={locale} placement="corner" /> : null}
@@ -305,6 +320,7 @@ function Card({
   controls,
   grow,
   minHeight,
+  height,
   toggle,
   inset,
   children,
@@ -322,6 +338,8 @@ function Card({
   controls?: ReactNode;
   grow: number;
   minHeight?: number;
+  /** A fixed height (row tiles: one size for every tile). */
+  height?: number;
   toggle: number;
   inset: number;
   children: (photo: (place: ViewStyle) => ReactNode) => ReactNode;
@@ -337,6 +355,9 @@ function Card({
   const imageId = productArtworkId(product);
   const shot = productPhoto(imageId);
   const blend = !shot || lightTile(shot.tile);
+  // Owner 23.11.2026: a measured cut-out is fitted by its dish, as on the menu, so the photos
+  // in a row read the same size (a 60 ml sauce stays smaller than a big pot).
+  const fitted = !!shownPhotoBounds(imageId, 'card');
   const tap = () => {
     pulse.play();
     onAdd();
@@ -365,7 +386,7 @@ function Card({
         },
       ]}
     >
-      <PhotoImage imageId={imageId} />
+      <PhotoImage imageId={imageId} fit={fitted} fill={sauceFill(product)} />
     </View>
   );
   return (
@@ -378,6 +399,7 @@ function Card({
         flexBasis: 'auto',
         width: '100%',
         minHeight,
+        height,
         opacity: rise,
         transform: [
           { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [px(28), 0] }) },

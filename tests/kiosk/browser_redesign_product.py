@@ -77,7 +77,7 @@ class RedesignProduct(ui.KioskUI):
             ui.assert_bounded(page, control, width, height, minimum=28)
         hero = ui.assert_bounded(page, 'kiosk-product-hero', width, height)
         self.assertLessEqual(abs(hero['y'] - 124 * s), 6, 'the hero starts at 124')
-        self.assertGreaterEqual(hero['height'], 380 * s - 2)
+        self.assertGreaterEqual(hero['height'], 424 * s - 2)
         self.assertLessEqual(abs(hero['x'] - 16 * s), 2)
         self.assertLessEqual(abs(width - hero['x'] - hero['width'] - 16 * s), 2)
         if not scrolls:
@@ -101,7 +101,7 @@ class RedesignProduct(ui.KioskUI):
         rows = sorted({round(b['y']) for b in boxes})
         self.assertEqual(len(rows), 2, 'two rows')
         for b in boxes:
-            self.assertLessEqual(abs(b['height'] - 172 * s), 2, 'drink tiles are 172 high')
+            self.assertLessEqual(abs(b['height'] - 156 * s), 2, 'drink tiles are 156 high')
         self.assertEqual(sum(1 for b in boxes if round(b['y']) == rows[0]), 5, 'five across')
         self.assertEqual(tiles[-1].get_attribute('data-testid'), 'kiosk-modifier-drink-' + shown_last)
         expect(more).to_contain_text('Ещё 5')
@@ -110,7 +110,7 @@ class RedesignProduct(ui.KioskUI):
         self.assertEqual(len(sauces), 4)
         self.assertEqual(len({round(t.bounding_box()['y']) for t in sauces}), 1, 'four in a row')
         for t in sauces:
-            self.assertLessEqual(abs(t.bounding_box()['height'] - 164 * s), 2)
+            self.assertLessEqual(abs(t.bounding_box()['height'] - 156 * s), 2, 'one tile size')
         self.assertEqual(ui.element(page, 'kiosk-modifier-sauce-bbq').get_attribute('aria-disabled'),
                          'true', 'a stopped sauce is not pressable')
 

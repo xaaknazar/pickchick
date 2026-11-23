@@ -52,6 +52,11 @@ const ru = {
   /** The order was paid on the terminal while the guest was changing it (owner 22.11.2026). */
   editDropped:
     'Оплата прошла по заказу до изменений. Изменения в него не вошли - их можно заказать отдельно.',
+  terminalOpenTitle: 'Нажмите «Отмена» на терминале',
+  terminalOpenBody:
+    'На терминале ещё прошлая сумма - не оплачивайте её. Отменить её с экрана нельзя: нажмите на терминале «Отмена», иначе он освободится сам за 3 минуты.',
+  menuNextSection: 'Дальше: {name}',
+  menuPrevSection: 'Назад: {name}',
   optionStopped: '«{name}» больше нет в наличии. Выберите другой вариант.',
   menuUpdatingTitle: 'Меню обновляется',
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
@@ -127,6 +132,7 @@ const ru = {
   review: 'Проверьте заказ',
   payTitle: 'Оплата заказа',
   payChoose: 'Способ оплаты',
+  reviewWhere: 'Где будете есть?',
   card: 'Банковская карта',
   toPay: 'К оплате',
   createPayment: 'Перейти к оплате',
@@ -367,6 +373,11 @@ const kk: Strings = {
   photoNumber: 'Нөмірді суретке түсіріңіз немесе есте сақтаңыз',
   editDropped:
     'Төлем өзгерістерге дейінгі тапсырыс бойынша өтті. Өзгерістер оған кірмеді - оларды бөлек тапсырыс беруге болады.',
+  terminalOpenTitle: 'Терминалда «Отмена» басыңыз',
+  terminalOpenBody:
+    'Терминалда әлі алдыңғы сома тұр - оны төлемеңіз. Оны экраннан болдырмау мүмкін емес: терминалда «Отмена» басыңыз, әйтпесе ол 3 минутта өзі босайды.',
+  menuNextSection: 'Келесі: {name}',
+  menuPrevSection: 'Алдыңғы: {name}',
   optionStopped: '«{name}» енді жоқ. Басқа нұсқаны таңдаңыз.',
   menuUpdatingTitle: 'Мәзір жаңартылып жатыр',
   menuUpdatingBody:
@@ -443,6 +454,7 @@ const kk: Strings = {
   review: 'Тапсырысты тексеріңіз',
   payTitle: 'Тапсырысты төлеу',
   payChoose: 'Төлем әдісі',
+  reviewWhere: 'Қайда жейсіз?',
   card: 'Банк картасы',
   toPay: 'Төлеуге',
   createPayment: 'Төлемге өту',
@@ -682,6 +694,11 @@ const en: Strings = {
   photoNumber: 'Take a photo of your number or remember it',
   editDropped:
     'The payment went through for the order before your changes. The changes are not in it - you can order them separately.',
+  terminalOpenTitle: 'Press Cancel on the terminal',
+  terminalOpenBody:
+    'The terminal still shows the previous amount - do not pay it. It cannot be cancelled from this screen: press Cancel on the terminal, or it clears by itself within 3 minutes.',
+  menuNextSection: 'Next: {name}',
+  menuPrevSection: 'Back: {name}',
   optionStopped: '{name} is no longer available. Please choose another option.',
   menuUpdatingTitle: 'The menu is updating',
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',
@@ -757,6 +774,7 @@ const en: Strings = {
   review: 'Check your order',
   payTitle: 'Order payment',
   payChoose: 'Payment method',
+  reviewWhere: 'Where will you eat?',
   card: 'Bank card',
   toPay: 'To pay',
   createPayment: 'Go to payment',

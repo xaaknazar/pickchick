@@ -6,13 +6,21 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
+import {
+  CARD_NAME,
+  cardName,
+  fitTitle,
+  sauceFill,
+  type BadgeKind,
+  type CardSize,
+} from '../menu-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
   heroPhoto,
   productArtworkId,
   productPhoto,
+  shownPhotoBounds,
 } from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
@@ -22,6 +30,12 @@ import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
 /** Share of a horizontal (`wide`) card given to its photo. */
 const WIDE_PHOTO = 0.58;
+/**
+ * A published cut-out is framed with a clear 5 % margin on every side (640 × 640 card rendition),
+ * so the card scales it by 1/0.9 to give the dish the tile it is laid out for (owner 23.11.2026:
+ * «фото меньше стоит»).
+ */
+const CUTOUT_FRAME = 1 / 0.9;
 /** A studio photo shot on (near) white: it multiplies onto the cream card like the design. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
@@ -40,6 +54,8 @@ const lightTile = (tile: string) =>
  * the menu). The card squeezes to .96 with an orange ring while pressed, a blue badge counts
  * the units already in the bag, and a stopped product dims its photo and its "+".
  */
+/** Share of the card's width a wide fitted dish may run past its sides (clipped by the card). */
+const BLEED = 0.08;
 export function ProductCard({
   product,
   onOpen,
@@ -52,6 +68,7 @@ export function ProductCard({
   inCart = 0,
   arriving = false,
   index = 0,
+  nameLines = 2,
 }: {
   product: KioskProduct;
   onOpen: () => void;
@@ -67,6 +84,8 @@ export function ProductCard({
   arriving?: boolean;
   /** Position in its section: picks the illustration (i % 4). */
   index?: number;
+  /** Lines of name room every card in its section keeps (`sectionNameLines`). */
+  nameLines?: number;
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
@@ -82,19 +101,38 @@ export function ProductCard({
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
+  // A measured cut-out is fitted by its dish (PhotoImage `fit`); an unmeasured published one
+  // still drops its clear 5 % margin by scale.
+  const fitted = !!shownPhotoBounds(imageId, largePick ? 'hero' : 'card');
+  const fill = sauceFill(product);
+  const framed = !fitted && !!shot?.cutout && typeof shot.source === 'object';
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
   const wide = size === 'wide';
   const big = size === 'large' || size === 'medium';
-  const describe = (size === 'large' || wide) && !!product.description;
+  const named = cardName(product.name);
+  // Owner 23.11.2026: a 60 cup of sauce is «60 мл» everywhere (the menu says «60 г»).
+  const label =
+    /^sauce/.test(product.id) && /^60\s*г$/.test(named.size)
+      ? {
+          ...named,
+          size: '60 ' + (locale === 'en' ? 'ml' : 'мл'),
+          caption: named.caption.replace(/^60\s*г/, '60 ' + (locale === 'en' ? 'ml' : 'мл')),
+        }
+      : named;
+  // A wide card has room for one quiet line: the caption, else the description.
+  const describe = (size === 'large' || (wide && !label.caption)) && !!product.description;
   const plus = px(big ? 54 : 50);
   // The name steps down (to .8 of its size) rather than break a word or lose a line to an
   // ellipsis in a narrow column; a name that still does not fit gets a third line.
   const [cardWidth, setCardWidth] = useState(0);
   const column = cardWidth * (wide ? 1 - WIDE_PHOTO : 1) - px(wide ? 22 : 36);
-  const base = px(big ? 27 : 24);
-  const title = fitTitle(product.name, cardWidth ? column : 0, base, base * 0.8);
+  // Owner 23.11.2026 («у всех одинаковый шрифт, как у Pick Burger Combo»): one name size on
+  // every card. A name wraps to a second line at that size; only one that would need a third
+  // line (or a word wider than the column) steps down.
+  const base = px(CARD_NAME);
+  const title = fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
   const pick = usePress(0.92);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
@@ -112,6 +150,10 @@ export function ProductCard({
           : badge === 'recipe'
             ? t.recipeTag
             : null;
+  // Owner 22.11.2026: photos in a row are the same size. Owner 23.11.2026: the name room is the
+  // same on every card of a section (the most lines a name there takes, a caption counted), so a
+  // one-line section gives the line back to the photos and no photo depends on its own name.
+  const nameRoom = wide ? 0 : Math.round(base * 1.16) * nameLines;
   const photo = (
     <View
       style={{
@@ -122,9 +164,14 @@ export function ProductCard({
         overflow: 'hidden',
         backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
         // Owner 22.11.2026: the dish fills its tile (the photos read small with wider margins).
-        paddingTop: px(largePick ? 4 : wide ? 18 : 10),
-        paddingBottom: px(largePick ? 0 : wide ? 18 : 0),
-        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 6),
+        // Owner 23.11.2026: a fitted dish fills the same box on every card, a little clear of
+        // the edges and the name.
+        // Owner 23.11.2026 (later): bigger still, so a fitted dish keeps only a thin margin.
+        // Owner 23.11.2026 («фото Pick Burger Combo увеличь»): a fitted dish runs to the card's
+        // sides, and a wide one (limited by the width) may run a little past them.
+        paddingTop: px(fitted ? 6 : largePick ? 4 : wide ? 18 : 10),
+        paddingBottom: px(fitted ? (wide ? 10 : 2) : largePick ? 0 : wide ? 18 : 0),
+        paddingHorizontal: px(fitted ? (wide ? 6 : 0) : largePick ? 6 : wide ? 18 : 6),
       }}
     >
       <Animated.View
@@ -137,19 +184,44 @@ export function ProductCard({
             {
               scale: zoom.interpolate({
                 inputRange: [0, 1],
-                outputRange: wide || largePick ? [1, 1.05] : [1.08, 1.13],
+                outputRange: (fitted
+                  ? [1, 1.05]
+                  : framed
+                    ? [CUTOUT_FRAME, CUTOUT_FRAME * 1.05]
+                    : wide || largePick
+                      ? [1, 1.05]
+                      : [1.08, 1.13]
+                ).map((scale) => (fitted ? scale : scale * fill)),
               }),
             },
           ],
         }}
       >
-        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+        <PhotoImage
+          imageId={imageId}
+          variant={largePick ? 'hero' : 'card'}
+          fit={fitted}
+          fill={fill}
+          bleed={fitted && !wide && fill === 1 ? BLEED : 0}
+        />
       </Animated.View>
     </View>
   );
-  // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
-  // size and names start on one line whether they take one line or two.
-  const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
+  const caption = label.caption ? (
+    <Text
+      {...fixedText}
+      testID={prefix + '-caption-' + product.id}
+      numberOfLines={1}
+      style={{
+        fontFamily: fonts.medium,
+        fontSize: px(big ? 16 : 15),
+        lineHeight: px(big ? 21 : 20),
+        color: redesign.cardMuted,
+      }}
+    >
+      {label.caption}
+    </Text>
+  ) : null;
   const name = (
     <Text
       {...fixedText}
@@ -162,7 +234,7 @@ export function ProductCard({
         color: redesign.cardInk,
       }}
     >
-      {product.name}
+      {label.title}
     </Text>
   );
   const note = unavailable ? (
@@ -230,7 +302,10 @@ export function ProductCard({
               gap: px(4),
             }}
           >
-            <View style={{ minHeight: nameRoom }}>{name}</View>
+            <View style={{ minHeight: nameRoom, gap: px(2), justifyContent: 'flex-end' }}>
+              {name}
+              {caption}
+            </View>
             {note}
           </View>
         </Pressable>

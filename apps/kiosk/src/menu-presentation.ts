@@ -218,3 +218,87 @@ export function fitTitle(text: string, width: number, base: number, min: number,
   const size = Math.max(1, Math.min(Math.floor(min), Math.floor(width / (longest * WIDE_LETTER))));
   return { size, lines: Math.max(lines, wrappedLines(text, width / (size * LETTER))) };
 }
+
+/**
+ * Lines `text` takes at `size` in a `width` column (the estimate `fitTitle` uses). A card whose
+ * name takes one line gives the spare line to its photo (owner 23.11.2026: «фото больше»).
+ */
+export const CARD_NAME = 18;
+/**
+ * Owner 23.11.2026: every menu card prints its name at one size, the size «Pick Burger Combo»
+ * took to stay on one line (18 at 1024 pt), and a section keeps the same room for the name on
+ * every card, so all photos in a section are the same size. The room is the most lines any
+ * name in the section takes (a caption counts as a line), at most three.
+ */
+export function sectionNameLines(
+  cards: { title: string; caption: boolean; width: number }[],
+  size: number,
+) {
+  let lines = 1;
+  for (const card of cards)
+    lines = Math.max(
+      lines,
+      Math.min(2, titleLines(card.title, card.width, size)) + (card.caption ? 1 : 0),
+    );
+  return Math.min(3, lines);
+}
+
+export function titleLines(text: string, width: number, size: number) {
+  if (!(width > 0) || !(size > 0)) return 2;
+  return wrappedLines(text, width / (size * LETTER));
+}
+
+/**
+ * Owner 23.11.2026: the sauce photos in «Допы» were too big and 300 / 400 / 500 g looked the
+ * same. A sauce card draws its pot at a share of the photo area by its size, so a 60 ml cup is
+ * small and every bigger pot is a step larger; any other product fills its area (1).
+ */
+export function sauceFill(product: { id: string; name: string }) {
+  if (!/^sauce/.test(product.id)) return 1;
+  const grams = Number(
+    /(\d+)\s*(?:г|мл|g|ml)\b/iu.exec(product.name)?.[1] ?? /-(\d{3})$/.exec(product.id)?.[1] ?? 60,
+  );
+  return grams >= 500 ? 0.96 : grams >= 400 ? 0.86 : grams >= 300 ? 0.76 : 0.6;
+}
+
+/** A size or count at the end of a name: «0.5 л», «300 г», «1 шт» («— 0.5 л» drops the dash). */
+const CARD_AMOUNT = /\s*[-–—]?\s*(\d+(?:[.,]\d+)?\s*(?:мл|л|кг|г|шт|ml|l|kg|g|pcs)\.?)$/i;
+/**
+ * The name a menu card prints, split into a short bold title and a quiet caption (owner
+ * 23.11.2026: the published drink names «Coca-Cola (в железной банке) — 0.5 л» wrapped into
+ * three shrunken lines and the names in a row stood crooked). Text in brackets, a «, tail» and a
+ * trailing size or count move to the caption (size first), joined by « · »; long dashes become hyphens.
+ * A name that is only a size («0.5 л») or starts with a number («25 фингерсов») stays whole.
+ */
+export function cardName(name: string): {
+  title: string;
+  caption: string;
+  /** The trailing size or count alone («0.5 л»), '' without one. */
+  size: string;
+  /** The caption without the size. */
+  detail: string;
+} {
+  const whole = name
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  let title = whole;
+  const details: string[] = [];
+  title = title.replace(/\s*\(([^()]*)\)/g, (_, inner: string) => {
+    if (inner.trim()) details.push(inner.trim());
+    return '';
+  });
+  const comma = title.search(/,\s/);
+  if (comma > 0) {
+    details.push(title.slice(comma + 1).trim());
+    title = title.slice(0, comma);
+  }
+  const amount = CARD_AMOUNT.exec(title);
+  // The size leads the caption, so a narrow card that cuts the caption short still shows it.
+  const size = amount && amount.index > 0 ? amount[1]!.replace(/\s+/g, ' ') : '';
+  if (size) title = title.slice(0, amount!.index);
+  title = title.replace(/[\s-]+$/, '').trim();
+  if (!title) return { title: whole, caption: '', size: '', detail: '' };
+  const detail = details.filter(Boolean).join(' · ');
+  return { title, caption: [size, detail].filter(Boolean).join(' · '), size, detail };
+}

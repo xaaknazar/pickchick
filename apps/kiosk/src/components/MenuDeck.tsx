@@ -12,11 +12,16 @@ import { categoryKeys, type Category } from './categories';
  * harness keeps one section at a time (its tests read a single grid).
  */
 const KEEP_SECTIONS = Platform.OS !== 'web';
-/** First background build after the menu opens, then one section per step. */
-const WARM_START = 900;
-const WARM_STEP = 260;
+/**
+ * First background build after the menu opens, then one section per step. It starts after the
+ * dining reveal (about 0.9 s) has finished, so building sections never competes with it.
+ */
+const WARM_START = 1600;
+const WARM_STEP = 320;
 const SHOW = 240;
 const HIDE = 140;
+/** Travel (points) of a section turned by a pull. */
+const TURN = 56;
 
 /** Sections the deck has built: the open one, the ones visited, then the rest in rail order. */
 function useBuiltSections(category: Category) {
@@ -34,7 +39,15 @@ function useBuiltSections(category: Category) {
 }
 
 /** One section of the deck: shown in place, or kept built and invisible underneath. */
-function MenuLayer({ active, children }: { active: boolean; children: ReactNode }) {
+function MenuLayer({
+  active,
+  turn,
+  children,
+}: {
+  active: boolean;
+  turn: 0 | 1 | -1;
+  children: ReactNode;
+}) {
   const reduced = useMotionPreference();
   // A section built while the guest looks at another one starts hidden; the first section
   // (and every web section) is already in place and plays the cards' own rise.
@@ -68,7 +81,14 @@ function MenuLayer({ active, children }: { active: boolean; children: ReactNode 
         {
           opacity: shown,
           transform: [
-            { translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+            {
+              // A pulled page turn moves like a page: the next section rises from below while
+              // the one left goes up (and the other way round); a tap keeps the short lift.
+              translateY: shown.interpolate({
+                inputRange: [0, 1],
+                outputRange: [turn ? (active ? turn : -turn) * TURN : 12, 0],
+              }),
+            },
             { scale: shown.interpolate({ inputRange: [0, 1], outputRange: [0.992, 1] }) },
           ],
         },
@@ -86,10 +106,13 @@ function MenuLayer({ active, children }: { active: boolean; children: ReactNode 
 export function MenuDeck({
   category,
   revision,
+  turn = 0,
   children,
 }: {
   category: Category;
   revision: number;
+  /** 1 / -1 when the guest pulled to the next / previous section, 0 for a tap. */
+  turn?: 0 | 1 | -1;
   children: (section: Category, active: boolean) => ReactNode;
 }) {
   const built = useBuiltSections(category);
@@ -99,7 +122,11 @@ export function MenuDeck({
     // answer). Hidden layers pass touches through (pointerEvents none), so order is irrelevant.
     <View collapsable={false} style={{ flex: 1, minHeight: 0 }}>
       {built.map((key) => (
-        <MenuLayer key={key + '-' + (KEEP_SECTIONS ? 0 : revision)} active={key === category}>
+        <MenuLayer
+          key={key + '-' + (KEEP_SECTIONS ? 0 : revision)}
+          active={key === category}
+          turn={turn}
+        >
           {children(key, key === category)}
         </MenuLayer>
       ))}

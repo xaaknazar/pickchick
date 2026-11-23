@@ -748,6 +748,7 @@ const TERMINAL_REQUEST_DEFINITIVE = [
 const BROWSING: KioskStep[] = ['menu', 'product', 'upsell', 'cart', 'loyalty'];
 /** Screens of a guest changing an order whose terminal payment is still open. */
 const EDIT_STEPS: KioskStep[] = [...BROWSING, 'mode'];
+const KEEP_ON_MODE: KioskStep[] = ['upsell', 'cart', 'loyalty'];
 /** A read that may simply be retried: the network, a timeout or a server outage. */
 const transient = (error: unknown) =>
   !(error instanceof KioskError) ||
@@ -1031,6 +1032,7 @@ export class CommercialKioskController {
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
       terminalPayment: this.terminalView(),
       editDropped: this.editDropped,
+      terminalOpen: this.editingTerminal() && !this.terminalSettled(),
       terminalPaymentAvailable: this.terminalActive(),
       terminalSetup: this.terminalSession ? this.setupView() : null,
       paymentPhase: order?.phase,
@@ -1666,7 +1668,12 @@ export class CommercialKioskController {
     if (!this.menu) throw new KioskError('CATALOG_UNAVAILABLE');
   }
   private navigate(step: KioskStep) {
-    if (!this.ready || this.busy || this.locked()) return;
+    // Owner 23.11.2026: «Оформить заказ» stood for about a second. A tap while a save runs (an
+    // add just made, which first waits for a background refresh) was dropped, so moving
+    // between the browsing screens no longer waits for it: the save finishes underneath and
+    // the screen shows it when it lands.
+    const browsing = BROWSING.includes(this.step) && BROWSING.includes(step);
+    if (!this.ready || (this.busy && !browsing) || this.locked()) return;
     this.touch();
     this.step = step;
     this.emit();
@@ -1684,7 +1691,9 @@ export class CommercialKioskController {
       this.editable();
       if (!['takeaway', 'dine_in'].includes(mode)) throw new KioskError('INVALID_CART');
       await this.save({ ...this.current, mode, lastActivityAt: this.io.now() });
-      this.step = 'menu';
+      // Owner 23.11.2026: «В зале / С собой» can be changed on the payment page itself, so a
+      // change there (or in the cart or «Допы») keeps the guest where they are.
+      if (!KEEP_ON_MODE.includes(this.step)) this.step = 'menu';
     });
   goMode = () => this.navigate('mode');
   goMenu = () => this.navigate('menu');
