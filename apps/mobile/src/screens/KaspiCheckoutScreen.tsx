@@ -703,6 +703,26 @@ function KaspiCheckoutSession(
     }, []),
     onKaspi: useCallback(() => payment.choose('kaspi'), [payment.choose]),
     test: TIPTOPPAY_TEST_BUILD,
+    // LIVE terminal (23.11.2026): a card / Apple Pay / Google Pay press pays a real order.
+    live: useCallback(() => connectedMethodsStore.environment() === 'live', []),
+    onOrder: useCallback(
+      async (value: CustomerCommerceOrder, method: 'card' | 'apple_pay' | 'google_pay') => {
+        // The handle and «Способ оплаты» show the method of the last payment (item 6b).
+        rememberPaymentMethod(customerId, method, 'payment');
+        if (paymentReceived(value.phase)) {
+          // The paid cart is this cart: the press quoted it a moment ago.
+          props.model.clearCart(
+            cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
+          );
+          props.model.setOrderComment('');
+          props.model.comboRewards?.select(false);
+          props.model.comboRewards?.refresh();
+        }
+        // The order screen takes over: number, cooking, ready (the same view as a Kaspi order).
+        await acceptRef.current(value, false);
+      },
+      [customerId, props.model],
+    ),
   });
   const submit = async () => {
     if (lock.current || !cart.current.length) return;

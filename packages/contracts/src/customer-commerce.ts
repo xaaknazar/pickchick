@@ -18,7 +18,8 @@ export const CustomerTestPaymentSetupSchema = z.strictObject({
   googlePay: z
     .strictObject({ gateway: z.string().max(60), gatewayMerchantId: z.string().max(100) })
     .nullable(),
-  environment: z.literal('test'),
+  // 'live' (payments-setup, 23.11.2026): the live terminal of a real order payment.
+  environment: z.enum(['test', 'live']),
 });
 export type CustomerTestPaymentSetup = z.infer<typeof CustomerTestPaymentSetupSchema>;
 export type CustomerTestPayment = z.infer<typeof CustomerTestPaymentSchema>;

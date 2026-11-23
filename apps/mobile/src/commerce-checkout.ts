@@ -22,7 +22,7 @@ export const commerceRequest = (
 ) =>
   createCustomerRequest(API_URL, nativeFetch, {
     allowed:
-      /^\/v1\/customer-checkout\/(config|combo-rewards|quotes|test-payments(?:-setup|\/[a-f0-9-]{36})?|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
+      /^\/v1\/customer-checkout\/(config|combo-rewards|quotes|test-payments(?:-setup|\/[a-f0-9-]{36})?|payments-setup|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/tiptoppay|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
     // errors-v2: this bundle's ErrorSchema knows KITCHEN_OFFLINE (older servers ignore it).
