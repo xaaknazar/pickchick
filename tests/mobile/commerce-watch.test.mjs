@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
+  createWatchCursor,
   wait,
   watchCommerceOrder,
-  watchCursor,
   watchRetryDelay,
 } from '../../apps/mobile/src/commerce-watch.ts';
 import { CustomerSessionError } from '../../apps/mobile/src/customer-session.ts';
@@ -155,19 +155,18 @@ test('a poll delay ends at once on abort and leaves no listener on the signal (a
 });
 
 test('the read after an accepted answer asks with the new revision (audit 23.11 #9)', async () => {
-  const started = { orderId: 'o1', revision: 'r1' };
-  // What the screen keeps in a ref and updates in its accept step, before React renders.
-  const shown = { current: started };
+  const shown = { orderId: 'o1', revision: 'r1' };
+  const cursor = createWatchCursor(shown);
   const controller = new AbortController();
   const asked = [];
   await watchCommerceOrder({
     signal: controller.signal,
     read: async () => {
-      asked.push(watchCursor(shown.current, started));
+      asked.push(cursor.after());
       return { orderId: 'o1', revision: `r${asked.length + 1}` };
     },
     accept: async (next) => {
-      shown.current = next;
+      cursor.accepted(next);
       if (asked.length === 3) controller.abort();
     },
     onError: () => assert.fail('no error'),
@@ -175,17 +174,29 @@ test('the read after an accepted answer asks with the new revision (audit 23.11 
   });
   // Before: r1, r1, r1 - the server answered each repeat at once.
   assert.deepEqual(asked, ['r1', 'r2', 'r3']);
-  // Another order on screen (or none) never lends its revision.
-  assert.equal(watchCursor({ orderId: 'o2', revision: 'x' }, started), 'r1');
-  assert.equal(watchCursor(null, started), 'r1');
+  // Review 23.11: the cursor starts from what the screen shows and moves only with answers of
+  // this watch. A newer copy of the order kept elsewhere (a ref left from an earlier screen) or
+  // another order never moves it, so the watch cannot wait while the screen stays old.
+  const reopened = createWatchCursor({ orderId: 'o1', revision: 'old' });
+  assert.equal(reopened.after(), 'old');
+  reopened.accepted({ orderId: 'o2', revision: 'other' });
+  assert.equal(reopened.after(), 'old');
+  reopened.accepted({ orderId: 'o1', revision: 'new' });
+  assert.equal(reopened.after(), 'new');
   const screen = readFileSync(
     new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
     'utf8',
   );
-  assert.match(screen, /watch\?after=\$\{watchCursor\(orderRef\.current, order\)\}/);
+  assert.match(screen, /const cursor = createWatchCursor\(order\);/);
+  assert.match(screen, /watch\?after=\$\{cursor\.after\(\)\}/);
+  assert.match(screen, /cursor\.accepted\(await acceptRef\.current\(next, false\)\);/);
+  assert.doesNotMatch(screen, /watch\?after=\$\{[^}]*orderRef/);
   // One watch follows the order through its revisions: an answer does not restart it.
   assert.match(
     screen,
     /\}, \[request, order\?\.orderId, order\?\.phase, foreground, watchRun\]\);/,
   );
+  // An order opened from the list is the order the ref holds too.
+  assert.equal(screen.match(/orderRef\.current = item;\n\s+setOrder\(item\);/g)?.length, 2);
+  assert.doesNotMatch(screen, /(?<!orderRef\.current = item;\n\s+)setOrder\(item\);/);
 });

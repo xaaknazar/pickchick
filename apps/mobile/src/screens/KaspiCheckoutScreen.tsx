@@ -40,7 +40,7 @@ import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
-import { watchCommerceOrder, watchCursor, watchRetryDelay } from '../commerce-watch';
+import { createWatchCursor, watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -546,18 +546,14 @@ function KaspiCheckoutSession(
       return;
     const controller = new AbortController();
     orderWatch.current = controller;
+    const cursor = createWatchCursor(order);
     void watchCommerceOrder({
       signal: controller.signal,
       read: (signal) =>
-        request(
-          `/orders/${order.orderId}/watch?after=${watchCursor(orderRef.current, order)}`,
-          'GET',
-          undefined,
-          signal,
-        ),
+        request(`/orders/${order.orderId}/watch?after=${cursor.after()}`, 'GET', undefined, signal),
       accept: async (next) => {
         // A watch answer is never the create command of a pending intent.
-        await acceptRef.current(next, false);
+        cursor.accepted(await acceptRef.current(next, false));
       },
       // Connection recovery keeps the last confirmed order on screen without banners.
       onError: () => {},
@@ -568,7 +564,7 @@ function KaspiCheckoutSession(
       if (orderWatch.current === controller) orderWatch.current = null;
     };
     // watchRun: «Проверить ещё раз» starts a fresh watch after its own read. Not the revision:
-    // the loop reads it from orderRef (watchCursor), so one watch follows the order through its
+    // the loop keeps its own (createWatchCursor), so one watch follows the order through its
     // revisions instead of being aborted and started again by each of its own answers.
   }, [request, order?.orderId, order?.phase, foreground, watchRun]);
   // The list's watches depend on which orders are watched, not on the list itself: an answer
@@ -1512,10 +1508,12 @@ function KaspiCheckoutSession(
         ratings={reviews.ratings}
         onOpen={(item) => {
           setInitialRating(undefined);
+          orderRef.current = item;
           setOrder(item);
         }}
         onRate={(item, stars) => {
           setInitialRating(stars);
+          orderRef.current = item;
           setOrder(item);
         }}
       />

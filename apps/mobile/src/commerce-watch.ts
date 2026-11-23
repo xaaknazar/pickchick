@@ -29,15 +29,20 @@ export function wait(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * The revision a watch asks after. The loop reads again right after it accepted an answer, before
- * React renders: `latest` (a ref the accept step updates at once) carries the new revision, so the
- * next read never repeats the revision the watch started with (the server would answer at once).
+ * The revision a watch asks after: the one the screen shows when the watch starts, then the one of
+ * each answer this watch accepted. The loop reads again right after an answer, before React
+ * renders, so the cursor moves here and not with the render (the server would answer a repeated
+ * revision at once). It never takes a revision from anywhere else: a ref that holds a newer copy
+ * of the order than the screen shows would make the watch wait while the screen stays old.
  */
-export function watchCursor<R>(
-  latest: { orderId: string; revision: R } | null | undefined,
-  started: { orderId: string; revision: R },
-): R {
-  return latest?.orderId === started.orderId ? latest.revision : started.revision;
+export function createWatchCursor<R>(shown: { orderId: string; revision: R }) {
+  let revision = shown.revision;
+  return {
+    after: () => revision,
+    accepted(next: { orderId: string; revision: R }) {
+      if (next.orderId === shown.orderId) revision = next.revision;
+    },
+  };
 }
 
 /** Foreground, sequential long polling. Abort cancels both HTTP and reconnect timers. */
