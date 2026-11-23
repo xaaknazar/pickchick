@@ -3,7 +3,7 @@
 // load it. Prices, selections and their validity stay with cart.ts; this module only decides
 // what the card shows: the composition pills, option names, the drink grid with its «Ещё N»
 // tile, the drink shelves of the sheet and the summary of the choice.
-import { SECTION_HITS, badgeOf } from './menu-presentation.ts';
+import { SECTION_HITS, badgeOf, cardName } from './menu-presentation.ts';
 import type { KioskModifierGroup, KioskProduct, KioskSelection } from './model';
 import type { ProductCopy } from './productCopy';
 
@@ -43,6 +43,73 @@ export interface OptionText {
   /** Second line in grey ("бутылка", "персик"), or empty. */
   caption: string;
 }
+const PACKAGE = {
+  can: { ru: 'банка', kk: 'банка', en: 'can' },
+  bottle: { ru: 'бутылка', kk: 'бөтелке', en: 'bottle' },
+} as const;
+const packageOf = (text: string) =>
+  /(^|[\s(])жб($|[\s)])|банк|\bcan\b/iu.test(text)
+    ? 'can'
+    : /бутыл|бөтел|\bbottle\b/iu.test(text)
+      ? 'bottle'
+      : null;
+/** «0,5» / «0.5 л» / «500 мл» -> «0.5 л» / «500 мл» (a bare number of a drink is litres). */
+const DRINK_VOLUME = /\s*-?\s*(\d+(?:[.,]\d+)?)\s*(мл|л|ml|l)?\.?$/iu;
+/**
+ * Owner 23.11.2026: every drink in a combo shows its volume under the name, written one way
+ * («Fanta» / «0.5 л · банка», «Fuse Tea Персик» / «0.5 л»), and the photo sizes match. The
+ * catalog labels differ («Фанта жб», «Фьюс лимон 0,5», «Ice Tea»), so a drink that is also on
+ * the menu takes its menu name (`linkedName`, same id): its title is the name, its size the
+ * volume, a can or bottle the second word. Text in brackets («сладкий / несладкий», «вода
+ * негазированная») is left out; a flavour after a comma stays in the name. A drink with no menu
+ * item (Piko Яблоко) is read from its label the same way.
+ */
+export function drinkOptionText(
+  label: string,
+  linkedName: string | undefined,
+  locale: 'ru' | 'kk' | 'en',
+): OptionText {
+  const source = tidy(linkedName || label);
+  const pack = packageOf(source) ?? packageOf(label);
+  let name: string;
+  let volume = '';
+  if (linkedName) {
+    const card = cardName(source);
+    name = card.title;
+    volume = card.size;
+  } else {
+    const comma = source.search(/,\s/);
+    const head = comma > 0 ? source.slice(0, comma) : source;
+    const tail = comma > 0 ? source.slice(comma + 1).trim() : '';
+    const match = DRINK_VOLUME.exec(head);
+    name = match && match.index > 0 ? head.slice(0, match.index) : head;
+    if (match && match.index > 0) volume = match[1]! + ' ' + (match[2] ?? 'л');
+    if (tail && !packageOf(tail)) name += ' ' + tail;
+  }
+  name = name
+    .replace(/\s*\([^()]*\)/g, '')
+    .replace(/(^|\s)жб(?=$|\s)/giu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  volume = volume.replace(',', '.').replace(/\s+/, ' ');
+  const caption = [volume, pack ? PACKAGE[pack][locale] : ''].filter(Boolean).join(' · ');
+  return { name: name || tidy(label), caption };
+}
+/**
+ * Owner 23.11.2026 («прям очень-очень важно»): every sauce of a combo says «60 мл» under its
+ * name; the brand («Pick Chick») and a weight in the label are left out of the caption.
+ */
+export function sauceOptionText(label: string, locale: 'ru' | 'kk' | 'en'): OptionText {
+  const clean = tidy(label).replace(/\.$/, '');
+  const comma = clean.search(/,\s/);
+  const head = comma > 0 ? clean.slice(0, comma) : clean;
+  const name = head.replace(VOLUME, '').trim() || head;
+  return { name, caption: '60 ' + (locale === 'en' ? 'ml' : 'мл') };
+}
+/** Options that are drinks (the combo choice and «Добавить напитки») or sauces, by group id. */
+export const isDrinkOptions = (groupId: string) => /^drink/.test(groupId);
+export const isSauceOptions = (groupId: string) => /^sauce/.test(groupId);
+
 /**
  * Splits a catalog option label into the tile's name and caption (design: «Coca-Cola 0.5 л» /
  * «бутылка», «Лимонад 0.5 л» / «фирменный», «Fuse Tea» / «персик»):
@@ -199,7 +266,7 @@ export function drinkShelves<T extends { id: string }>(options: readonly T[]) {
 }
 
 /** Drinks are a 5-column grid (two rows on the card); any other choice four across. */
-export const isDrinkGroup = (group: Pick<KioskModifierGroup, 'id'>) => group.id === 'drink';
+export const isDrinkGroup = (group: Pick<KioskModifierGroup, 'id'>) => isDrinkOptions(group.id);
 export const gridColumns = (group: Pick<KioskModifierGroup, 'id'>) => (isDrinkGroup(group) ? 5 : 4);
 export interface OptionGrid<T> {
   /** Tiles on the card, in catalog order (a hidden pick takes the last slots). */
@@ -397,12 +464,24 @@ export const servingOf = (product: Pick<KioskProduct, 'serving_label'>) => {
   const serving = tidy(product.serving_label);
   return serving === '-' ? '' : serving;
 };
-/** «520 г · 1240 ккал». */
+/**
+ * Owner 23.11.2026: KBJU is not filled in yet (the catalog sends zeros). Until a product has a
+ * real value it shows no calories, no KBJU tiles and no KBJU button; the field stays, so the
+ * values appear by themselves once the menu has them.
+ */
+export function hasNutrition(product: { nutrition?: KioskProduct['nutrition'] | null }) {
+  const n = product.nutrition;
+  return !!n && [n.energy_kcal, n.protein_g, n.fat_g, n.carbs_g].some((value) => Number(value) > 0);
+}
+/** «520 г · 1240 ккал» («520 г» while KBJU is not filled in). */
 export function servingLine(
   product: Pick<KioskProduct, 'serving_label' | 'nutrition'>,
   kcal: string,
 ) {
-  return [servingOf(product), `${product.nutrition.energy_kcal} ${kcal}`]
+  return [
+    servingOf(product),
+    hasNutrition(product) ? `${product.nutrition.energy_kcal} ${kcal}` : '',
+  ]
     .filter(Boolean)
     .join(' · ');
 }

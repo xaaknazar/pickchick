@@ -2,9 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { KioskModifierGroup } from '../model';
 import { money } from '../cart';
-import { heinzColor, heinzInk, optionPhoto } from '../assets';
+import { heinzColor, heinzInk, linkedProductName, optionPhoto } from '../assets';
 import { copy, type Locale } from '../i18n';
-import { optionText } from '../product-presentation';
+import {
+  drinkOptionText,
+  isDrinkOptions,
+  isSauceOptions,
+  optionText,
+  sauceOptionText,
+} from '../product-presentation';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { PhotoImage } from './PhotoImage';
@@ -135,9 +141,12 @@ export function ComboOptionTile({
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
-  const text = optionText(option.label);
-  if ((option.id === 'pick' || option.id === 'sauce') && !/\d/.test(text.caption))
-    text.caption = '60 ' + (locale === 'en' ? 'ml' : 'мл');
+  // Owner 23.11.2026: every drink shows its volume («0.5 л · банка») and every sauce «60 мл».
+  const text = isDrinkOptions(groupId)
+    ? drinkOptionText(option.label, linkedProductName(option.id), locale)
+    : isSauceOptions(groupId)
+      ? sauceOptionText(option.label, locale)
+      : optionText(option.label);
   const name = text.name || option.label;
   const photo = optionPhoto(option.id);
   // A photo shot on a light backdrop gives the tile that backdrop, so no box shows around it
@@ -188,8 +197,9 @@ export function ComboOptionTile({
           <PhotoImage
             imageId={option.id}
             variant="option"
-            // A drink's published menu photo is fitted by the bottle, like the bundled ones.
-            fit={typeof photo.source === 'object'}
+            // Owner 23.11.2026: bottles and cans stand at one height (each fitted by its own
+            // visible box); a published menu photo of another option is fitted the same way.
+            fit={isDrinkOptions(groupId) || typeof photo.source === 'object'}
           />
         ) : (
           <OptionMark id={option.id} name={name} />

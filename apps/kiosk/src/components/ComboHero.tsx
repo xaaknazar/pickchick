@@ -5,7 +5,7 @@ import type { KioskProduct, KioskSelection } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { productCopy } from '../productCopy';
 import { fitTitle } from '../menu-presentation';
-import { compositionPills, productBadge, servingLine } from '../product-presentation';
+import { compositionPills, hasNutrition, productBadge, servingLine } from '../product-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
@@ -241,40 +241,44 @@ export function ComboHero({
             >
               {servingLine(product, t.kcal)}
             </Text>
-            <Animated.View style={{ transform: [{ scale: details.scale }] }}>
-              <Pressable
-                testID="kiosk-product-details-open"
-                accessibilityRole="button"
-                accessibilityLabel={tp.nutritionButton}
-                onPress={onDetails}
-                onPressIn={details.onPressIn}
-                onPressOut={details.onPressOut}
-                hitSlop={px(8)}
-                style={{
-                  height: px(36),
-                  paddingHorizontal: px(14),
-                  borderRadius: 999,
-                  borderWidth: Math.max(1, px(1.5)),
-                  borderColor: 'rgba(21,33,58,.18)',
-                  backgroundColor: 'rgba(255,255,255,.7)',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  {...fixedText}
-                  numberOfLines={1}
+            {/* Owner 23.11.2026: no KBJU button while KBJU is zeros; the ingredients alone
+                still open the sheet under «Состав». */}
+            {hasNutrition(product) || product.ingredients?.trim() ? (
+              <Animated.View style={{ transform: [{ scale: details.scale }] }}>
+                <Pressable
+                  testID="kiosk-product-details-open"
+                  accessibilityRole="button"
+                  accessibilityLabel={hasNutrition(product) ? tp.nutritionButton : t.ingredients}
+                  onPress={onDetails}
+                  onPressIn={details.onPressIn}
+                  onPressOut={details.onPressOut}
+                  hitSlop={px(8)}
                   style={{
-                    fontFamily: fonts.heavy,
-                    fontSize: px(14),
-                    lineHeight: px(18),
-                    color: redesign.cardInk,
+                    height: px(36),
+                    paddingHorizontal: px(14),
+                    borderRadius: 999,
+                    borderWidth: Math.max(1, px(1.5)),
+                    borderColor: 'rgba(21,33,58,.18)',
+                    backgroundColor: 'rgba(255,255,255,.7)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
                   }}
                 >
-                  {tp.nutritionButton + ' ›'}
-                </Text>
-              </Pressable>
-            </Animated.View>
+                  <Text
+                    {...fixedText}
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: fonts.heavy,
+                      fontSize: px(14),
+                      lineHeight: px(18),
+                      color: redesign.cardInk,
+                    }}
+                  >
+                    {(hasNutrition(product) ? tp.nutritionButton : t.ingredients) + ' ›'}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
           </View>
         </View>
       </View>

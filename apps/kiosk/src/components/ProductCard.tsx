@@ -6,13 +6,7 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import {
-  cardName,
-  fitTitle,
-  titleLines,
-  type BadgeKind,
-  type CardSize,
-} from '../menu-presentation';
+import { cardName, fitTitle, sauceFill, type BadgeKind, type CardSize } from '../menu-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
@@ -98,13 +92,23 @@ export function ProductCard({
   // A measured cut-out is fitted by its dish (PhotoImage `fit`); an unmeasured published one
   // still drops its clear 5 % margin by scale.
   const fitted = !!shownPhotoBounds(imageId, largePick ? 'hero' : 'card');
+  const fill = sauceFill(product);
   const framed = !fitted && !!shot?.cutout && typeof shot.source === 'object';
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
   const wide = size === 'wide';
   const big = size === 'large' || size === 'medium';
-  const label = cardName(product.name);
+  const named = cardName(product.name);
+  // Owner 23.11.2026: a 60 cup of sauce is «60 мл» everywhere (the menu says «60 г»).
+  const label =
+    /^sauce/.test(product.id) && /^60\s*г$/.test(named.size)
+      ? {
+          ...named,
+          size: '60 ' + (locale === 'en' ? 'ml' : 'мл'),
+          caption: named.caption.replace(/^60\s*г/, '60 ' + (locale === 'en' ? 'ml' : 'мл')),
+        }
+      : named;
   // A wide card has room for one quiet line: the caption, else the description.
   const describe = (size === 'large' || (wide && !label.caption)) && !!product.description;
   const plus = px(big ? 54 : 50);
@@ -113,7 +117,17 @@ export function ProductCard({
   const [cardWidth, setCardWidth] = useState(0);
   const column = cardWidth * (wide ? 1 - WIDE_PHOTO : 1) - px(wide ? 22 : 36);
   const base = px(big ? 27 : 24);
-  const title = fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
+  // Owner 23.11.2026: a fitted dish keeps one size on every card («Pick Burger Combo» wrapped and
+  // its photo shrank), so a name without a caption steps down to .7 to stay on one line, and
+  // only a name that still does not fit takes a second line, over the photo's bottom margin.
+  const oneLine = fitted && !wide && !label.caption;
+  const single = oneLine
+    ? fitTitle(label.title, cardWidth ? column : 0, base, base * 0.7, 1)
+    : null;
+  const title =
+    single && single.lines <= 1
+      ? single
+      : fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
   const pick = usePress(0.92);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
@@ -138,13 +152,8 @@ export function ProductCard({
   const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
   // Owner 23.11.2026 («в разделе комбо сделать фотографии больше»): a fitted dish over a
   // one-line name without a caption takes the empty line above the name too.
-  const spare =
-    fitted && !wide && !label.caption && cardWidth > 0 && title.lines <= 2
-      ? Math.max(
-          0,
-          nameRoom - Math.round(title.size * 1.16) * titleLines(label.title, column, title.size),
-        )
-      : 0;
+  // The room the photo takes does not depend on the name: one line of the base size is kept.
+  const spare = oneLine ? Math.max(0, nameRoom - Math.round(base * 1.16)) : 0;
   const photo = (
     <View
       style={{
@@ -174,19 +183,25 @@ export function ProductCard({
             {
               scale: zoom.interpolate({
                 inputRange: [0, 1],
-                outputRange: fitted
+                outputRange: (fitted
                   ? [1, 1.05]
                   : framed
                     ? [CUTOUT_FRAME, CUTOUT_FRAME * 1.05]
                     : wide || largePick
                       ? [1, 1.05]
-                      : [1.08, 1.13],
+                      : [1.08, 1.13]
+                ).map((scale) => (fitted ? scale : scale * fill)),
               }),
             },
           ],
         }}
       >
-        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} fit={fitted} />
+        <PhotoImage
+          imageId={imageId}
+          variant={largePick ? 'hero' : 'card'}
+          fit={fitted}
+          fill={fill}
+        />
       </Animated.View>
     </View>
   );

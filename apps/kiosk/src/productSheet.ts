@@ -18,6 +18,7 @@
 import { LINE_LIMIT, testLineId } from './cart.ts';
 import { isSingleItem } from './components/categories.ts';
 import type { KioskModifierGroup, KioskProduct, KioskSelection } from './model';
+import { hasNutrition } from './product-presentation.ts';
 
 /** The sheet shows one row of four size tiles at most. */
 export const SHEET_SIZES = 4;
@@ -119,7 +120,7 @@ export function sheetFacts(product: KioskProduct, sizeId: string | null): SheetF
     option?.label ??
     (product.serving_label?.trim() !== '-' ? product.serving_label?.trim() || null : null);
   const n = product.nutrition as KioskProduct['nutrition'] | null | undefined;
-  if (!n || !Number.isFinite(n.energy_kcal))
+  if (!n || !Number.isFinite(n.energy_kcal) || !hasNutrition(product))
     return { serving, kcal: null, per100g: false, macros: null };
   const per100g = n.basis === 'per_100_g';
   const factor = per100g || base ? 1 : option.nutrition_multiplier;

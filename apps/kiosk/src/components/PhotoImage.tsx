@@ -19,6 +19,7 @@ export function PhotoImage({
   imageId,
   variant = 'card',
   fit = false,
+  fill = 1,
 }: {
   imageId: string;
   variant?: 'card' | 'hero' | 'option' | 'cart';
@@ -27,6 +28,8 @@ export function PhotoImage({
    * 23.11.2026: the combo photos stood at different sizes and heights).
    */
   fit?: boolean;
+  /** Share of the tile a fitted photo fills (sauces step by size: 60 < 300 < 400 < 500). */
+  fill?: number;
 }) {
   const photo =
     variant === 'option'
@@ -58,7 +61,7 @@ export function PhotoImage({
       : undefined;
   const placed =
     bounds && stage.width > 0 && stage.height > 0
-      ? fitPhoto(bounds, stage.width, stage.height)
+      ? fitPhoto(bounds, stage.width, stage.height, fill)
       : null;
   const cover = variant === 'cart' && photo && !photo.cutout && /^#0/.test(photo.tile);
   return (

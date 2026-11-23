@@ -179,6 +179,9 @@ export const optionPhoto = (optionId: string): Photo | null =>
  * the generic drink placeholder keeps the option's name mark instead of a wrong drink.
  */
 const catalogProducts = new Map<string, KioskCatalog['products'][number]>();
+/** Menu name of the product that shares an option's id (a drink of a combo), if any. */
+export const linkedProductName = (optionId: string): string | undefined =>
+  catalogProducts.get(optionId)?.name;
 function linkedProductPhoto(optionId: string): Photo | null {
   const product = catalogProducts.get(optionId);
   if (!product) return null;

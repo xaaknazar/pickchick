@@ -228,6 +228,19 @@ export function titleLines(text: string, width: number, size: number) {
   return wrappedLines(text, width / (size * LETTER));
 }
 
+/**
+ * Owner 23.11.2026: the sauce photos in «Допы» were too big and 300 / 400 / 500 g looked the
+ * same. A sauce card draws its pot at a share of the photo area by its size, so a 60 ml cup is
+ * small and every bigger pot is a step larger; any other product fills its area (1).
+ */
+export function sauceFill(product: { id: string; name: string }) {
+  if (!/^sauce/.test(product.id)) return 1;
+  const grams = Number(
+    /(\d+)\s*(?:г|мл|g|ml)\b/iu.exec(product.name)?.[1] ?? /-(\d{3})$/.exec(product.id)?.[1] ?? 60,
+  );
+  return grams >= 500 ? 0.96 : grams >= 400 ? 0.86 : grams >= 300 ? 0.76 : 0.6;
+}
+
 /** A size or count at the end of a name: «0.5 л», «300 г», «1 шт» («— 0.5 л» drops the dash). */
 const CARD_AMOUNT = /\s*[-–—]?\s*(\d+(?:[.,]\d+)?\s*(?:мл|л|кг|г|шт|ml|l|kg|g|pcs)\.?)$/i;
 /**
