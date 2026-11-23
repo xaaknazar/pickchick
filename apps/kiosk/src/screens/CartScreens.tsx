@@ -327,6 +327,13 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
       />
       <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={14}>
+          {model.terminalOpen ? (
+            <Notice
+              testID="kiosk-terminal-open"
+              title={t.terminalOpenTitle}
+              body={t.terminalOpenBody}
+            />
+          ) : null}
           {!model.cart.length && !model.unavailableCartLines.length ? (
             <EmptyCart locale={context.locale} />
           ) : null}

@@ -12,6 +12,7 @@ import {
   heroPhoto,
   productArtworkId,
   productPhoto,
+  shownPhotoBounds,
 } from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
@@ -57,6 +58,7 @@ export function ComboHero({
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
+  const fitted = !!shownPhotoBounds(imageId, largePick ? 'hero' : 'card');
   const badge = productBadge(product.id);
   const pills = compositionPills(product.ingredients || product.description);
   const [column, setColumn] = useState(0);
@@ -129,10 +131,10 @@ export function ComboHero({
             <View
               style={{
                 flex: 1,
-                transform: [{ scale: largePick ? 1 : shot?.cutout ? 1 / 0.9 : 1.12 }],
+                transform: [{ scale: fitted || largePick ? 1 : shot?.cutout ? 1 / 0.9 : 1.12 }],
               }}
             >
-              <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+              <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} fit={fitted} />
             </View>
           </View>
         </View>

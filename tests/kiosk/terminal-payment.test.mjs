@@ -832,6 +832,8 @@ test('owner 22.11: «Изменить заказ» while the terminal waits open
   assert.equal(s.order, null, 'the guest sees a plain draft');
   assert.equal(s.terminalPayment, null);
   assert.equal(s.recoveryRequired, false);
+  // Owner 23.11.2026: the old sum stays on the terminal, so the cart says to press «Отмена» there.
+  assert.equal(s.terminalOpen, true);
   assert.equal(s.cart.length, 1);
   assert.equal(h.calls.length, requests, 'no request: nothing is cancelled or forgotten');
   assert.equal(h.terminal.calls.length, terminalCalls);
@@ -889,6 +891,7 @@ test('owner 22.11: the terminal lets go while the guest changes the order: left 
   assert.equal(s.step, 'menu', 'the guest stays on their screen');
   assert.equal(s.cart.length, 1);
   assert.equal(s.terminalPayment, null);
+  assert.equal(s.terminalOpen, false, 'the hint goes once the terminal lets go');
   assert.equal(h.terminal.events.at(-1).status, 'fail');
   assert.equal(h.terminal.events.at(-1).sub_status, 'ProcessCancelled');
   assert.equal(h.calls.filter((call) => call.path === '/sessions/end').length, 1);

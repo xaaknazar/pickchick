@@ -1031,6 +1031,7 @@ export class CommercialKioskController {
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
       terminalPayment: this.terminalView(),
       editDropped: this.editDropped,
+      terminalOpen: this.editingTerminal() && !this.terminalSettled(),
       terminalPaymentAvailable: this.terminalActive(),
       terminalSetup: this.terminalSession ? this.setupView() : null,
       paymentPhase: order?.phase,

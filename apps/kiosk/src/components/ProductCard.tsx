@@ -13,6 +13,7 @@ import {
   heroPhoto,
   productArtworkId,
   productPhoto,
+  shownPhotoBounds,
 } from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
@@ -88,7 +89,10 @@ export function ProductCard({
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
-  const framed = !!shot?.cutout && typeof shot.source === 'object';
+  // A measured cut-out is fitted by its dish (PhotoImage `fit`); an unmeasured published one
+  // still drops its clear 5 % margin by scale.
+  const fitted = !!shownPhotoBounds(imageId, largePick ? 'hero' : 'card');
+  const framed = !fitted && !!shot?.cutout && typeof shot.source === 'object';
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
@@ -131,9 +135,11 @@ export function ProductCard({
         overflow: 'hidden',
         backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
         // Owner 22.11.2026: the dish fills its tile (the photos read small with wider margins).
-        paddingTop: px(largePick ? 4 : wide ? 18 : 10),
-        paddingBottom: px(largePick ? 0 : wide ? 18 : 0),
-        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 6),
+        // Owner 23.11.2026: a fitted dish fills the same box on every card, a little clear of
+        // the edges and the name.
+        paddingTop: px(fitted ? 14 : largePick ? 4 : wide ? 18 : 10),
+        paddingBottom: px(fitted ? (wide ? 14 : 4) : largePick ? 0 : wide ? 18 : 0),
+        paddingHorizontal: px(fitted ? 12 : largePick ? 6 : wide ? 18 : 6),
       }}
     >
       <Animated.View
@@ -146,17 +152,19 @@ export function ProductCard({
             {
               scale: zoom.interpolate({
                 inputRange: [0, 1],
-                outputRange: framed
-                  ? [CUTOUT_FRAME, CUTOUT_FRAME * 1.05]
-                  : wide || largePick
-                    ? [1, 1.05]
-                    : [1.08, 1.13],
+                outputRange: fitted
+                  ? [1, 1.05]
+                  : framed
+                    ? [CUTOUT_FRAME, CUTOUT_FRAME * 1.05]
+                    : wide || largePick
+                      ? [1, 1.05]
+                      : [1.08, 1.13],
               }),
             },
           ],
         }}
       >
-        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} fit={fitted} />
       </Animated.View>
     </View>
   );

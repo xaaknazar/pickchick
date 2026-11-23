@@ -3,7 +3,9 @@
 import { Image } from 'expo-image';
 import { colors } from './theme';
 import { KIOSK_API_URL } from './api';
-import { CatalogMediaRegistry, type Photo } from './photo-source';
+import { CatalogMediaRegistry, type Photo, type PhotoSource } from './photo-source';
+import { bundledPhotoBounds } from './bundled-photo-bounds';
+import { publishedPhotoBounds, type PhotoBounds } from './photo-bounds';
 import type { KioskCatalog, KioskMedia } from './model';
 export type { Photo } from './photo-source';
 export const assets = {
@@ -212,6 +214,24 @@ const media = new CatalogMediaRegistry(KIOSK_API_URL, {
   product: (id) => products[id],
   logo: assets.logo,
 });
+/**
+ * Visible bounds of a cut-out source (owner 23.11.2026: every dish fills its tile the same way).
+ * A published photo is found by its content hash, a bundled one by its module.
+ */
+export function photoBounds(
+  source: PhotoSource,
+  sha256: string | undefined,
+  variant: 'card' | 'hero',
+): PhotoBounds | undefined {
+  return typeof source === 'number'
+    ? bundledPhotoBounds.get(source)
+    : publishedPhotoBounds(sha256, variant);
+}
+/** Bounds of the photo a card or hero shows first, when it is a measured cut-out. */
+export function shownPhotoBounds(imageId: string, variant: 'card' | 'hero') {
+  const shot = variant === 'hero' ? heroPhoto(imageId) : productPhoto(imageId);
+  return shot?.cutout ? photoBounds(shot.source, shot.sha256, variant) : undefined;
+}
 /** Fallback chain for one photo: remote media, bundled v3 photo, mockup shot, logo. */
 export const photoCandidates = (imageId: string, variant: 'card' | 'hero') =>
   media.candidates(imageId, variant);

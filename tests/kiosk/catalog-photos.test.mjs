@@ -55,9 +55,14 @@ async function loadAssets() {
       "const colors = { navy: '#04143A', white: '#FFFFFF' };",
     )
     .replace(/'\.\/api'/, JSON.stringify(pathToFileURL(join(src, 'api.ts')).href))
+    .replace(/'\.\/photo-source'/, JSON.stringify(pathToFileURL(join(src, 'photo-source.ts')).href))
     .replace(
-      /'\.\/photo-source'/,
-      JSON.stringify(pathToFileURL(join(src, 'photo-source.ts')).href),
+      /^import \{ bundledPhotoBounds \} from '\.\/bundled-photo-bounds';/m,
+      'const bundledPhotoBounds = new Map();',
+    )
+    .replace(
+      /'\.\/photo-bounds'/,
+      JSON.stringify(pathToFileURL(join(src, 'photo-bounds.ts')).href),
     );
   assert.doesNotMatch(code, /from '\.\//, 'every relative import of assets.ts is resolved');
   const dir = mkdtempSync(join(tmpdir(), 'kiosk-assets-'));
