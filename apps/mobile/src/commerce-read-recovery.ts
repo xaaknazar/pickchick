@@ -56,3 +56,14 @@ export function recoverCommerceRead<T>(options: {
 
 export const historyOrderNeedsWatch = (phase: string) =>
   !['failed', 'handed_over', 'attention'].includes(phase);
+
+/**
+ * The orders of «Заказы» that are being watched, as one value. Their watches start again only
+ * when this set changes (an order appears, settles or leaves the list), never because one of
+ * them answered: with N active orders every answer used to abort and reissue all N long-polls.
+ */
+export const watchedHistoryKey = (orders: readonly { orderId: string; phase: string }[]) =>
+  orders
+    .filter((order) => historyOrderNeedsWatch(order.phase))
+    .map((order) => order.orderId)
+    .join('|');

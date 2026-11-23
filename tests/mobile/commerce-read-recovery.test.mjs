@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { setImmediate as flush } from 'node:timers/promises';
 import {
   recoverCommerceRead,
   historyOrderNeedsWatch,
+  watchedHistoryKey,
 } from '../../apps/mobile/src/commerce-read-recovery.ts';
 import { CustomerSessionError } from '../../apps/mobile/src/customer-session.ts';
 const offline = new CustomerSessionError('NETWORK_UNAVAILABLE');
@@ -134,4 +136,37 @@ test('paid kitchen phases stay watched', () => {
     assert.equal(historyOrderNeedsWatch(phase), true);
   for (const phase of ['handed_over', 'failed', 'attention'])
     assert.equal(historyOrderNeedsWatch(phase), false);
+});
+
+test('an answer of one watched order does not restart the other watches (audit 23.11 #5)', () => {
+  const list = [
+    { orderId: 'a', phase: 'paid', revision: 'a1' },
+    { orderId: 'b', phase: 'preparing', revision: 'b1' },
+    { orderId: 'c', phase: 'handed_over', revision: 'c1' },
+  ];
+  const key = watchedHistoryKey(list);
+  assert.equal(key, 'a|b');
+  // A watch answer: a new revision and a new kitchen phase of a watched order. Same watches.
+  const answered = list.map((order) =>
+    order.orderId === 'a' ? { ...order, phase: 'preparing', revision: 'a2' } : order,
+  );
+  assert.equal(watchedHistoryKey(answered), key);
+  // The set changes only when an order settles, leaves the list or a new one appears.
+  assert.equal(
+    watchedHistoryKey(list.map((o) => (o.orderId === 'b' ? { ...o, phase: 'handed_over' } : o))),
+    'a',
+  );
+  assert.equal(watchedHistoryKey(list.filter((o) => o.orderId !== 'a')), 'b');
+  assert.equal(watchedHistoryKey([{ orderId: 'n', phase: 'ready' }, ...list]), 'n|a|b');
+  assert.equal(watchedHistoryKey([]), '');
+  const screen = readFileSync(
+    new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(screen, /const watchedHistory = watchedHistoryKey\(history\);/);
+  assert.match(
+    screen,
+    /\}, \[props\.screenId, order, foreground, watchedHistory, request, key\]\);/,
+  );
+  assert.doesNotMatch(screen, /foreground, history, request, key\]/);
 });

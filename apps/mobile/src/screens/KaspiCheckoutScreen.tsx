@@ -4,7 +4,11 @@ import { t, localize, useLocale } from '../i18n';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
-import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
+import {
+  recoverCommerceRead,
+  historyOrderNeedsWatch,
+  watchedHistoryKey,
+} from '../commerce-read-recovery';
 import {
   PAYMENT_COMMAND,
   orderingForbidden,
@@ -558,10 +562,16 @@ function KaspiCheckoutSession(
     // the loop reads it from orderRef (watchCursor), so one watch follows the order through its
     // revisions instead of being aborted and started again by each of its own answers.
   }, [request, order?.orderId, order?.phase, foreground, watchRun]);
+  // The list's watches depend on which orders are watched, not on the list itself: an answer
+  // updates the list (setHistory below) and must not abort and reissue every other long-poll.
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const watchedHistory = watchedHistoryKey(history);
   useEffect(() => {
-    if (props.screenId !== 'M19' || order || !foreground) return;
+    if (props.screenId !== 'M19' || order || !foreground || !watchedHistory) return;
     const controller = new AbortController();
-    for (const item of history.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
+    // Each watch starts from the revision the list shows now and then follows its own answers.
+    for (const item of historyRef.current.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
       let revision = item.revision;
       void watchCommerceOrder({
         signal: controller.signal,
@@ -589,7 +599,7 @@ function KaspiCheckoutSession(
       });
     }
     return () => controller.abort();
-  }, [props.screenId, order, foreground, history, request, key]);
+  }, [props.screenId, order, foreground, watchedHistory, request, key]);
 
   // Tab badge mirrors the list already loaded here; no extra request or poll.
   const activeCount =
