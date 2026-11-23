@@ -11,7 +11,11 @@ export function watchRetryDelay(error: unknown, failures: number): number | null
   return Math.min(30_000, 1000 * 2 ** Math.min(Math.max(failures - 1, 0), 5));
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
+/**
+ * A delay that ends at once on abort (also when already aborted) and leaves no listener behind
+ * on the signal, however many times a loop waits on the same one.
+ */
+export function wait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const finish = () => {
       clearTimeout(timer);

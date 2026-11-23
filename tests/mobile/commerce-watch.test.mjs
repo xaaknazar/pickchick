@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { watchCommerceOrder, watchRetryDelay } from '../../apps/mobile/src/commerce-watch.ts';
+import { readFileSync } from 'node:fs';
+import { wait, watchCommerceOrder, watchRetryDelay } from '../../apps/mobile/src/commerce-watch.ts';
 import { CustomerSessionError } from '../../apps/mobile/src/customer-session.ts';
 
 test('order reads recover automatically with bounded backoff and keep one request in flight', async () => {
@@ -109,4 +110,41 @@ test('storage failure while accepting a trusted response stops automatic reads',
     onRecovered: () => assert.fail('not persisted'),
   });
   assert.equal(calls, 1);
+});
+
+test('a poll delay ends at once on abort and leaves no listener on the signal (audit 23.11 #10)', async () => {
+  const signal = {
+    aborted: false,
+    listeners: new Set(),
+    added: 0,
+    addEventListener(type, listener, options) {
+      assert.equal(type, 'abort');
+      assert.deepEqual(options, { once: true });
+      this.added += 1;
+      this.listeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      this.listeners.delete(listener);
+    },
+  };
+  // A poll loop waits on the same signal many times: nothing accumulates on it.
+  for (let i = 0; i < 5; i += 1) await wait(1, signal);
+  assert.equal(signal.added, 5);
+  assert.equal(signal.listeners.size, 0);
+  // Abort during the delay ends it without waiting for the timer.
+  const controller = new AbortController();
+  const started = Date.now();
+  const pending = wait(60_000, controller.signal);
+  controller.abort();
+  await pending;
+  // Already aborted: no delay at all.
+  await wait(60_000, controller.signal);
+  assert.ok(Date.now() - started < 1000);
+  // The TipTopPay status polls use this delay instead of their own.
+  const checkout = readFileSync(
+    new URL('../../apps/mobile/src/useTipTopPayCheckout.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(checkout, /import \{ wait as sleep \} from '\.\/commerce-watch';/);
+  assert.doesNotMatch(checkout, /const sleep = /);
 });
