@@ -84,7 +84,8 @@ ESLint, Prettier. Банк не вызывался: ответы TipTopPay по�
 7. Шлюз: `infra/staging/tiptoppay-live-gateway.py` (payments-setup, orders/<uuid>/tiptoppay,
    блок `@tiptoppay_live` для 3ds/3ds-return/check/pay/fail перед `@tiptoppay_test`). Проверить
    `test_tiptoppay_live_gateway.py`.
-8. Входной Caddy (`infra/domains`, `pickchick-ingress`, `backoffice-login`): сейчас
+8. Входной Caddy (на сервере один файл `/opt/idrink/deploy/Caddyfile`, в репозитории
+   `infra/domains`, `pickchick-ingress`, `backoffice-login`): сейчас
    `/v1/integrations/tiptoppay/*` кроме тестовых отвечает 503 - открыть боевые адреса тем же
    способом, что `@tiptoppay_test` 20.11.
 9. Кабинет TipTopPay, боевой сайт, уведомления:

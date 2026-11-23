@@ -32,6 +32,17 @@ class Gateway(unittest.TestCase):
         with self.assertRaises(SystemExit):
             live.extend(out)
 
+    def test_accepts_other_paths_before_checkout_in_the_header(self):
+        installed = test.extend(k.extend_checkout(BASE))
+        moved = installed.replace(
+            'not path /v1/customer-checkout/*',
+            'not path /v1/customer-farm /v1/admin/backoffice/* /v1/customer-checkout/*',
+            1,
+        )
+        self.assertNotEqual(moved, installed)
+        out = live.extend(moved)
+        self.assertIn('/v1/integrations/tiptoppay/test-* /v1/integrations/tiptoppay/* ', out)
+
     def test_refuses_a_gateway_without_the_test_routes(self):
         with self.assertRaises(SystemExit):
             live.extend(k.extend_checkout(BASE))

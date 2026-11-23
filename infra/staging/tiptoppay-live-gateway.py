@@ -30,7 +30,9 @@ BLOCK = '''\t@tiptoppay_live {
 \t\t}
 \t}
 '''
-HEADER = 'not path /v1/customer-checkout/* /v1/integrations/tiptoppay/test-* '
+# The installed @synthetic_surfaces list may hold other paths before these two (cloud 23.11.2026:
+# 'not path /v1/customer-farm … /v1/customer-checkout/* …'), so only the pair is the anchor.
+HEADER = ' /v1/customer-checkout/* /v1/integrations/tiptoppay/test-* '
 
 
 def require(ok, message):
