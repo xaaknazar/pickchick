@@ -66,6 +66,16 @@ const displayQuery = z.strictObject({
     .default('0'),
   limit: pageLimit,
 });
+/**
+ * Operator-log code of an unexpected failure: a PostgreSQL SQLSTATE, a Node system code or the
+ * error class (ZodError for a row that no longer fits the contract). Never a message or payload.
+ */
+export function failureCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code)) return code;
+  const name = (error as { name?: unknown } | null)?.name;
+  return typeof name === 'string' && /^[A-Za-z]{1,40}$/.test(name) ? name : 'UNKNOWN';
+}
 export const fail = (status: number, code: string): never => {
   throw new HttpException({ code }, status);
 };
@@ -406,6 +416,9 @@ export class FulfillmentController {
         if (error instanceof OrderError)
           throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
         if (error instanceof HttpException) throw error;
+        console.error(
+          JSON.stringify({ event: 'fulfillment_display_failed', code: failureCode(error) }),
+        );
         throw new HttpException({ code: 'SERVICE_UNAVAILABLE' }, 503);
       }
     }
