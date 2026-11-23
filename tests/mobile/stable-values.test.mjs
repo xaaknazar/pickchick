@@ -111,6 +111,29 @@ test('polls and re-reads never hand the whole app new objects for the same data'
   assert.match(source('backoffice/usePublishedContent.ts'), /setValue\(keepIfSame\(parsed\)\)/);
 });
 
+test('an authenticated request does not hand the app a new account (audit 23.11 #1)', () => {
+  // withOrderAccess ends with snapshot() after every request (15 s rewards poll, order watches).
+  const account = source('useAccount.tsx');
+  assert.match(account, /setAccount\(\s*keepIfSame<Account \| null>\(/);
+  assert.match(account, /setChallenge\(\s*keepIfSame<DemoChallenge \| null>\(/);
+  assert.match(account, /setLegal\(\s*keepIfSame<AccountContextValue\['legal'\]>\(/);
+  assert.match(account, /setChannels\(keepIfSame\(core\.config\.channels\)\)/);
+  // The same customer read twice is the same content, so the state setter keeps the object.
+  const customer = () => ({
+    version: 2,
+    kind: 'server_customer',
+    customerId: 'c1',
+    phone: '+77000000000',
+    createdAt: Date.parse('2026-11-01T00:00:00Z'),
+    profile: { nickname: 'A', birthDate: null, gender: null, completedAt: null },
+  });
+  const before = customer();
+  assert.equal(keepIfSame(customer())(before), before);
+  assert.equal(keepIfSame(null)(null), null);
+  const renamed = { ...customer(), profile: { ...customer().profile, nickname: 'B' } };
+  assert.equal(keepIfSame(renamed)(before), renamed);
+});
+
 test('menu cards keep a stable open callback and ignore the zero layout of a hidden menu', () => {
   assert.match(source('ScreenHost.tsx'), /const navigate = useStableCallback\(/);
   const menu = source('screens/CatalogScreens.tsx');
