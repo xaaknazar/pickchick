@@ -6,6 +6,7 @@ import {
   keepIfSame,
   sameContent,
   shareItems,
+  stableCallbacks,
 } from '../../apps/mobile/src/stable-values.ts';
 
 const source = (path) =>
@@ -132,6 +133,54 @@ test('an authenticated request does not hand the app a new account (audit 23.11 
   assert.equal(keepIfSame(null)(null), null);
   const renamed = { ...customer(), profile: { ...customer().profile, nickname: 'B' } };
   assert.equal(keepIfSame(renamed)(before), renamed);
+});
+
+test('the app model and its methods keep their identity between renders (audit 23.11 #2)', () => {
+  // Methods: one identity for the life of the provider, always the latest closure.
+  let render = { add: (n) => n + 1, name: () => 'first' };
+  const stable = stableCallbacks(() => render);
+  const { add, name } = stable;
+  assert.equal(add(1), 2);
+  render = { add: (n) => n + 10, name: () => 'second' };
+  assert.equal(stable.add, add);
+  assert.equal(add(1), 11);
+  assert.equal(name(), 'second');
+  assert.deepEqual(Object.keys(stable), ['add', 'name']);
+
+  const store = source('store.tsx');
+  assert.match(store, /const actions = useStableCallbacks<ModelActions>\(\{/);
+  assert.match(store, /const previewActions = useStableCallbacks<PreviewActions>\(\{/);
+  assert.match(store, /const selectGift = useStableCallback\(/);
+  assert.match(store, /const model = useMemo<MobileModel>\(/);
+  assert.match(store, /const previewModel = useMemo<MobileModel>\(/);
+  assert.match(
+    store,
+    /const value = useMemo\(\(\) => \(\{ live: model, preview: previewModel \}\), \[model, previewModel\]\);/,
+  );
+  assert.match(store, /<Context\.Provider value=\{value\}>/);
+  // Every value the live model shows is a dependency of its memo (no stale screen).
+  const memo = store.slice(store.indexOf('const model = useMemo<MobileModel>('));
+  const body = memo.slice(0, memo.indexOf('// Every value the model shows.'));
+  const deps = memo.slice(
+    memo.indexOf('// Every value the model shows.'),
+    memo.indexOf('const previewTestFlow'),
+  );
+  const stableNames = new Set([
+    'setPracticeScore',
+    'setDiningMode',
+    'setPaymentMethod',
+    'setSelectedId',
+  ]);
+  for (const [, key, value] of body.matchAll(/^ {6}(?:\.\.\.)?(\w+)(?:: (\w+))?,$/gm)) {
+    const name = value ?? key;
+    if (!stableNames.has(name)) assert.match(deps, new RegExp(`^ {6}${name},$`, 'm'), name);
+  }
+  // The values under the model keep their objects too.
+  const orders = source('useTestOrders.ts');
+  assert.match(orders, /return useMemo\(\s*\(\) => \(\{\s*comboProgress:/);
+  assert.match(orders, /const submit = useStableCallback\(/);
+  assert.match(source('loyalty/useComboRewards.ts'), /\? SIGNED_OUT\s*:/);
+  assert.match(source('loyalty/useComboProgress.ts'), /if \(!enabled\) return SIGNED_OUT;/);
 });
 
 test('menu cards keep a stable open callback and ignore the zero layout of a hidden menu', () => {

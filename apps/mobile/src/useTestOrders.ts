@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { orderPollDelay } from './poll-cadence';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
@@ -12,6 +12,9 @@ import { connectedTestOrdersEnabled, unpaidTestOrdersEnabled } from './order-sim
 import { accountCanAct } from './account-access';
 import { useComboProgress } from './loyalty/useComboProgress';
 import type { ComboProgressState } from './loyalty/combo-progress';
+import { useStableCallback } from './stable-values';
+
+const COMBO_UNAVAILABLE: ComboProgressState = { status: 'unavailable', data: null };
 
 export interface TestFlowModel {
   comboProgress?: ComboProgressState;
@@ -88,12 +91,16 @@ export function useTestOrders(
   const [sessionExpired, setSessionExpired] = useState(false);
   const polling = useRef(false);
   const failures = useRef(0);
-  const allOrders = sameAccount
-    ? [
-        ...orders,
-        ...history.filter((old) => !orders.some((order) => order.order_id === old.order_id)),
-      ]
-    : [];
+  const allOrders = useMemo(
+    () =>
+      sameAccount
+        ? [
+            ...orders,
+            ...history.filter((old) => !orders.some((order) => order.order_id === old.order_id)),
+          ]
+        : [],
+    [sameAccount, orders, history],
+  );
   const current = allOrders.find((order) => order.order_id === currentId) ?? null;
   const comboProgress = useComboProgress(
     client,
@@ -311,7 +318,7 @@ export function useTestOrders(
     }
   };
 
-  const continueSession = async (): Promise<boolean> => {
+  const continueSession = useStableCallback(async (): Promise<boolean> => {
     if (!connectedTestOrdersEnabled || !accountCanAct(access.current)) return false;
     if (!hasSavedSession || !restored || busyRef.current) return false;
     generation.current += 1;
@@ -342,66 +349,99 @@ export function useTestOrders(
         setBusy(false);
       }
     }
-  };
-
-  return {
-    comboProgress:
-      account.mode === 'demo' && account.account
-        ? { status: 'unavailable', data: null }
-        : comboProgress,
-    available: connectedTestOrdersEnabled && available,
-    restored: sameAccount && restored,
-    hasSavedSession: sameAccount && hasSavedSession,
-    busy: !sameAccount || busy || !restored,
-    error: sameAccount ? (commandError ?? error) : null,
-    observedAt: sameAccount ? observedAt : null,
-    orders: allOrders,
-    historyBusy: sameAccount && historyBusy,
-    moreHistory: sameAccount && moreHistory,
-    loadHistory: async () => {
-      if (historyLock.current || !moreHistory || !hasSavedSession) return;
-      const epoch = generation.current;
-      historyLock.current = true;
-      setHistoryBusy(true);
-      try {
-        const page = await client.history(historyCursor.current);
-        if (epoch !== generation.current) return;
-        historyCursor.current = page.orders.at(-1)?.order_id ?? historyCursor.current;
-        setHistory((previous) => [
-          ...previous,
-          ...page.orders.filter(
-            (order) => !previous.some((old) => old.order_id === order.order_id),
-          ),
-        ]);
-        setMoreHistory(page.has_more);
-        setError(null);
-      } catch (failure) {
-        if (epoch === generation.current) setError(errorMessage(failure));
-      } finally {
-        if (epoch === generation.current) {
-          historyLock.current = false;
-          setHistoryBusy(false);
-        }
+  });
+  const loadHistory = useStableCallback(async () => {
+    if (historyLock.current || !moreHistory || !hasSavedSession) return;
+    const epoch = generation.current;
+    historyLock.current = true;
+    setHistoryBusy(true);
+    try {
+      const page = await client.history(historyCursor.current);
+      if (epoch !== generation.current) return;
+      historyCursor.current = page.orders.at(-1)?.order_id ?? historyCursor.current;
+      setHistory((previous) => [
+        ...previous,
+        ...page.orders.filter((order) => !previous.some((old) => old.order_id === order.order_id)),
+      ]);
+      setMoreHistory(page.has_more);
+      setError(null);
+    } catch (failure) {
+      if (epoch === generation.current) setError(errorMessage(failure));
+    } finally {
+      if (epoch === generation.current) {
+        historyLock.current = false;
+        setHistoryBusy(false);
       }
-    },
-    current,
-    recoveryAvailable: sameAccount && recoveryAvailable,
-    recoverPending: () => run(() => client.recoverPending()),
-    sessionExpired: sameAccount && sessionExpired,
-    continueSession,
-    select: setCurrentId,
-    refresh: () => {
-      void refresh();
-    },
-    submit: () =>
-      canCreateTestOrder(available, restored)
-        ? run(() => client.create(cart, diningMode, paymentMethod, unpaidTestOrdersEnabled))
-        : Promise.resolve(null),
-    pay: (outcome) =>
-      current
-        ? run(() => client.command(current, 'simulated-payment', { outcome }))
-        : Promise.resolve(null),
-    cancel: (reason) =>
-      current ? run(() => client.command(current, 'cancel', { reason })) : Promise.resolve(null),
-  };
+    }
+  });
+  const recoverPending = useStableCallback(() => run(() => client.recoverPending()));
+  const refreshNow = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  const submit = useStableCallback(() =>
+    canCreateTestOrder(available, restored)
+      ? run(() => client.create(cart, diningMode, paymentMethod, unpaidTestOrdersEnabled))
+      : Promise.resolve(null),
+  );
+  const pay = useStableCallback((outcome: 'approved' | 'declined' | 'unknown') =>
+    current
+      ? run(() => client.command(current, 'simulated-payment', { outcome }))
+      : Promise.resolve(null),
+  );
+  const cancel = useStableCallback((reason: string) =>
+    current ? run(() => client.command(current, 'cancel', { reason })) : Promise.resolve(null),
+  );
+  const demoAccount = account.mode === 'demo' && !!account.account;
+
+  // The whole app model holds this object (store.tsx): it changes only when its data does.
+  return useMemo(
+    () => ({
+      comboProgress: demoAccount ? COMBO_UNAVAILABLE : comboProgress,
+      available: connectedTestOrdersEnabled && available,
+      restored: sameAccount && restored,
+      hasSavedSession: sameAccount && hasSavedSession,
+      busy: !sameAccount || busy || !restored,
+      error: sameAccount ? (commandError ?? error) : null,
+      observedAt: sameAccount ? observedAt : null,
+      orders: allOrders,
+      historyBusy: sameAccount && historyBusy,
+      moreHistory: sameAccount && moreHistory,
+      loadHistory,
+      current,
+      recoveryAvailable: sameAccount && recoveryAvailable,
+      recoverPending,
+      sessionExpired: sameAccount && sessionExpired,
+      continueSession,
+      select: setCurrentId,
+      refresh: refreshNow,
+      submit,
+      pay,
+      cancel,
+    }),
+    [
+      demoAccount,
+      comboProgress,
+      available,
+      sameAccount,
+      restored,
+      hasSavedSession,
+      busy,
+      commandError,
+      error,
+      observedAt,
+      allOrders,
+      historyBusy,
+      moreHistory,
+      loadHistory,
+      current,
+      recoveryAvailable,
+      recoverPending,
+      sessionExpired,
+      continueSession,
+      refreshNow,
+      submit,
+      pay,
+      cancel,
+    ],
+  );
 }

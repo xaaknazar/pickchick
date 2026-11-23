@@ -38,7 +38,13 @@ import {
 import { unpaidTestOrdersEnabled } from './order-simulator';
 import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
-import { keepIfSame, sameContent, useSharedItems } from './stable-values';
+import {
+  keepIfSame,
+  sameContent,
+  useSharedItems,
+  useStableCallback,
+  useStableCallbacks,
+} from './stable-values';
 
 const productKey = (product: { id: string }) => product.id;
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
@@ -67,6 +73,38 @@ import type {
 } from './model';
 
 const STORAGE_KEY = 'pickchick.mobile.preferences.v1';
+const DEFAULT_UPSELL = ['toast', 'sauce', 'cola'];
+const noop = () => {};
+/** The model's methods: one identity each for the life of the provider (useStableCallbacks). */
+type ModelActions = Required<
+  Pick<
+    MobileModel,
+    | 'refreshCatalog'
+    | 'dismissCatalogUpdate'
+    | 'setNickname'
+    | 'setOrderComment'
+    | 'setBranch'
+    | 'setCatalogMode'
+    | 'appendCartLines'
+    | 'addToCart'
+    | 'setQuantity'
+    | 'replaceCartLine'
+    | 'clearCart'
+    | 'refresh'
+    | 'resetLocalData'
+  >
+>;
+type PreviewActions = Pick<
+  ModelActions,
+  | 'setNickname'
+  | 'setOrderComment'
+  | 'appendCartLines'
+  | 'addToCart'
+  | 'setQuantity'
+  | 'replaceCartLine'
+  | 'clearCart'
+  | 'resetLocalData'
+>;
 const Context = createContext<{ live: MobileModel; preview: MobileModel } | null>(null);
 
 // Keep sequential cart commands atomic even when React batches their renders.
@@ -492,50 +530,82 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     ),
     cartLineKey,
   );
-  const model: MobileModel = {
-    comboRewards: combo.enabled
-      ? {
-          progress: combo.progress,
-          selected: giftSelected,
-          giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
-          discountMinor: giftDiscount,
-          refresh: combo.refresh,
-          select(value) {
-            if (!value) {
-              setGiftChoice(null);
-              return;
-            }
-            if (
-              !combo.customerId ||
-              combo.progress.status !== 'ready' ||
-              !combo.progress.commercial?.availableGifts ||
-              combo.progress.commercial.reconciliationRequired
-            )
-              return;
-            const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
-            if (!product) return;
-            if (!cart.some((line) => line.product.id === 'pick-combo')) {
-              const next = mergeCartLines(
-                cart,
-                [{ product, quantity: 1, selections: defaultSelections(product) }],
-                products,
-              );
-              if (!next) return;
-              setCart(next);
-              noteAdded([product.id], next);
-            }
-            setGiftChoice(combo.customerId);
-          },
-        }
-      : undefined,
-    catalogUpdateNotice,
-    catalogUpdatePending,
-    catalogPending:
-      catalogMode === 'server' &&
-      (publication
-        ? mediaReadVersion !== publication.version
-        : !menu && !connectedCatalog && connection.status === 'loading'),
-    cartChanges: cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null,
+  // Smoothness (audit 23.11 #2): the model and its methods keep their identity while their data
+  // is the same, so a provider render that changes nothing for a screen (a poll answer, a photo
+  // read, the other model's state) does not render every screen and every memoised card again.
+  const selectGift = useStableCallback((value: boolean) => {
+    if (!value) {
+      setGiftChoice(null);
+      return;
+    }
+    if (
+      !combo.customerId ||
+      combo.progress.status !== 'ready' ||
+      !combo.progress.commercial?.availableGifts ||
+      combo.progress.commercial.reconciliationRequired
+    )
+      return;
+    const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
+    if (!product) return;
+    if (!cart.some((line) => line.product.id === 'pick-combo')) {
+      const next = mergeCartLines(
+        cart,
+        [{ product, quantity: 1, selections: defaultSelections(product) }],
+        products,
+      );
+      if (!next) return;
+      setCart(next);
+      noteAdded([product.id], next);
+    }
+    setGiftChoice(combo.customerId);
+  });
+  const shownGiftIndex = giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined;
+  const comboRewards = useMemo<MobileModel['comboRewards']>(
+    () =>
+      combo.enabled
+        ? {
+            progress: combo.progress,
+            selected: giftSelected,
+            giftItemIndex: shownGiftIndex,
+            discountMinor: giftDiscount,
+            refresh: combo.refresh,
+            select: selectGift,
+          }
+        : undefined,
+    [
+      combo.enabled,
+      combo.progress,
+      combo.refresh,
+      giftSelected,
+      shownGiftIndex,
+      giftDiscount,
+      selectGift,
+    ],
+  );
+  const catalogPending =
+    catalogMode === 'server' &&
+    (publication
+      ? mediaReadVersion !== publication.version
+      : !menu && !connectedCatalog && connection.status === 'loading');
+  const shownCartChanges = useMemo(
+    () => (cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null),
+    [cartChanges, cart],
+  );
+  const upsellProductIds =
+    publication && catalogMode === 'server'
+      ? publication.payload.upsell_product_ids
+      : connectedCatalog && 'upsell_product_ids' in connectedCatalog
+        ? connectedCatalog.upsell_product_ids
+        : DEFAULT_UPSELL;
+  const shownAvailability = useMemo(
+    () => catalogAvailability(availability, catalogMode === 'server'),
+    [availability, catalogMode],
+  );
+  const selectedProduct =
+    selectedId === null
+      ? (products[0] ?? null)
+      : (products.find((product) => product.id === selectedId) ?? null);
+  const actions = useStableCallbacks<ModelActions>({
     refreshCatalog: () => catalogRecovery.current?.refresh() ?? Promise.resolve(false),
     dismissCatalogUpdate: () => {
       setCatalogUpdateNotice(null);
@@ -544,37 +614,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         previous.map((line) => ({ ...line, previousUnitPriceMinor: undefined })),
       );
     },
-    products,
-    upsellProductIds:
-      publication && catalogMode === 'server'
-        ? publication.payload.upsell_product_ids
-        : connectedCatalog && 'upsell_product_ids' in connectedCatalog
-          ? connectedCatalog.upsell_product_ids
-          : ['toast', 'sauce', 'cola'],
-    recentCartProductIds: recentProducts,
-    cart: modelCart,
-    ...catalogAvailability(availability, catalogMode === 'server'),
-    catalogMode,
-    diningMode,
-    paymentMethod,
-    locale,
-    branches,
-    branch,
-    connection,
-    selectedProduct:
-      selectedId === null
-        ? (products[0] ?? null)
-        : (products.find((product) => product.id === selectedId) ?? null),
-    nickname,
-    orderComment,
-    testFlow,
-    practiceScore,
-    setPracticeScore,
     setNickname: (value) => setNickname(value.slice(0, 32)),
     setOrderComment: (value) => setOrderComment(value.slice(0, 60)),
-    setLocale,
-    setDiningMode,
-    setPaymentMethod,
     setBranch: (id) => {
       if (!branches.some((candidate) => candidate.id === id)) return;
       if (branch?.id === id) return;
@@ -601,7 +642,6 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setSelectedId(null);
       setMode(mode);
     },
-    selectProduct: setSelectedId,
     appendCartLines: (lines) => {
       restoration.current = null;
       const result: { next: CartLine[] | null } = { next: null };
@@ -663,14 +703,68 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     refresh: () => setRefreshIndex((previous) => previous + 1),
     resetLocalData,
-  };
-  const previewModel: MobileModel = {
-    ...model,
-    availabilityFresh: undefined,
-    availabilityStatus: undefined,
-    availabilityHours: undefined,
-    availabilityKnown: undefined,
-    testFlow: {
+  });
+  const model = useMemo<MobileModel>(
+    () => ({
+      comboRewards,
+      catalogUpdateNotice,
+      catalogUpdatePending,
+      catalogPending,
+      cartChanges: shownCartChanges,
+      products,
+      upsellProductIds,
+      recentCartProductIds: recentProducts,
+      cart: modelCart,
+      ...shownAvailability,
+      catalogMode,
+      diningMode,
+      paymentMethod,
+      locale,
+      branches,
+      branch,
+      connection,
+      selectedProduct,
+      nickname,
+      orderComment,
+      testFlow,
+      practiceScore,
+      setPracticeScore,
+      setLocale,
+      setDiningMode,
+      setPaymentMethod,
+      selectProduct: setSelectedId,
+      ...actions,
+    }),
+    // Every value the model shows. Its methods (actions, state setters) never change.
+    [
+      comboRewards,
+      catalogUpdateNotice,
+      catalogUpdatePending,
+      catalogPending,
+      shownCartChanges,
+      products,
+      upsellProductIds,
+      recentProducts,
+      modelCart,
+      shownAvailability,
+      catalogMode,
+      diningMode,
+      paymentMethod,
+      locale,
+      branches,
+      branch,
+      connection,
+      selectedProduct,
+      nickname,
+      orderComment,
+      testFlow,
+      practiceScore,
+      setLocale,
+      actions,
+    ],
+  );
+  const previewTestFlow = useMemo<MobileModel['testFlow']>(
+    () => ({
       ...testFlow,
       available: false,
       restored: true,
@@ -681,37 +775,17 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       continueSession: async () => false,
       current: null,
       orders: [],
-      select: () => {},
-      refresh: () => {},
+      select: noop,
+      refresh: noop,
       submit: async () => null,
       pay: async () => null,
       cancel: async () => null,
-    },
-    products: designProducts,
-    upsellProductIds: ['toast', 'sauce', 'cola'],
-    cart: previewCart,
-    // Design previews keep the cart order (no add history).
-    recentCartProductIds: undefined,
-    catalogMode: 'design',
-    selectedProduct:
-      designProducts.find((product) => product.id === previewSelectedId) ??
-      designProducts[0] ??
-      null,
-    diningMode: previewDiningMode,
-    paymentMethod: previewPaymentMethod,
-    setPaymentMethod: setPreviewPaymentMethod,
-    setDiningMode: setPreviewDiningMode,
-    nickname: previewNickname,
-    orderComment: previewOrderComment,
+    }),
+    [testFlow],
+  );
+  const previewActions = useStableCallbacks<PreviewActions>({
     setNickname: (value) => setPreviewNickname(value.slice(0, 32)),
     setOrderComment: (value) => setPreviewOrderComment(value.slice(0, 60)),
-    practiceScore: previewPracticeScore,
-    setPracticeScore: setPreviewPracticeScore,
-    locale: previewLocale,
-    setLocale: setPreviewLocale,
-    setCatalogMode: () => {},
-    setBranch: () => {},
-    selectProduct: setPreviewSelectedId,
     appendCartLines: (lines) => {
       let accepted = false;
       setPreviewCart((previous) => {
@@ -748,10 +822,56 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setPreviewNickname('');
       setPreviewPaymentMethod('kaspi');
     },
-  };
-  return (
-    <Context.Provider value={{ live: model, preview: previewModel }}>{children}</Context.Provider>
+  });
+  const previewModel = useMemo<MobileModel>(
+    () => ({
+      ...model,
+      availabilityFresh: undefined,
+      availabilityStatus: undefined,
+      availabilityHours: undefined,
+      availabilityKnown: undefined,
+      testFlow: previewTestFlow,
+      products: designProducts,
+      upsellProductIds: DEFAULT_UPSELL,
+      cart: previewCart,
+      // Design previews keep the cart order (no add history).
+      recentCartProductIds: undefined,
+      catalogMode: 'design',
+      selectedProduct:
+        designProducts.find((product) => product.id === previewSelectedId) ??
+        designProducts[0] ??
+        null,
+      diningMode: previewDiningMode,
+      paymentMethod: previewPaymentMethod,
+      setPaymentMethod: setPreviewPaymentMethod,
+      setDiningMode: setPreviewDiningMode,
+      nickname: previewNickname,
+      orderComment: previewOrderComment,
+      practiceScore: previewPracticeScore,
+      setPracticeScore: setPreviewPracticeScore,
+      locale: previewLocale,
+      setLocale: setPreviewLocale,
+      setCatalogMode: noop,
+      setBranch: noop,
+      selectProduct: setPreviewSelectedId,
+      ...previewActions,
+    }),
+    [
+      model,
+      previewTestFlow,
+      previewCart,
+      previewSelectedId,
+      previewDiningMode,
+      previewPaymentMethod,
+      previewNickname,
+      previewOrderComment,
+      previewPracticeScore,
+      previewLocale,
+      previewActions,
+    ],
   );
+  const value = useMemo(() => ({ live: model, preview: previewModel }), [model, previewModel]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
 export function useMobile(preview = false): MobileModel {

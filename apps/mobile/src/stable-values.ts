@@ -4,7 +4,7 @@
 // hitch every long-poll answer (20 s) and every menu re-read (60 s), often in the middle of a
 // scroll or an animation. These helpers keep the previous value while the content is the same.
 
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 /** Same JSON content (plain server data: no functions, no cycles). */
 export function sameContent(previous: unknown, next: unknown): boolean {
@@ -79,4 +79,26 @@ export function useStableCallback<A extends unknown[], R>(callback: (...args: A)
     latest.current = callback;
   });
   return useCallback((...args: A) => latest.current(...args), []);
+}
+
+/** Methods with stable identities that always run the latest ones returned by `latest`. */
+export function stableCallbacks<T extends object>(latest: () => T): T {
+  type Method = (...args: unknown[]) => unknown;
+  const stable: Record<string, Method> = {};
+  for (const name of Object.keys(latest()))
+    stable[name] = (...args) => (latest() as Record<string, Method>)[name]!(...args);
+  return stable as T;
+}
+
+/**
+ * useStableCallback for a set of methods (the app model): every method keeps one identity for
+ * the life of the component and runs its latest closure. The set of names must not change.
+ */
+export function useStableCallbacks<T extends object>(callbacks: T): T {
+  const latest = useRef(callbacks);
+  useLayoutEffect(() => {
+    latest.current = callbacks;
+  });
+  const [stable] = useState(() => stableCallbacks(() => latest.current));
+  return stable;
 }
