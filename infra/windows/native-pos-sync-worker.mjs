@@ -104,10 +104,17 @@ export function syncErrorCode(error) {
   const code = error?.code;
   return typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code) ? code : 'UNKNOWN';
 }
+/** An unchanged retry, dead letter or failure is written again only after this long. */
+export const POS_SYNC_REPEAT_LOG_MS = 600_000;
 /**
  * The order and kitchen streams of main(). Each stream has its own try/catch: a stream that
  * throws on every pass never keeps the other one from running, and its failure line names the
  * stream and the error code.
+ *
+ * The loop passes about once a second, so a line is written when a stream's state changes, not
+ * on every pass: `delivered` always, `idle`/`busy`/`disabled` never, a standing `retry`,
+ * `dead_letter` or failure once and then every 10 minutes. An unreadable (for example expired)
+ * identity file is read again with the 2 s .. 60 s backoff of the streams instead of every pass.
  */
 export async function runPosStreamsLoop({
   pool,
@@ -121,39 +128,59 @@ export async function runPosStreamsLoop({
   fail = (line) => console.error(line),
   pause = () =>
     delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
+  now = Date.now,
 }) {
+  const seen = new Map();
+  // Whether the standing state `key` of `stream` is due for a line.
+  const changed = (stream, key) => {
+    const last = seen.get(stream);
+    if (!once && last?.key === key && now() - last.at < POS_SYNC_REPEAT_LOG_MS) return false;
+    seen.set(stream, { key, at: now() });
+    return true;
+  };
   const failed = (stream, error) => {
-    fail(
-      JSON.stringify({
-        event: 'native_pos_sync_failed',
-        stream,
-        code: syncErrorCode(error),
-        retrying: !once,
-      }),
-    );
+    const code = syncErrorCode(error);
+    if (changed(stream, `failed:${code}`))
+      fail(JSON.stringify({ event: 'native_pos_sync_failed', stream, code, retrying: !once }));
     if (once) process.exitCode = 1;
   };
+  let identityFailures = 0,
+    identityAt = 0;
   do {
     let delivered = false,
       current;
-    try {
-      current = await identity();
-    } catch (error) {
-      failed('identity', error);
-    }
+    if (once || now() >= identityAt)
+      try {
+        current = await identity();
+        identityFailures = 0;
+        seen.delete('identity');
+      } catch (error) {
+        identityFailures = Math.min(identityFailures + 1, 1000000);
+        identityAt = now() + Math.min(60000, 1000 * 2 ** Math.min(identityFailures, 6));
+        failed('identity', error);
+      }
     if (current)
       for (const [event, work] of [
         ['pos_order_sync', sync.syncPosOrdersOnce],
         ['pos_kitchen_sync', sync.syncPosKitchenOnce],
       ]) {
         try {
-          const result = await work(pool, { enabled: true, branchId, origin, identity: current });
+          const { state } = await work(pool, {
+            enabled: true,
+            branchId,
+            origin,
+            identity: current,
+          });
           // Whitelisted metadata only. Never log request bodies, driver errors,
           // URLs, database credentials or the transport identity.
-          if (once || !['idle', 'busy', 'disabled'].includes(result.state))
-            log(JSON.stringify({ event, state: result.state }));
-          if (result.state === 'delivered') delivered = true;
-          if (once && ['retry', 'dead_letter'].includes(result.state)) process.exitCode = 1;
+          if (state === 'delivered') delivered = true;
+          if (once && ['retry', 'dead_letter'].includes(state)) process.exitCode = 1;
+          // `busy` is another holder of the same stream: it says nothing about its state.
+          if (state === 'busy' && !once) continue;
+          if (['idle', 'busy', 'disabled', 'delivered'].includes(state)) {
+            seen.delete(event);
+            if (once || state === 'delivered') log(JSON.stringify({ event, state }));
+          } else if (changed(event, state)) log(JSON.stringify({ event, state }));
         } catch (error) {
           failed(event, error);
         }

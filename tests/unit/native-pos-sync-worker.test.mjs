@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runPosStreamsLoop, syncErrorCode } from '../../infra/windows/native-pos-sync-worker.mjs';
+import {
+  POS_SYNC_REPEAT_LOG_MS,
+  runPosStreamsLoop,
+  syncErrorCode,
+} from '../../infra/windows/native-pos-sync-worker.mjs';
 
 const identity = { device_id: 'device', branch_id: 'branch', token: 'f'.repeat(64) };
 const coded = (code, message = 'driver text') => Object.assign(new Error(message), { code });
@@ -67,12 +71,10 @@ test('an order stream that throws on every pass never stops the kitchen stream',
   });
   assert.equal(orders, 3);
   assert.equal(kitchen, 3);
-  assert.deepEqual(lines.fail[0], {
-    event: 'native_pos_sync_failed',
-    stream: 'pos_order_sync',
-    code: '42501',
-    retrying: true,
-  });
+  // The same failure on every pass is one line, not one per second.
+  assert.deepEqual(lines.fail, [
+    { event: 'native_pos_sync_failed', stream: 'pos_order_sync', code: '42501', retrying: true },
+  ]);
   assert.ok(!JSON.stringify(lines).includes(identity.token));
   assert.ok(!JSON.stringify(lines).includes('permission denied'));
 });
@@ -132,4 +134,99 @@ test('--once runs both streams once and reports a failed stream in the exit code
   } finally {
     process.exitCode = exitCode;
   }
+});
+
+test('a standing retry or dead letter is logged when it changes and then every 10 minutes', async () => {
+  const { lines, base } = harness();
+  const stop = new AbortController();
+  // One entry per pass: [order state, kitchen state, clock].
+  const passes = [
+    ['retry', 'dead_letter', 0],
+    ['retry', 'dead_letter', 1000],
+    ['busy', 'dead_letter', 2000],
+    ['retry', 'dead_letter', 3000],
+    ['delivered', 'dead_letter', 4000],
+    ['delivered', 'dead_letter', 5000],
+    ['idle', 'idle', 6000],
+    ['retry', 'disabled', 7000],
+    ['retry', 'idle', 7000 + POS_SYNC_REPEAT_LOG_MS - 1],
+    ['retry', 'idle', 7000 + POS_SYNC_REPEAT_LOG_MS],
+  ];
+  let pass = 0,
+    clock = 0;
+  await runPosStreamsLoop({
+    ...base,
+    sync: {
+      syncPosOrdersOnce: async () => {
+        clock = passes[pass][2];
+        return { state: passes[pass][0], eventId: 'never logged' };
+      },
+      syncPosKitchenOnce: async () => {
+        const state = passes[pass][1];
+        pass += 1;
+        if (pass === passes.length) stop.abort();
+        return { state };
+      },
+    },
+    identity: async () => identity,
+    once: false,
+    signal: stop.signal,
+    now: () => clock,
+    pause: async () => {},
+  });
+  assert.equal(pass, passes.length);
+  assert.deepEqual(lines.log, [
+    { event: 'pos_order_sync', state: 'retry' },
+    { event: 'pos_kitchen_sync', state: 'dead_letter' },
+    { event: 'pos_order_sync', state: 'delivered' },
+    { event: 'pos_order_sync', state: 'delivered' },
+    { event: 'pos_order_sync', state: 'retry' },
+    { event: 'pos_order_sync', state: 'retry' },
+  ]);
+  assert.deepEqual(lines.fail, []);
+  assert.ok(!JSON.stringify(lines).includes('never logged'));
+});
+
+test('an expired identity is read again with backoff and logged once', async () => {
+  const { lines, base } = harness();
+  const stop = new AbortController();
+  let clock = 0,
+    reads = 0,
+    orders = 0;
+  const readAt = [];
+  await runPosStreamsLoop({
+    ...base,
+    sync: {
+      syncPosOrdersOnce: async () => {
+        orders += 1;
+        stop.abort();
+        return { state: 'idle' };
+      },
+      syncPosKitchenOnce: async () => ({ state: 'idle' }),
+    },
+    identity: async () => {
+      reads += 1;
+      readAt.push(clock);
+      if (reads <= 4) throw coded('IDENTITY_EXPIRED');
+      return identity;
+    },
+    once: false,
+    signal: stop.signal,
+    now: () => clock,
+    // One pass a second, as the service loop.
+    pause: async () => {
+      clock += 1000;
+    },
+  });
+  // 2 s, 4 s, 8 s, 16 s between the reads instead of one read per pass.
+  assert.deepEqual(readAt, [0, 2000, 6000, 14000, 30000]);
+  assert.equal(orders, 1);
+  assert.deepEqual(lines.fail, [
+    {
+      event: 'native_pos_sync_failed',
+      stream: 'identity',
+      code: 'IDENTITY_EXPIRED',
+      retrying: true,
+    },
+  ]);
 });
