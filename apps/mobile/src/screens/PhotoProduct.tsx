@@ -459,7 +459,7 @@ export function PhotoProduct(props: Props) {
                       </Pressable>
                     ) : (
                       <View key={option.id} style={[s.choice, { flexWrap: 'wrap' }]}>
-                        <OptionImage id={option.id} size={54} />
+                        <OptionImage products={props.model.products} id={option.id} size={54} />
                         <View style={{ flex: 1 }}>
                           <Text style={s.choiceName}>{localize(option.label)}</Text>
                           <Text style={s.choiceLabel}>
@@ -520,7 +520,7 @@ export function PhotoProduct(props: Props) {
                       setPickerVisible(true);
                     }}
                   >
-                    <OptionImage id={optionId} size={82} />
+                    <OptionImage products={props.model.products} id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text style={s.choiceLabel}>
                         {t('{p0} {p1} из {p2}', {
@@ -585,7 +585,13 @@ export function PhotoProduct(props: Props) {
                       testID={`photo-extra-${option.id}`}
                       style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
                     >
-                      <OptionImage id={option.id} size={extraWidth - 24} height={104} extra />
+                      <OptionImage
+                        products={props.model.products}
+                        id={option.id}
+                        size={extraWidth - 24}
+                        height={104}
+                        extra
+                      />
                       <Text style={s.extraName}>{localize(option.label)}</Text>
                       <Text style={s.choiceLabel}>
                         {localize(
@@ -654,7 +660,12 @@ export function PhotoProduct(props: Props) {
                       testID={`photo-drink-extra-${option.id}`}
                       style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
                     >
-                      <OptionImage id={option.id} size={extraWidth - 24} height={104} />
+                      <OptionImage
+                        products={props.model.products}
+                        id={option.id}
+                        size={extraWidth - 24}
+                        height={104}
+                      />
                       <Text style={s.extraName}>{localize(option.label)}</Text>
                       <Text style={s.choiceLabel}>
                         {localize(
@@ -800,7 +811,11 @@ export function PhotoProduct(props: Props) {
                       unavailable && { opacity: 0.4 },
                     ]}
                   >
-                    <OptionImage id={option.id} size={drinkPhotoSize} />
+                    <OptionImage
+                      products={props.model.products}
+                      id={option.id}
+                      size={drinkPhotoSize}
+                    />
                     <Text style={[s.tileName, chosen && { color: colors.orangeInk }]}>
                       {localize(option.label)}
                     </Text>
@@ -905,18 +920,32 @@ function OptionImage({
   size,
   extra = false,
   height,
+  products = [],
 }: {
   id: string | null;
   size: number;
   extra?: boolean;
   height?: number;
+  products?: Product[];
 }) {
   useLocale();
   const s = warmStyles;
   const source = id ? (extra ? extraPhotos[id] : optionPhotos[id]) : undefined;
+  // No bundled option photo: use the back-office photo of the product with the same id
+  // (catalog options carry linked_product_id null, so option.id == product.id), e.g. fuse-lemon.
+  const linked = !source && id ? products.find((p) => p.id === id) : undefined;
+  const uploaded = linked ? productPhoto(linked, 'card', 'menu') : null;
   return (
     <View style={[s.optionPhoto, { width: size, height: height ?? size }]}>
-      {source ? (
+      {uploaded?.kind === 'remote' ? (
+        <ProductPhoto
+          photo={uploaded}
+          contentFit="contain"
+          style={StyleSheet.absoluteFill}
+          accessible={false}
+          testID="option-photo-uploaded"
+        />
+      ) : source ? (
         <Image
           source={source}
           contentFit="contain"

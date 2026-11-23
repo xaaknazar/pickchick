@@ -520,6 +520,9 @@ test('finger sets: optional sauces are counted, drinks are a paid upsell, 22.11 
   assert.match(page, /\['drink', 'sauce'\]\.includes\(g\.id\) && g\.min > 0/);
   assert.match(page, /g\.id === 'drink-extra'/);
   assert.match(page, /testID="photo-drink-extra-track"/);
+  // An option without a bundled photo shows the uploaded photo of the product with its id.
+  assert.match(page, /products\.find\(\(p\) => p\.id === id\)/);
+  assert.match(page, /testID="option-photo-uploaded"/);
   const assets = readFileSync(
     new URL('../../apps/mobile/src/product-photo-assets.ts', import.meta.url),
     'utf8',
