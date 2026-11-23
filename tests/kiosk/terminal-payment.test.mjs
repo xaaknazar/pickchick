@@ -1269,7 +1269,7 @@ test('audit 23.11 #1: an unreported fail (no WAN) can be reset by staff; an unre
   assert.equal(c3.getSnapshot().order.payment_state, 'paid');
 });
 
-test('audit 23.11 #1: a terminal that moved under a payment keeps its link when the cloud says «taken»', async () => {
+test('audit 23.11 #1: a terminal that moved under a payment is still read when the cloud says «taken»', async () => {
   const h = terminalFixture();
   // The old address goes silent; the same terminal answers at another one (relocation).
   let moved = false;
@@ -1287,10 +1287,13 @@ test('audit 23.11 #1: a terminal that moved under a payment keeps its link when 
     true,
     'the cloud was told the new address and refused',
   );
-  assert.notEqual(h.terminal.raw, null, 'the link stays while the payment is open');
-  assert.notEqual(JSON.parse(h.terminal.raw).host, '192.168.1.50');
-  await c.pollTerminal();
   assert.equal(c.getSnapshot().order.payment_state, 'paid', 'the result was read through it');
+  assert.equal(
+    sent(h, 'status').some((status) => status.host !== '192.168.1.50'),
+    true,
+    'at the new address',
+  );
+  assert.equal(h.terminal.raw, null, 'the payment is over: the taken terminal is forgotten');
 });
 
 // Audit 23.11 #2 (review): the app's error boundary builds a new controller on the same storage
@@ -1386,4 +1389,36 @@ test('audit 23.11 #2: controllers on different storages do not retire each other
   assert.equal(c1.getSnapshot().order.payment_state, 'paid');
   assert.equal(c2.getSnapshot().order.payment_state, 'paid');
   assert.equal(await c1.refresh(), true);
+});
+
+test('audit 23.11 #1: a terminal the cloud calls taken gets no new payment and is forgotten once the open one is over', async () => {
+  const h = terminalFixture();
+  let moved = false;
+  const call = h.io.terminal.call;
+  h.io.terminal.call = async (host, method, params, options) =>
+    moved && host === '192.168.1.50'
+      ? { kind: 'unreachable', reason: 'CONNECT' }
+      : call(host, method, params, options);
+  const c = await pay(h);
+  h.terminal.putError = new KioskError('KIOSK_TERMINAL_TAKEN', 409);
+  moved = true;
+  h.terminal.statuses = [
+    { kind: 'ok', data: { status: 'fail', subStatus: 'CardTransactionFailure' } },
+  ];
+  await c.pollTerminal();
+  await settle();
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'failed');
+  assert.notEqual(h.terminal.raw, null, 'kept while the payment is open');
+  assert.equal(c.getSnapshot().terminalPaymentAvailable, false);
+  // No new attempt on the taken terminal: «Повторить» does nothing.
+  assert.equal(await c.retryTerminal(), false);
+  assert.equal(sent(h, 'payment').length, 1);
+  assert.equal(h.terminal.attempts, 1);
+  // The guest goes back to the cart: the payment is over and the link goes.
+  assert.equal(await c.leaveTerminal(), true);
+  assert.equal(h.terminal.raw, null);
+  const s = c.getSnapshot();
+  assert.equal(s.terminalPaymentAvailable, false, 'the next payment is the QR on screen');
+  assert.equal(s.terminalSetup.link, null);
 });

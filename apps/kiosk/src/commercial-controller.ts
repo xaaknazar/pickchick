@@ -886,6 +886,12 @@ export class CommercialKioskController {
    * The waiting process and when its unanswered status reads began (see TERMINAL_SILENT_MS).
    * Memory only: after a restart the time starts again with the first unanswered read.
    */
+  /**
+   * The cloud said another kiosk holds the linked terminal while a payment was open on it: the
+   * link stays only to read that payment's result (see `putTerminal`, `save`). Memory only:
+   * after a restart the cloud refuses a new attempt itself (KIOSK_TERMINAL_NOT_LINKED).
+   */
+  private terminalTaken = false;
   private terminalSilent: { processId: string; since: number } | null = null;
   /**
    * Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once while the terminal
@@ -1171,7 +1177,10 @@ export class CommercialKioskController {
   private terminalActive() {
     const link = this.terminalSession?.current();
     return (
-      !!link && !!this.terminalConfig?.enabled && this.terminalConfig.terminalId === link.terminalId
+      !!link &&
+      !this.terminalTaken &&
+      !!this.terminalConfig?.enabled &&
+      this.terminalConfig.terminalId === link.terminalId
     );
   }
   private terminalView(): TerminalPaymentView | null {
@@ -1265,6 +1274,14 @@ export class CommercialKioskController {
     if (!next.terminal) delete stored.terminal;
     await this.io.writeFlow(JSON.stringify(stored));
     this.current = { ...next, abandoned };
+    // The payment that needed the taken terminal's link is over: the link goes now.
+    if (this.terminalTaken && !next.terminal)
+      try {
+        await this.terminalSession?.forget();
+        this.terminalTaken = false;
+      } catch {
+        // Kept as taken (no new payment goes to it); the next save tries again.
+      }
   }
   private setError(code: KioskErrorCode | null) {
     this.errorCode = code;
@@ -2846,8 +2863,10 @@ export class CommercialKioskController {
       if (error instanceof KioskError && error.code === 'KIOSK_TERMINAL_TAKEN') {
         // One terminal, one kiosk: this iPad does not keep a terminal another kiosk holds.
         // Audit 23.11 #1: except under a payment (the terminal moved to a new address while it
-        // ran): its result can only be read through this link. The next staff check drops it.
+        // ran): its result can only be read through this link. No new payment goes to it
+        // meanwhile, and the link is dropped once that payment is over (`save`).
         if (!this.current.terminal) await session.forget();
+        else this.terminalTaken = true;
         return 'taken';
       }
       return 'cloud';
