@@ -1,12 +1,15 @@
 # Exact CI-verified API image; TipTopPay LIVE reconciliation and refunds (tiptoppay-worker.ts).
-# The env file holds the same TIPTOPPAY_* keys as the API, the worker role's database URL and
-# nothing else; it is never in git.
+# The env file holds the same TIPTOPPAY_* keys as the API, the worker role's database URL
+# (CLOUD_DATABASE_URL) and APP_ENV; it is never in git. loadConfig('api') also requires REDIS_URL:
+# the worker never uses Redis, so a placeholder URL without a real password is enough.
+# Two networks: the API network (cloud-db) and an egress network for api.tiptoppay.kz
+# (installed 23.11.2026).
 name: pickchick-tiptoppay-worker
 services:
   worker:
     image: pickchick-api:${API_RELEASE_SHA:?Set verified API SHA}
     container_name: pickchick-tiptoppay-worker
-    networks: [pickchick]
+    networks: [pickchick, egress]
     user: '1000:1000'
     init: true
     read_only: true
@@ -30,3 +33,6 @@ networks:
   pickchick:
     external: true
     name: ${PICKCHICK_NETWORK:?Set the API network name}
+  egress:
+    external: true
+    name: ${PICKCHICK_EGRESS_NETWORK:?Set the network with internet access}

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHmac, randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import { createPool, migrate, transaction } from '@pickchick/database';
+import { URLSearchParams, fileURLToPath } from 'node:url';
+import { createPool, migrate } from '@pickchick/database';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import {
