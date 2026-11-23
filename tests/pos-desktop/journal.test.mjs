@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { desktopFile } from './support.mjs';
 
-const { createJournalStore } = await import(pathToFileURL(desktopFile('journal.mjs')).href);
+const { createJournalStore, RENAME_RETRY_DELAYS_MS } = await import(
+  pathToFileURL(desktopFile('journal.mjs')).href
+);
 const id = (last) => `10000000-0000-4000-8000-${String(last).padStart(12, '0')}`;
 const session = {
   session_id: id(1),
@@ -173,6 +175,88 @@ test('failed flush or replacement never acknowledges a new journal and preserves
       assert.equal(restarted.getItem(key), snapshot());
       assert.equal((await readdir(directory)).length, 1, 'Failed temporary writes must be cleaned');
     }
+  });
+});
+
+test('a journal file briefly held by another process is replaced after a short bounded retry', async () => {
+  assert.ok(RENAME_RETRY_DELAYS_MS.reduce((sum, ms) => sum + ms, 0) < 1000);
+  await fixture(async ({ options, directory }) => {
+    const initial = createJournalStore(options);
+    authorize(initial);
+    initial.setItem(key, snapshot());
+    // Windows Defender or the indexer holds the file for the first two tries.
+    for (const code of ['EPERM', 'EBUSY', 'EACCES']) {
+      const calls = [],
+        pauses = [];
+      const disk = {
+        ...fs,
+        fsyncSync: (fd) => {
+          calls.push('fsync');
+          return fs.fsyncSync(fd);
+        },
+        renameSync: (from, to) => {
+          calls.push('rename');
+          if (calls.filter((call) => call === 'rename').length <= 2)
+            throw Object.assign(new Error('SYNTHETIC_LOCK'), { code });
+          return fs.renameSync(from, to);
+        },
+      };
+      const held = createJournalStore({
+        ...options,
+        fsImpl: disk,
+        platform: 'win32',
+        sleep: (ms) => pauses.push(ms),
+      });
+      authorize(held);
+      const next = snapshot(code.length);
+      held.setItem(key, next);
+      // The data was flushed once, before the first replacement; only the rename repeats.
+      assert.deepEqual(calls, ['fsync', 'rename', 'rename', 'rename']);
+      assert.deepEqual(pauses, RENAME_RETRY_DELAYS_MS.slice(0, 2));
+      const restarted = createJournalStore(options);
+      authorize(restarted);
+      assert.equal(restarted.getItem(key), next);
+      assert.equal((await readdir(directory)).length, 1, 'No temporary file is left behind');
+    }
+    // A lock that does not go away still fails, after every pause, and keeps the old journal.
+    const before = createJournalStore(options);
+    authorize(before);
+    const durable = before.getItem(key);
+    const pauses = [];
+    let renames = 0;
+    const locked = createJournalStore({
+      ...options,
+      fsImpl: {
+        ...fs,
+        renameSync: () => {
+          renames += 1;
+          throw Object.assign(new Error('SYNTHETIC_LOCK'), { code: 'EBUSY' });
+        },
+      },
+      sleep: (ms) => pauses.push(ms),
+    });
+    authorize(locked);
+    assert.throws(() => locked.setItem(key, snapshot(9)), /SYNTHETIC_LOCK/);
+    assert.equal(renames, RENAME_RETRY_DELAYS_MS.length + 1);
+    assert.deepEqual(pauses, RENAME_RETRY_DELAYS_MS);
+    assert.equal(before.getItem(key), durable);
+    assert.equal((await readdir(directory)).length, 1, 'Failed temporary writes must be cleaned');
+    // Any other failure is not repeated.
+    renames = 0;
+    const broken = createJournalStore({
+      ...options,
+      fsImpl: {
+        ...fs,
+        renameSync: () => {
+          renames += 1;
+          throw Object.assign(new Error('SYNTHETIC_DISK_FAILURE'), { code: 'EIO' });
+        },
+      },
+      sleep: () => assert.fail('no pause for a real disk failure'),
+    });
+    authorize(broken);
+    assert.throws(() => broken.setItem(key, snapshot(9)), /SYNTHETIC_DISK_FAILURE/);
+    assert.equal(renames, 1);
   });
 });
 

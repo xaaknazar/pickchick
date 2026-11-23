@@ -8,6 +8,22 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const fail = () => {
   throw new Error('STORAGE_UNAVAILABLE');
 };
+/**
+ * Pauses before each repeat of the journal replacement. On Windows an antivirus or the search
+ * indexer may hold the journal file for a moment: the rename then fails with EPERM, EBUSY or
+ * EACCES although nothing is wrong. Total wait 385 ms; the write is synchronous for the page.
+ */
+export const RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200];
+const RENAME_TRANSIENT = ['EPERM', 'EBUSY', 'EACCES'];
+const sleepSync = (ms) => {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    // A runtime that refuses to block this thread: wait the same short time by the clock.
+    const until = Date.now() + ms;
+    while (Date.now() < until);
+  }
+};
 function exact(value, keys) {
   if (
     !value ||
@@ -374,9 +390,23 @@ export function createJournalStore({
   fsImpl = fs,
   platform = process.platform,
   now = Date.now,
+  sleep = sleepSync,
 }) {
   if (!isAbsolute(directory)) fail();
   let authority = null;
+  // The same atomic replacement, repeated only while the target is briefly held by another
+  // process. Each try either replaces the journal whole or leaves the previous one untouched.
+  function replace(temporary, path) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return fsImpl.renameSync(temporary, path);
+      } catch (error) {
+        if (!RENAME_TRANSIENT.includes(error?.code) || attempt >= RENAME_RETRY_DELAYS_MS.length)
+          throw error;
+        sleep(RENAME_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  }
   function ensureDirectory() {
     fsImpl.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const stat = fsImpl.lstatSync(directory);
@@ -445,7 +475,7 @@ export function createJournalStore({
         fsImpl.closeSync(fd);
         fd = undefined;
         // Same directory / volume. Never unlink the previous journal first.
-        fsImpl.renameSync(temporary, path);
+        replace(temporary, path);
         // Windows cannot portably open/fsync a directory through Node. The file
         // is flushed before replacement; physical power-loss is not certified.
         if (platform !== 'win32') {
