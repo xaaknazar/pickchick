@@ -23,7 +23,7 @@ type Option = KioskModifierGroup['options'][number];
  * уменьшим размер шрифта»): one tile height in every group and one text room under the photo
  * (two name lines and a caption line, in a smaller font), so every photo is the same size.
  */
-export const TILE_HEIGHT = 158;
+export const TILE_HEIGHT = 156;
 const NAME_SIZE = 13;
 const NAME_LINE = 16;
 const CAPTION_SIZE = 12;
