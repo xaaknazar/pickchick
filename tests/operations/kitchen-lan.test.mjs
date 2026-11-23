@@ -324,6 +324,7 @@ const desktopRoutes = () => {
     'pos/fiscal-receipts/pending',
     `cash-shifts/${ID}/x-report`,
     `cash-shifts/${ID}/z-report`,
+    'pos/branch-orders',
   ];
   const write = [
     'staff/login',
@@ -364,6 +365,9 @@ const desktopRoutes = () => {
     'orders?shift_id=1',
     'menu?release=1',
     `staff/approvals?shift_id=${ID}`,
+    'pos/branch-orders?from=2026-11-01&to=2026-11-23',
+    'pos/branch-orders?from=2026-11-01',
+    'pos/branch-orders?to=2026-11-23&from=2026-11-01',
   ];
   return [
     ...[...read, ...write, ...other].map((path) => `/edge/v1/${path}`),

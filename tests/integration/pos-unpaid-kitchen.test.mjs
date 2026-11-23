@@ -452,3 +452,84 @@ test('restricted real LOGIN can admit and cancel but cannot enable unpaid mode o
     }
   });
 });
+
+test('ЗАКАЗЫ of the cashier: every admitted order of the branch for the chosen days (23.11)', async () => {
+  await withOrderDesk(async (base) => {
+    const ctx = await setup(base);
+    const order = await create(ctx, await quote(ctx));
+    const today = (
+      await ctx.edge.pool.query("SELECT (now() AT TIME ZONE 'Asia/Almaty')::date::text AS d")
+    ).rows[0].d;
+    // App orders of the same branch from the cloud (synthetic copies of the desk row): one held
+    // (payment not confirmed yet), one admitted to the kitchen.
+    const cloudOrder = async (accepted) => {
+      const id = randomUUID();
+      await ctx.edge.pool.query(
+        `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,
+          owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,
+          assembly_station_id,state,display_number,business_day,authorized_event_id)
+         SELECT $1,branch_id,$2,$4,quote_hash,owner_hash,'cloud',fulfillment_owner,device_id,
+          snapshot || '{"channel":"mobile","displayName":"Аня","totalMinor":"5000"}'::jsonb,
+          routing_version,task_plan,assembly_station_id,
+          CASE WHEN $5 THEN 'accepted' ELSE 'held' END,
+          CASE WHEN $5 THEN 298 END,
+          CASE WHEN $5 THEN (now() AT TIME ZONE 'Asia/Almaty')::date END,
+          CASE WHEN $5 THEN $6::uuid END
+         FROM fulfillment_reservations WHERE order_id=$3`,
+        [id, randomUUID(), order.order_id, randomUUID(), accepted, randomUUID()],
+      );
+      return id;
+    };
+    await cloudOrder(false);
+    const server = await running(createEdge, {
+      ...ctx.edge.config,
+      edgeFulfillmentEnabled: true,
+      edgeDeviceId: ctx.device,
+    });
+    try {
+      const read = (query, actor = ctx.cashier) =>
+        request(server.url + '/edge/v1/pos/branch-orders' + query, {
+          headers: staffHeaders(actor),
+        });
+      let page = await (await read(`?from=${today}&to=${today}`)).json();
+      // A held cloud order (not paid yet) is not the kitchen's and is not listed.
+      assert.deepEqual(
+        page.orders.map((o) => o.order_id),
+        [order.order_id],
+      );
+      assert.equal(page.orders[0].channel, 'pos');
+      assert.equal(page.orders[0].desk, true);
+      assert.equal(page.orders[0].paid, false);
+      assert.equal(page.orders[0].number, order.fulfillment.display_number);
+      assert.equal(page.orders[0].state, 'accepted');
+      assert.equal(page.orders[0].lines[0].quantity, ctx.cart.items[0].quantity);
+      await cloudOrder(true);
+      page = await (await read(`?from=${today}&to=${today}`)).json();
+      assert.deepEqual(
+        page.orders.map((o) => [o.channel, o.desk, o.paid, o.display_name, o.total_minor]),
+        [
+          ['mobile', false, true, 'Аня', '5000'],
+          ['pos', true, false, page.orders[1].display_name, page.orders[1].total_minor],
+        ],
+      );
+      assert.equal(page.truncated, false);
+      // Days before the orders: none; bad days and periods over 31 days are refused.
+      const before = (await ctx.edge.pool.query('SELECT ($1::date - 3)::text AS d', [today]))
+        .rows[0].d;
+      page = await (await read(`?from=${before}&to=${before}`)).json();
+      assert.deepEqual(page.orders, []);
+      for (const query of ['', `?from=${today}`, '?from=x&to=y', `?from=${today}&to=${before}`])
+        assert.equal((await read(query)).status, 400, query);
+      const far = (await ctx.edge.pool.query('SELECT ($1::date - 31)::text AS d', [today])).rows[0]
+        .d;
+      assert.equal((await read(`?from=${far}&to=${today}`)).status, 400);
+      // No staff session: nothing.
+      const anonymous = await request(
+        server.url + `/edge/v1/pos/branch-orders?from=${today}&to=${today}`,
+      );
+      assert.equal(anonymous.status, 401);
+    } finally {
+      await server.app.close();
+    }
+  });
+});
