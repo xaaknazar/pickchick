@@ -70,7 +70,7 @@ test('the edge retries the restore fence until PostgreSQL answers, but not a mis
   };
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const logs = [];
-  for (const level of ['log', 'warn'])
+  for (const level of ['log', 'warn', 'error'])
     t.mock.method(console, level, (line) => logs.push(JSON.parse(line)));
   const flush = async () => {
     for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve));
@@ -133,4 +133,177 @@ test('the edge retries the restore fence until PostgreSQL answers, but not a mis
   assert.equal(ungranted.pending, false);
   assert.equal(admits(ungranted, 'POST'), true);
   await ungranted.onModuleDestroy();
+});
+
+test('only a database that does not answer refuses writes; any other fence failure is logged and serves (6.4)', async (t) => {
+  const {
+    RestoreFenceOnStart,
+    RESTORE_FENCE_REMINDER_MS,
+    RESTORE_FENCE_RETRY_MS,
+    restoreFenceFailure,
+  } = await import('../../services/edge/dist/restore-fence.js');
+  const coded = (code, message = 'postgresql://user:secret@127.0.0.1/db') =>
+    Object.assign(new Error(message), code === undefined ? {} : { code });
+  for (const code of [
+    '08006',
+    '08P01',
+    '57P01',
+    '57P03',
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'ECONNRESET',
+  ])
+    assert.deepEqual(restoreFenceFailure(coded(code)), { code, connection: true });
+  // node-postgres: a dropped connection and a pool connect timeout carry no code.
+  for (const message of [
+    'Connection terminated unexpectedly',
+    'timeout exceeded when trying to connect',
+  ])
+    assert.deepEqual(restoreFenceFailure(new Error(message)), {
+      code: 'CONNECTION',
+      connection: true,
+    });
+  assert.deepEqual(
+    restoreFenceFailure(Object.assign(new Error('wrapped'), { cause: coded('ECONNREFUSED') })),
+    { code: 'ECONNREFUSED', connection: true },
+  );
+  for (const [error, code] of [
+    [coded('P0001'), 'P0001'],
+    [coded('42883'), '42883'],
+    [coded('55P03'), '55P03'],
+    [new Error('Edge restore fence returned no state'), 'Error'],
+    [new TypeError('postgresql://user:secret@127.0.0.1/db'), 'TypeError'],
+    [coded('postgresql://user:secret@127.0.0.1/db'), 'Error'],
+    [null, 'UNKNOWN'],
+    ['text', 'UNKNOWN'],
+  ])
+    assert.deepEqual(restoreFenceFailure(error), { code, connection: false });
+
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const logs = [];
+  for (const level of ['log', 'warn', 'error'])
+    t.mock.method(console, level, (line) => logs.push({ level, ...JSON.parse(line) }));
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve));
+  };
+  const step = async (ms = RESTORE_FENCE_RETRY_MS) => {
+    t.mock.timers.tick(ms);
+    await flush();
+  };
+  const fake = (failure) => {
+    const db = { failure, queries: 0, fenced: 0 };
+    db.pool = {
+      query: async (sql) => {
+        db.queries++;
+        if (db.failure) throw db.failure;
+        if (/to_regprocedure/.test(sql)) return { rows: [{ ok: true }] };
+        db.fenced++;
+        return { rows: [{ state: 'current', epoch: 1, sequence_gap: '0' }] };
+      },
+    };
+    return db;
+  };
+
+  // The function itself raises on every start while PostgreSQL is fine: the till keeps selling.
+  const raising = fake(coded('P0001'));
+  const broken = new RestoreFenceOnStart({ pool: raising.pool });
+  await broken.onApplicationBootstrap();
+  assert.equal(broken.pending, false, 'writes are admitted');
+  for (let i = 0; i < 70; i++) await step();
+  assert.equal(raising.queries, 71, 'the check is still repeated');
+  assert.equal(broken.pending, false);
+  assert.deepEqual(logs, [
+    {
+      level: 'error',
+      event: 'edge_restore_fence_unavailable',
+      reason: 'FAILED',
+      code: 'P0001',
+      writes: 'accepted',
+    },
+  ]);
+  // Writes that were admitted are not refused later, whatever the next failure is.
+  raising.failure = coded('ECONNREFUSED');
+  await step();
+  assert.equal(broken.pending, false);
+  assert.deepEqual(logs.at(-1), {
+    level: 'warn',
+    event: 'edge_restore_fence_unavailable',
+    reason: 'RETRYING',
+    code: 'ECONNREFUSED',
+    writes: 'accepted',
+  });
+  raising.failure = null;
+  await step();
+  assert.equal(raising.fenced, 1);
+  assert.deepEqual(logs.at(-1), {
+    level: 'log',
+    event: 'edge_restore_fence_checked',
+    state: 'current',
+  });
+  await broken.onModuleDestroy();
+  assert.ok(!JSON.stringify(logs).includes('secret'));
+
+  // PostgreSQL does not answer: writes are refused, said at once and again every 5 minutes.
+  logs.length = 0;
+  const down = fake(coded('57P03'));
+  const waiting = new RestoreFenceOnStart({ pool: down.pool });
+  await waiting.onApplicationBootstrap();
+  assert.equal(waiting.pending, true);
+  const refused = {
+    level: 'warn',
+    event: 'edge_restore_fence_unavailable',
+    reason: 'RETRYING',
+    code: '57P03',
+    writes: 'refused',
+  };
+  assert.deepEqual(logs, [refused]);
+  const ticks = RESTORE_FENCE_REMINDER_MS / RESTORE_FENCE_RETRY_MS;
+  for (let i = 0; i < ticks - 1; i++) await step();
+  assert.deepEqual(logs, [refused], 'no line per retry');
+  await step();
+  assert.deepEqual(logs, [refused, refused], 'the reminder after 5 minutes');
+  // A different reason is said at once.
+  down.failure = coded('ECONNREFUSED');
+  await step();
+  assert.deepEqual(logs.at(-1), { ...refused, code: 'ECONNREFUSED' });
+  assert.equal(waiting.pending, true);
+  down.failure = null;
+  await step();
+  assert.equal(waiting.pending, false, 'open as soon as the check has run');
+  assert.equal(down.fenced, 1);
+  await waiting.onModuleDestroy();
+});
+
+test('the edge application installs the restore fence guard on its routes (6.4)', async (t) => {
+  const { randomUUID } = await import('node:crypto');
+  const { loadConfig } = await import('../../packages/platform/dist/index.js');
+  const { createEdge } = await import('../../services/edge/dist/index.js');
+  for (const level of ['log', 'warn', 'error']) t.mock.method(console, level, () => {});
+  // No database is used: nothing listens on port 1, so the fence stays pending.
+  const app = await createEdge(
+    loadConfig('edge', {
+      APP_ENV: 'local',
+      EDGE_BRANCH_ID: randomUUID(),
+      EDGE_DEVICE_ID: randomUUID(),
+      EDGE_DATABASE_URL: 'postgresql://user:password@127.0.0.1:1/pickchick_edge',
+    }),
+  );
+  try {
+    await app.listen(0, '127.0.0.1');
+    const base = await app.getUrl();
+    const health = await fetch(`${base}/health/live`);
+    assert.equal(health.status, 200);
+    await health.body?.cancel();
+    for (const path of ['/edge/v1/orders', '/edge/v1/staff/login', '/edge/v1/pos/sales']) {
+      const response = await fetch(base + path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(response.status, 503, path);
+      assert.equal((await response.json()).code, 'SERVICE_UNAVAILABLE');
+    }
+  } finally {
+    await app.close();
+  }
 });
