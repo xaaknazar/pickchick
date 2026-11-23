@@ -22,7 +22,17 @@ export type ServiceMode = 'takeaway' | 'dine_in';
 export type StaffRole = 'prep' | 'assembly' | 'display' | 'manager';
 
 // Versioned staging endpoint. Real customer/bank operations are not enabled here.
-export const API_BASE = 'https://pickchick.185.129.51.103.nip.io/v1/test';
+const DEFAULT_API_BASE = 'https://pickchick.185.129.51.103.nip.io/v1/test';
+/**
+ * A build may point the client at another deployment with VITE_OPERATIONS_API_BASE (an absolute
+ * http(s) address, read by Vite at build time). Anything else keeps the default.
+ */
+export function apiBase(value: unknown): string {
+  if (typeof value !== 'string' || !/^https?:\/\/[^\s/?#]+[^\s?#]*$/.test(value))
+    return DEFAULT_API_BASE;
+  return value.replace(/\/+$/, '');
+}
+export const API_BASE = apiBase(import.meta.env.VITE_OPERATIONS_API_BASE);
 type Decoder<T> = { parse(value: unknown): T };
 export class ApiError extends Error {
   constructor(
