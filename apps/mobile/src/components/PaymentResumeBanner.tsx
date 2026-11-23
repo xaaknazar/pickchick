@@ -34,6 +34,15 @@ export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
       <View testID="payment-resume-banner" style={[s.banner, glass]}>
         <GlassFill radius={RADIUS + glassBarRim} rim={glassBarRim} place="bar" body={false} />
         <Pressable
+          testID="payment-resume-close"
+          accessibilityRole="button"
+          accessibilityLabel={t('Скрыть напоминание об оплате')}
+          onPress={() => void hidePaymentResume(resume)}
+          style={s.close}
+        >
+          <Icon name="close" size={20} color={colors.white} />
+        </Pressable>
+        <Pressable
           testID="payment-resume-open"
           accessibilityRole="button"
           accessibilityLabel={title}
@@ -58,15 +67,6 @@ export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
               {t('Открыть заказ')}
             </Text>
           </View>
-        </Pressable>
-        <Pressable
-          testID="payment-resume-close"
-          accessibilityRole="button"
-          accessibilityLabel={t('Скрыть напоминание об оплате')}
-          onPress={() => void hidePaymentResume(resume)}
-          style={s.close}
-        >
-          <Icon name="close" size={20} color={colors.white} />
         </Pressable>
       </View>
     </View>
@@ -101,7 +101,8 @@ const s = themed(() =>
       alignItems: 'center',
       gap: 10,
       paddingVertical: 8,
-      paddingLeft: 10,
+      paddingLeft: 4,
+      paddingRight: 12,
       borderRadius: RADIUS,
     },
     mark: {
@@ -135,7 +136,8 @@ const s = themed(() =>
       alignSelf: 'center',
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 6,
+      // Owner 23.11.2026: the close X on the left, as on iOS.
+      marginLeft: 6,
       borderRadius: 22,
     },
   }),

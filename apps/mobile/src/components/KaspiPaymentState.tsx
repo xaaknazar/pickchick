@@ -627,7 +627,8 @@ const s = themed(() =>
     // The X sits where the cart's own X is (CartTopBar): right, 16 pt from the edge.
     topBar: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
+      // Owner 23.11.2026: the close X on the left, as on iOS.
+      justifyContent: 'flex-start',
       paddingHorizontal: 16,
       paddingTop: 12,
       width: '100%',

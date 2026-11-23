@@ -84,14 +84,14 @@ export function CardPaymentSheet({
             keyboardShouldPersistTaps="handled"
           >
             <View style={s.header}>
-              <Heading small style={s.title}>
-                {t('Оплата картой')}
-              </Heading>
               <CloseButton
                 label={t('Закрыть оплату картой')}
                 testID="card-payment-close"
                 onPress={onClose}
               />
+              <Heading small style={s.title}>
+                {t('Оплата картой')}
+              </Heading>
             </View>
             {test ? (
               <View style={s.testBadge} testID="card-payment-test">

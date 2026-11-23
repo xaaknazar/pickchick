@@ -23,9 +23,9 @@ import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } 
 import { colors, font, themed, tc } from '../theme';
 
 /**
- * Cart sheet, owner 27.10.2026 (Drinkit reference): red glass trash on the left, glass close
- * on the right, the restaurant point with a pin in the centre. No big «Корзина» title: the
- * sheet keeps its name for accessibility.
+ * Cart sheet, owner 27.10.2026 (Drinkit reference): the restaurant point with a pin in the
+ * centre. Owner 23.11.2026: the close X always on the left as on iOS, the red trash on the
+ * right. No big «Корзина» title: the sheet keeps its name for accessibility.
  */
 export function CartTopBar({
   restaurant,
@@ -42,14 +42,7 @@ export function CartTopBar({
   const name = localize(restaurant ?? 'Ресторан PickChick');
   return (
     <View style={s.topBar}>
-      <IconButton
-        name="trash-outline"
-        tone="danger"
-        label={t('Очистить корзину')}
-        testID="cart-clear"
-        disabled={clearDisabled}
-        onPress={onClear}
-      />
+      <CloseButton label={t('Закрыть корзину')} onPress={onClose} testID="cart-close" />
       <View
         testID="cart-restaurant"
         style={s.point}
@@ -61,7 +54,14 @@ export function CartTopBar({
           {name}
         </Text>
       </View>
-      <CloseButton label={t('Закрыть корзину')} onPress={onClose} testID="cart-close" />
+      <IconButton
+        name="trash-outline"
+        tone="danger"
+        label={t('Очистить корзину')}
+        testID="cart-clear"
+        disabled={clearDisabled}
+        onPress={onClear}
+      />
     </View>
   );
 }
@@ -265,14 +265,14 @@ export function PaymentMethodSelector() {
         >
           <ScrollView contentContainerStyle={s.sheetContent} bounces={false}>
             <View style={s.sheetHeader}>
-              <Heading small style={s.sheetTitle}>
-                {t('Способ оплаты')}
-              </Heading>
               <CloseButton
                 label={t('Закрыть способы оплаты')}
                 testID="cart-payment-close"
                 onPress={close}
               />
+              <Heading small style={s.sheetTitle}>
+                {t('Способ оплаты')}
+              </Heading>
             </View>
             <View accessibilityRole="radiogroup" style={s.options}>
               {payment.methods.map((method) =>
