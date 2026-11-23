@@ -262,6 +262,9 @@ function KaspiCheckoutSession(
     : undefined;
   const giftDiscount = props.model.comboRewards?.discountMinor ?? '0';
   const localTotal = (BigInt(cartTotal(props.model.cart)) - BigInt(giftDiscount)).toString();
+  // The total the pay button shows now, for a press that continues after an await (submit).
+  const shownTotal = useRef(localTotal);
+  shownTotal.current = quote?.totalMinor ?? localTotal;
   const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode, '', giftIndex);
   // Lines, modifiers, gift and «В зале / С собой»: what a cart edit changes.
   const lastCartKey = useRef<string | null>(null);
@@ -788,11 +791,15 @@ function KaspiCheckoutSession(
         lock.current = false;
         setTipTopPayBusy(false);
       }
-      // Left the cart or chose another method meanwhile: that press is over, nothing starts.
-      if (controller.signal.aborted || methodRef.current !== method) return;
+      // Left the cart, emptied it or chose another method meanwhile: that press is over, nothing
+      // starts.
+      if (controller.signal.aborted || methodRef.current !== method || !cart.current.length) return;
       if (connected) {
         setMethodStop(false);
-        tipTopPay.start(method, quote?.totalMinor ?? localTotal);
+        // The read can take a while (a reprice, a cart edit meanwhile): the card sheet shows the
+        // total of this moment, not the one of the render of the press. The charge itself is the
+        // fresh quote of tipTopPay.start, as before.
+        tipTopPay.start(method, shownTotal.current);
         return;
       }
       setMethodStop(true);
