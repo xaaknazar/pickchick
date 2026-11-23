@@ -36,7 +36,7 @@ import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
-import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
+import { watchCommerceOrder, watchCursor, watchRetryDelay } from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -536,7 +536,12 @@ function KaspiCheckoutSession(
     void watchCommerceOrder({
       signal: controller.signal,
       read: (signal) =>
-        request(`/orders/${order.orderId}/watch?after=${order.revision}`, 'GET', undefined, signal),
+        request(
+          `/orders/${order.orderId}/watch?after=${watchCursor(orderRef.current, order)}`,
+          'GET',
+          undefined,
+          signal,
+        ),
       accept: async (next) => {
         // A watch answer is never the create command of a pending intent.
         await acceptRef.current(next, false);
@@ -549,8 +554,10 @@ function KaspiCheckoutSession(
       controller.abort();
       if (orderWatch.current === controller) orderWatch.current = null;
     };
-    // watchRun: «Проверить ещё раз» starts a fresh watch after its own read.
-  }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchRun]);
+    // watchRun: «Проверить ещё раз» starts a fresh watch after its own read. Not the revision:
+    // the loop reads it from orderRef (watchCursor), so one watch follows the order through its
+    // revisions instead of being aborted and started again by each of its own answers.
+  }, [request, order?.orderId, order?.phase, foreground, watchRun]);
   useEffect(() => {
     if (props.screenId !== 'M19' || order || !foreground) return;
     const controller = new AbortController();

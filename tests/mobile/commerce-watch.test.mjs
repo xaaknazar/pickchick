@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { wait, watchCommerceOrder, watchRetryDelay } from '../../apps/mobile/src/commerce-watch.ts';
+import {
+  wait,
+  watchCommerceOrder,
+  watchCursor,
+  watchRetryDelay,
+} from '../../apps/mobile/src/commerce-watch.ts';
 import { CustomerSessionError } from '../../apps/mobile/src/customer-session.ts';
 
 test('order reads recover automatically with bounded backoff and keep one request in flight', async () => {
@@ -147,4 +152,40 @@ test('a poll delay ends at once on abort and leaves no listener on the signal (a
   );
   assert.match(checkout, /import \{ wait as sleep \} from '\.\/commerce-watch';/);
   assert.doesNotMatch(checkout, /const sleep = /);
+});
+
+test('the read after an accepted answer asks with the new revision (audit 23.11 #9)', async () => {
+  const started = { orderId: 'o1', revision: 'r1' };
+  // What the screen keeps in a ref and updates in its accept step, before React renders.
+  const shown = { current: started };
+  const controller = new AbortController();
+  const asked = [];
+  await watchCommerceOrder({
+    signal: controller.signal,
+    read: async () => {
+      asked.push(watchCursor(shown.current, started));
+      return { orderId: 'o1', revision: `r${asked.length + 1}` };
+    },
+    accept: async (next) => {
+      shown.current = next;
+      if (asked.length === 3) controller.abort();
+    },
+    onError: () => assert.fail('no error'),
+    onRecovered: () => {},
+  });
+  // Before: r1, r1, r1 - the server answered each repeat at once.
+  assert.deepEqual(asked, ['r1', 'r2', 'r3']);
+  // Another order on screen (or none) never lends its revision.
+  assert.equal(watchCursor({ orderId: 'o2', revision: 'x' }, started), 'r1');
+  assert.equal(watchCursor(null, started), 'r1');
+  const screen = readFileSync(
+    new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(screen, /watch\?after=\$\{watchCursor\(orderRef\.current, order\)\}/);
+  // One watch follows the order through its revisions: an answer does not restart it.
+  assert.match(
+    screen,
+    /\}, \[request, order\?\.orderId, order\?\.phase, foreground, watchRun\]\);/,
+  );
 });

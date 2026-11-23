@@ -28,6 +28,18 @@ export function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * The revision a watch asks after. The loop reads again right after it accepted an answer, before
+ * React renders: `latest` (a ref the accept step updates at once) carries the new revision, so the
+ * next read never repeats the revision the watch started with (the server would answer at once).
+ */
+export function watchCursor<R>(
+  latest: { orderId: string; revision: R } | null | undefined,
+  started: { orderId: string; revision: R },
+): R {
+  return latest?.orderId === started.orderId ? latest.revision : started.revision;
+}
+
 /** Foreground, sequential long polling. Abort cancels both HTTP and reconnect timers. */
 export async function watchCommerceOrder<T>(options: {
   signal: AbortSignal;
