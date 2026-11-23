@@ -405,7 +405,8 @@ class KioskUI(unittest.TestCase):
                     chip = element(page, 'kiosk-category-' + category)
                     chip.click()
                     assert_bounded(page, 'kiosk-category-' + category, width, height)
-                self.assertTrue(element(page, 'kiosk-menu-checkout').is_disabled())
+                # Owner 22.11.2026: an empty cart's checkout answers with a hint, never goes on.
+                self.assertFalse(element(page, 'kiosk-menu-checkout').is_disabled())
                 fixed_action(page, 'kiosk-menu-checkout', 'kiosk-menu-scroll', width, height)
                 element(page, 'kiosk-menu-scroll').evaluate('(e) => {e.scrollTop = 0;}')
                 capture(page, f'menu-{width}.png')
@@ -461,7 +462,8 @@ class KioskUI(unittest.TestCase):
                 element(page, 'kiosk-next-guest').click()
                 screen(page, 'welcome')
                 self.start(page)
-                self.assertTrue(element(page, 'kiosk-menu-checkout').is_disabled())
+                # A new guest starts with an empty bag (its summary cannot be opened).
+                self.assertTrue(element(page, 'kiosk-cart-open').is_disabled())
                 self.assertEqual(fixture.orders[order['order_id']]['state'], 'preparing')
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)

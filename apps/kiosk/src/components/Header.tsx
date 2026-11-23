@@ -23,7 +23,7 @@ export interface ScreenContext {
   from?: KioskStep | 'boot';
   /**
    * Opens the staff dialog (demo mode, service reset): a long hold on the start screen logo, or
-   * «Сотруднику» on the recovery screen when a service reset is available.
+   * a long hold on the recovery logo or the terminal icon when a service reset is available.
    */
   onStaffHold?: () => void;
 }

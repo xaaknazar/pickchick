@@ -204,6 +204,8 @@ export default function useKioskController(): KioskModel {
       controller instanceof CommercialKioskController ? controller.retryTerminal : undefined,
     leaveTerminal:
       controller instanceof CommercialKioskController ? controller.leaveTerminal : undefined,
+    editTerminalOrder:
+      controller instanceof CommercialKioskController ? controller.editTerminalOrder : undefined,
     // Staff terminal setup: the live kiosk only, never inside the demo.
     ...(!demo && live instanceof CommercialKioskController
       ? {
