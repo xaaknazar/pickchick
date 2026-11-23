@@ -172,6 +172,8 @@ export function ComboOptionTile({
     : surcharge
       ? '+' + money(option.price_delta_minor)
       : included;
+  // A sold-out single pick says so in its caption line: the photo keeps the size of its row.
+  const soldOutLine = !multi && !option.available;
   const body = (
     <>
       <View
@@ -203,7 +205,20 @@ export function ComboOptionTile({
         >
           {glue(name)}
         </Text>
-        {text.caption ? (
+        {soldOutLine ? (
+          <Text
+            {...fixedText}
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.bold,
+              fontSize: px(13),
+              lineHeight: px(17),
+              color: SOLD_OUT,
+            }}
+          >
+            {status}
+          </Text>
+        ) : text.caption ? (
           <Text
             {...fixedText}
             numberOfLines={1}
@@ -218,23 +233,24 @@ export function ComboOptionTile({
           </Text>
         ) : null}
       </View>
-      {multi && option.available ? (
-        // Room for the stepper laid over the tile's bottom edge.
-        <View style={{ height: px(40), marginTop: px(8) }} />
-      ) : !option.available ? (
-        <View style={{ height: px(26), marginTop: px(6), justifyContent: 'center' }}>
-          <Text
-            {...fixedText}
-            numberOfLines={1}
-            style={{
-              fontFamily: fonts.bold,
-              fontSize: px(13),
-              lineHeight: px(17),
-              color: SOLD_OUT,
-            }}
-          >
-            {status}
-          </Text>
+      {multi ? (
+        // Room for the stepper laid over the tile's bottom edge; a sold-out sauce says so there,
+        // so every cup in the row keeps one size.
+        <View style={{ height: px(40), marginTop: px(8), justifyContent: 'center' }}>
+          {option.available ? null : (
+            <Text
+              {...fixedText}
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: px(13),
+                lineHeight: px(17),
+                color: SOLD_OUT,
+              }}
+            >
+              {status}
+            </Text>
+          )}
         </View>
       ) : null}
     </>
@@ -260,7 +276,7 @@ export function ComboOptionTile({
       style={{
         flex: 1,
         minWidth: 0,
-        height: px(tall ? 172 : 164),
+        height: px(tall ? 158 : 154),
         opacity: fade,
         transform: [
           { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },

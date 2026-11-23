@@ -24,6 +24,8 @@ const lightTile = (tile: string) =>
   [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
 /** Share of the hero given to the photo (design: text from x 533 of 1024; 0.54 since owner 23.11). */
 const PHOTO = 0.54;
+/** Hero height in design points (design 380). */
+const HERO_HEIGHT = 424;
 /**
  * Product card hero (kiosk redesign 2026-10-13, product-and-payment.md §1): a cream #FEF8F0
  * card (radius 32, shadow 0 14 30 navy .25, at least 380 high) on the bg1 illustration. The
@@ -64,7 +66,9 @@ export function ComboHero({
     <Animated.View
       testID="kiosk-product-hero"
       style={{
-        minHeight: px(380),
+        // Owner 23.11.2026 «комбо увеличивай»: taller than the design's 380 for a bigger dish,
+        // still on one screen with the drinks and sauces.
+        minHeight: px(HERO_HEIGHT),
         borderRadius: px(32),
         backgroundColor: redesign.cream,
         shadowColor: '#020A1F',
@@ -116,7 +120,7 @@ export function ComboHero({
           <View
             style={{
               flex: 1,
-              minHeight: px(300),
+              minHeight: px(HERO_HEIGHT - 80),
               borderRadius: blend ? 0 : px(24),
               overflow: 'hidden',
               backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),

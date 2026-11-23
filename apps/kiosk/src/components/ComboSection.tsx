@@ -61,7 +61,7 @@ function MoreTile({
       style={{
         flex: 1,
         minWidth: 0,
-        height: px(tall ? 172 : 164),
+        height: px(tall ? 158 : 154),
         transform: [{ scale: press.scale }],
       }}
     >
