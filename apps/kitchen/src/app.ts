@@ -8,7 +8,7 @@ import { KitchenModel, allowedActions, displayWindow, ownerOf } from './model.js
 import type { Owner } from './model.js';
 import { streamIndicators, sourceBadge } from './components/StreamStatus.js';
 import { cloudPairing } from './components/CloudPairing.js';
-import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
+import { request, loadConfig, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
 import {
   allDayStrip,
@@ -37,6 +37,8 @@ let boardPage = 0;
 let terminalId: string | undefined;
 let loginName = '';
 let configLoaded = false;
+// config.json did not answer yet: the login screen says so while the read is repeated.
+let configUnavailable = false;
 /** Portal cloud stream: the page is a cloud screen first; a cook login adds the cashier stream. */
 let cloudMode = false;
 let cookLogin = false;
@@ -354,7 +356,7 @@ function render() {
       `<main class="login"><section>
       <span class="login-eyebrow">РАБОЧИЙ ЭКРАН PICK CHICK</span><h2>Вход на кухню</h2><p>Войдите под своим логином. Вам будут доступны назначенные станции приготовления, сборки и выдачи.</p>
       ${s.error ? `<p class="error" role="alert">${escape(errors[s.error] ?? 'Не удалось подключиться. Проверьте доступ и локальный узел.')}</p>` : ''}
-      ${!configLoaded ? '<p class="setup-notice" role="status">Подключаем рабочее место...</p>' : !terminalId ? '<p class="setup-notice setup-blocked" role="status"><strong>Экран не подключён к серверу ресторана</strong><span>Поля входа выключены, пока этот моноблок не настроен. Сообщите управляющему.</span></p>' : ''}
+      ${!configLoaded ? (configUnavailable ? '<p class="setup-notice setup-blocked" role="status"><strong>Настройки рабочего места недоступны</strong><span>Сервер не отвечает. Повторяем подключение - экран откроется сам.</span></p>' : '<p class="setup-notice" role="status">Подключаем рабочее место...</p>') : !terminalId ? '<p class="setup-notice setup-blocked" role="status"><strong>Экран не подключён к серверу ресторана</strong><span>Поля входа выключены, пока этот моноблок не настроен. Сообщите управляющему.</span></p>' : ''}
       <form id="password-login" class="password-login${configLoaded && !terminalId ? ' password-login-off' : ''}">
         <label for="staff-login">Логин</label><input id="staff-login" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escape(loginName)}" placeholder="Ваш логин"${fieldsOff}>
         <label for="staff-password">Пароль</label><div class="password-field"><input id="staff-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="Введите пароль"${fieldsOff}><button type="button" id="password-toggle" aria-label="Показать пароль" aria-pressed="false"${fieldsOff}>Показать</button></div>
@@ -677,13 +679,15 @@ function updateLoginWait() {
 render();
 installScreenKeyboard();
 if (!demo) {
+  // A missing file (404) is the local default; a failing or slow gateway is waited for, so a
+  // cloud screen never starts in the local mode without its terminal.
+  const config = await loadConfig({
+    onFailure: () => {
+      configUnavailable = true;
+      render();
+    },
+  });
   try {
-    const response = await fetch(apiPrefix + '/config.json', {
-      credentials: 'same-origin',
-      redirect: 'error',
-      signal: AbortSignal.timeout(10000),
-    });
-    const config = (await response.json()) as Record<string, unknown>;
     terminalAccess.configure(config);
     // Portal flag only; keys and the API address never reach the browser.
     if (config.cloudKitchen === true) {
@@ -701,6 +705,7 @@ if (!demo) {
   }
 }
 configLoaded = true;
+configUnavailable = false;
 if (terminalAccess.enabled && terminalAccess.paired) await terminalAccess.check();
 render();
 const deviceDisplay = () =>
