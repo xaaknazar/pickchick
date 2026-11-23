@@ -53,9 +53,10 @@ function Get-HeadBinding([string]$Current,[string]$Original,[string]$Name,[strin
  $reader=[Xml.XmlReader]::Create([IO.StringReader]::new($Original),$settings);$doc=[Xml.XmlDocument]::new();$doc.XmlResolver=$null
  try{$doc.Load($reader)}finally{$reader.Dispose()}
  if(@($doc.service.SelectNodes('workingdirectory')).Count -ne 1){throw 'Ambiguous service binding.'}
- $originalApp=[string]$doc.service.workingdirectory
- if($originalApp -cne $OriginalApp -or $originalApp -ceq $PredecessorApp -or $originalApp -ceq $NewApp){throw 'Predecessor original binding required.'}
- $expected=New-RuntimeBinding $Original (Get-TextSha256 $Original) $Name $originalApp $PredecessorApp
+ # PowerShell names are case-insensitive: the saved path must not be called $originalApp.
+ $savedApp=[string]$doc.service.workingdirectory
+ if($savedApp -cne $OriginalApp -or $savedApp -ceq $PredecessorApp -or $savedApp -ceq $NewApp){throw 'Predecessor original binding required.'}
+ $expected=New-RuntimeBinding $Original (Get-TextSha256 $Original) $Name $savedApp $PredecessorApp
  if($Current -cne $expected){throw 'Installed XML differs from the predecessor result.'}
  return New-RuntimeBinding $Current (Get-TextSha256 $Current) $Name $PredecessorApp $NewApp
 }

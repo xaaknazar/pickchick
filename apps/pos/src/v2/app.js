@@ -1126,8 +1126,9 @@ function draw() {
   root.querySelector('.topbar')?.append(fullscreen);
   // The journal names every request before it is sent, so m.pending is set for the whole
   // flight of an ordinary request (a stop-list toggle too). Only once nothing is in flight
-  // is the result really unknown (23.11: the panel flashed on every stop-list tap).
-  if (m.pending && !m.busy && !starting) {
+  // is the result really unknown (23.11: the panel flashed on every stop-list tap). While the
+  // desk starts it stays on screen, disabled, until startup can check it.
+  if (m.pending && (starting || !m.busy)) {
     const box = document.createElement('div');
     box.className = 'recovery';
     const text = document.createElement('span');
