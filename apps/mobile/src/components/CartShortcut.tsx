@@ -157,8 +157,8 @@ export function CartShortcut({
   const canPayNow = useRef(availability.canPay);
   canPayNow.current = availability.canPay;
   const [barWidth, setBarWidth] = useState(0);
-  // The 270 pt bar (owner 16.11.2026) leaves a long dining label («Мейрамханада») no room for the
-  // restaurant: a sliver «A…» is not readable, so the name steps aside (it stays in the cart
+  // The 310 pt bar (owner 23.11.2026) leaves a long dining label («Мейрамханада») little room
+  // for the restaurant: a sliver «A…» is not readable, so the name steps aside (it stays in the cart
   // button's VoiceOver label). Measured again whenever the label, the place or the size changes.
   const [locationFits, setLocationFits] = useState(true);
   useEffect(() => {
@@ -486,8 +486,9 @@ const s = StyleSheet.create({
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
   aboveTabBar: { paddingBottom: tabCartGap },
-  // Owner 16.11.2026: as short as Drinkit's bar, about two thirds of the screen (390, then 330).
-  root: { width: '100%', maxWidth: 270, alignSelf: 'center' },
+  // Owner 16.11.2026: as short as Drinkit's bar (390, then 330, then 270). Owner 23.11.2026:
+  // «чуть-чуть длиннее», still shorter than the tab bar (361 pt on a 393 pt iPhone): 310.
+  root: { width: '100%', maxWidth: 310, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
@@ -592,7 +593,7 @@ const s = StyleSheet.create({
   // rather than mixing Jost letters with per-character system fallbacks.
   hintKazakh: {
     // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt, where
-    // the 270 pt bar (owner 16.11.2026) leaves about 176 pt beside the handle.
+    // the 310 pt bar (owner 23.11.2026) leaves about 194 pt beside the handle.
     fontSize: 16,
     fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'system-ui' }),
     fontWeight: '600',
