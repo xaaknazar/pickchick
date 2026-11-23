@@ -4,8 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
 import {
+  CARD_NAME,
   SECTION_HITS,
   badgeOf,
+  cardName,
+  sectionNameLines,
   bentoGeometry,
   bentoLayout,
   sectionHit,
@@ -91,6 +94,16 @@ export const MenuGrid = memo(function MenuGrid({
     px(GRID.minRow),
     px(GRID.minHit),
     px(GRID.scrollRow),
+  );
+  // Owner 23.11.2026: one name size on every card and one name room per section.
+  const nameLines = sectionNameLines(
+    geometry.cards
+      .filter((cell) => cell.size !== 'wide' && rest[cell.item])
+      .map((cell) => {
+        const named = cardName(rest[cell.item]!.name);
+        return { title: named.title, caption: !!named.caption, width: cell.width - px(36) };
+      }),
+    px(CARD_NAME),
   );
   const initial = memory.offsets[category] ?? 0;
   // Furthest scroll position: the grid plus the room kept under the checkout panel.
@@ -182,6 +195,7 @@ export const MenuGrid = memo(function MenuGrid({
               <ProductCard
                 product={item}
                 size={cell.size}
+                nameLines={nameLines}
                 busy={busy}
                 locale={locale}
                 badge={badgeOf(item.id)}

@@ -223,6 +223,26 @@ export function fitTitle(text: string, width: number, base: number, min: number,
  * Lines `text` takes at `size` in a `width` column (the estimate `fitTitle` uses). A card whose
  * name takes one line gives the spare line to its photo (owner 23.11.2026: «фото больше»).
  */
+export const CARD_NAME = 18;
+/**
+ * Owner 23.11.2026: every menu card prints its name at one size, the size «Pick Burger Combo»
+ * took to stay on one line (18 at 1024 pt), and a section keeps the same room for the name on
+ * every card, so all photos in a section are the same size. The room is the most lines any
+ * name in the section takes (a caption counts as a line), at most three.
+ */
+export function sectionNameLines(
+  cards: { title: string; caption: boolean; width: number }[],
+  size: number,
+) {
+  let lines = 1;
+  for (const card of cards)
+    lines = Math.max(
+      lines,
+      Math.min(2, titleLines(card.title, card.width, size)) + (card.caption ? 1 : 0),
+    );
+  return Math.min(3, lines);
+}
+
 export function titleLines(text: string, width: number, size: number) {
   if (!(width > 0) || !(size > 0)) return 2;
   return wrappedLines(text, width / (size * LETTER));

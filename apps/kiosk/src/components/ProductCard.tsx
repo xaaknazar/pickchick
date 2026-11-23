@@ -6,7 +6,14 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { cardName, fitTitle, sauceFill, type BadgeKind, type CardSize } from '../menu-presentation';
+import {
+  CARD_NAME,
+  cardName,
+  fitTitle,
+  sauceFill,
+  type BadgeKind,
+  type CardSize,
+} from '../menu-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
@@ -47,6 +54,8 @@ const lightTile = (tile: string) =>
  * the menu). The card squeezes to .96 with an orange ring while pressed, a blue badge counts
  * the units already in the bag, and a stopped product dims its photo and its "+".
  */
+/** Share of the card's width a wide fitted dish may run past its sides (clipped by the card). */
+const BLEED = 0.08;
 export function ProductCard({
   product,
   onOpen,
@@ -59,6 +68,7 @@ export function ProductCard({
   inCart = 0,
   arriving = false,
   index = 0,
+  nameLines = 2,
 }: {
   product: KioskProduct;
   onOpen: () => void;
@@ -74,6 +84,8 @@ export function ProductCard({
   arriving?: boolean;
   /** Position in its section: picks the illustration (i % 4). */
   index?: number;
+  /** Lines of name room every card in its section keeps (`sectionNameLines`). */
+  nameLines?: number;
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
@@ -116,18 +128,11 @@ export function ProductCard({
   // ellipsis in a narrow column; a name that still does not fit gets a third line.
   const [cardWidth, setCardWidth] = useState(0);
   const column = cardWidth * (wide ? 1 - WIDE_PHOTO : 1) - px(wide ? 22 : 36);
-  const base = px(big ? 27 : 24);
-  // Owner 23.11.2026: a fitted dish keeps one size on every card («Pick Burger Combo» wrapped and
-  // its photo shrank), so a name without a caption steps down to .7 to stay on one line, and
-  // only a name that still does not fit takes a second line, over the photo's bottom margin.
-  const oneLine = fitted && !wide && !label.caption;
-  const single = oneLine
-    ? fitTitle(label.title, cardWidth ? column : 0, base, base * 0.7, 1)
-    : null;
-  const title =
-    single && single.lines <= 1
-      ? single
-      : fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
+  // Owner 23.11.2026 («у всех одинаковый шрифт, как у Pick Burger Combo»): one name size on
+  // every card. A name wraps to a second line at that size; only one that would need a third
+  // line (or a word wider than the column) steps down.
+  const base = px(CARD_NAME);
+  const title = fitTitle(label.title, cardWidth ? column : 0, base, base * 0.8);
   const pick = usePress(0.92);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
@@ -145,15 +150,10 @@ export function ProductCard({
           : badge === 'recipe'
             ? t.recipeTag
             : null;
-  // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
-  // size. Owner 23.11.2026: a one-line name sits on the price («Finger Combo» floated above
-  // it), so the spare line stays above the name. The caption («0.5 л · в железной банке»)
-  // shares that room.
-  const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
-  // Owner 23.11.2026 («в разделе комбо сделать фотографии больше»): a fitted dish over a
-  // one-line name without a caption takes the empty line above the name too.
-  // The room the photo takes does not depend on the name: one line of the base size is kept.
-  const spare = oneLine ? Math.max(0, nameRoom - Math.round(base * 1.16)) : 0;
+  // Owner 22.11.2026: photos in a row are the same size. Owner 23.11.2026: the name room is the
+  // same on every card of a section (the most lines a name there takes, a caption counted), so a
+  // one-line section gives the line back to the photos and no photo depends on its own name.
+  const nameRoom = wide ? 0 : Math.round(base * 1.16) * nameLines;
   const photo = (
     <View
       style={{
@@ -167,10 +167,11 @@ export function ProductCard({
         // Owner 23.11.2026: a fitted dish fills the same box on every card, a little clear of
         // the edges and the name.
         // Owner 23.11.2026 (later): bigger still, so a fitted dish keeps only a thin margin.
-        paddingTop: px(fitted ? 8 : largePick ? 4 : wide ? 18 : 10),
+        // Owner 23.11.2026 («фото Pick Burger Combo увеличь»): a fitted dish runs to the card's
+        // sides, and a wide one (limited by the width) may run a little past them.
+        paddingTop: px(fitted ? 6 : largePick ? 4 : wide ? 18 : 10),
         paddingBottom: px(fitted ? (wide ? 10 : 2) : largePick ? 0 : wide ? 18 : 0),
-        paddingHorizontal: px(fitted ? 6 : largePick ? 6 : wide ? 18 : 6),
-        marginBottom: -spare,
+        paddingHorizontal: px(fitted ? (wide ? 6 : 0) : largePick ? 6 : wide ? 18 : 6),
       }}
     >
       <Animated.View
@@ -201,6 +202,7 @@ export function ProductCard({
           variant={largePick ? 'hero' : 'card'}
           fit={fitted}
           fill={fill}
+          bleed={fitted && !wide && fill === 1 ? BLEED : 0}
         />
       </Animated.View>
     </View>

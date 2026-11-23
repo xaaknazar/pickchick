@@ -20,6 +20,7 @@ export function PhotoImage({
   variant = 'card',
   fit = false,
   fill = 1,
+  bleed = 0,
 }: {
   imageId: string;
   variant?: 'card' | 'hero' | 'option' | 'cart';
@@ -30,6 +31,8 @@ export function PhotoImage({
   fit?: boolean;
   /** Share of the tile a fitted photo fills (sauces step by size: 60 < 300 < 400 < 500). */
   fill?: number;
+  /** Share of the tile's width a wide fitted dish may run past the side edges (clipped). */
+  bleed?: number;
 }) {
   const photo =
     variant === 'option'
@@ -61,7 +64,7 @@ export function PhotoImage({
       : undefined;
   const placed =
     bounds && stage.width > 0 && stage.height > 0
-      ? fitPhoto(bounds, stage.width, stage.height, fill)
+      ? fitPhoto(bounds, stage.width, stage.height, fill, bleed)
       : null;
   const cover = variant === 'cart' && photo && !photo.cutout && /^#0/.test(photo.tile);
   return (

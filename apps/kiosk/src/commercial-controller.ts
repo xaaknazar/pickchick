@@ -748,6 +748,7 @@ const TERMINAL_REQUEST_DEFINITIVE = [
 const BROWSING: KioskStep[] = ['menu', 'product', 'upsell', 'cart', 'loyalty'];
 /** Screens of a guest changing an order whose terminal payment is still open. */
 const EDIT_STEPS: KioskStep[] = [...BROWSING, 'mode'];
+const KEEP_ON_MODE: KioskStep[] = ['upsell', 'cart', 'loyalty'];
 /** A read that may simply be retried: the network, a timeout or a server outage. */
 const transient = (error: unknown) =>
   !(error instanceof KioskError) ||
@@ -1690,7 +1691,9 @@ export class CommercialKioskController {
       this.editable();
       if (!['takeaway', 'dine_in'].includes(mode)) throw new KioskError('INVALID_CART');
       await this.save({ ...this.current, mode, lastActivityAt: this.io.now() });
-      this.step = 'menu';
+      // Owner 23.11.2026: «В зале / С собой» can be changed on the payment page itself, so a
+      // change there (or in the cart or «Допы») keeps the guest where they are.
+      if (!KEEP_ON_MODE.includes(this.step)) this.step = 'menu';
     });
   goMode = () => this.navigate('mode');
   goMenu = () => this.navigate('menu');

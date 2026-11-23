@@ -178,12 +178,13 @@ export function publishedPhotoBounds(
  * Where to draw an image so its visible box fills a `width` x `height` stage (contain on the
  * box, never cropping the dish) and sits in its centre. `fill` leaves a margin (1 = edge to edge).
  */
-export function fitPhoto(bounds: PhotoBounds, width: number, height: number, fill = 1) {
+export function fitPhoto(bounds: PhotoBounds, width: number, height: number, fill = 1, bleed = 0) {
   const [ratio, left, top, right, bottom] = bounds;
-  // Draw the image `side` points high and `side * ratio` wide.
+  // Draw the image `side` points high and `side * ratio` wide. `bleed` lets a wide dish run
+  // that share past the side edges (the tile clips it) when the width is what limits it.
   const boxWidth = (right - left) * ratio;
   const boxHeight = bottom - top;
-  const side = Math.min((width * fill) / boxWidth, (height * fill) / boxHeight);
+  const side = Math.min((width * (fill + bleed)) / boxWidth, (height * fill) / boxHeight);
   return {
     width: side * ratio,
     height: side,
