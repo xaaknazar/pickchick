@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import {
+  POS_SALES_DISABLED_RECHECK_MS,
   POS_SALES_REQUEST_TIMEOUT_MS,
   PosSalesHttpError,
   createPosSalesSchedule,
@@ -155,6 +156,48 @@ test('disabled, busy and waiting steps touch neither the database nor the networ
     ),
     /FORBIDDEN/,
   );
+});
+
+test('an inactive binding is rechecked after a pause, not on every pass', async () => {
+  // A scripted pool: schema026 with its grants is present, the binding is inactive.
+  const queries = [];
+  const client = {
+    on() {},
+    off() {},
+    removeListener() {},
+    release() {},
+    query: async (text) => {
+      queries.push(text);
+      if (/has_table_privilege/.test(text)) return { rows: [{ ready: true }] };
+      if (/FROM pos_order_sync_state/.test(text))
+        return { rows: [{ device_id: identity.device_id, active: false }] };
+      return { rows: [] };
+    },
+  };
+  const pool = { connect: async () => client, query: () => assert.fail('no write') };
+  const input = {
+    enabled: true,
+    branchId: identity.branch_id,
+    origin: 'http://127.0.0.1:43110',
+    identity,
+  };
+  const schedule = createPosSalesSchedule();
+  let clock = 1_000_000;
+  const io = { now: () => clock, fetch: () => assert.fail('no request') };
+  assert.deepEqual(await syncPosSalesOnce(pool, input, schedule, io), { state: 'disabled' });
+  assert.equal(schedule.nextAttemptAt, clock + POS_SALES_DISABLED_RECHECK_MS);
+  assert.equal(schedule.failures, 0);
+  const asked = queries.length;
+  assert.ok(asked > 0);
+  clock += POS_SALES_DISABLED_RECHECK_MS - 1;
+  assert.deepEqual(await syncPosSalesOnce(pool, input, schedule, io), {
+    state: 'waiting',
+    retryAt: schedule.nextAttemptAt,
+  });
+  assert.equal(queries.length, asked);
+  clock += 1;
+  assert.deepEqual(await syncPosSalesOnce(pool, input, schedule, io), { state: 'disabled' });
+  assert.equal(queries.length, asked * 2);
 });
 
 test('the Windows worker runs posSales as its own loop: errors stay in it and it backs off', async () => {
