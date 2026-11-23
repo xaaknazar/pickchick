@@ -109,7 +109,7 @@ test('polls and re-reads never hand the whole app new objects for the same data'
   );
   assert.match(store, /sameContent\(previous, repriced\.cart\) \? previous : repriced\.cart/);
   assert.match(source('loyalty/useComboRewards.ts'), /setSnapshot\(\s*keepIfSame\(/);
-  assert.match(source('backoffice/usePublishedContent.ts'), /setValue\(keepIfSame\(parsed\)\)/);
+  assert.match(source('shared-poller.ts'), /sameContent\(values\.get\(key\), next\)\) return;/);
 });
 
 test('an authenticated request does not hand the app a new account (audit 23.11 #1)', () => {
