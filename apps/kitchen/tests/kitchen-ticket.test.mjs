@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import {
   composition,
   cookModifiers,
@@ -19,13 +20,13 @@ const mod = (groupId, group, label, quantity = 1) => ({
   linkedProductId: null,
 });
 const task = (stationId, title, extra = {}) => ({
-  taskId: crypto.randomUUID(),
+  taskId: randomUUID(),
   stationId,
   version: 1,
   state: 'queued',
   kind: stationId === PREP ? 'prep' : 'assembly_item',
   details: {
-    lineId: crypto.randomUUID(),
+    lineId: randomUUID(),
     productId: title,
     title,
     parentTitle: title,
@@ -36,8 +37,8 @@ const task = (stationId, title, extra = {}) => ({
   },
 });
 const order = (tasks, extra = {}) => ({
-  orderId: crypto.randomUUID(),
-  branchId: crypto.randomUUID(),
+  orderId: randomUUID(),
+  branchId: randomUUID(),
   version: 3,
   state: 'accepted',
   displayNumber: '27',

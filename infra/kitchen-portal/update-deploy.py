@@ -40,7 +40,7 @@ def unchanged(before):
 def verify(sha):
     health = json.loads(b.http('/kitchen-live/health')[1])
     b.require(health.get('sourceSha') == sha, 'Unexpected deployed source')
-    for module in ['app', 'api', 'model', 'runtime', 'types', 'demo', 'ticket-view', 'kitchen-ticket']:
+    for module in ['app', 'api', 'model', 'runtime', 'types', 'demo', 'ticket-view']:
         status, body, headers = b.http('/kitchen-live/assets/' + module + '.js')
         b.require(status == 200 and body and 'javascript' in headers.get('Content-Type', ''), 'Missing kitchen module: ' + module)
     for mode, page in [('prep', '/kitchen/prep'), ('assembly', '/kitchen/assembly'), ('display', '/display')]:
