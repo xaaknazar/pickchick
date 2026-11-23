@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventEmitter } from 'node:events';
+import { setImmediate } from 'node:timers';
 import { readFileSync } from 'node:fs';
 import {
   RECOVERY_MAX_RELOADS,
@@ -21,10 +22,23 @@ const URL_APP = 'pickchick-pos://app/index.html';
 function shell(extra = {}) {
   const window = new EventEmitter();
   window.webContents = new EventEmitter();
-  const state = { loads: [], kills: 0, gone: 0, lines: [], clock: 1_000_000, timers: [] };
+  const state = {
+    loads: [],
+    failures: [],
+    kills: 0,
+    gone: 0,
+    lines: [],
+    clock: 1_000_000,
+    timers: [],
+  };
   window.isDestroyed = () => false;
   window.webContents.isDestroyed = () => false;
-  window.loadURL = async (url) => void state.loads.push(url);
+  window.loadURL = async (url) => {
+    state.loads.push(url);
+    // Scripted load failures, first in first out.
+    const failure = state.failures.shift();
+    if (failure) throw failure;
+  };
   window.webContents.forcefullyCrashRenderer = () => {
     state.kills += 1;
     window.webContents.emit('render-process-gone', {}, { reason: 'killed' });
@@ -200,6 +214,55 @@ test('a page that stays unresponsive is terminated and reloaded; responsive canc
     state.lines.map((line) => line.event),
     ['renderer_recovery_unresponsive', 'renderer_recovery_reload'],
   );
+});
+
+test('a reload that fails to load is logged with its code and tried again, then slowly', async () => {
+  const { state, advance, crash } = shell();
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const refused = Object.assign(new Error('ERR_CONNECTION_REFUSED (-102) loading http://x'), {
+    code: 'ERR_CONNECTION_REFUSED',
+    errno: -102,
+  });
+  // The local server is not up yet for the first two loads; the third one works.
+  state.failures.push(refused, new Error('no code'));
+  crash();
+  advance(RECOVERY_RELOAD_DELAY_MS);
+  await settle();
+  advance(RECOVERY_RELOAD_DELAY_MS);
+  await settle();
+  advance(RECOVERY_RELOAD_DELAY_MS);
+  await settle();
+  assert.equal(state.loads.length, 3);
+  assert.deepEqual(
+    state.lines.map((line) => [line.event, line.reason ?? line.code]),
+    [
+      ['renderer_recovery_reload', 'crashed'],
+      ['renderer_recovery_load_failed', 'ERR_CONNECTION_REFUSED'],
+      ['renderer_recovery_reload', 'load-failed'],
+      ['renderer_recovery_load_failed', 'UNKNOWN'],
+      ['renderer_recovery_reload', 'load-failed'],
+    ],
+  );
+  assert.ok(!JSON.stringify(state.lines).includes('http://x'));
+  // A load that keeps failing goes through the same limit: the next try is the slow one.
+  state.failures.push(refused, refused);
+  crash();
+  await settle();
+  assert.deepEqual(state.lines.at(-1), {
+    event: 'renderer_recovery_slowed',
+    reason: 'crashed',
+    delay_ms: RECOVERY_SLOW_RETRY_MS,
+  });
+  advance(RECOVERY_SLOW_RETRY_MS);
+  await settle();
+  assert.equal(state.loads.length, 4);
+  assert.equal(state.lines.at(-1).event, 'renderer_recovery_slowed', 'failed again: slow again');
+  advance(RECOVERY_SLOW_RETRY_MS);
+  await settle();
+  advance(RECOVERY_SLOW_RETRY_MS);
+  await settle();
+  assert.equal(state.loads.length, 6, 'it keeps trying until the page loads');
+  assert.equal(state.lines.filter((line) => line.event.endsWith('load_failed')).length, 4);
 });
 
 test('a closed or destroyed window is never reloaded', () => {

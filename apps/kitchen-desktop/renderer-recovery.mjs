@@ -51,6 +51,7 @@ export function recoveryDecision(
  *   `render-process-gone`; `responsive` in between cancels it. Once the crash loop limit is
  *   reached a hung page is left alone: it may still answer, and killing it would only blank
  *   the window until the next slow reload.
+ * - a reload whose `loadURL` fails is logged with the Chromium error code and repeated.
  * The log line carries the event, the Chromium reason and the pause - nothing from the page.
  */
 export function watchRenderer({
@@ -82,7 +83,21 @@ export function watchRenderer({
     });
     pending = setTimer(() => {
       pending = undefined;
-      if (alive()) void Promise.resolve(window.loadURL(url)).catch(() => {});
+      if (!alive()) return;
+      // A load that fails (the local server is not up yet, the load was aborted) would leave
+      // a blank window: it is logged and tried again through the same decision.
+      const failed = (error) => {
+        const code = error?.code;
+        write('renderer_recovery_load_failed', {
+          code: typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code) ? code : 'UNKNOWN',
+        });
+        recover('load-failed');
+      };
+      try {
+        void Promise.resolve(window.loadURL(url)).catch(failed);
+      } catch (error) {
+        failed(error);
+      }
     }, decision.delayMs);
   };
   window.webContents.on('render-process-gone', (_event, details) => {
