@@ -170,30 +170,41 @@ test('names step down instead of breaking a word or losing a line to an ellipsis
 });
 
 test('owner 23.11: published names split into a short card title and a quiet caption', () => {
-  assert.deepEqual(cardName('Coca-Cola (в железной банке) — 0.5 л'), {
+  const shown = (name) => {
+    const { title, caption } = cardName(name);
+    return { title, caption };
+  };
+  assert.deepEqual(shown('Coca-Cola (в железной банке) — 0.5 л'), {
     title: 'Coca-Cola',
     caption: '0.5 л · в железной банке',
   });
-  assert.deepEqual(cardName('Фирменный холодный чай (сладкий / несладкий) — 0.5 л'), {
+  assert.deepEqual(shown('Фирменный холодный чай (сладкий / несладкий) — 0.5 л'), {
     title: 'Фирменный холодный чай',
     caption: '0.5 л · сладкий / несладкий',
   });
-  assert.deepEqual(cardName('Fuse Tea Персик — 0.5 л'), {
+  assert.deepEqual(shown('Fuse Tea Персик — 0.5 л'), {
     title: 'Fuse Tea Персик',
     caption: '0.5 л',
   });
-  assert.deepEqual(cardName('Картофельные дольки, 90 г'), {
+  assert.deepEqual(shown('Картофельные дольки, 90 г'), {
     title: 'Картофельные дольки',
     caption: '90 г',
   });
-  assert.deepEqual(cardName('Фирменный соус 60 г'), { title: 'Фирменный соус', caption: '60 г' });
+  assert.deepEqual(shown('Фирменный соус 60 г'), { title: 'Фирменный соус', caption: '60 г' });
   // Names that start with a number, have no size, or are only a size stay whole.
-  assert.deepEqual(cardName('25 фингерсов'), { title: '25 фингерсов', caption: '' });
-  assert.deepEqual(cardName('Mix Duo c Pick Burger'), {
+  assert.deepEqual(shown('25 фингерсов'), { title: '25 фингерсов', caption: '' });
+  assert.deepEqual(shown('Mix Duo c Pick Burger'), {
     title: 'Mix Duo c Pick Burger',
     caption: '',
   });
-  assert.deepEqual(cardName('0.5 л'), { title: '0.5 л', caption: '' });
+  assert.deepEqual(shown('0.5 л'), { title: '0.5 л', caption: '' });
+  // The hit billboard keeps the size in its heading and shows only the detail on the price line.
+  assert.deepEqual(cardName('Coca-Cola (в железной банке) — 0.5 л'), {
+    title: 'Coca-Cola',
+    caption: '0.5 л · в железной банке',
+    size: '0.5 л',
+    detail: 'в железной банке',
+  });
   // No long dash reaches a card.
   for (const product of testCompleteCatalog.products) {
     const { title, caption } = cardName(product.name);

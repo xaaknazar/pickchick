@@ -228,8 +228,19 @@ const CARD_AMOUNT = /\s*[-–—]?\s*(\d+(?:[.,]\d+)?\s*(?:мл|л|кг|г|шт|
  * trailing size or count move to the caption (size first), joined by « · »; long dashes become hyphens.
  * A name that is only a size («0.5 л») or starts with a number («25 фингерсов») stays whole.
  */
-export function cardName(name: string): { title: string; caption: string } {
-  let title = name.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+export function cardName(name: string): {
+  title: string;
+  caption: string;
+  /** The trailing size or count alone («0.5 л»), '' without one. */
+  size: string;
+  /** The caption without the size. */
+  detail: string;
+} {
+  const whole = name
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  let title = whole;
   const details: string[] = [];
   title = title.replace(/\s*\(([^()]*)\)/g, (_, inner: string) => {
     if (inner.trim()) details.push(inner.trim());
@@ -241,12 +252,11 @@ export function cardName(name: string): { title: string; caption: string } {
     title = title.slice(0, comma);
   }
   const amount = CARD_AMOUNT.exec(title);
-  if (amount && amount.index > 0) {
-    // The size leads, so a narrow card that cuts the caption short still shows it.
-    details.unshift(amount[1]!.replace(/\s+/g, ' '));
-    title = title.slice(0, amount.index);
-  }
+  // The size leads the caption, so a narrow card that cuts the caption short still shows it.
+  const size = amount && amount.index > 0 ? amount[1]!.replace(/\s+/g, ' ') : '';
+  if (size) title = title.slice(0, amount!.index);
   title = title.replace(/[\s-]+$/, '').trim();
-  if (!title) return { title: name.replace(/[–—]/g, '-').trim(), caption: '' };
-  return { title, caption: details.filter(Boolean).join(' · ') };
+  if (!title) return { title: whole, caption: '', size: '', detail: '' };
+  const detail = details.filter(Boolean).join(' · ');
+  return { title, caption: [size, detail].filter(Boolean).join(' · '), size, detail };
 }
