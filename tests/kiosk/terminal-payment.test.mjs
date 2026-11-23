@@ -1069,3 +1069,23 @@ test('owner 22.11: a cloud that does not answer keeps the guest changing the ord
   assert.equal(s.cart[0].quantity, 2);
   assert.equal(s.error, null);
 });
+
+test('audit 23.11 #6: a terminal that keeps waiting does not re-render the screen every second', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  await c.pollTerminal();
+  let renders = 0;
+  c.subscribe(() => renders++);
+  const shown = c.getSnapshot();
+  for (let i = 0; i < 5; i++) assert.equal(await c.pollTerminal(), true);
+  assert.equal(sent(h, 'status').length >= 5, true, 'the terminal is still read every second');
+  assert.equal(renders, 0);
+  assert.equal(c.getSnapshot(), shown);
+  // A new subStatus is a change the guest sees.
+  h.terminal.statuses = [
+    { kind: 'ok', data: { status: 'wait', subStatus: 'WaitForQrConfirmation' } },
+  ];
+  await c.pollTerminal();
+  assert.equal(renders, 1);
+  assert.equal(c.getSnapshot().terminalPayment.subStatus, 'WaitForQrConfirmation');
+});

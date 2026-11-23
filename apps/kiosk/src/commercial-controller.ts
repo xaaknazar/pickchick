@@ -756,6 +756,33 @@ const transient = (error: unknown) =>
   error.code === 'API_UNAVAILABLE' ||
   error.status >= 500;
 
+/** Structural equality of plain snapshot values; the same reference is equal at once. */
+const sameValue = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (!isObject(a) && !Array.isArray(a)) return false;
+  if (!isObject(b) && !Array.isArray(b)) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every((key) => key in right && sameValue(left[key], right[key]))
+  );
+};
+/** The catalog and the open product are replaced as a whole: their identity is what counts. */
+const SNAPSHOT_BY_IDENTITY = ['catalog', 'selectedProduct'];
+const sameSnapshot = (a: KioskState, b: KioskState) => {
+  const left = a as unknown as Record<string, unknown>;
+  const right = b as unknown as Record<string, unknown>;
+  const keys = Object.keys(right);
+  return (
+    keys.length === Object.keys(left).length &&
+    SNAPSHOT_BY_IDENTITY.every((key) => left[key] === right[key]) &&
+    keys.every((key) => SNAPSHOT_BY_IDENTITY.includes(key) || sameValue(left[key], right[key]))
+  );
+};
+
 /** Commercial guest flow has separate storage and cannot invoke simulated payments. */
 export class CommercialKioskController {
   private current: Flow;
@@ -807,6 +834,8 @@ export class CommercialKioskController {
   private ending = false;
   /** When this kiosk first showed the QR of an order (memory only; a restart counts as long ago). */
   private qrSeen: { orderId: string; at: number } | null = null;
+  /** The QR (order, expiry, expired or not) the screen was last told about; see `tick`. */
+  private qrClock: string | null = null;
   private staffError: StaffPinError | null = null;
   private staffFailures = 0;
   private staffLockedUntil = 0;
@@ -1156,8 +1185,16 @@ export class CommercialKioskController {
       enabled: !!this.terminalConfig?.enabled,
     };
   }
-  private emit() {
-    this.view = this.snapshot();
+  /**
+   * Publishes the state to the screen. Audit 23.11 #6: the background loops (the 1 s idle tick,
+   * the 1 s terminal poll, every background reload) end here, so listeners are told only when
+   * the snapshot differs from the one they have; an unchanged one keeps its identity. `force`
+   * is for a change the snapshot does not carry (the clock passing a QR's expiry).
+   */
+  private emit(force = false) {
+    const next = this.snapshot();
+    if (!force && sameSnapshot(this.view, next)) return;
+    this.view = next;
     for (const fn of this.listeners) fn();
   }
   private async save(next: Flow) {
@@ -3027,7 +3064,15 @@ export class CommercialKioskController {
     if (!this.ready || this.busy || this.step === 'start') return;
     const elapsed = this.io.now() - this.current.lastActivityAt;
     if (this.unsafe() || this.current.order) {
-      if (this.current.order?.payment?.kind === 'kaspi_qr') this.emit();
+      // The payment screen hides an expired QR by its own clock, so it is told once when the
+      // expiry passes; «Начать заново» turning to the staff code changes the snapshot itself.
+      const qr = this.current.order?.payment;
+      if (qr?.kind === 'kaspi_qr') {
+        const expired = !!qr.expiresAt && Date.parse(qr.expiresAt) <= this.io.now();
+        const key = `${this.current.order!.orderId}:${qr.expiresAt ?? ''}:${expired}`;
+        this.emit(key !== this.qrClock);
+        this.qrClock = key;
+      }
       if (elapsed >= KIOSK_IDLE_MS && this.phone) {
         this.phone = '';
         this.emit();
