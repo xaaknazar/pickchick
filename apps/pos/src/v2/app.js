@@ -510,6 +510,8 @@ function draw() {
     dayDateLabel: date(ordersDay(dayOffset) + 'T12:00:00+05:00'),
     dayPrevious: () => changeDay(-1),
     dayNext: () => changeDay(1),
+    // 23.11: no days after today; the arrow fades on today.
+    dayNextFg: dayOffset < 0 ? 'var(--n600)' : 'var(--n300)',
     pinKeys: pinKeys('pin'),
     closePinKeys: pinKeys('closePin', true),
     pinError: signing ? 'Проверяем PIN...' : s.pinErr,
@@ -1099,7 +1101,10 @@ function draw() {
     else void document.documentElement.requestFullscreen();
   };
   root.querySelector('.topbar')?.append(fullscreen);
-  if (m.pending) {
+  // The journal names every request before it is sent, so m.pending is set for the whole
+  // flight of an ordinary request (a stop-list toggle too). Only once nothing is in flight
+  // is the result really unknown (23.11: the panel flashed on every stop-list tap).
+  if (m.pending && !m.busy && !starting) {
     const box = document.createElement('div');
     box.className = 'recovery';
     const text = document.createElement('span');
@@ -1177,7 +1182,8 @@ function dayOrders() {
   );
 }
 function changeDay(days) {
-  dayOffset += days;
+  // Orders exist only up to today: «›» on today does nothing (23.11 owner).
+  dayOffset = Math.min(0, dayOffset + days);
   schedule();
 }
 function showReason() {
