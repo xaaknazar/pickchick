@@ -45,6 +45,8 @@ export async function readWindowsIdentity(path, schema, branchId, deviceId, now 
  * of main(), with its own schedule in @pickchick/pos-order-sync (10 minutes while the cloud does
  * not support it, own backoff, empty probe while idle). Its failures stay here: they never delay,
  * stop or log as the two other streams. A runtime whose package has no sender skips the loop.
+ * A failure line carries the same whitelisted code as the other streams and is written when the
+ * failure changes (then every 10 minutes), with one `pos_sales_sync_recovered` line after it.
  */
 export async function runPosSalesLoop({
   pool,
@@ -58,13 +60,15 @@ export async function runPosSalesLoop({
   fail = (line) => console.error(line),
   pause = () =>
     delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
+  now = Date.now,
 }) {
   if (
     typeof sync.syncPosSalesOnce !== 'function' ||
     typeof sync.createPosSalesSchedule !== 'function'
   )
     return;
-  const schedule = sync.createPosSalesSchedule();
+  const schedule = sync.createPosSalesSchedule(),
+    standing = standingStates(once, now);
   do {
     let more = false;
     if (once || Date.now() >= schedule.nextAttemptAt) {
@@ -82,13 +86,17 @@ export async function runPosSalesLoop({
           { enabled: true, branchId, origin, identity: current },
           schedule,
         );
+        if (standing.clear('pos_sales_sync'))
+          log(JSON.stringify({ event: 'pos_sales_sync_recovered' }));
         // Whitelisted metadata only, as in main(): never bodies, URLs, credentials or identity.
         if (once || !['idle', 'busy', 'disabled', 'waiting'].includes(result.state))
           log(JSON.stringify({ event: 'pos_sales_sync', state: result.state }));
         more = result.state === 'delivered' && result.more;
         if (once && ['retry', 'parked'].includes(result.state)) process.exitCode = 1;
-      } catch {
-        fail(JSON.stringify({ event: 'pos_sales_sync_failed', retrying: !once }));
+      } catch (error) {
+        const code = syncErrorCode(error);
+        if (standing.due('pos_sales_sync', `failed:${code}`))
+          fail(JSON.stringify({ event: 'pos_sales_sync_failed', code, retrying: !once }));
         if (once) process.exitCode = 1;
       }
     }

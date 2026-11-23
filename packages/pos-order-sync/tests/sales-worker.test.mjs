@@ -276,11 +276,62 @@ test('the Windows worker runs posSales as its own loop: errors stay in it and it
   assert.ok(schedule.nextAttemptAt > Date.now() + 1000);
   assert.equal(step, 2);
   assert.equal(reads, 3);
+  // Each failure names its code; the delivery between them ended the first one.
   assert.deepEqual(lines.fail, [
-    { event: 'pos_sales_sync_failed', retrying: true },
-    { event: 'pos_sales_sync_failed', retrying: true },
+    { event: 'pos_sales_sync_failed', code: 'Error', retrying: true },
+    { event: 'pos_sales_sync_failed', code: 'Error', retrying: true },
   ]);
-  assert.ok(lines.log.some((line) => line.state === 'delivered'));
+  assert.deepEqual(lines.log.slice(1), [
+    { event: 'pos_sales_sync_recovered' },
+    { event: 'pos_sales_sync', state: 'delivered' },
+  ]);
   assert.ok(!JSON.stringify(lines).includes(identity.token));
   process.exitCode = exitCode;
+});
+
+test('a posSales failure that stays is one line with its code, then a reminder and a recovery line', async () => {
+  const lines = [];
+  const stop = new AbortController();
+  // One entry per pass: the code the step fails with (null: it works) and the clock.
+  const passes = [
+    ['42501', 0],
+    ['42501', 1000],
+    ['ECONNREFUSED', 2000],
+    ['ECONNREFUSED', 3000],
+    ['ECONNREFUSED', 2000 + 600_000],
+    [null, 2000 + 600_001],
+    [null, 2000 + 600_002],
+  ];
+  let pass = 0;
+  await runPosSalesLoop({
+    pool: {},
+    branchId: identity.branch_id,
+    origin: 'http://127.0.0.1:43110',
+    log: (line) => lines.push(JSON.parse(line)),
+    fail: (line) => lines.push(JSON.parse(line)),
+    sync: {
+      createPosSalesSchedule,
+      posRetryDelayMs,
+      syncPosSalesOnce: async () => {
+        const code = passes[pass][0];
+        if (code) throw Object.assign(new Error(`driver text ${identity.token}`), { code });
+        return { state: 'idle' };
+      },
+    },
+    identity: async () => identity,
+    once: false,
+    signal: stop.signal,
+    now: () => passes[pass][1],
+    pause: async () => {
+      pass += 1;
+      if (pass === passes.length) stop.abort();
+    },
+  });
+  assert.deepEqual(lines, [
+    { event: 'pos_sales_sync_failed', code: '42501', retrying: true },
+    { event: 'pos_sales_sync_failed', code: 'ECONNREFUSED', retrying: true },
+    { event: 'pos_sales_sync_failed', code: 'ECONNREFUSED', retrying: true },
+    { event: 'pos_sales_sync_recovered' },
+  ]);
+  assert.ok(!JSON.stringify(lines).includes(identity.token));
 });
