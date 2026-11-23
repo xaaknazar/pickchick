@@ -54,8 +54,17 @@ const RIM = glassRimWidth;
  * Kaspi disc, the Apple Pay / Google Pay glyph or a card. The Kaspi asset keeps a white margin
  * around its disc, so it is drawn larger and clipped to the circle.
  */
-function MethodMark({ method, size }: { method: PaymentMethodId; size: number }) {
+function MethodMark({ method, size }: { method: PaymentMethodId | null; size: number }) {
   const image = Math.round(size * 1.36);
+  // Not known yet (launch): an empty disc rather than a method that may be wrong.
+  if (!method)
+    return (
+      <View
+        testID="cart-pay-mark"
+        pointerEvents="none"
+        style={[s.mark, s.markPending, { width: size, height: size, borderRadius: size / 2 }]}
+      />
+    );
   const glyph = method === 'kaspi' ? null : methodGlyph(method);
   return (
     // No pointer target inside the handle: a web <img> would start a native image drag (and a
@@ -105,6 +114,7 @@ export function KaspiSlideToPay({
   height,
   reduced,
   method,
+  settled = true,
   style,
   offset,
   onPhaseChange,
@@ -120,6 +130,8 @@ export function KaspiSlideToPay({
   reduced: boolean;
   /** The customer's active payment method: its mark and its name in the label. */
   method: PaymentMethodId;
+  /** False while the method is still being read at launch: the mark stays an empty disc. */
+  settled?: boolean;
   style?: StyleProp<ViewStyle>;
   /** How far the pill is stretched, in points, shared with the bar (content fades out). */
   offset?: SharedValue<number>;
@@ -313,7 +325,7 @@ export function KaspiSlideToPay({
         >
           <GlassFill radius={height / 2} />
           <View style={[s.markSlot, { width, height, right: -RIM, top: -RIM }]}>
-            <MethodMark method={method} size={mark} />
+            <MethodMark method={settled ? method : null} size={mark} />
           </View>
         </View>
       </Animated.View>
@@ -344,4 +356,5 @@ const s = StyleSheet.create({
   },
   glyphMark: { alignItems: 'center', justifyContent: 'center' },
   mark: { overflow: 'hidden', backgroundColor: '#F14635' },
+  markPending: { backgroundColor: '#FFFFFF1F' },
 });

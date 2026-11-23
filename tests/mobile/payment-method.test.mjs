@@ -288,7 +288,9 @@ test('the handle names its method in RU, KK and EN; the hint opens the cart with
   assert.ok(!source.includes('оформление заказа') && !source.includes("t('Оформить заказ')"));
   assert.ok(!source.includes("t('Оплатить через Kaspi')"));
   assert.ok(source.includes('t(paymentHandleLabel(method))'));
-  assert.ok(source.includes('<MethodMark method={method}'));
+  assert.ok(source.includes('<MethodMark method={settled ? method : null}'));
+  // Owner 23.11.2026: no Kaspi flash at launch; until the method is known the mark is empty.
+  assert.ok(source.includes('if (!method)'));
   // Plain hyphen only in the new texts.
   for (const ru of [
     hint,
@@ -372,4 +374,31 @@ test('a method without its own payment flow stops with a message, nothing is sen
   assert.ok(screen.includes('testID="cart-pay-method-stop"'));
   assert.ok(screen.includes('t(PAYMENT_METHOD_NOT_CONNECTED)'));
   assert.ok(screen.includes("onPress={() => payment.choose('kaspi')}"));
+});
+
+test('the last TipTopPay methods are restored at launch; a fresh /config answer wins', async () => {
+  const { createConnectedMethodsStore, CONNECTED_METHODS_KEY } =
+    await import('../../apps/mobile/src/tiptoppay-checkout.ts');
+  const saved = new Map([
+    [
+      CONNECTED_METHODS_KEY,
+      JSON.stringify({ methods: ['apple_pay', 'card', 'bogus'], environment: 'test' }),
+    ],
+  ]);
+  const storage = {
+    getItem: async (key) => saved.get(key) ?? null,
+    setItem: async (key, value) => void saved.set(key, value),
+  };
+  const store = createConnectedMethodsStore(storage);
+  assert.equal(store.restored(), false);
+  await store.restore();
+  assert.equal(store.restored(), true);
+  assert.deepEqual(store.methods(), ['apple_pay', 'card']);
+  assert.equal(store.environment(), 'test');
+
+  const raced = createConnectedMethodsStore(storage);
+  raced.set(['card'], 'test');
+  await raced.restore();
+  assert.deepEqual(raced.methods(), ['card']);
+  assert.deepEqual(JSON.parse(saved.get(CONNECTED_METHODS_KEY)).methods, ['card']);
 });

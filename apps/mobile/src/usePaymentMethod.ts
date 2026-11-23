@@ -16,7 +16,8 @@ export const paymentMethodStore = createPaymentMethodStore({
   now: Date.now,
 });
 /** TipTopPay methods this cart may offer now (updated by the cart's /config read). */
-export const connectedMethodsStore = createConnectedMethodsStore();
+export const connectedMethodsStore = createConnectedMethodsStore(AsyncStorage);
+void connectedMethodsStore.restore();
 let cachedMethods = { version: -1, value: paymentMethods(Platform.OS) };
 function currentMethods() {
   const version = connectedMethodsStore.version();
@@ -62,10 +63,17 @@ export function usePaymentMethod() {
     (method: PaymentMethodId) => rememberPaymentMethod(customerId, method, 'choice'),
     [customerId],
   );
+  const { ready: accountReady } = useAccount();
   return {
     method: paymentMethodStore.active(customerId, methods),
     methods,
     ready: paymentMethodStore.ready(customerId),
+    /**
+     * The account, its saved method and the last known TipTopPay methods are all read: only then
+     * is `method` the customer's real method (owner 23.11.2026: no Kaspi flash before Apple Pay).
+     */
+    settled:
+      accountReady && paymentMethodStore.ready(customerId) && connectedMethodsStore.restored(),
     choose,
   };
 }
