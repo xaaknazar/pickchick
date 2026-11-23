@@ -3061,7 +3061,11 @@ export class CommercialKioskController {
   tick = async () => {
     // Abandoned guests are ended alongside, never awaited: the next guest does not wait.
     if (this.current.abandoned.length) void this.endAbandoned();
-    if (!this.ready || this.busy || this.step === 'start') return;
+    if (!this.ready || this.busy) return;
+    // Audit 23.11 #7: the staff terminal setup left open (also on the start screen, which has
+    // no idle reset) closes when its time is up, and the screen is told.
+    if (this.setupUntil && !this.setupOpen()) this.closeTerminalSetup();
+    if (this.step === 'start') return;
     const elapsed = this.io.now() - this.current.lastActivityAt;
     if (this.unsafe() || this.current.order) {
       // The payment screen hides an expired QR by its own clock, so it is told once when the

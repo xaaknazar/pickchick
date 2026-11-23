@@ -1089,3 +1089,34 @@ test('audit 23.11 #6: a terminal that keeps waiting does not re-render the scree
   assert.equal(renders, 1);
   assert.equal(c.getSnapshot().terminalPayment.subStatus, 'WaitForQrConfirmation');
 });
+
+test('audit 23.11 #7: the terminal setup left open on the start screen closes when its time is up', async () => {
+  const h = terminalFixture();
+  h.io.verifyStaff = async (pin) => {
+    if (pin !== '4829') throw new KioskError('UNAUTHORIZED', 401);
+  };
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  assert.equal(await c.openTerminalSetup('4829'), true);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().terminalSetup.open, true);
+  let renders = 0;
+  c.subscribe(() => renders++);
+  h.clock += 10 * 60000 - 1000;
+  await c.tick();
+  assert.equal(c.getSnapshot().terminalSetup.open, true);
+  assert.equal(renders, 0);
+  h.clock += 1000;
+  await c.tick();
+  assert.equal(c.getSnapshot().terminalSetup.open, false, 'the screen is told');
+  assert.equal(renders, 1);
+  await c.tick();
+  assert.equal(renders, 1, 'once');
+  // A staff action meanwhile keeps it open a while longer.
+  assert.equal(await c.openTerminalSetup('4829'), true);
+  h.clock += 9 * 60000;
+  assert.equal(await c.checkTerminal(), true);
+  h.clock += 9 * 60000;
+  await c.tick();
+  assert.equal(c.getSnapshot().terminalSetup.open, true);
+});

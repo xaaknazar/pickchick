@@ -38,6 +38,11 @@ const directionOf = (from: KioskStep, to: KioskStep): 'forward' | 'back' =>
     : flow.indexOf(to) >= 0 && flow.indexOf(to) < flow.indexOf(from)
       ? 'back'
       : 'forward';
+/**
+ * Audit 23.11 #7: the staff dialog left open with nobody acting closes by itself. The start
+ * screen has no idle reset, so a forgotten dialog would otherwise stay over the attract screen.
+ */
+const STAFF_DIALOG_IDLE_MS = 2 * 60000;
 export function GuestScreen() {
   const liveModel = useKioskController();
   const [locale, setLocale] = useState<Locale>('ru');
@@ -147,6 +152,16 @@ export function GuestScreen() {
     closeTerminalSetup?.();
   };
   const terminalSetup = model.terminalSetup;
+  // Typing, an answer or a running staff action starts the wait again. The open terminal setup
+  // has its own, longer time in the controller; when that ends, this wait closes the dialog.
+  const closeStaffRef = useRef(closeStaff);
+  closeStaffRef.current = closeStaff;
+  const staffIdle = demoAsk && !model.busy && !terminalSetup?.open;
+  useEffect(() => {
+    if (!staffIdle) return;
+    const timer = setTimeout(() => closeStaffRef.current(), STAFF_DIALOG_IDLE_MS);
+    return () => clearTimeout(timer);
+  }, [staffIdle, pin, health, model.staffPinError]);
   const closeRestart = () => {
     setRestartAsk(false);
     setPin('');
