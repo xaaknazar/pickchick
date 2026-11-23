@@ -185,3 +185,17 @@ test('every new TipTopPay phrase has Kazakh and English text', () => {
   assert.ok(phrases.size > 20);
   for (const phrase of phrases) assert.ok(known.has(phrase), phrase);
 });
+
+test('success notice: centred icon and it closes itself (owner 23.11.2026)', () => {
+  const sheet = readFileSync(
+    new URL('../../apps/mobile/src/components/TipTopPaySheets.tsx', import.meta.url),
+    'utf8',
+  );
+  // The card stretches its children, so the icon needs its own centred row.
+  assert.match(sheet, /<View style=\{s\.iconRow\} testID="tiptoppay-result-icon">/);
+  assert.match(sheet, /iconRow: \{ alignSelf: 'stretch', alignItems: 'center'/);
+  // Only a success closes by itself; a failure or a pending check keeps its buttons.
+  assert.match(sheet, /TIPTOPPAY_SUCCESS_AUTO_CLOSE_MS = 2500/);
+  assert.match(sheet, /if \(!success\) return;/);
+  assert.match(sheet, /clearTimeout\(timer\)/);
+});
