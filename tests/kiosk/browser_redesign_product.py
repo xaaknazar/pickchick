@@ -110,7 +110,7 @@ class RedesignProduct(ui.KioskUI):
         self.assertEqual(len(sauces), 4)
         self.assertEqual(len({round(t.bounding_box()['y']) for t in sauces}), 1, 'four in a row')
         for t in sauces:
-            self.assertLessEqual(abs(t.bounding_box()['height'] - 154 * s), 2)
+            self.assertLessEqual(abs(t.bounding_box()['height'] - 158 * s), 2, 'one tile size')
         self.assertEqual(ui.element(page, 'kiosk-modifier-sauce-bbq').get_attribute('aria-disabled'),
                          'true', 'a stopped sauce is not pressable')
 

@@ -21,7 +21,7 @@ import {
   surchargeMinor,
 } from '../product-presentation';
 import { colors, fonts, useMetrics } from '../theme';
-import { ComboOptionTile } from './ComboOptionTile';
+import { ComboOptionTile, TILE_HEIGHT } from './ComboOptionTile';
 import { Icon } from './Icon';
 import { PhotoImage } from './PhotoImage';
 import { usePopIn, usePress, useShake } from './motion';
@@ -40,7 +40,6 @@ const rows = <T,>(items: T[], size: number): T[][] =>
 function MoreTile({
   groupId,
   hidden,
-  tall,
   locale,
   onPress,
 }: {
@@ -61,7 +60,7 @@ function MoreTile({
       style={{
         flex: 1,
         minWidth: 0,
-        height: px(tall ? 158 : 154),
+        height: px(TILE_HEIGHT),
         transform: [{ scale: press.scale }],
       }}
     >

@@ -18,6 +18,16 @@ import { useEnter, usePopIn, usePress, usePulse, useShake, useTimingTo } from '.
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
+/**
+ * Owner 23.11.2026 («внутри комбо… чтобы все фотографии, все карточки были одного размера…
+ * уменьшим размер шрифта»): one tile height in every group and one text room under the photo
+ * (two name lines and a caption line, in a smaller font), so every photo is the same size.
+ */
+export const TILE_HEIGHT = 158;
+const NAME_SIZE = 13;
+const NAME_LINE = 16;
+const CAPTION_SIZE = 12;
+const CAPTION_LINE = 15;
 /** Design colours of the option tile (product-and-payment.md §1). */
 const SURCHARGE_FILL = '#FFE7D6';
 const SURCHARGE_INK = '#B84500';
@@ -115,7 +125,6 @@ export function ComboOptionTile({
   full,
   clearable,
   included,
-  tall = false,
   index = 0,
   locale,
   onChange,
@@ -205,16 +214,14 @@ export function ComboOptionTile({
           <OptionMark id={option.id} name={name} />
         )}
       </View>
-      <View
-        style={{ gap: px(2), marginTop: px(6), height: groupId === 'sauce' ? px(38) : undefined }}
-      >
+      <View style={{ gap: px(1), marginTop: px(4), height: px(NAME_LINE * 2 + CAPTION_LINE + 1) }}>
         <Text
           {...fixedText}
           numberOfLines={2}
           style={{
             fontFamily: fonts.heavy,
-            fontSize: px(15),
-            lineHeight: px(19),
+            fontSize: px(NAME_SIZE),
+            lineHeight: px(NAME_LINE),
             color: redesign.cardInk,
           }}
         >
@@ -226,8 +233,8 @@ export function ComboOptionTile({
             numberOfLines={1}
             style={{
               fontFamily: fonts.bold,
-              fontSize: px(13),
-              lineHeight: px(17),
+              fontSize: px(CAPTION_SIZE),
+              lineHeight: px(CAPTION_LINE),
               color: SOLD_OUT,
             }}
           >
@@ -239,8 +246,8 @@ export function ComboOptionTile({
             numberOfLines={1}
             style={{
               fontFamily: fonts.body,
-              fontSize: px(13),
-              lineHeight: px(17),
+              fontSize: px(CAPTION_SIZE),
+              lineHeight: px(CAPTION_LINE),
               color: redesign.cardMuted,
             }}
           >
@@ -274,9 +281,9 @@ export function ComboOptionTile({
     flex: 1,
     borderRadius: radius,
     backgroundColor: fill,
-    paddingTop: px(10),
+    paddingTop: px(8),
     paddingHorizontal: px(14),
-    paddingBottom: px(12),
+    paddingBottom: px(8),
     shadowColor: '#020A1F',
     shadowOpacity: 0.16,
     shadowRadius: px(9),
@@ -291,7 +298,7 @@ export function ComboOptionTile({
       style={{
         flex: 1,
         minWidth: 0,
-        height: px(tall ? 158 : 154),
+        height: px(TILE_HEIGHT),
         opacity: fade,
         transform: [
           { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },

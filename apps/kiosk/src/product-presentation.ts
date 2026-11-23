@@ -280,7 +280,11 @@ export function drinkShelves<T extends { id: string }>(options: readonly T[]) {
 
 /** Drinks are a 5-column grid (two rows on the card); any other choice four across. */
 export const isDrinkGroup = (group: Pick<KioskModifierGroup, 'id'>) => isDrinkOptions(group.id);
-export const gridColumns = (group: Pick<KioskModifierGroup, 'id'>) => (isDrinkGroup(group) ? 5 : 4);
+// Owner 23.11.2026: every option tile on the combo page is the same size, so every group
+// uses the five-column grid of the drinks.
+export const gridColumns = (group: Pick<KioskModifierGroup, 'id'>) =>
+  isDrinkGroup(group) ? 5 : OPTION_COLUMNS;
+const OPTION_COLUMNS = 5;
 export interface OptionGrid<T> {
   /** Tiles on the card, in catalog order (a hidden pick takes the last slots). */
   shown: T[];
