@@ -57,21 +57,76 @@ export function connectedTipTopPayMethods(
 }
 
 /** Small shared store: the cart's /config read updates it, the method selector reads it. */
-export function createConnectedMethodsStore() {
+/** Where the last /config answer about TipTopPay methods is kept between launches. */
+export const CONNECTED_METHODS_KEY = 'pickchick.payment.connected-methods.v1';
+
+export function createConnectedMethodsStore(storage?: {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+}) {
   let methods: TipTopPayMethod[] = [];
   let environment: 'live' | 'test' | null = null;
   let version = 0;
+  // Owner 23.11.2026: on launch the quick pay handle showed Kaspi for a few seconds before
+  // switching to Apple Pay, because the methods were known only after the cart's /config read.
+  // The last answer is kept and read back at launch; until then the handle shows no mark.
+  let restored = !storage;
+  let fresh = false;
   const listeners = new Set<() => void>();
-  return {
+  const notify = () => {
+    version += 1;
+    for (const listener of listeners) listener();
+  };
+  const store = {
     methods: () => methods,
     environment: () => environment,
     version: () => version,
+    /** True once the saved answer was read (or there is none to read). */
+    restored: () => restored,
     set(next: TipTopPayMethod[], env: 'live' | 'test' | null) {
-      if (next.join() === methods.join() && env === environment) return;
+      fresh = true;
+      const wasRestored = restored;
+      restored = true;
+      if (storage)
+        void storage
+          .setItem(CONNECTED_METHODS_KEY, JSON.stringify({ methods: next, environment: env }))
+          .catch(() => undefined);
+      if (next.join() === methods.join() && env === environment) {
+        if (!wasRestored) notify();
+        return;
+      }
       methods = next;
       environment = env;
-      version += 1;
-      for (const listener of listeners) listener();
+      notify();
+    },
+    /** Reads the saved answer once; a fresh /config answer that came first wins. */
+    restore(): Promise<void> {
+      if (!storage || restored) return Promise.resolve();
+      return storage
+        .getItem(CONNECTED_METHODS_KEY)
+        .then(
+          (raw) => {
+            if (fresh || !raw) return;
+            const value = JSON.parse(raw) as { methods?: unknown; environment?: unknown };
+            const saved = Array.isArray(value.methods)
+              ? value.methods.filter((m): m is TipTopPayMethod =>
+                  TIPTOPPAY_METHODS.includes(m as TipTopPayMethod),
+                )
+              : [];
+            methods = saved;
+            environment =
+              value.environment === 'live' || value.environment === 'test'
+                ? value.environment
+                : null;
+          },
+          () => undefined,
+        )
+        .catch(() => undefined)
+        .then(() => {
+          if (restored) return;
+          restored = true;
+          notify();
+        });
     },
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -80,6 +135,7 @@ export function createConnectedMethodsStore() {
       };
     },
   };
+  return store;
 }
 
 /** "1250.00" for the wallet sheets from integer minor units. */
