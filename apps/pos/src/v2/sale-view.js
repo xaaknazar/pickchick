@@ -702,6 +702,7 @@ export class SaleView {
               saleErrorMessage(new Error('TERMINAL_AMOUNT_NOT_WHOLE')) +
                 '. Выберите другой способ.',
             ],
+        saleTerminalDeclineLabel: 'Терминал отклонил',
         saleTerminalDecline: g(() => {
           this.setState({ method: null });
           this.say('Оплата не прошла. Повторите на терминале или выберите другой способ.');
@@ -799,6 +800,7 @@ export class SaleView {
           '2. Гость оплачивает на терминале Kaspi: QR, карта или ладонь.',
           '3. Как только оплата пройдёт, заказ сам уйдёт на кухню.',
         ],
+        saleTerminalDeclineLabel: 'Другой способ оплаты',
         saleTerminalDecline: decline('Выберите другой способ оплаты.'),
       };
     if (active)
@@ -810,6 +812,8 @@ export class SaleView {
             ? 'Терминал проверяет оплату. Не принимайте оплату повторно.'
             : 'Отменить можно только на самом терминале.',
         ],
+        // Nothing to press while the terminal decides: no button that reads like its answer.
+        saleTerminalDeclineLabel: false,
         saleTerminalDecline: decline(''),
       };
     if (t.state === 'success')
@@ -817,6 +821,7 @@ export class SaleView {
         ...wait,
         salePayLabel: 'Оплата прошла · оформляем заказ…',
         saleTerminalSteps: ['Оплата на терминале прошла. Заказ отправляется на кухню.'],
+        saleTerminalDeclineLabel: false,
         saleTerminalDecline: decline(''),
       };
     if (t.state === 'lost')
@@ -832,6 +837,7 @@ export class SaleView {
           'Если там «Оплата прошла» - нажмите «Оплата на терминале прошла».',
           'Если оплаты нет - нажмите «Терминал отклонил» и отправьте сумму заново.',
         ],
+        saleTerminalDeclineLabel: 'Терминал отклонил',
         saleTerminalDecline: decline('Отправьте сумму заново или выберите другой способ.'),
       };
     // fail or send_failed: nothing was paid; the cashier sends again or picks another way.
@@ -843,6 +849,7 @@ export class SaleView {
         ...(t.message ? [t.message] : []),
         'Отправьте сумму ещё раз или выберите другой способ.',
       ],
+      saleTerminalDeclineLabel: 'Другой способ оплаты',
       saleTerminalDecline: decline('Выберите другой способ оплаты.'),
     };
   }

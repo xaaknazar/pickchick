@@ -1416,6 +1416,13 @@ button:focus-visible {
   flex-direction: column;
   gap: 14px;
 }
+/* 23.11: a button among the steps keeps its own size; stretched over the empty panel it
+   read as the terminal's answer («Терминал отклонил») while the guest was still paying. */
+.sale-steps > .sale-button {
+  flex: none;
+  align-self: flex-start;
+  min-width: 320px;
+}
 .sale-step {
   font-size: 22px;
   font-weight: 600;

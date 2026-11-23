@@ -4768,9 +4768,12 @@ test('Kaspi terminal linked: the pay screen sends, waits and blocks going back',
   view.setState({ screen: 'pay', method: 'kaspi_terminal' });
   let values = view.payValues();
   assert.match(values.salePayLabel, /^Отправить .* на терминал$/);
+  assert.equal(values.saleTerminalDeclineLabel, 'Другой способ оплаты');
   await values.salePayConfirm();
   values = view.payValues();
   assert.equal(values.salePayLabel, 'Ждём оплату на терминале…');
+  // 23.11: while the guest pays nothing on screen reads like the terminal's answer.
+  assert.equal(values.saleTerminalDeclineLabel, false);
   assert.equal(values.salePayDisabled, 'true');
   view.values().salePayBack();
   assert.equal(view.state.screen, 'pay', 'the order stays on screen while the terminal decides');
