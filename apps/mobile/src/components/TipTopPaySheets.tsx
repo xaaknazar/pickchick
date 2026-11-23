@@ -21,6 +21,7 @@ import {
   type CardFields,
   type CardProblem,
 } from '../tiptoppay-checkout';
+import { usePaidFeedback } from '../feedback';
 import { colors, font, themed, tc } from '../theme';
 import { MotionModal } from './Motion';
 import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
@@ -214,7 +215,8 @@ export function TipTopPayResultSheet({
   onKaspi,
   onRefresh,
 }: {
-  payment: (Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string }) | null;
+  payment:
+    (Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string; orderId?: string }) | null;
   test: boolean;
   onClose(): void;
   onRetry(): void;
@@ -232,6 +234,8 @@ export function TipTopPayResultSheet({
         : { name: 'time-outline' as const, color: colors.warning };
   // Owner 23.11.2026: a successful payment closes its notice by itself after a short look.
   const success = copy?.tone === 'success';
+  // Owner 25.11.2026: a successful payment answers with the success haptic and a soft chime.
+  usePaidFeedback(success, payment?.orderId ?? payment?.id);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {

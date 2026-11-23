@@ -268,7 +268,13 @@ const s = themed(() =>
     // Same fill as an empty slot; the green check and rim carry the state.
     earned: { borderColor: INK, backgroundColor: tc('#2516093D') },
     gift: { backgroundColor: tc('#25160924'), borderColor: INK },
-    stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: INK },
+    stampNumber: {
+      fontFamily: font.bold,
+      fontSize: 13,
+      lineHeight: 18,
+      color: INK,
+      fontVariant: ['tabular-nums'],
+    },
     details: {
       maxWidth: '58%',
       flexDirection: 'row',

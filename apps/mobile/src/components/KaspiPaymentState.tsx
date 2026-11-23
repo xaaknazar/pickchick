@@ -31,6 +31,7 @@ import { SupportContact } from './SupportContact';
 import { GlassButton } from './GlassButton';
 import { PaymentCloseConfirm } from './PaymentCloseConfirm';
 import { useSheetBack } from './OrderSheet';
+import { usePaidFeedback } from '../feedback';
 
 const BANK_PHASES: readonly string[] = ['sending', 'awaiting_payment', 'checking'];
 /** The smallest share of its size the scene may shrink to so the words fit (owner 28.10.2026). */
@@ -153,6 +154,8 @@ export function KaspiPaymentState({
     creating: !order && !!intentKey,
   });
   const phase = shown ?? 'awaiting_restaurant';
+  // Owner 25.11.2026: «Оплачено» answers with the success haptic and a soft chime, once per order.
+  usePaidFeedback(paid, order?.orderId);
   const failed = phase === 'failed';
   const waiting = phase === 'awaiting_payment';
   const [now, setNow] = useState(Date.now);

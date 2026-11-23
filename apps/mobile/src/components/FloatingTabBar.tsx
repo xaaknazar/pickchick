@@ -21,7 +21,7 @@ import { TabCartDock } from './TabCartDock';
 import { useReducedMotion } from './Motion';
 import { TabBarGlass } from './GlassButton';
 import { colors, font, themed, tc } from '../theme';
-import { haptic } from '../haptics';
+import { haptic, tabHaptic } from '../haptics';
 import {
   tabAt,
   tabBarMetrics,
@@ -275,7 +275,7 @@ export function FloatingTabBar({
   }, [state.index, moveTo, dragging]);
 
   const select = useCallback(
-    (index: number) => {
+    (index: number, dragged = false) => {
       committed.current = true;
       const route = state.routes[index];
       if (!route) return;
@@ -291,6 +291,8 @@ export function FloatingTabBar({
         return;
       }
       pop(index);
+      // A tap that changes the tab ticks (owner 25.11.2026); a drag already ticked per tab.
+      if (!focused && !dragged) tabHaptic();
       if (!focused) navigation.navigate(route.name, route.params);
     },
     [moveTo, navigation, pop, state.index, state.routes],
@@ -323,7 +325,7 @@ export function FloatingTabBar({
       lens.value = reduced ? 0 : withSpring(0, tabLensSpring);
       const index = success ? tabAt(event.x, itemWidth, count) : Math.round(position.value);
       runOnJS(moveTo)(index);
-      runOnJS(select)(index);
+      runOnJS(select)(index, true);
     });
 
   const activeRoute = state.routes[state.index];

@@ -531,7 +531,13 @@ const s = themed(() =>
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: colors.muted },
+    commentCount: {
+      textAlign: 'right',
+      fontSize: 12,
+      lineHeight: 18,
+      color: colors.muted,
+      fontVariant: ['tabular-nums'],
+    },
     summary: {
       flexDirection: 'row',
       flexWrap: 'wrap',

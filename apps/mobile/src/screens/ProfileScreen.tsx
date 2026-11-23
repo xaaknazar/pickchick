@@ -577,6 +577,8 @@ const s = themed(() =>
       color: colors.muted,
     },
     error: { color: tc('#FFB0AB'), fontFamily: font.body, fontSize: 14, lineHeight: 22 },
-    pressed: { opacity: 0.78 },
+    // MotionPressable already animates the press (scale or highlight); a second, instant
+    // opacity here doubled the dimming and snapped ahead of the animation.
+    pressed: {},
   }),
 );

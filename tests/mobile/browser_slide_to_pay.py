@@ -1314,7 +1314,8 @@ def scenario_haptics(browser, width, height):
     expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
     page.wait_for_timeout(300)
     box, _, travel = geometry(page)
-    assert cues(page) == []
+    # Adding the dish taps once (the cart bar bump, 23.11); the handle has not vibrated yet.
+    assert cues(page) in ([], ['added']), 'only the add-to-cart tap so far'
     # A tap only shows the hint.
     page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)

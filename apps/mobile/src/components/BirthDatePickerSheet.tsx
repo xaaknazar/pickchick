@@ -143,6 +143,8 @@ const s = themed(() =>
       color: authColors.blueInk,
     },
     footer: { paddingHorizontal: 22, paddingTop: 10 },
-    pressed: { opacity: 0.7 },
+    // MotionPressable already animates the press (scale or highlight); a second, instant
+    // opacity here doubled the dimming and snapped ahead of the animation.
+    pressed: {},
   }),
 );
