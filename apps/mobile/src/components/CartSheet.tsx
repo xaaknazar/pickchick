@@ -530,7 +530,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: colors.muted },
+  commentCount: {
+    textAlign: 'right',
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.muted,
+    fontVariant: ['tabular-nums'],
+  },
   summary: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -565,6 +571,7 @@ const s = StyleSheet.create({
   totalAmount: {
     fontFamily: font.heading,
     fontSize: 30,
+    letterSpacing: -0.6,
     lineHeight: 40,
     color: colors.white,
     fontVariant: ['tabular-nums'],
@@ -624,7 +631,13 @@ const s = StyleSheet.create({
   },
   sheetContent: { padding: 18, gap: 14 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sheetTitle: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
+  sheetTitle: {
+    flex: 1,
+    fontFamily: font.heading,
+    fontSize: 22,
+    letterSpacing: -0.2,
+    lineHeight: 30,
+  },
   options: { gap: 10 },
   option: {
     minHeight: 64,

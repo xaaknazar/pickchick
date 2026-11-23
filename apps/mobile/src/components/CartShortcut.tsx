@@ -5,7 +5,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Animated as NativeAnimated,
   AppState,
-  Easing,
   Platform,
   StyleSheet,
   View,
@@ -19,7 +18,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { MotionPressable as Pressable, animatedSpring, useReducedMotion } from './Motion';
+import { MotionPressable as Pressable, animatedSpring, easing, useReducedMotion } from './Motion';
+import { addedHaptic } from '../haptics';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
@@ -203,19 +203,22 @@ export function CartShortcut({
         feedback.setValue(0);
       };
       reset();
+      if (added && AppState.currentState === 'active') addedHaptic();
       if (added && !reduced && AppState.currentState === 'active') {
         NativeAnimated.sequence([
           NativeAnimated.timing(feedback, {
             toValue: 1,
             duration: 140,
-            easing: Easing.out(Easing.cubic),
+            easing: easing.out,
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
-          // «Added»: the bar and the new photo settle back with Apple's bouncy spring.
+          // «Added»: the bar and the new photo settle back with a light bounce (damping 0.75, was
+          // 0.5: a visible wobble on something seen many times a day; Emil Kowalski keeps
+          // bounce subtle, 0.1-0.3).
           NativeAnimated.spring(feedback, {
             toValue: 0,
-            ...animatedSpring(0.5, 0.5),
+            ...animatedSpring(0.45, 0.75),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),

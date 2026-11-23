@@ -316,7 +316,7 @@ const s = StyleSheet.create({
   },
   content: { padding: 18, gap: 14 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
+  title: { flex: 1, fontFamily: font.heading, fontSize: 22, letterSpacing: -0.2, lineHeight: 30 },
   testBadge: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -236,7 +236,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.3,
     color: colors.white,
   },
-  titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
+  titleCompact: { fontFamily: font.heading, fontSize: 20, letterSpacing: -0.2, lineHeight: 24 },
   progress: { gap: 6 },
   stamps: { flexDirection: 'row', gap: 6 },
   stamp: {
@@ -252,7 +252,13 @@ const s = StyleSheet.create({
   // Same fill as an empty slot; the green check and rim carry the state.
   earned: { borderColor: STAMP_GREEN },
   gift: { backgroundColor: '#163755', borderColor: '#FFE2C3' },
-  stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
+  stampNumber: {
+    fontFamily: font.bold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#E3EDF7',
+    fontVariant: ['tabular-nums'],
+  },
   details: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   detailsText: { fontFamily: font.medium, fontSize: 12, lineHeight: 18, color: colors.white },
   overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
@@ -273,6 +279,7 @@ const s = StyleSheet.create({
     fontFamily: font.display,
     color: colors.accentText,
     fontSize: 24,
+    letterSpacing: -0.2,
     lineHeight: 30,
     minWidth: 24,
   },

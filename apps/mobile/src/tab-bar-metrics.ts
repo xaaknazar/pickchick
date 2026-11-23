@@ -147,7 +147,9 @@ export const tabLensHoldMs = 220;
 
 /** The chosen tab's glyph pops by this share, then springs back with a small bounce. */
 export const tabIconBounce = 0.2;
-export const tabIconBounceSpring = { mass: 1, stiffness: 320, damping: 12 } as const;
+// Damping ratio 0.7 (was 0.34): the glyph still pops once (owner 16.11), but settles without a
+// visible wobble; a tab is pressed dozens of times a day (Emil Kowalski: bounce stays subtle).
+export const tabIconBounceSpring = { mass: 1, stiffness: 320, damping: 25 } as const;
 
 /** How far the platter stretches along its path mid-flight, and how much the lens swells. */
 export const tabLensShape = { stretchX: 0.18, squashY: 0.06, swellX: 0.08, swellY: 0.2 } as const;

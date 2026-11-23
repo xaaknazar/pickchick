@@ -660,7 +660,9 @@ export const styles = StyleSheet.create({
   secondaryButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   secondaryButtonText: { color: colors.text },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.72 },
+  // MotionPressable already animates the press (scale or highlight); a second, instant
+  // opacity here doubled the dimming and snapped ahead of the animation.
+  pressed: {},
   iconButton: {
     width: 48,
     height: 48,

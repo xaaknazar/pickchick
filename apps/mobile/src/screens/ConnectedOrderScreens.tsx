@@ -682,7 +682,13 @@ const s = StyleSheet.create({
     backgroundColor: colors.raised,
   },
   status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
-  number: { color: colors.accentText, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
+  number: {
+    color: colors.accentText,
+    fontFamily: font.heading,
+    fontSize: 28,
+    letterSpacing: -0.6,
+    lineHeight: 36,
+  },
   input: {
     minHeight: 90,
     borderWidth: 1,

@@ -1,19 +1,12 @@
 import { Text } from './LocalizedText';
 import { t, useLocale } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  AppState,
-  Easing,
-  Platform,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { Animated, AppState, Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { assets } from '../assets';
 import { font } from '../theme';
-import { useMotionReady, useReducedMotion } from './Motion';
+import { easing, useMotionReady, useReducedMotion } from './Motion';
 
 // Exact background of the supplied logo; avoids a visible square around the artwork.
 export const launchBackground = '#0133CC';
@@ -68,8 +61,10 @@ export function LaunchReveal({
         })
       : Animated.timing(progress, {
           toValue: 1,
-          duration: 860,
-          easing: Easing.in(Easing.cubic),
+          // Every cold start waits for this, so it is short (was 860 ms), and it moves across the
+          // screen, so it takes the strong ease-in-out instead of ease-in (Emil Kowalski).
+          duration: 600,
+          easing: easing.inOut,
           useNativeDriver: Platform.OS !== 'web',
         });
     animation.start(({ finished }) => {

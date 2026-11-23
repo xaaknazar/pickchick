@@ -32,6 +32,7 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
               {
                 fontFamily: font.display,
                 fontSize: 22,
+                letterSpacing: -0.2,
                 lineHeight: 28,
                 marginTop: 18,
                 marginLeft: 8,
@@ -202,7 +203,12 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 4,
   },
-  extraPrice: { fontFamily: font.heading, fontSize: 15, lineHeight: 20 },
+  extraPrice: {
+    fontFamily: font.heading,
+    fontSize: 15,
+    lineHeight: 20,
+    fontVariant: ['tabular-nums'],
+  },
   promotion: {
     width: 260,
     padding: 18,

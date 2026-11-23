@@ -725,6 +725,8 @@ export function PhotoProduct(props: Props) {
             </Text>
           ) : null}
           <Pressable
+            // Main actions shrink under the finger instead of dimming (Emil Kowalski: scale 0.97).
+            feedback="scale"
             testID="product-add"
             accessibilityRole="button"
             accessibilityLabel={localize(
@@ -1047,6 +1049,7 @@ function makeStyles(blue: boolean) {
     title: {
       fontFamily: font.display,
       fontSize: 34,
+      letterSpacing: -0.7,
       lineHeight: 41,
       color: ink,
       textAlign: 'center',
@@ -1061,7 +1064,13 @@ function makeStyles(blue: boolean) {
     },
     serving: { fontFamily: font.medium, fontSize: 13, color: muted },
     choices: { paddingHorizontal: 20, gap: 10, maxWidth: 680, width: '100%', alignSelf: 'center' },
-    sectionTitle: { fontFamily: font.heading, fontSize: 21, lineHeight: 28, color: ink },
+    sectionTitle: {
+      fontFamily: font.heading,
+      fontSize: 21,
+      letterSpacing: -0.2,
+      lineHeight: 28,
+      color: ink,
+    },
     choice: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1130,12 +1139,20 @@ function makeStyles(blue: boolean) {
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
     counter: { backgroundColor: blue ? '#133668' : '#F2DFC7', borderRadius: 25, gap: 0 },
     countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-    count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
+    count: {
+      fontFamily: font.bold,
+      fontSize: 15,
+      minWidth: 18,
+      textAlign: 'center',
+      color: ink,
+      fontVariant: ['tabular-nums'],
+    },
     modal: { flex: 1, backgroundColor: colors.background },
     modalHeader: { paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
     modalTitle: {
       fontFamily: font.heading,
       fontSize: 22,
+      letterSpacing: -0.2,
       lineHeight: 28,
       color: colors.text,
       flex: 1,
@@ -1176,6 +1193,7 @@ function makeStyles(blue: boolean) {
       color: colors.text,
       marginTop: 'auto',
       paddingTop: 8,
+      fontVariant: ['tabular-nums'],
     },
     check: { position: 'absolute', top: 7, right: 7 },
     optionPhoto: {
@@ -1215,7 +1233,13 @@ function makeStyles(blue: boolean) {
       padding: 16,
       gap: 4,
     },
-    nutrientValue: { fontFamily: font.display, fontSize: 30, lineHeight: 38, color: colors.text },
+    nutrientValue: {
+      fontFamily: font.display,
+      fontSize: 30,
+      letterSpacing: -0.6,
+      lineHeight: 38,
+      color: colors.text,
+    },
     infoCopy: { padding: 24, gap: 18 },
     modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
   });

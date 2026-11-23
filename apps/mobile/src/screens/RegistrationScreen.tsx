@@ -339,5 +339,7 @@ const s = StyleSheet.create({
   error: { fontSize: 13, lineHeight: 20, color: authColors.danger, marginTop: 12 },
   later: { minHeight: 48, paddingVertical: 10, justifyContent: 'center', alignItems: 'center' },
   laterText: { fontFamily: font.medium, fontSize: 14, lineHeight: 22, color: authColors.muted },
-  pressed: { opacity: 0.75 },
+  // MotionPressable already animates the press (scale or highlight); a second, instant
+  // opacity here doubled the dimming and snapped ahead of the animation.
+  pressed: {},
 });

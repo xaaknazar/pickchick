@@ -49,3 +49,17 @@ export function haptic(cue: HapticCue): void {
       : Haptics.impactAsync(IMPACT_STYLE[cue] as Haptics.ImpactFeedbackStyle);
   feedback.catch(() => undefined);
 }
+
+/**
+ * One light tap when a dish lands in the cart, on the same frame as the cart bar's «added» bump
+ * (Emil Kowalski, animate-expo §8: a drag commits / something snaps home = Light impact; one per
+ * event, never the only feedback). Silent on the web and when System Haptics are off.
+ */
+export function addedHaptic(): void {
+  if (Platform.OS === 'web') {
+    const log = (globalThis as { __pickchickHaptics?: unknown }).__pickchickHaptics;
+    if (Array.isArray(log)) log.push('added');
+    return;
+  }
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+}
