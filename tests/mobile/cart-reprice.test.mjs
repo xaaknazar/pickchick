@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { repriceCart } from '../../apps/mobile/src/cart-reprice.ts';
 import {
   cartLineKey,
@@ -220,4 +221,18 @@ test('reprice keeps a stopped dish in the basket marked unavailable', () => {
   assert.equal(next.cart.length, 1);
   assert.equal(next.cart[0].issue, 'unavailable');
   assert.deepEqual(next.changes.removed, []);
+});
+test('a minute re-read keeps the cart in the current language (audit 23.11 #6)', () => {
+  // repriceCart takes the product of every line from the list it is given, names included.
+  const kazakh = { ...product, name: 'Комбо жинағы' };
+  assert.equal(repriceCart(cart, [kazakh]).cart[0].product.name, 'Комбо жинағы');
+  // So the catalog reader, which outlives a language switch, must read the language of the
+  // moment, not the one captured when it started.
+  const store = readFileSync(new URL('../../apps/mobile/src/store.tsx', import.meta.url), 'utf8');
+  assert.match(store, /localeRef\.current = locale;/);
+  assert.match(
+    store,
+    /publishedProducts\(\s*result\.publication,\s*localeRef\.current,\s*nextMedia,?\s*\)/,
+  );
+  assert.doesNotMatch(store, /publishedProducts\(result\.publication, locale, nextMedia\)/);
 });

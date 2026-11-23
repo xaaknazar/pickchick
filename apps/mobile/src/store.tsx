@@ -87,6 +87,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [locale, updateLocale] = useState<Locale>('ru');
+  // The catalog reader below outlives a language switch: it reads the language of the moment.
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const setLocale = useCallback((next: Locale) => {
     setAppLocale(next);
     updateLocale(next);
@@ -251,7 +254,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           restoration.current = null;
         }
         if (result.publication && modeRef.current === 'server') {
-          const currentProducts = publishedProducts(result.publication, locale, nextMedia);
+          // The current language, not the one of the moment this reader started: repriceCart
+          // replaces the product of every line, so the old one put the old names back each minute.
+          const currentProducts = publishedProducts(
+            result.publication,
+            localeRef.current,
+            nextMedia,
+          );
           setCart((previous) => {
             const repriced = repriceCart(previous, currentProducts);
             const changes = repriced.changes;
