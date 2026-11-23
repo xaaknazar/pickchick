@@ -19,6 +19,7 @@ import {
   useFly,
   usePop,
   usePress,
+  useShake,
   useTimingTo,
   useTween,
 } from './motion';
@@ -54,6 +55,7 @@ export function CartBar({
   arrival,
   onLanded,
   onCheckout,
+  onEmpty,
   onOpenCart,
 }: {
   /** Cart lines in order (photos and names). */
@@ -72,6 +74,8 @@ export function CartBar({
   /** The flying photo landed (at once when nothing flies). */
   onLanded?: () => void;
   onCheckout: () => void;
+  /** «Оформить заказ» on an empty cart: the screen says to choose a dish (owner 22.11.2026). */
+  onEmpty?: () => void;
   /** The order summary was tapped: the cart page, to change or remove lines. */
   onOpenCart: () => void;
 }) {
@@ -164,7 +168,11 @@ export function CartBar({
   // Disabled look while empty, fading 200 ms; dimmed while busy.
   const grey = useTimingTo(empty ? 1 : 0, 200, 'css');
   const dim = useTimingTo(busy ? 0.7 : 1, 200, 'css');
-  const blocked = empty || busy;
+  // Owner 22.11.2026: «Оформить заказ» always answers a tap; on an empty cart it shakes and the
+  // screen asks for a dish instead of doing nothing.
+  const blocked = busy || (empty && !onEmpty);
+  const [nudged, setNudged] = useState(0);
+  const shake = useShake(nudged, px(8));
   const squeeze = (down: boolean) => {
     press.stopAnimation();
     Animated.timing(press, {
@@ -331,7 +339,9 @@ export function CartBar({
                 </View>
               </Pressable>
             </Animated.View>
-            <Animated.View style={{ opacity: dim, transform: [{ scale: press }] }}>
+            <Animated.View
+              style={{ opacity: dim, transform: [{ translateX: shake }, { scale: press }] }}
+            >
               <Pressable
                 testID="kiosk-menu-checkout"
                 {...ownerOrange}
@@ -339,7 +349,11 @@ export function CartBar({
                 accessibilityLabel={t.checkout}
                 accessibilityState={{ disabled: blocked, busy }}
                 disabled={blocked}
-                onPress={onCheckout}
+                onPress={() => {
+                  if (!empty) return onCheckout();
+                  setNudged((n) => n + 1);
+                  onEmpty?.();
+                }}
                 onPressIn={() => squeeze(true)}
                 onPressOut={() => squeeze(false)}
                 style={{
@@ -381,7 +395,7 @@ export function CartBar({
                   style={{
                     fontFamily: fonts.black,
                     fontSize: px(27),
-                    color: empty ? 'rgba(255,255,255,.6)' : colors.white,
+                    color: empty ? 'rgba(255,255,255,.85)' : colors.white,
                   }}
                 >
                   {t.checkout}

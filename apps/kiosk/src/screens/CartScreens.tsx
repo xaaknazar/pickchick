@@ -15,8 +15,8 @@ import {
   Wrapper,
   type ScreenContext,
 } from '../components/UI';
-import { OrderProgress } from '../components/OrderProgress';
 import { RadialBackdrop } from '../components/RadialBackdrop';
+import { useOpeningFrames } from '../components/motion';
 import { StepPills } from '../components/StepPills';
 import { UpsellBoard } from '../components/UpsellBoard';
 import { UpsellHero, UpsellTile } from '../components/UpsellCards';
@@ -111,8 +111,14 @@ export function UpsellScreen({
         increaseDisabled={!!last && last.quantity >= LINE_LIMIT}
         locale={context.locale}
         onIncrease={() => {
-          if (last) void model.updateQuantity(last.lineId, last.quantity + 1);
-          else choose(p);
+          if (last) return void model.updateQuantity(last.lineId, last.quantity + 1);
+          // Owner 22.11.2026: the first «+» adds one at once with the default choice (size);
+          // the sheet opens only when the product cannot be added without a choice. A tap on
+          // the card still opens the sheet with its sizes.
+          const selected = defaultSelections(p);
+          if (!validSelections(p, selected)) return choose(p);
+          model.touch();
+          void model.addToCart(p.id, selected);
         }}
         onDecrease={() => {
           if (last) void model.updateQuantity(last.lineId, last.quantity - 1);
@@ -171,10 +177,14 @@ export function UpsellScreen({
   const commercial = !!model.commercial;
   const blocked = !model.cartValid || !model.cart.length || (commercial && !model.checkoutReady);
   const pay = () => model.goLoyalty();
+  // Owner 22.11.2026: «Оформить заказ» must open this screen at once. The first commit holds
+  // the header, steps, the main offer and the footer; the two rows of tiles follow on the next
+  // frames, while the screen slides in.
+  const built = useOpeningFrames();
   const rows = [
     { key: 'sauces', title: t.smartSauces, note: t.smartSaucesNote, tiles: plan.sauces, art: 1 },
     { key: 'drinks', title: t.drinks, note: undefined, tiles: plan.drinks, art: 0 },
-  ].filter((row) => row.tiles.length);
+  ].filter((row) => built && row.tiles.length);
   return (
     <ScreenSurface testID="kiosk-screen-upsell" tone="brand" entrance={context.direction}>
       <RadialBackdrop />
@@ -379,7 +389,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
           valid={model.cartValid}
           locale={context.locale}
           count={count}
-          qr={qr}
+          qr={qr && !model.terminalPaymentAvailable}
           size="large"
         />
         <Wrapper dir="row" gap={14}>
@@ -422,7 +432,8 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         title={t.payTitle}
         subtitle={positionsLabel(count, context.locale)}
       />
-      <OrderProgress step="payment" locale={context.locale} />
+      {/* Owner 22.11.2026 (one look on every step): the same step pills as «Допы» and «Оплата». */}
+      <StepPills current="payment" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={24}>
           <CheckoutSummary

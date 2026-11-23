@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Animated, Easing, type EasingFunction } from 'react-native';
+import { Animated, Easing, Platform, type EasingFunction } from 'react-native';
 import { useMotionPreference } from './useMotionPreference';
 
 /**
@@ -592,4 +592,21 @@ export function useFly(landing = 60) {
     };
   }, [landing, progress, trip]);
   return { flight, launch };
+}
+
+/** False for the first two frames of a native page, so its first commit stays light. */
+export function useOpeningFrames() {
+  const [built, setBuilt] = useState(Platform.OS === 'web');
+  useEffect(() => {
+    if (built) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setBuilt(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [built]);
+  return built;
 }

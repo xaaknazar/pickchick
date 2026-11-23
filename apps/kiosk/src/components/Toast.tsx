@@ -23,7 +23,8 @@ export function Toast({
 }: {
   message: string;
   trigger: number | string | null;
-  tone?: 'success';
+  /** `hint`: an orange disc with a pointing hand, for «choose a dish first». */
+  tone?: 'success' | 'hint';
   testID?: string;
 }) {
   const { v } = useMetrics();
@@ -103,12 +104,12 @@ export function Toast({
             width: disc,
             height: disc,
             borderRadius: disc / 2,
-            backgroundColor: tone === 'success' ? colors.ok : colors.blue,
+            backgroundColor: tone === 'success' ? colors.ok : colors.orangeCta,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="checkmark" tone="inverse" />
+          <Icon name={tone === 'hint' ? 'hand-left-outline' : 'checkmark'} tone="inverse" />
         </View>
         <Text
           {...fixedText}

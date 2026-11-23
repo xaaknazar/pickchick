@@ -121,9 +121,10 @@ export function ProductCard({
         minHeight: 0,
         overflow: 'hidden',
         backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
-        paddingTop: px(largePick ? 4 : wide ? 18 : 20),
-        paddingBottom: px(largePick ? 0 : wide ? 18 : 4),
-        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 14),
+        // Owner 22.11.2026: the dish fills its tile (the photos read small with wider margins).
+        paddingTop: px(largePick ? 4 : wide ? 18 : 10),
+        paddingBottom: px(largePick ? 0 : wide ? 18 : 0),
+        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 6),
       }}
     >
       <Animated.View
@@ -131,13 +132,24 @@ export function ProductCard({
           flex: 1,
           zIndex: 1,
           opacity: unavailable ? 0.45 : 1,
-          transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
+          // Small and medium tiles show the dish a little larger (owner 22.11.2026).
+          transform: [
+            {
+              scale: zoom.interpolate({
+                inputRange: [0, 1],
+                outputRange: wide || largePick ? [1, 1.05] : [1.08, 1.13],
+              }),
+            },
+          ],
         }}
       >
         <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
       </Animated.View>
     </View>
   );
+  // Owner 22.11.2026: every card keeps room for a two-line name, so photos in a row are the same
+  // size and names start on one line whether they take one line or two.
+  const nameRoom = wide ? 0 : Math.round(base * 1.16) * 2;
   const name = (
     <Text
       {...fixedText}
@@ -218,7 +230,7 @@ export function ProductCard({
               gap: px(4),
             }}
           >
-            {name}
+            <View style={{ minHeight: nameRoom }}>{name}</View>
             {note}
           </View>
         </Pressable>
@@ -355,6 +367,7 @@ function Illustration({ index, part }: { index: number; part: number }) {
       accessible={false}
       accessibilityLabel=""
       source={cardBackgrounds[index % cardBackgrounds.length]}
+      cachePolicy="memory-disk"
       contentFit="cover"
       style={{
         position: 'absolute',

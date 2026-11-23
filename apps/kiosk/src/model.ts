@@ -62,7 +62,18 @@ export type KioskCatalog = Omit<
  */
 export interface TerminalPaymentView {
   phase:
-    'starting' | 'waiting' | 'checking' | 'paid' | 'failed' | 'cancelled' | 'not_started' | 'lost';
+    | 'starting'
+    | 'waiting'
+    | 'checking'
+    | 'paid'
+    | 'failed'
+    | 'cancelled'
+    | 'not_started'
+    | 'lost'
+    // Owner 22.11.2026, the guest changed the order while the terminal still held the payment:
+    // waiting for the terminal to pay the changed order (releasing) or to end it (cancelling).
+    | 'releasing'
+    | 'cancelling';
   /** Why it did not start (not_started). */
   reason: 'busy' | 'blocked' | 'token' | 'unreachable' | 'refused' | null;
   /** The last status read did not reach the terminal or the server; it is retried. */
@@ -82,6 +93,10 @@ export type TerminalSetupResult =
   | 'taken'
   | 'cloud'
   | 'mismatch'
+  /** The terminal answers with another certificate than the pinned one. */
+  | 'certificate'
+  /** register refused with code 105 over plain HTTP: «Защита интеграции» is off. */
+  | 'protection'
   | 'busy';
 /** Staff terminal setup (ADR-0018), opened after the staff code. */
 export interface TerminalSetupView {
@@ -89,9 +104,19 @@ export interface TerminalSetupView {
   open: boolean;
   /** register was sent: the terminal shows «Разрешить». */
   confirming: boolean;
+  /** While confirming over HTTPS: the start and end of the certificate being pinned. */
+  confirmingCertificate?: string | null;
   result: TerminalSetupResult | null;
-  /** The terminal linked on this iPad, if any. */
-  link: { terminalId: string; serial: string; host: string } | null;
+  /**
+   * The terminal linked on this iPad, if any. `certificate`: start and end of the pinned
+   * certificate (HTTPS); null or absent: linked over plain HTTP.
+   */
+  link: {
+    terminalId: string;
+    serial: string;
+    host: string;
+    certificate?: string | null;
+  } | null;
   /** The cloud knows this same terminal for this kiosk. */
   cloudLinked: boolean;
   /** The cloud allows payments on the terminal (KIOSK_KASPI_TERMINAL_ENABLED). */
@@ -150,6 +175,8 @@ export interface KioskState {
   } | null;
   /** ADR-0018: the current payment runs on the kiosk's Kaspi terminal. */
   terminalPayment?: TerminalPaymentView | null;
+  /** The order was paid on the terminal while the guest was changing it: the changes are not in it. */
+  editDropped?: boolean;
   /** New payments use the kiosk's Kaspi terminal instead of the QR on screen. */
   terminalPaymentAvailable?: boolean;
   /** Staff terminal setup; absent where the kiosk cannot reach a terminal. */
@@ -230,8 +257,17 @@ export interface KioskModel extends KioskState {
   staffReset?(pin: string): Promise<boolean>;
   /** Terminal payment: send it again (not started) or start a new attempt (failed). */
   retryTerminal?(): Promise<boolean>;
-  /** Terminal payment that failed or did not start: back to the cart to choose again. */
-  leaveTerminal?(): Promise<boolean>;
+  /**
+   * Terminal payment that failed or did not start: back to the cart to choose again, or with
+   * `fresh` an empty menu (the draft is dropped; owner 22.11.2026).
+   */
+  leaveTerminal?(fresh?: boolean): Promise<boolean>;
+  /**
+   * Owner 22.11.2026: while the terminal waits for the payment, opens the cart at once to change
+   * the order. The kiosk cannot cancel a payment on the terminal (Kaspi has no such command): it
+   * stays open there and is followed underneath; from the wait for the terminal, back to the cart.
+   */
+  editTerminalOrder?(): boolean;
   /** Staff terminal setup (ADR-0018), each behind the server-checked staff code. */
   openTerminalSetup?(pin: string): Promise<boolean>;
   closeTerminalSetup?(): void;

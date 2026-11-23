@@ -5,7 +5,12 @@ import { fn } from 'storybook/test';
 import { Wrapper } from './Wrapper';
 import { TerminalSetupPanel } from './TerminalSetupPanel';
 import { colors } from '../theme';
-const linked = { terminalId: '30412345', serial: 'SPOS3A1B2C3', host: '192.168.1.50' };
+const linked = {
+  terminalId: '30412345',
+  serial: 'SPOS3A1B2C3',
+  host: '192.168.1.50',
+  certificate: '228fc8c4…5d0e9a17',
+};
 const base = {
   open: true,
   confirming: false,
@@ -49,7 +54,24 @@ export const NotAnswering: Story = {
 };
 /** register sent: «Нажмите «Разрешить» на терминале». */
 export const PressAllow: Story = {
-  args: { host: '192.168.1.50', busy: true, view: { ...base, confirming: true } },
+  args: {
+    host: '192.168.1.50',
+    busy: true,
+    view: { ...base, confirming: true, confirmingCertificate: '228fc8c4…5d0e9a17' },
+  },
+};
+/** The terminal now presents another certificate than the pinned one. */
+export const OtherCertificate: Story = {
+  args: { view: { ...base, link: linked, cloudLinked: true, result: 'certificate' } },
+};
+/** register refused with 105 over plain HTTP: «Защита интеграции» is off. */
+export const ProtectionOff: Story = {
+  args: { host: '192.168.1.50', view: { ...base, result: 'protection' } },
+};
+export const LinkedPlainHttp: Story = {
+  args: {
+    view: { ...base, link: { ...linked, certificate: null }, cloudLinked: true, result: 'linked' },
+  },
 };
 export const PressAllowEn: Story = {
   args: { host: '192.168.1.50', busy: true, locale: 'en', view: { ...base, confirming: true } },

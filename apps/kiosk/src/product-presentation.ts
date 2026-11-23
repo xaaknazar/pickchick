@@ -262,12 +262,32 @@ export function applyPick(
   return quantity > 0 ? [...others, { group_id: group.id, option_id: optionId, quantity }] : others;
 }
 /**
- * Groups shown as numbered sections. The «Добавить к заказу» list (an optional group of extras
- * with quantities) left the card: the smart upsell offers extras now. Its picks, if a cart line
- * being edited has any, stay in the line untouched.
+ * «Заполнить фирменным» (owner 22.11): a set's optional sauces take the free signature sauce
+ * up to the set's count. The first free option on sale fills the room left; the guest's other
+ * picks stay. Null when there is no room or no free option to fill with.
  */
+export function fillTarget(group: KioskModifierGroup, selections: readonly KioskSelection[]) {
+  if (group.max <= 1) return null;
+  const room = group.max - groupCount(group, selections);
+  if (room <= 0) return null;
+  const option = group.options.find((o) => o.available && BigInt(o.price_delta_minor) === 0n);
+  if (!option) return null;
+  const have = selections
+    .filter((s) => s.group_id === group.id && s.option_id === option.id)
+    .reduce((sum, s) => sum + s.quantity, 0);
+  const quantity = Math.min(option.max_quantity, have + room);
+  return quantity > have ? { option, quantity } : null;
+}
+/**
+ * Groups shown as numbered sections. The «Добавить к заказу» list (`extras`, optional extras
+ * with quantities) left the card: the smart upsell offers extras now. Its picks, if a cart line
+ * being edited has any, stay in the line untouched. Owner 22.11.2026: other optional groups with
+ * quantities stay on the card - the sauces of a fingers set (min 0, up to 8/16/24/32) and its paid
+ * «Добавить напитки» (`drink-extra`, catalog v17).
+ */
+export const LEGACY_EXTRAS_GROUP = 'extras';
 export const cardGroups = (product: Pick<KioskProduct, 'modifier_groups'>) =>
-  product.modifier_groups.filter((group) => !(group.min === 0 && group.max > 1));
+  product.modifier_groups.filter((group) => group.id !== LEGACY_EXTRAS_GROUP);
 /** The first section still waiting for a choice. */
 export const firstMissing = (
   groups: readonly KioskModifierGroup[],
@@ -280,6 +300,7 @@ export function sectionTitle(group: KioskModifierGroup, t: ProductCopy) {
   if (group.id === 'drink') return many ? t.sectionDrinks : t.sectionDrink;
   if (group.id === 'sauce') return many ? t.sectionSauces : t.sectionSauce;
   if (group.id === 'size') return t.sectionSize;
+  if (group.id === 'drink-extra') return t.sectionDrinksExtra;
   return tidy(group.title).replace(CHOICE, '') || t.chooseOption;
 }
 /** «Выберите соус»: what the panel asks for while a section is empty. */

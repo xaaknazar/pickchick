@@ -49,10 +49,14 @@ const ru = {
     'Сотрудник проверяет оплату. Не оплачивайте повторно. Если нужна помощь, обратитесь к сотруднику.',
   numberPending: 'Номер заказа появится на табло. Если номера долго нет, обратитесь к сотруднику.',
   photoNumber: 'Сфотографируйте номер или запомните его',
+  /** The order was paid on the terminal while the guest was changing it (owner 22.11.2026). */
+  editDropped:
+    'Оплата прошла по заказу до изменений. Изменения в него не вошли - их можно заказать отдельно.',
   optionStopped: '«{name}» больше нет в наличии. Выберите другой вариант.',
   menuUpdatingTitle: 'Меню обновляется',
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
   emptyCartHint: 'Выберите блюдо - оно появится здесь',
+  chooseFirst: 'Сначала выберите блюдо',
   limitLine: 'Больше 20 одинаковых позиций добавить нельзя',
   removeOne: 'Убрать одну',
   // v3 kiosk design
@@ -288,7 +292,6 @@ const ru = {
   staffReset: 'Сбросить киоск',
   staffResetBody:
     'Сброс доступен, только когда деньги списаться не могут. Киоск вернётся на заставку.',
-  staffService: 'Сотруднику',
   staffErr_wrong: 'Неверный код.',
   staffErr_locked: 'Слишком много попыток. Повторите через несколько минут.',
   staffErr_unavailable: 'Код сотрудника не настроен на сервере. Обратитесь к администратору.',
@@ -362,11 +365,14 @@ const kk: Strings = {
     'Қызметкер төлемді тексеріп жатыр. Қайта төлемеңіз. Көмек керек болса, қызметкерге жүгініңіз.',
   numberPending: 'Тапсырыс нөмірі тақтада пайда болады. Нөмір ұзақ болмаса, қызметкерге жүгініңіз.',
   photoNumber: 'Нөмірді суретке түсіріңіз немесе есте сақтаңыз',
+  editDropped:
+    'Төлем өзгерістерге дейінгі тапсырыс бойынша өтті. Өзгерістер оған кірмеді - оларды бөлек тапсырыс беруге болады.',
   optionStopped: '«{name}» енді жоқ. Басқа нұсқаны таңдаңыз.',
   menuUpdatingTitle: 'Мәзір жаңартылып жатыр',
   menuUpdatingBody:
     'Бірнеше секунд күтіңіз: позициялар қайта пайда болады. Оларды жоюдың қажеті жоқ.',
   emptyCartHint: 'Тағам таңдаңыз - ол осында пайда болады',
+  chooseFirst: 'Алдымен тағам таңдаңыз',
   limitLine: 'Бірдей позицияны 20-дан артық қосуға болмайды',
   removeOne: 'Біреуін алып тастау',
   // v3 kiosk design
@@ -599,7 +605,6 @@ const kk: Strings = {
   staffReset: 'Киоскті тазарту',
   staffResetBody:
     'Тазарту тек ақша алынбайтын жағдайда қолжетімді. Киоск бастапқы экранға оралады.',
-  staffService: 'Қызметкерге',
   staffErr_wrong: 'Код қате.',
   staffErr_locked: 'Әрекет тым көп. Бірнеше минуттан кейін қайталаңыз.',
   staffErr_unavailable: 'Қызметкер коды серверде бапталмаған. Әкімшіге хабарласыңыз.',
@@ -675,10 +680,13 @@ const en: Strings = {
   numberPending:
     'Your order number will appear on the board. If it takes long, please ask a team member.',
   photoNumber: 'Take a photo of your number or remember it',
+  editDropped:
+    'The payment went through for the order before your changes. The changes are not in it - you can order them separately.',
   optionStopped: '{name} is no longer available. Please choose another option.',
   menuUpdatingTitle: 'The menu is updating',
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',
   emptyCartHint: 'Pick a dish - it will appear here',
+  chooseFirst: 'Choose a dish first',
   limitLine: 'You cannot add more than 20 of one item',
   removeOne: 'Remove one',
   // v3 kiosk design (wording from the approved prototype's EN strings)
@@ -910,7 +918,6 @@ const en: Strings = {
   staffReset: 'Reset the kiosk',
   staffResetBody:
     'The reset is offered only when no money can be taken. The kiosk returns to the start screen.',
-  staffService: 'For staff',
   staffErr_wrong: 'Wrong code.',
   staffErr_locked: 'Too many attempts. Try again in a few minutes.',
   staffErr_unavailable: 'The staff code is not set up on the server. Contact the administrator.',

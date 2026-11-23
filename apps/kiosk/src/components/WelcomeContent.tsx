@@ -1,6 +1,7 @@
 import { Icon } from './Icon';
 import {
   Animated,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -10,13 +11,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
+import { terminalCopy } from '../terminalCopy';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
 import { useEnter } from './motion';
-const CTA_ORDER: readonly Locale[] = ['kk', 'ru', 'en'];
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
-/** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
+/** Kaspi brand mark for the terminal payment chip. */
+const KASPI_MARK = require('../../assets/v3/kaspi.webp');
 /** Owner 2026-10-13: one static caption, always in the selected language. */
 function CtaCaption({ shown }: { shown: Locale }) {
   const { px } = useMetrics();
@@ -27,7 +29,7 @@ function CtaCaption({ shown }: { shown: Locale }) {
       importantForAccessibility="no-hide-descendants"
       aria-hidden
       pointerEvents="none"
-      style={{ flex: 1, height: lineHeight, overflow: 'hidden', marginBottom: px(12) }}
+      style={{ flex: 1, height: lineHeight, overflow: 'hidden' }}
     >
       <Text
         {...fixedText}
@@ -48,41 +50,6 @@ function CtaCaption({ shown }: { shown: Locale }) {
     </View>
   );
 }
-/** Three decorative dots KZ, RU, EN under the caption; the shown language is stretched. */
-function CtaDots({ shown }: { shown: Locale }) {
-  const { v } = useMetrics();
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      aria-hidden
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        bottom: v(14),
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: v(8),
-      }}
-    >
-      {CTA_ORDER.map((locale) => (
-        <View
-          key={locale}
-          testID={locale === shown ? 'kiosk-start-dot-active' : undefined}
-          style={{
-            width: locale === shown ? v(22) : v(8),
-            height: v(8),
-            borderRadius: 999,
-            backgroundColor: locale === shown ? colors.white : 'rgba(255,255,255,.45)',
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 function StartCta({
   locale,
   busy,
@@ -108,7 +75,6 @@ function StartCta({
     >
       <SaluteButton testID="kiosk-start" label={label} busy={busy} onPress={onPress} delay={910}>
         <CtaCaption shown={locale} />
-        <CtaDots shown={locale} />
       </SaluteButton>
     </Animated.View>
   );
@@ -118,7 +84,7 @@ function StartCta({
  * (rgba(2,10,31,.28), 1 px light line, 14 px backdrop blur on the web), a round 50 pt Kaspi
  * mark on a white disc and Montserrat 700 24. Sizes are 1024-wide mock-up points (`px`).
  */
-function KaspiChip({ label }: { label: string }) {
+function KaspiChip({ label, terminal = false }: { label: string; terminal?: boolean }) {
   const { px } = useMetrics();
   const web =
     Platform.OS === 'web'
@@ -158,7 +124,16 @@ function KaspiChip({ label }: { label: string }) {
           overflow: 'hidden',
         }}
       >
-        <Icon name="qr-code-outline" tone="brand" />
+        {terminal ? (
+          <Image
+            source={KASPI_MARK}
+            accessibilityIgnoresInvertColors
+            style={{ width: disc, height: disc }}
+            resizeMode="contain"
+          />
+        ) : (
+          <Icon name="qr-code-outline" tone="brand" />
+        )}
       </View>
       <Text
         {...fixedText}
@@ -183,6 +158,7 @@ export function WelcomeContent({
   onStart,
   busy,
   onLogoHold,
+  terminal = false,
 }: {
   locale: Locale;
   onLocale: (v: Locale) => void;
@@ -190,6 +166,8 @@ export function WelcomeContent({
   busy: boolean;
   /** Staff only: a long hold (STAFF_HOLD_MS) on the logo; no visible hint for guests. */
   onLogoHold?: () => void;
+  /** ADR-0018: guests pay on the kiosk's Kaspi terminal, so the chip names it instead of QR. */
+  terminal?: boolean;
 }) {
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -285,7 +263,10 @@ export function WelcomeContent({
               gap: v(16),
             }}
           >
-            <KaspiChip label={t.payKaspiQR} />
+            <KaspiChip
+              label={terminal ? terminalCopy(locale).chip : t.payKaspiQR}
+              terminal={terminal}
+            />
           </Animated.View>
         </View>
       </View>

@@ -30,12 +30,20 @@ import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
-import { privateIPv4, type KaspiCallResult, type KaspiTerminalPort } from './kaspi-terminal.ts';
+import {
+  kaspiPinShort,
+  privateIPv4,
+  type KaspiCallResult,
+  type KaspiProbePort,
+  type KaspiTerminalPort,
+} from './kaspi-terminal.ts';
 import {
   TerminalSession,
   terminalIdentity,
   terminalIntegrationName,
   terminalTokens,
+  tokenRefusedAnswer,
+  type TerminalLink,
   type TerminalLinkStore,
 } from './kaspi-terminal-link.ts';
 import { placeLine, selectedPriceMinor, validSelections, testLineId } from './cart.ts';
@@ -75,7 +83,7 @@ export interface CommercialKioskIO extends KioskIO {
    * ADR-0018: the kiosk's own Kaspi Smart POS over the LAN (link in SecureStore, LAN calls).
    * Absent (web, the demo, older tests): the kiosk only knows the QR on screen.
    */
-  terminal?: { store: TerminalLinkStore; call: KaspiTerminalPort };
+  terminal?: { store: TerminalLinkStore; call: KaspiTerminalPort; probe?: KaspiProbePort };
   /** PUT/DELETE /terminal of kiosk-checkout (device headers; the guest token when there is one). */
   send?(
     method: 'PUT' | 'DELETE',
@@ -738,6 +746,8 @@ const TERMINAL_REQUEST_DEFINITIVE = [
 ];
 /** Navigation steps a background reload keeps (the guest is browsing, nothing is pending). */
 const BROWSING: KioskStep[] = ['menu', 'product', 'upsell', 'cart', 'loyalty'];
+/** Screens of a guest changing an order whose terminal payment is still open. */
+const EDIT_STEPS: KioskStep[] = [...BROWSING, 'mode'];
 /** A read that may simply be retried: the network, a timeout or a server outage. */
 const transient = (error: unknown) =>
   !(error instanceof KioskError) ||
@@ -809,8 +819,24 @@ export class CommercialKioskController {
   private terminalOffline = false;
   /** The terminal's latest subStatus while waiting (memory only). */
   private terminalSub: string | null = null;
+  /**
+   * Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once while the terminal
+   * still holds the payment. Kaspi Smart POS has no cancel command (API v2: register, revoke,
+   * payment, status, actualize, refund, deviceinfo), so the order and its attempt stay tracked
+   * exactly as before and only the guest's screens change. Memory only: a restart shows the
+   * payment again. When the terminal reports the failure (cancelled there, or its own timeout)
+   * the unpaid order is left as by «Изменить заказ»; a payment that still goes through wins and
+   * the changes are dropped.
+   */
+  private terminalEdit = false;
+  /** Asked for while the terminal is still held: pay the edited order, or cancel it. */
+  private afterEdit: 'pay' | 'cancel' | null = null;
+  /** The order was paid on the terminal while the guest was changing it. */
+  private editDropped = false;
   private setupUntil = 0;
   private setupConfirming = false;
+  /** The certificate pin being linked (shown shortened while the terminal asks «Разрешить»). */
+  private setupConfirmingPin: string | null = null;
   private setupResult: TerminalSetupResult | null = null;
   private listeners = new Set<() => void>();
   private view: KioskState;
@@ -818,7 +844,12 @@ export class CommercialKioskController {
   constructor(io: CommercialKioskIO) {
     this.io = io;
     if (io.terminal) {
-      this.terminalSession = new TerminalSession(io.terminal.store, io.terminal.call, io.now);
+      this.terminalSession = new TerminalSession(
+        io.terminal.store,
+        io.terminal.call,
+        io.now,
+        io.terminal.probe ?? null,
+      );
       // The terminal got a new address (no DHCP reservation): the cloud learns the new host.
       this.terminalSession.onRelocated = () => {
         if (this.terminalSession) void this.putTerminal(this.terminalSession);
@@ -859,6 +890,25 @@ export class CommercialKioskController {
   /** Editing is closed: a payment may exist, or a finished guest is still being ended. */
   private unsafe() {
     return this.current.resetPending || this.pending();
+  }
+  /**
+   * The guest changes the order while its terminal payment is still open (see `terminalEdit`):
+   * only while the terminal waits, or after its failure until the unpaid order is left.
+   */
+  private editingTerminal() {
+    const a = this.current.terminal;
+    return (
+      this.terminalEdit &&
+      !!a &&
+      (a.phase === 'wait' || a.phase === 'fail') &&
+      !this.blocked &&
+      !this.current.intent &&
+      !this.current.resetPending
+    );
+  }
+  /** The guest's draft is closed: an order or payment exists and is not being changed. */
+  private locked() {
+    return !this.editingTerminal() && (this.unsafe() || !!this.current.order);
   }
   /**
    * A stored shopping draft (mode or cart, nothing sent for payment) whose last saved activity is
@@ -962,7 +1012,8 @@ export class CommercialKioskController {
         },
       ];
     });
-    const order = this.current.order;
+    // A guest changing the order sees a plain draft; the open payment is tracked underneath.
+    const order = this.editingTerminal() ? null : this.current.order;
     return {
       ready: this.ready,
       busy: this.busy,
@@ -979,6 +1030,7 @@ export class CommercialKioskController {
       phoneValid: !!invoicePhone(this.phone),
       qrPayment: order?.payment?.kind === 'kaspi_qr' ? order.payment : null,
       terminalPayment: this.terminalView(),
+      editDropped: this.editDropped,
       terminalPaymentAvailable: this.terminalActive(),
       terminalSetup: this.terminalSession ? this.setupView() : null,
       paymentPhase: order?.phase,
@@ -1044,7 +1096,16 @@ export class CommercialKioskController {
   }
   private terminalView(): TerminalPaymentView | null {
     const a = this.current.terminal;
-    if (!a) return null;
+    // Changing the order: nothing of the old payment is shown, except the wait for the terminal
+    // once the guest asked to pay the changed order or to cancel.
+    if (this.afterEdit && (!a || this.editingTerminal()))
+      return {
+        phase: this.afterEdit === 'pay' ? 'releasing' : 'cancelling',
+        reason: null,
+        offline: this.terminalOffline,
+        subStatus: null,
+      };
+    if (!a || this.editingTerminal()) return null;
     const phase: TerminalPaymentView['phase'] =
       a.phase === 'request' || a.phase === 'created' || a.phase === 'sending'
         ? 'starting'
@@ -1076,8 +1137,19 @@ export class CommercialKioskController {
     return {
       open: this.setupOpen(),
       confirming: this.setupConfirming,
+      confirmingCertificate:
+        this.setupConfirming && this.setupConfirmingPin
+          ? kaspiPinShort(this.setupConfirmingPin)
+          : null,
       result: this.setupResult,
-      link: link ? { terminalId: link.terminalId, serial: link.serial, host: link.host } : null,
+      link: link
+        ? {
+            terminalId: link.terminalId,
+            serial: link.serial,
+            host: link.host,
+            certificate: link.pin ? kaspiPinShort(link.pin) : null,
+          }
+        : null,
       cloudLinked: !!link && this.terminalConfig?.terminalId === link.terminalId,
       enabled: !!this.terminalConfig?.enabled,
     };
@@ -1136,7 +1208,8 @@ export class CommercialKioskController {
     if (code === 'CONNECTION_SOFT') return 'CONNECTION';
     if (code === 'RETRY_PAYMENT') return 'RETRY_PAYMENT';
     if (this.current.resetPending && !this.pending() && transient(error)) return 'OFFLINE';
-    if (this.blocked || this.current.intent || this.current.order) return 'PAYMENT_UNKNOWN';
+    if (this.blocked || this.current.intent || (this.current.order && !this.editingTerminal()))
+      return 'PAYMENT_UNKNOWN';
     return !this.menu ? 'MENU_LOAD' : 'NETWORK';
   }
   /**
@@ -1177,11 +1250,15 @@ export class CommercialKioskController {
           (background && !this.pending() && !!this.menu && transient(error));
         if (!quiet) this.setError(this.codeOf(error));
         if (soft || quiet) return false;
-        if (this.pending()) this.step = 'recovery';
+        // A refused tap of a guest changing the order (cart limit, stopped dish) is a cart
+        // matter: the open payment underneath is untouched and keeps being read.
+        if (this.pending() && !(this.editingTerminal() && !background)) this.step = 'recovery';
         else if (this.current.resetPending) this.step = 'start';
         return false;
       } finally {
         if (!background) this.busy = false;
+        // The payment moved on (paid, unknown, lost, recovery): the change is over.
+        if (this.terminalEdit && !this.editingTerminal()) this.endTerminalEdit();
         this.emit();
       }
     })();
@@ -1512,7 +1589,10 @@ export class CommercialKioskController {
       this.blocked || this.current.intent
         ? 'recovery'
         : this.current.terminal
-          ? 'payment'
+          ? // The guest changing the order stays on their screen (see `terminalEdit`).
+            this.editingTerminal() && EDIT_STEPS.includes(shown)
+            ? shown
+            : 'payment'
           : this.current.order
             ? paid(this.current.order) || this.current.order.phase === 'failed'
               ? 'order'
@@ -1525,7 +1605,10 @@ export class CommercialKioskController {
                   : 'start'
                 : BROWSING.includes(shown)
                   ? shown
-                  : 'menu';
+                  : // The changed order waits one poll for its payment (`payChangedOrder`).
+                    this.afterEdit === 'pay' && shown === 'payment'
+                    ? 'payment'
+                    : 'menu';
   }
   restore = () =>
     this.run(async () => {
@@ -1579,11 +1662,11 @@ export class CommercialKioskController {
       this.derive();
     }, true);
   private editable() {
-    if (this.unsafe() || this.current.order) throw new KioskError('RECOVERY_REQUIRED');
+    if (this.locked()) throw new KioskError('RECOVERY_REQUIRED');
     if (!this.menu) throw new KioskError('CATALOG_UNAVAILABLE');
   }
   private navigate(step: KioskStep) {
-    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (!this.ready || this.busy || this.locked()) return;
     this.touch();
     this.step = step;
     this.emit();
@@ -1610,7 +1693,7 @@ export class CommercialKioskController {
   goLoyalty = () => this.navigate('loyalty');
   openProduct = (productId: string) => {
     if (!this.menu?.products.some((p) => p.id === productId)) return;
-    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (!this.ready || this.busy || this.locked()) return;
     if (this.step !== 'product')
       this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = productId;
@@ -1621,7 +1704,7 @@ export class CommercialKioskController {
     const line = this.current.cart.find((l) => testLineId(l.productId, l.selections) === lineId);
     const product = line && this.menu?.products.find((p) => p.id === line.productId);
     if (!line || !product || product.available === false) return;
-    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (!this.ready || this.busy || this.locked()) return;
     if (this.step !== 'product')
       this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = line.productId;
@@ -1634,18 +1717,12 @@ export class CommercialKioskController {
     this.navigate('product');
   };
   closeProduct = () => {
-    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (!this.ready || this.busy || this.locked()) return;
     this.editing = null;
     this.navigate(this.returnStep);
   };
   setPaymentMethod = (method: KioskPaymentMethod) => {
-    if (
-      this.busy ||
-      this.unsafe() ||
-      this.current.order ||
-      method === 'card' ||
-      !this.paymentMethods.includes(method)
-    )
+    if (this.busy || this.locked() || method === 'card' || !this.paymentMethods.includes(method))
       return;
     if (method !== this.selectedMethod) this.phone = '';
     this.selectedMethod = method;
@@ -1653,7 +1730,7 @@ export class CommercialKioskController {
     this.emit();
   };
   setInvoicePhone = (value: string) => {
-    if (this.busy || this.unsafe() || this.current.order) return;
+    if (this.busy || this.locked()) return;
     this.phone = value.replace(/[^+\d ()-]/g, '').slice(0, 20);
     this.touch();
     this.emit();
@@ -1717,6 +1794,15 @@ export class CommercialKioskController {
     });
   beginPayment = () =>
     this.run(async () => {
+      if (this.editingTerminal()) {
+        // The terminal still holds the previous sum (one operation at a time, Kaspi error 107):
+        // the changed order is sent as soon as it is free (`pollTerminal`).
+        if (!this.current.cart.length || !this.snapshot().cartValid)
+          throw new KioskError('INVALID_CART');
+        this.afterEdit = 'pay';
+        this.step = 'payment';
+        return;
+      }
       this.editable();
       const displayedTotalMinor = this.snapshot().cartTotalMinor;
       const selected = this.selectedMethod;
@@ -2267,18 +2353,91 @@ export class CommercialKioskController {
   }
   /** One background step of the terminal payment; the screen calls it every second. */
   pollTerminal = async (): Promise<boolean> => {
+    if (!this.ready || this.busy || this.backgroundTask) return false;
+    // The terminal is free again: the changed order goes to payment at once.
+    if (this.afterEdit === 'pay' && !this.terminalEdit) return this.payChangedOrder();
     const a = this.current.terminal;
-    if (!a || !this.ready || this.busy || this.backgroundTask) return false;
-    if (['lost', 'send_failed'].includes(a.phase) || this.terminalSettled()) return false;
+    if (!a) return false;
+    // A guest changing the order leaves the failed payment without a tap.
+    const leaving = this.editingTerminal() && this.terminalSettled();
+    if (['lost', 'send_failed'].includes(a.phase) || (this.terminalSettled() && !leaving))
+      return false;
     return this.run(
       async () => {
-        await this.driveTerminal();
+        if (!leaving) await this.driveTerminal();
+        if (this.editingTerminal() && this.terminalSettled()) await this.finishTerminalEdit();
         this.derive();
       },
       false,
       true,
     );
   };
+  /**
+   * Owner 22.11.2026: «Отменить или изменить заказ» while the terminal waits. The cart opens at
+   * once; the payment stays open on the terminal and is read as before (see `terminalEdit`).
+   * From the wait for the terminal it returns the guest to the cart.
+   */
+  editTerminalOrder = () => {
+    const a = this.current.terminal;
+    if (!this.ready || this.busy || !this.menu || !a) return false;
+    if (this.blocked || this.current.intent || this.current.resetPending) return false;
+    if (this.terminalEdit ? !this.editingTerminal() : a.phase !== 'wait') return false;
+    this.terminalEdit = true;
+    this.afterEdit = null;
+    this.editDropped = false;
+    this.editing = null;
+    this.warning = null;
+    this.current = { ...this.current, lastActivityAt: this.io.now() };
+    this.step = 'cart';
+    this.emit();
+    return true;
+  };
+  private endTerminalEdit() {
+    // Paid while the guest was changing it: the first order is the one that was bought.
+    if (!this.current.terminal && paid(this.current.order)) this.editDropped = true;
+    this.terminalEdit = false;
+    this.afterEdit = null;
+  }
+  /**
+   * The terminal reported the failure (cancelled there or timed out) while the guest was changing
+   * the order: the unpaid order is left exactly as by «Изменить заказ» (`leaveTerminal`), the
+   * guest stays on their screen with the changed cart. A queued «Оплатить» starts on the next
+   * poll; a queued cancel ends the guest.
+   */
+  private async finishTerminalEdit() {
+    const shown = this.step;
+    await this.readOrder();
+    if (this.current.order?.phase !== 'failed') {
+      // The server knows more than the terminal said: the payment screen takes over.
+      this.endTerminalEdit();
+      return;
+    }
+    const ended = await this.io.request('/sessions/end', this.guest!.token, {});
+    if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+    await this.abandonUnpaidOrder(true);
+    const after = this.afterEdit;
+    this.terminalEdit = false;
+    if (after === 'cancel') {
+      this.afterEdit = null;
+      await this.save({ ...this.empty(), guestId: this.current.guestId });
+      this.clearGuestScreens();
+      return;
+    }
+    // The idle clock starts again: the draft is a plain cart from here on.
+    this.current = { ...this.current, lastActivityAt: this.io.now() };
+    this.step = after === 'pay' ? 'payment' : EDIT_STEPS.includes(shown) ? shown : 'cart';
+  }
+  /** «Оплатить» pressed while the terminal was still held: started once it is free. */
+  private async payChangedOrder() {
+    const free =
+      !this.current.terminal && !this.current.order && !this.current.intent && !this.unsafe();
+    const started = free && this.current.cart.length > 0 && (await this.beginPayment());
+    this.afterEdit = null;
+    // Not started (stopped dish, checkout closed): the review shows why, as after any refusal.
+    if (this.step === 'payment' && !this.pending() && !this.current.order) this.step = 'loyalty';
+    this.emit();
+    return started;
+  }
   /**
    * The guest tries again: a payment that never started is sent to the terminal again (the same
    * cloud attempt, nothing reached the terminal); after a failure a new attempt starts.
@@ -2303,24 +2462,36 @@ export class CommercialKioskController {
    * when the payment never started on the terminal (no money can move: the order stays unpaid and
    * the cloud moves its open attempt to review after 15 minutes).
    */
-  leaveTerminal = () =>
+  leaveTerminal = (fresh = false) =>
     this.run(async () => {
       const a = this.current.terminal;
       if (!a || !(a.phase === 'send_failed' || this.terminalSettled()))
         throw new KioskError('QUIET');
       if (a.phase === 'send_failed') {
         await this.abandonUnpaidOrder();
-        return;
+      } else {
+        await this.readOrder();
+        if (this.current.order?.phase !== 'failed') {
+          this.derive();
+          throw new KioskError('QUIET');
+        }
+        const ended = await this.io.request('/sessions/end', this.guest!.token, {});
+        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+        await this.abandonUnpaidOrder(true);
       }
-      await this.readOrder();
-      if (this.current.order?.phase !== 'failed') {
-        this.derive();
-        throw new KioskError('QUIET');
-      }
-      const ended = await this.io.request('/sessions/end', this.guest!.token, {});
-      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
-      await this.abandonUnpaidOrder(true);
+      if (fresh) await this.freshMenu();
     });
+  /**
+   * Owner 22.11.2026: «В меню» after a failed or cancelled terminal payment drops the whole
+   * draft (the unpaid order is already given up above) and opens an empty menu in the same
+   * dining mode, so the next guest never inherits the cart.
+   */
+  private async freshMenu() {
+    const mode = this.current.mode;
+    await this.save({ ...this.empty(), guestId: this.current.guestId, mode });
+    this.clearGuestScreens();
+    this.step = mode ? 'menu' : 'start';
+  }
   private refreshResult = (background = false) =>
     this.run(
       async () => {
@@ -2365,6 +2536,12 @@ export class CommercialKioskController {
     });
   cancelOrder = () =>
     this.run(async () => {
+      if (this.editingTerminal()) {
+        // As `newGuest`: the kiosk waits for the terminal, then ends the guest.
+        this.afterEdit = 'cancel';
+        this.step = 'payment';
+        return;
+      }
       if ((this.current.order && !terminal(this.current.order)) || this.current.intent)
         throw new KioskError('RECOVERY_REQUIRED');
       await this.reset();
@@ -2576,30 +2753,56 @@ export class CommercialKioskController {
     this.setupAction(async (session) => {
       const address = host.trim();
       if (!privateIPv4(address)) return 'host';
-      const identity = terminalIdentity(await session.deviceInfo(address).catch(() => null!));
-      if (!identity) return 'unreachable';
+      // HTTPS («Защита интеграции» on): the presented certificate is pinned from here on, trusted
+      // on first use; the staff sees its start and end while confirming on the terminal.
+      const probe = await session.probe(address);
+      if (!probe) return 'unreachable';
+      const pin = probe.transport === 'https' ? probe.pin : null;
+      const before: KaspiCallResult = await session
+        .deviceInfo(address, pin)
+        .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+      let identity = terminalIdentity(before);
+      // 22.11.2026: a protected terminal (HTTPS) refuses deviceinfo without a token (401, code
+      // 999). It answered, so register goes ahead and the identity is read with the new token.
+      if (!identity && !(pin !== null && tokenRefusedAnswer(before))) return 'unreachable';
       this.setupConfirming = true;
+      this.setupConfirmingPin = pin;
       this.emit();
       const name = terminalIntegrationName(this.io.uuid());
       let answer: KaspiCallResult;
       try {
-        answer = await session.register(address, name);
+        answer = await session.register(address, name, pin);
       } catch {
         answer = { kind: 'unreachable', reason: 'CONNECT' };
       } finally {
         this.setupConfirming = false;
+        this.setupConfirmingPin = null;
       }
       const tokens = terminalTokens(answer, this.io.now());
-      if (!tokens)
+      if (tokens && !identity) {
+        identity = terminalIdentity(
+          await session
+            .deviceInfo(address, pin, tokens.accessToken)
+            .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' })),
+        );
+        if (!identity) return 'unreachable';
+      }
+      if (!tokens || !identity)
         return answer.kind === 'refused' && answer.statusCode === 105
-          ? 'pending'
+          ? // 22.11.2026: over plain HTTP code 105 came from «Защита интеграции» being off.
+            pin === null
+            ? 'protection'
+            : 'pending'
           : answer.kind === 'unreachable'
-            ? 'unreachable'
+            ? answer.reason === 'CERTIFICATE'
+              ? 'certificate'
+              : 'unreachable'
             : 'denied';
       await session.save({
         host: address,
         terminalId: identity.terminalId,
         serial: identity.serial,
+        pin,
         name,
         ...tokens,
         linkedAt: this.io.now(),
@@ -2611,12 +2814,28 @@ export class CommercialKioskController {
     this.setupAction(async (session) => {
       let link = session.current();
       if (!link) return 'unreachable';
-      let identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
-      // Silent, or another device took the address: look for this terminal at a new address.
+      const ask = async (at: TerminalLink) => {
+        const read = (token: string) =>
+          session
+            .deviceInfo(at.host, at.pin, token)
+            .catch((): KaspiCallResult => ({ kind: 'unreachable', reason: 'CONNECT' }));
+        let answer = await read(at.accessToken);
+        // An expired or revoked token: renewed once, then asked again with the new one.
+        if (tokenRefusedAnswer(answer) && (await session.renew(true)) && session.current())
+          answer = await read(session.current()!.accessToken);
+        return {
+          identity: terminalIdentity(answer),
+          certificate: answer.kind === 'unreachable' && answer.reason === 'CERTIFICATE',
+        };
+      };
+      let { identity, certificate } = await ask(link);
+      // Silent, another device took the address, or another certificate answers there: look for
+      // this terminal (same ID, serial and pin) at a new address.
       if ((!identity || identity.terminalId !== link.terminalId) && (await session.relocate())) {
         link = session.current()!;
-        identity = terminalIdentity(await session.deviceInfo(link.host).catch(() => null!));
+        ({ identity, certificate } = await ask(link));
       }
+      if (certificate) return 'certificate';
       if (!identity) return 'unreachable';
       if (identity.terminalId !== link.terminalId) return 'mismatch';
       await session.renew();
@@ -2756,6 +2975,8 @@ export class CommercialKioskController {
    * session is retried in the background (resetPending).
    */
   private async reset() {
+    this.afterEdit = null;
+    this.editDropped = false;
     await this.save({
       ...this.empty(),
       guestId: this.current.guestId,
@@ -2768,12 +2989,19 @@ export class CommercialKioskController {
   }
   newGuest = () =>
     this.run(async () => {
+      if (this.editingTerminal()) {
+        // Nothing can be forgotten while the terminal may still take the money: the kiosk waits
+        // for the terminal and ends the guest then (`finishTerminalEdit`).
+        this.afterEdit = 'cancel';
+        this.step = 'payment';
+        return;
+      }
       if (this.pending()) throw new KioskError('RECOVERY_REQUIRED');
       if (this.current.resetPending) await this.finishReset();
       else await this.reset();
     });
   touch = () => {
-    if (!this.ready || this.unsafe() || this.current.order) return;
+    if (!this.ready || this.locked()) return;
     const warned = this.warning !== null;
     this.current = { ...this.current, lastActivityAt: this.io.now() };
     this.warning = null;

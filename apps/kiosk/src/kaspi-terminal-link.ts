@@ -1,23 +1,31 @@
 import {
+  KASPI_PIN,
   kaspiExpiration,
   kaspiText,
   privateIPv4,
   type KaspiCallOptions,
   type KaspiCallResult,
   type KaspiMethod,
+  type KaspiProbe,
+  type KaspiProbePort,
   type KaspiTerminalPort,
 } from './kaspi-terminal.ts';
 
 /**
- * The kiosk's own Kaspi Smart POS (ADR-0018): its address, identity and the integration token.
- * Stored only in SecureStore of this iPad (WHEN_UNLOCKED_THIS_DEVICE_ONLY); the token is never
- * sent to the cloud, which only learns terminal_id, serial and host.
+ * The kiosk's own Kaspi Smart POS (ADR-0018): its address, identity, certificate pin and the
+ * integration token. Stored only in SecureStore of this iPad (WHEN_UNLOCKED_THIS_DEVICE_ONLY);
+ * the token and the pin are never sent to the cloud, which only learns terminal_id, serial, host.
  */
 export const KASPI_TERMINAL_LINK_KEY = 'pickchick.kiosk.kaspi-terminal.v1';
 export interface TerminalLink {
   host: string;
   terminalId: string;
   serial: string;
+  /**
+   * SHA-256 of the terminal's leaf certificate (HTTPS, «Защита интеграции» on), captured at the
+   * first link; null: a terminal linked over plain HTTP (also every link stored before 22.11).
+   */
+  pin: string | null;
   /** The integration name of /v2/register; /v2/revoke needs the same one. */
   name: string;
   accessToken: string;
@@ -38,7 +46,8 @@ export const TOKEN_RENEW_RETRY_MS = 60000;
 /**
  * Owner 16.11.2026: the router cannot get a DHCP reservation, so the terminal's address may
  * change. When the stored address does not answer (nothing was sent), the kiosk looks for the
- * same terminal (terminal ID and serial from /v2/deviceinfo) in the /24 of the old address, at
+ * same terminal (terminal ID and serial from /v2/deviceinfo, and for an HTTPS link the same
+ * certificate pin: deviceinfo is asked over the pinned TLS) in the /24 of the old address, at
  * most once a minute, keeps the new address and tells the cloud (PUT /terminal).
  */
 export const RELOCATE_RETRY_MS = 60000;
@@ -79,13 +88,16 @@ export function parseTerminalLink(raw: string | null): TerminalLink | null {
     typeof v.refreshToken !== 'string' ||
     !TOKEN.test(v.refreshToken) ||
     !Number.isSafeInteger(v.expiresAt) ||
-    !Number.isSafeInteger(v.linkedAt)
+    !Number.isSafeInteger(v.linkedAt) ||
+    // Absent in links stored before HTTPS (build 25): those are plain HTTP links.
+    !(v.pin === undefined || v.pin === null || (typeof v.pin === 'string' && KASPI_PIN.test(v.pin)))
   )
     return null;
   return {
     host: v.host,
     terminalId: v.terminalId,
     serial: v.serial,
+    pin: typeof v.pin === 'string' ? v.pin : null,
     name: v.name,
     accessToken: v.accessToken,
     refreshToken: v.refreshToken,
@@ -116,7 +128,8 @@ export function terminalTokens(answer: KaspiCallResult, now: number) {
   return { accessToken: access, refreshToken: refresh, expiresAt };
 }
 
-const tokenRefused = (answer: KaspiCallResult) =>
+/** The terminal answered and refused the token (or its absence): 401/403. */
+export const tokenRefusedAnswer = (answer: KaspiCallResult) =>
   answer.kind === 'refused' && (answer.httpStatus === 401 || answer.httpStatus === 403);
 
 /**
@@ -134,10 +147,18 @@ export class TerminalSession {
   private readonly store: TerminalLinkStore;
   private readonly port: KaspiTerminalPort;
   private readonly now: () => number;
-  constructor(store: TerminalLinkStore, port: KaspiTerminalPort, now: () => number) {
+  private readonly prober: KaspiProbePort | null;
+  /** Without a probe (older tests, plain-HTTP-only setups) every address is taken as HTTP. */
+  constructor(
+    store: TerminalLinkStore,
+    port: KaspiTerminalPort,
+    now: () => number,
+    probe: KaspiProbePort | null = null,
+  ) {
     this.store = store;
     this.port = port;
     this.now = now;
+    this.prober = probe;
   }
   current() {
     return this.link;
@@ -154,12 +175,26 @@ export class TerminalSession {
     await this.store.remove();
     this.link = null;
   }
-  /** Read-only identity check of any address (no token needed). */
-  deviceInfo(host: string) {
-    return this.port(host, 'deviceinfo', {});
+  /** How the terminal at an address speaks (HTTPS and its certificate, or HTTP); null: silent. */
+  async probe(host: string): Promise<KaspiProbe> {
+    if (!this.prober) return { transport: 'http' };
+    try {
+      return await this.prober(host);
+    } catch {
+      return null;
+    }
   }
-  register(host: string, name: string) {
-    return this.port(host, 'register', { name });
+  /**
+   * Read-only identity check of an address, pinned when `pin` is given. 22.11.2026 (terminal #2,
+   * app 2.64.9): with «Защита интеграции» on, /v2/deviceinfo without a token answers 401
+   * `{"statusCode":999,"errorText":"Authorization failed"}`, so a linked terminal is always
+   * asked with its access token.
+   */
+  deviceInfo(host: string, pin: string | null = null, token?: string) {
+    return this.port(host, 'deviceinfo', {}, token ? { pin, token } : { pin });
+  }
+  register(host: string, name: string, pin: string | null = null) {
+    return this.port(host, 'register', { name }, { pin });
   }
   /** /v2/revoke with the stored refresh token; the new tokens are stored before use. */
   async renew(force = false): Promise<boolean> {
@@ -173,7 +208,7 @@ export class TerminalSession {
         link.host,
         'revoke',
         { name: link.name, refreshToken: link.refreshToken },
-        { token: link.accessToken },
+        { token: link.accessToken, pin: link.pin },
       );
     } catch {
       answer = { kind: 'unreachable', reason: 'CONNECT' };
@@ -207,7 +242,7 @@ export class TerminalSession {
     // once (safe for a payment too: `unreachable` means its pre-flight failed, nothing was sent).
     if (first.kind === 'unreachable' && (await this.relocate()) && this.link)
       first = await this.safeCall(this.link, method, params, options);
-    if (!tokenRefused(first)) return first;
+    if (!tokenRefusedAnswer(first)) return first;
     const renewed = await this.renew(true);
     if (!renewed || method === 'payment' || !this.link) return first;
     return this.safeCall(this.link, method, params, options);
@@ -238,7 +273,14 @@ export class TerminalSession {
             host,
             'deviceinfo',
             {},
-            { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS },
+            // An HTTPS link is pinned here too: only the same certificate answers at all, so a
+            // device with another certificate is never taken for this terminal.
+            // The token too, only over the pinned HTTPS: a protected terminal answers deviceinfo
+            // only with it (22.11.2026), and a wrong certificate cancels before anything is sent.
+            // A plain-HTTP link never sends its token to the other addresses of the network.
+            link.pin
+              ? { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: link.pin, token: link.accessToken }
+              : { timeoutMs: RELOCATE_PROBE_TIMEOUT_MS, pin: null },
           );
         } catch {
           answer = null;
@@ -271,7 +313,11 @@ export class TerminalSession {
     options: Omit<KaspiCallOptions, 'token'>,
   ): Promise<KaspiCallResult> {
     try {
-      return await this.port(link.host, method, params, { ...options, token: link.accessToken });
+      return await this.port(link.host, method, params, {
+        ...options,
+        token: link.accessToken,
+        pin: link.pin,
+      });
     } catch {
       // Invalid link or parameters: nothing was sent.
       return { kind: 'unreachable', reason: 'CONNECT' };

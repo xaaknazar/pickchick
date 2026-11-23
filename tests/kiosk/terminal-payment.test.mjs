@@ -147,7 +147,15 @@ function terminalFixture({
       },
     },
     call: async (host, method, params, options = {}) => {
-      t.calls.push({ host, method, params, token: options.token ?? null });
+      t.calls.push({
+        host,
+        method,
+        params,
+        token: options.token ?? null,
+        pin: options.pin ?? null,
+      });
+      if (t.certificate && options.pin && options.pin !== t.certificate)
+        return { kind: 'unreachable', reason: 'CERTIFICATE' };
       if (method === 'payment') return t.payment();
       if (method === 'status') return t.statuses.length > 1 ? t.statuses.shift() : t.statuses[0];
       if (method === 'actualize') return t.actualize();
@@ -284,6 +292,22 @@ test('the guest cancels on the terminal: ProcessCancelled shows «cancelled»', 
   await c.pollTerminal();
   assert.equal(c.getSnapshot().terminalPayment.phase, 'cancelled');
   assert.equal(h.terminal.events.at(-1).sub_status, 'ProcessCancelled');
+});
+
+test('owner 22.11: «В меню» after a cancelled terminal payment drops the draft and opens an empty menu', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'fail', subStatus: 'ProcessCancelled' } }];
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'cancelled');
+  assert.equal(await c.leaveTerminal(true), true);
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(s.order, null);
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.cart.length, 0, 'the next guest starts with an empty bag');
+  assert.equal(flowOf(h).cart.length, 0);
+  assert.ok(flowOf(h).mode, 'the dining mode stays');
 });
 
 test('lost payment answer: never sent again, staff can review it', async () => {
@@ -548,6 +572,8 @@ test('terminal setup: staff code, IP, deviceinfo, register, SecureStore, PUT ter
     terminalId: TERMINAL_ID,
     serial: 'SPOS3A1B2C3',
     host: '192.168.1.50',
+    // No probe in this fixture: the terminal answers plain HTTP, nothing is pinned.
+    certificate: null,
   });
   assert.equal(setup.cloudLinked, true);
   assert.deepEqual(
@@ -602,7 +628,8 @@ test('terminal setup: a terminal held by another kiosk is not kept; a refused re
     message: null,
   });
   await c.linkTerminal('192.168.1.50');
-  assert.equal(c.getSnapshot().terminalSetup.result, 'pending');
+  // 22.11.2026: over plain HTTP code 105 means «Защита интеграции» is off.
+  assert.equal(c.getSnapshot().terminalSetup.result, 'protection');
   assert.equal(h.terminal.raw, null);
   h.terminal.register = () => ({ kind: 'lost', reason: 'TIMEOUT' });
   await c.linkTerminal('192.168.1.50');
@@ -618,6 +645,91 @@ test('terminal setup: a terminal held by another kiosk is not kept; a refused re
   h.terminal.deviceinfo = () => ({ kind: 'unreachable', reason: 'CONNECT' });
   await c.linkTerminal('192.168.1.51');
   assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+});
+
+test('terminal setup over HTTPS: the probed certificate is pinned, shown shortened, never sent to the cloud', async () => {
+  const PIN = '228fc8c4' + 'ab'.repeat(24) + '5d0e9a17';
+  const h = terminalFixture({ linked: false, cloudTerminal: null });
+  h.io.verifyStaff = async () => {};
+  const probes = [];
+  h.io.terminal.probe = async (host) => {
+    probes.push(host);
+    return host === '192.168.1.50' ? { transport: 'https', pin: PIN } : null;
+  };
+  h.terminal.certificate = PIN;
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  assert.equal(await c.openTerminalSetup('4829'), true);
+
+  // Nothing answers at the address: no deviceinfo, no register.
+  await c.linkTerminal('192.168.1.77');
+  assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+  assert.equal(h.terminal.calls.length, 0);
+
+  let shown = null;
+  const register = h.terminal.register;
+  h.terminal.register = () => {
+    shown = c.getSnapshot().terminalSetup.confirmingCertificate;
+    return register();
+  };
+  assert.equal(await c.linkTerminal('192.168.1.50'), true);
+  assert.equal(shown, '228fc8c4…5d0e9a17', 'the staff sees the start and end while confirming');
+  const setup = c.getSnapshot().terminalSetup;
+  assert.equal(setup.result, 'linked');
+  assert.equal(setup.confirmingCertificate, null);
+  assert.equal(setup.link.certificate, '228fc8c4…5d0e9a17');
+  assert.deepEqual(
+    h.terminal.calls.map((call) => [call.method, call.pin]),
+    [
+      ['deviceinfo', PIN],
+      ['register', PIN],
+    ],
+  );
+  assert.equal(parseTerminalLink(h.terminal.raw).pin, PIN);
+  assert.deepEqual(h.terminal.sends[0].body, {
+    terminal_id: TERMINAL_ID,
+    serial: 'SPOS3A1B2C3',
+    host: '192.168.1.50',
+  });
+  assert.equal(JSON.stringify(h.terminal.sends).includes(PIN), false, 'no pin to the cloud');
+  assert.equal(JSON.stringify(h.calls).includes(PIN), false, 'no pin in any cloud request');
+
+  assert.equal(await c.checkTerminal(), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'ok');
+  assert.equal(h.terminal.calls.at(-1).pin, PIN);
+
+  // The terminal now presents another certificate: nothing is sent past the handshake, the
+  // search for a moved terminal finds no device with the pinned certificate, the staff is told.
+  h.terminal.certificate = 'ff'.repeat(32);
+  const before = h.terminal.calls.length;
+  await c.checkTerminal();
+  assert.equal(c.getSnapshot().terminalSetup.result, 'certificate');
+  const after = h.terminal.calls.slice(before);
+  assert.ok(after.every((call) => call.method === 'deviceinfo' && call.pin === PIN));
+  assert.equal(parseTerminalLink(h.terminal.raw).host, '192.168.1.50', 'the link is kept');
+});
+
+test('a guest payment on an HTTPS link goes with the pin; another certificate sends nothing', async () => {
+  const PIN = 'c0'.repeat(32);
+  const h = terminalFixture();
+  h.terminal.raw = JSON.stringify(storedLink({ pin: PIN }));
+  h.terminal.certificate = PIN;
+  await pay(h);
+  const payments = sent(h, 'payment');
+  assert.equal(payments.length, 1);
+  assert.equal(payments[0].pin, PIN);
+
+  const other = terminalFixture();
+  other.terminal.raw = JSON.stringify(storedLink({ pin: PIN }));
+  other.terminal.certificate = 'ee'.repeat(32);
+  const c = await pay(other);
+  const s = c.getSnapshot();
+  assert.equal(s.terminalPayment.phase, 'not_started', 'nothing sent: not started, not lost');
+  assert.equal(s.terminalPayment.reason, 'unreachable');
+  assert.ok(
+    other.terminal.calls.every((call) => call.pin === PIN),
+    'every attempt is pinned (the search too)',
+  );
 });
 
 test('the stored terminal attempt is strictly checked on restore', async () => {
@@ -644,6 +756,313 @@ test('terminal copy: same keys in ru/kk/en, no long dash, never the word «те�
   for (const value of Object.values(terminalCopyForTest.en))
     assert.doesNotMatch(value, /[А-Яа-яЁё]/);
   assert.equal(terminalCopyForTest.ru.title, 'Оплатите на терминале');
-  assert.equal(terminalCopyForTest.ru.subtitle, 'картой или Kaspi QR');
+  assert.equal(terminalCopyForTest.ru.subtitle, 'картой или в приложении Kaspi.kz');
+  // Owner 22.11.2026: with the terminal no guest text speaks of a QR.
+  for (const [locale, strings] of Object.entries(terminalCopyForTest))
+    for (const [key, value] of Object.entries(strings))
+      if (!['disabled', 'result_unlinked'].includes(key))
+        assert.doesNotMatch(value, /QR/, `${locale}.${key}`);
   assert.equal(terminalCopyForTest.ru.confirmTitle, 'Нажмите «Разрешить» на терминале');
+});
+
+test('protected terminal (22.11): deviceinfo without a token is 401/999, register goes ahead, identity is read with the new token', async () => {
+  const PIN = 'd1'.repeat(32);
+  const h = terminalFixture({ linked: false, cloudTerminal: null });
+  h.io.verifyStaff = async () => {};
+  h.io.terminal.probe = async (host) =>
+    host === '192.168.2.145' ? { transport: 'https', pin: PIN } : null;
+  h.terminal.certificate = PIN;
+  const identity = { terminalId: TERMINAL_ID, serialNum: 'SPOS3A1B2C3' };
+  const refused = {
+    kind: 'refused',
+    httpStatus: 401,
+    statusCode: 999,
+    message: 'Authorization failed',
+  };
+  let valid = 'access-2';
+  h.terminal.deviceinfo = () =>
+    h.terminal.calls.at(-1).token === valid ? { kind: 'ok', data: identity } : refused;
+  const c = new CommercialKioskController(h.io);
+  assert.equal(await c.restore(), true);
+  assert.equal(await c.openTerminalSetup('4829'), true);
+
+  assert.equal(await c.linkTerminal('192.168.2.145'), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'linked');
+  assert.deepEqual(
+    h.terminal.calls.map((call) => [call.method, call.token, call.pin]),
+    [
+      ['deviceinfo', null, PIN],
+      ['register', null, PIN],
+      ['deviceinfo', 'access-2', PIN],
+    ],
+  );
+  assert.equal(parseTerminalLink(h.terminal.raw).terminalId, TERMINAL_ID);
+  assert.equal(h.terminal.sends[0].body.terminal_id, TERMINAL_ID);
+
+  // «Проверить связь» asks with the stored token.
+  const before = h.terminal.calls.length;
+  assert.equal(await c.checkTerminal(), true);
+  assert.equal(c.getSnapshot().terminalSetup.result, 'ok');
+  assert.equal(h.terminal.calls[before].token, 'access-2');
+
+  // A plain-HTTP terminal that refuses deviceinfo is still «не отвечает»: nothing is registered.
+  h.terminal.raw = null;
+  valid = 'none';
+  h.io.terminal.probe = async () => ({ transport: 'http' });
+  const count = sent(h, 'register').length;
+  await c.unlinkTerminal();
+  await c.linkTerminal('192.168.2.146');
+  assert.equal(c.getSnapshot().terminalSetup.result, 'unreachable');
+  assert.equal(sent(h, 'register').length, count);
+});
+
+// Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once. Kaspi has no cancel
+// command, so the open payment is followed underneath and nothing about money changes.
+const cancelled = () => ({ kind: 'ok', data: { status: 'fail', subStatus: 'ProcessCancelled' } });
+const lineOf = (c) => c.getSnapshot().cart[0].lineId;
+
+test('owner 22.11: «Изменить заказ» while the terminal waits opens the cart at once, the payment stays followed', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  const requests = h.calls.length;
+  const terminalCalls = h.terminal.calls.length;
+  assert.equal(c.editTerminalOrder(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'cart');
+  assert.equal(s.order, null, 'the guest sees a plain draft');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.recoveryRequired, false);
+  assert.equal(s.cart.length, 1);
+  assert.equal(h.calls.length, requests, 'no request: nothing is cancelled or forgotten');
+  assert.equal(h.terminal.calls.length, terminalCalls);
+  assert.equal(flowOf(h).terminal.phase, 'wait');
+  assert.ok(flowOf(h).order);
+
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true);
+  assert.equal(flowOf(h).cart[0].quantity, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-1', 'the open attempt is written back untouched');
+  c.goMenu();
+  assert.equal(c.getSnapshot().step, 'menu');
+  // The terminal is still read every second and a background refresh keeps the guest's screen.
+  await c.pollTerminal();
+  assert.equal(sent(h, 'status').length > 0, true);
+  await c.refresh();
+  assert.equal(c.getSnapshot().step, 'menu');
+  // A refused tap is a cart matter, never the recovery screen.
+  assert.equal(await c.updateQuantity('no-such-line', 1), false);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.notEqual(s.errorCode, 'PAYMENT_UNKNOWN');
+  assert.equal(sent(h, 'payment').length, 1);
+});
+
+test('owner 22.11: only a waiting terminal payment can be changed; a restart shows the payment again', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  assert.equal(c.editTerminalOrder(), true);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true);
+  const again = new CommercialKioskController(h.io);
+  assert.equal(await again.restore(), true);
+  let s = again.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.ok(s.order);
+  h.terminal.statuses = [cancelled()];
+  await again.pollTerminal();
+  assert.equal(again.getSnapshot().terminalPayment.phase, 'cancelled');
+  assert.equal(again.editTerminalOrder(), false, 'a settled payment is left by «Изменить заказ»');
+  assert.equal(await again.leaveTerminal(), true);
+  s = again.getSnapshot();
+  assert.equal(s.step, 'cart');
+  assert.equal(s.cart[0].quantity, 2, 'the change made before the restart is kept');
+});
+
+test('owner 22.11: the terminal lets go while the guest changes the order: left without a tap, then paid as a new order', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  const first = h.order.orderId;
+  c.editTerminalOrder();
+  c.goMenu();
+  h.terminal.statuses = [cancelled()];
+  assert.equal(await c.pollTerminal(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'menu', 'the guest stays on their screen');
+  assert.equal(s.cart.length, 1);
+  assert.equal(s.terminalPayment, null);
+  assert.equal(h.terminal.events.at(-1).status, 'fail');
+  assert.equal(h.terminal.events.at(-1).sub_status, 'ProcessCancelled');
+  assert.equal(h.calls.filter((call) => call.path === '/sessions/end').length, 1);
+  assert.equal('terminal' in flowOf(h), false);
+  assert.equal(flowOf(h).order, null);
+  assert.equal(flowOf(h).guestId, null, 'the changed order gets a new guest session');
+  assert.equal(await c.pollTerminal(), false, 'nothing left to read');
+
+  h.order = null;
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'wait' } }];
+  h.terminal.payment = () => ({ kind: 'ok', data: { processId: 'P-2' } });
+  c.goLoyalty();
+  assert.equal(await c.beginPayment(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.notEqual(h.order.orderId, first);
+  assert.equal(h.terminal.attempts, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-2');
+});
+
+test('owner 22.11: «Оплатить» while the terminal still holds the old sum waits, then pays the changed order by itself', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goLoyalty();
+  assert.equal(await c.beginPayment(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'releasing');
+  assert.equal(s.order, null);
+  assert.equal(sent(h, 'payment').length, 1, 'never a second /v2/payment on a busy terminal');
+  assert.equal(h.terminal.attempts, 1);
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'releasing');
+  // «Вернуться к заказу» and pay again.
+  assert.equal(c.editTerminalOrder(), true);
+  assert.equal(c.getSnapshot().step, 'cart');
+  assert.equal(c.getSnapshot().terminalPayment, null);
+  assert.equal(await c.beginPayment(), true);
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'releasing');
+
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(
+    s.terminalPayment.phase,
+    'releasing',
+    'the terminal is free, the payment starts next',
+  );
+  assert.equal(flowOf(h).order, null);
+  h.order = null;
+  h.terminal.statuses = [{ kind: 'ok', data: { status: 'wait' } }];
+  h.terminal.payment = () => ({ kind: 'ok', data: { processId: 'P-2' } });
+  assert.equal(await c.pollTerminal(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'waiting');
+  assert.equal(sent(h, 'payment').length, 2);
+  assert.equal(h.terminal.attempts, 2);
+  assert.equal(flowOf(h).terminal.processId, 'P-2');
+  // The new payment is an ordinary one.
+  h.terminal.statuses = [success()];
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().step, 'order');
+  assert.equal(c.getSnapshot().editDropped, false);
+});
+
+test('owner 22.11: a changed order that cannot be paid returns to the review with the reason', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goLoyalty();
+  await c.beginPayment();
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  h.order = null;
+  h.terminal.cloud.enabled = false;
+  h.paymentMethods = [];
+  assert.equal(await c.pollTerminal(), false);
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'loyalty');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.order, null);
+  assert.equal(await c.pollTerminal(), false, 'asked once');
+});
+
+test('owner 22.11: paid on the terminal while the guest changes the order: the first order wins', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  await c.updateQuantity(lineOf(c), 2);
+  h.terminal.statuses = [success()];
+  assert.equal(await c.pollTerminal(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'order');
+  assert.equal(s.order.payment_state, 'paid');
+  assert.equal(s.editDropped, true, 'the guest is told the changes are not in the order');
+  assert.equal(h.terminal.events.at(-1).status, 'success');
+  assert.equal(c.editTerminalOrder(), false);
+  assert.equal(await c.newGuest(), true);
+  s = c.getSnapshot();
+  assert.equal(s.step, 'start');
+  assert.equal(s.editDropped, false);
+  assert.equal(s.cart.length, 0);
+});
+
+test('owner 22.11: cancel while changing the order waits for the terminal, then ends the guest', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  assert.equal(await c.newGuest(), true);
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'cancelling');
+  assert.ok(flowOf(h).order, 'nothing is forgotten while the terminal may still take the money');
+  await c.pollTerminal();
+  assert.equal(c.getSnapshot().terminalPayment.phase, 'cancelling');
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'start');
+  assert.equal(s.terminalPayment, null);
+  assert.equal(s.cart.length, 0);
+  assert.equal(flowOf(h).order, null);
+  assert.equal(flowOf(h).mode, null);
+  assert.equal(sent(h, 'payment').length, 1);
+});
+
+test('owner 22.11: an unknown terminal result ends the change: the payment screen takes over', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goMenu();
+  h.terminal.statuses = [{ kind: 'refused', httpStatus: 400, statusCode: 101, message: 'gone' }];
+  await c.pollTerminal();
+  const s = c.getSnapshot();
+  assert.equal(s.step, 'payment');
+  assert.equal(s.terminalPayment.phase, 'checking');
+  assert.ok(s.order);
+  assert.equal(c.editTerminalOrder(), false);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), false, 'the draft is closed again');
+});
+
+test('owner 22.11: a cloud that does not answer keeps the guest changing the order; it is left once the cloud answers', async () => {
+  const h = terminalFixture();
+  const c = await pay(h);
+  c.editTerminalOrder();
+  c.goMenu();
+  // The terminal failed, the cloud does not take the result yet.
+  h.terminal.eventsDown = true;
+  h.terminal.statuses = [cancelled()];
+  await c.pollTerminal();
+  let s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(flowOf(h).terminal.phase, 'fail');
+  assert.equal(flowOf(h).terminal.reported, false);
+  assert.equal(await c.updateQuantity(lineOf(c), 2), true, 'the draft stays open meanwhile');
+  // The result is taken, the session end is not.
+  h.terminal.eventsDown = false;
+  h.endFail = true;
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(s.recoveryRequired, false);
+  assert.equal(flowOf(h).terminal.reported, true);
+  assert.ok(flowOf(h).order, 'not left before the old guest is ended');
+  h.endFail = false;
+  await c.pollTerminal();
+  s = c.getSnapshot();
+  assert.equal(s.step, 'menu');
+  assert.equal(flowOf(h).order, null);
+  assert.equal('terminal' in flowOf(h), false);
+  assert.equal(s.cart[0].quantity, 2);
+  assert.equal(s.error, null);
 });

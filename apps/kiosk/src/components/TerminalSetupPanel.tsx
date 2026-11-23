@@ -12,8 +12,9 @@ const GOOD = ['linked', 'ok', 'unlinked'];
 /**
  * Staff setup of the kiosk's own Kaspi Smart POS (ADR-0018), inside the white staff dialog after
  * the staff code: the terminal IP → «Подключить» → «Нажмите «Разрешить» на терминале» while the
- * terminal asks → the linked terminal (ID, serial, IP) with «Проверить связь» and «Отвязать».
- * The token is never shown.
+ * terminal asks (with the start and end of the certificate being pinned, HTTPS) → the linked
+ * terminal (ID, serial, IP, certificate) with «Проверить связь» and «Отвязать». The token is
+ * never shown.
  */
 export function TerminalSetupPanel({
   view,
@@ -42,7 +43,27 @@ export function TerminalSetupPanel({
     <Wrapper gap={18} testID="kiosk-terminal-setup">
       <Heading size="title">{view.confirming ? t.confirmTitle : t.setupTitle}</Heading>
       {view.confirming ? (
-        <Body testID="kiosk-terminal-confirm">{t.confirmBody}</Body>
+        <Wrapper gap={8}>
+          <Body testID="kiosk-terminal-confirm">{t.confirmBody}</Body>
+          {view.confirmingCertificate ? (
+            <View style={{ flexDirection: 'row', gap: px(12), flexWrap: 'wrap' }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.medium, fontSize: 18, color: colors.muted }}
+              >
+                {t.confirmCertificate}
+              </Text>
+              <Text
+                {...fixedText}
+                selectable
+                testID="kiosk-terminal-confirm-certificate"
+                style={{ fontFamily: fonts.heavy, fontSize: 18, color: colors.navy }}
+              >
+                {view.confirmingCertificate}
+              </Text>
+            </View>
+          ) : null}
+        </Wrapper>
       ) : link ? (
         <Wrapper gap={8} testID="kiosk-terminal-linked">
           <Body variant="label" tone="muted">
@@ -52,6 +73,7 @@ export function TerminalSetupPanel({
             [t.terminalId, link.terminalId],
             [t.serial, link.serial],
             [t.ip, link.host],
+            [t.certificate, link.certificate ?? t.plainHttp],
           ].map(([label, value]) => (
             <View key={label} style={{ flexDirection: 'row', gap: px(12), flexWrap: 'wrap' }}>
               <Text
@@ -97,7 +119,9 @@ export function TerminalSetupPanel({
               padding: px(18),
               borderWidth: 2,
               borderColor:
-                view.result === 'host' || view.result === 'unreachable'
+                view.result === 'host' ||
+                view.result === 'unreachable' ||
+                view.result === 'certificate'
                   ? colors.error
                   : colors.border,
               borderRadius: 16,

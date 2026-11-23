@@ -245,12 +245,16 @@ class RedesignMenu(ui.KioskUI):
                     ui.capture(page, f'menu-extras10-{width}.png')
                 self.assertEqual(len(fixture.orders), 0)
 
-    def test_empty_cart_disables_checkout(self):
+    def test_empty_cart_checkout_asks_for_a_dish(self):
         for width, height in SIZES:
             with self.subTest(width=width, height=height):
                 page, fixture = self.open_with(width, height)
                 self.start(page)
-                self.assertTrue(ui.element(page, 'kiosk-menu-checkout').is_disabled())
+                # Owner 22.11.2026: the empty checkout still answers: a hint, and the menu stays.
+                self.assertFalse(ui.element(page, 'kiosk-menu-checkout').is_disabled())
+                ui.element(page, 'kiosk-menu-checkout').click()
+                expect(ui.element(page, 'kiosk-toast')).to_contain_text('Сначала выберите блюдо')
+                ui.screen(page, 'menu')
                 self.assertTrue(ui.element(page, 'kiosk-cart-open').is_disabled())
                 self.check_layout(page, width, height, 'combo')
                 ui.capture(page, f'menu-empty-{width}.png')
@@ -264,7 +268,7 @@ if __name__ == '__main__':
         'RedesignMenu.test_kazakh_and_english_headers_fit',
         'RedesignMenu.test_nineteen_drinks_scroll_under_the_panel',
         'RedesignMenu.test_ten_extras_still_fit',
-        'RedesignMenu.test_empty_cart_disables_checkout',
+        'RedesignMenu.test_empty_cart_checkout_asks_for_a_dish',
         'RedesignMenu.test_dining_colour_covers_before_menu_is_visible',
         'RedesignMenu.test_reduced_motion_mid_cover_releases_menu',
     ], verbosity=2)

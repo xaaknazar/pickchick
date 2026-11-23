@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
 import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
@@ -14,7 +14,7 @@ import { useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
 import { MENU_BOTTOM, RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
-import { useStagger } from './motion';
+import { useEnter } from './motion';
 import type { Category, MenuMemory } from './categories';
 /**
  * Grid metrics in design points (1024 pt mockups): gutter, the smallest card and hit rows that
@@ -31,7 +31,7 @@ const GRID = { gap: 16, right: 16, minRow: 250, minHit: 284, scrollRow: 320 };
  * `memory` (e.g. while a product page is open). Cards rise in with a stagger whenever a section
  * opens; cards already in the bag carry a count badge.
  */
-export function MenuGrid({
+export const MenuGrid = memo(function MenuGrid({
   products,
   category,
   memory,
@@ -42,6 +42,7 @@ export function MenuGrid({
   onOpen,
   onAdd,
   onInteraction,
+  active = true,
 }: {
   /** Every product of the section, in catalog order. */
   products: KioskProduct[];
@@ -56,6 +57,8 @@ export function MenuGrid({
   onOpen: (p: KioskProduct) => void;
   onAdd: (p: KioskProduct) => void;
   onInteraction: () => void;
+  /** False while the section is kept built under the open one (MenuDeck). */
+  active?: boolean;
 }) {
   const { px, width: screenWidth, height: screenHeight } = useMetrics();
   const t = copy(locale);
@@ -87,6 +90,12 @@ export function MenuGrid({
     },
     [restoration],
   );
+  // A kept section opens from its top, like a freshly built one.
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (active && !wasActive.current) list.current?.scrollTo({ y: 0, animated: false });
+    wasActive.current = active;
+  }, [active]);
   const restore = () => {
     if (restoration.done || !restoration.viewport || !restoration.content) return;
     restoration.done = true;
@@ -98,7 +107,7 @@ export function MenuGrid({
   return (
     <ScrollView
       ref={list}
-      testID="kiosk-menu-scroll"
+      testID={active ? 'kiosk-menu-scroll' : undefined}
       style={{ flex: 1, minHeight: 0 }}
       showsVerticalScrollIndicator={false}
       onScrollBeginDrag={onInteraction}
@@ -117,7 +126,8 @@ export function MenuGrid({
       }}
       scrollEventThrottle={64}
       onScroll={(e) => {
-        if (restoration.done) memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
+        if (restoration.done && active)
+          memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
       }}
       contentContainerStyle={{ paddingRight: px(GRID.right), paddingBottom: px(MENU_BOTTOM) }}
     >
@@ -160,7 +170,7 @@ export function MenuGrid({
       </View>
     </ScrollView>
   );
-}
+});
 /** Places a tile on its frame and plays the prototype rise (staggered, static when reduced). */
 function Rise({
   index,
@@ -171,7 +181,10 @@ function Rise({
   frame: BentoFrame;
   children: ReactNode;
 }) {
-  const enter = useStagger(index);
+  // Owner 22.11.2026: a tab switch must never show an empty grid. The tiles are visible within
+  // the first ~100 ms (opacity reaches 1 at a third of the rise) and settle with a short, soft
+  // lift instead of the long 34 pt rise.
+  const enter = useEnter(Math.min(index, 6) * 22, 360);
   return (
     <Animated.View
       style={{
@@ -180,10 +193,10 @@ function Rise({
         top: frame.y,
         width: frame.width,
         height: frame.height,
-        opacity: enter,
+        opacity: enter.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
         transform: [
-          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
-          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) },
         ],
       }}
     >
