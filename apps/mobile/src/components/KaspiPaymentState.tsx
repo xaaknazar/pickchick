@@ -24,7 +24,7 @@ import { money } from '../domain';
 import { Body, Button, Caption, Heading, Icon, BottomActions } from './UI';
 import { PaymentMark } from './PaymentChoice';
 import { useReducedMotion } from './Motion';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { checkoutStyle } from './CheckoutPresentation';
 import { useTabBarInset } from './tab-bar-inset';
 import { SupportContact } from './SupportContact';
@@ -306,7 +306,7 @@ export function KaspiPaymentState({
               <Icon
                 name={paid ? 'checkmark' : 'alert'}
                 size={64}
-                color={paid ? '#FFFFFF' : colors.accent}
+                color={paid ? tc('#FFFFFF') : colors.accent}
               />
             </View>
           ) : (
@@ -613,123 +613,125 @@ export function KaspiPaymentState({
     </View>
   );
 }
-const s = StyleSheet.create({
-  cancelHelp: { gap: 12, alignItems: 'center', marginTop: 24, maxWidth: 350 },
-  deadline: { alignItems: 'center', gap: 4, marginTop: 16 },
-  deadlineTime: {
-    fontSize: 24,
-    lineHeight: 32,
-    fontFamily: font.medium,
-    fontVariant: ['tabular-nums'],
-  },
-  root: { flex: 1, backgroundColor: colors.background },
-  // The X sits where the cart's own X is (CartTopBar): right, 16 pt from the edge.
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-  },
-  tightTopBar: { paddingTop: 6 },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-  },
-  title: {
-    fontFamily: font.display,
-    fontSize: 30,
-    lineHeight: 36,
-    letterSpacing: -0.5,
-    textAlign: 'center',
-    maxWidth: 380,
-  },
-  visual: {
-    width: 280,
-    height: 290,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 28,
-  },
-  scene: { width: 280, height: 290, alignItems: 'center', justifyContent: 'center' },
-  compactScene: { transform: [{ scale: 0.58 }] },
-  compactVisual: { height: 170, marginVertical: 12 },
-  resultVisual: { height: 170, marginVertical: 20 },
-  resultMark: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  success: { backgroundColor: '#1FAF5A' },
-  failure: { backgroundColor: '#141B2B', borderWidth: 1.5, borderColor: '#FF690073' },
-  glow: {
-    position: 'absolute',
-    width: 270,
-    height: 270,
-    borderRadius: 135,
-    backgroundColor: '#123887',
-  },
-  ring: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  hero: { width: 260, height: 260, borderRadius: 130 },
-  kaspiBadge: {
-    position: 'absolute',
-    right: 10,
-    bottom: 4,
-    padding: 4,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    transform: [{ rotate: '8deg' }],
-  },
-  detail: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#A3B4D6',
-    textAlign: 'center',
-    maxWidth: 350,
-    marginTop: 10,
-  },
-  small: { fontSize: 12, lineHeight: 18, color: '#A3B4D6', textAlign: 'center' },
-  orderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 18,
-    marginTop: 24,
-    borderRadius: 22,
-    backgroundColor: '#141B2B',
-    width: '100%',
-    maxWidth: 360,
-  },
-  orderColumn: { flex: 1, alignItems: 'center', gap: 4 },
-  divider: { width: 1, height: 42, backgroundColor: '#FFFFFF14', marginHorizontal: 14 },
-  number: { color: colors.accent, fontFamily: font.heading, fontSize: 26, lineHeight: 34 },
-  mode: { fontFamily: font.heading, fontSize: 18, lineHeight: 26 },
-  button: { borderRadius: 28, minHeight: 56 },
-  spinner: { marginBottom: 14 },
-  // 320 x 568 class screens (height < 620).
-  tightContent: { paddingVertical: 12 },
-  // The X row above already keeps the content off the top edge.
-  contentUnderBar: { paddingTop: 8 },
-  tightContentUnderBar: { paddingTop: 0 },
-  tightTitle: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
-  tightVisual: { height: 104, marginVertical: 6 },
-  tightScene: { transform: [{ scale: 0.36 }] },
-  tightSpinner: { marginBottom: 4 },
-  tightDetail: { marginTop: 4, fontSize: 14, lineHeight: 20 },
-  tightDeadline: { marginTop: 8, gap: 0 },
-  tightDeadlineTime: { fontSize: 20, lineHeight: 26 },
-  tightButton: { minHeight: 48 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    cancelHelp: { gap: 12, alignItems: 'center', marginTop: 24, maxWidth: 350 },
+    deadline: { alignItems: 'center', gap: 4, marginTop: 16 },
+    deadlineTime: {
+      fontSize: 24,
+      lineHeight: 32,
+      fontFamily: font.medium,
+      fontVariant: ['tabular-nums'],
+    },
+    root: { flex: 1, backgroundColor: colors.background },
+    // The X sits where the cart's own X is (CartTopBar): right, 16 pt from the edge.
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      width: '100%',
+      maxWidth: 760,
+      alignSelf: 'center',
+    },
+    tightTopBar: { paddingTop: 6 },
+    content: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 28,
+    },
+    title: {
+      fontFamily: font.display,
+      fontSize: 30,
+      lineHeight: 36,
+      letterSpacing: -0.5,
+      textAlign: 'center',
+      maxWidth: 380,
+    },
+    visual: {
+      width: 280,
+      height: 290,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 28,
+    },
+    scene: { width: 280, height: 290, alignItems: 'center', justifyContent: 'center' },
+    compactScene: { transform: [{ scale: 0.58 }] },
+    compactVisual: { height: 170, marginVertical: 12 },
+    resultVisual: { height: 170, marginVertical: 20 },
+    resultMark: {
+      width: 132,
+      height: 132,
+      borderRadius: 66,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    success: { backgroundColor: tc('#1FAF5A') },
+    failure: { backgroundColor: tc('#141B2B'), borderWidth: 1.5, borderColor: tc('#FF690073') },
+    glow: {
+      position: 'absolute',
+      width: 270,
+      height: 270,
+      borderRadius: 135,
+      backgroundColor: tc('#123887'),
+    },
+    ring: {
+      position: 'absolute',
+      width: 250,
+      height: 250,
+      borderRadius: 125,
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    hero: { width: 260, height: 260, borderRadius: 130 },
+    kaspiBadge: {
+      position: 'absolute',
+      right: 10,
+      bottom: 4,
+      padding: 4,
+      borderRadius: 20,
+      backgroundColor: '#FFFFFF',
+      transform: [{ rotate: '8deg' }],
+    },
+    detail: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: tc('#A3B4D6'),
+      textAlign: 'center',
+      maxWidth: 350,
+      marginTop: 10,
+    },
+    small: { fontSize: 12, lineHeight: 18, color: tc('#A3B4D6'), textAlign: 'center' },
+    orderCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 18,
+      marginTop: 24,
+      borderRadius: 22,
+      backgroundColor: tc('#141B2B'),
+      width: '100%',
+      maxWidth: 360,
+    },
+    orderColumn: { flex: 1, alignItems: 'center', gap: 4 },
+    divider: { width: 1, height: 42, backgroundColor: '#FFFFFF14', marginHorizontal: 14 },
+    number: { color: colors.accent, fontFamily: font.heading, fontSize: 26, lineHeight: 34 },
+    mode: { fontFamily: font.heading, fontSize: 18, lineHeight: 26 },
+    button: { borderRadius: 28, minHeight: 56 },
+    spinner: { marginBottom: 14 },
+    // 320 x 568 class screens (height < 620).
+    tightContent: { paddingVertical: 12 },
+    // The X row above already keeps the content off the top edge.
+    contentUnderBar: { paddingTop: 8 },
+    tightContentUnderBar: { paddingTop: 0 },
+    tightTitle: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
+    tightVisual: { height: 104, marginVertical: 6 },
+    tightScene: { transform: [{ scale: 0.36 }] },
+    tightSpinner: { marginBottom: 4 },
+    tightDetail: { marginTop: 4, fontSize: 14, lineHeight: 20 },
+    tightDeadline: { marginTop: 8, gap: 0 },
+    tightDeadlineTime: { fontSize: 20, lineHeight: 26 },
+    tightButton: { minHeight: 48 },
+  }),
+);

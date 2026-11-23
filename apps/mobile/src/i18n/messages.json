@@ -6372,6 +6372,36 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:299"
   },
   {
+    "ru": "Тема приложения",
+    "kk": "Қолданба тақырыбы",
+    "en": "App theme",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx:307"
+  },
+  {
+    "ru": "Как в системе",
+    "kk": "Жүйедегідей",
+    "en": "Match system",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx:307"
+  },
+  {
+    "ru": "Светлая",
+    "kk": "Ашық",
+    "en": "Light",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx:307"
+  },
+  {
+    "ru": "Тёмная",
+    "kk": "Қараңғы",
+    "en": "Dark",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx:307"
+  },
+  {
+    "ru": "Синяя",
+    "kk": "Көк",
+    "en": "Blue",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx:307"
+  },
+  {
     "ru": "Язык приложения",
     "kk": "Қолданба тілі",
     "en": "App language",

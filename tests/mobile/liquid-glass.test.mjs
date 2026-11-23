@@ -330,8 +330,10 @@ test('glass inside the capsule never samples glass; rims follow the live surface
     ['handle', handle, 'handle'],
     ['bag pill', bar, 'bag'],
   ]) {
-    const block = text.slice(text.indexOf(`\n  ${style}: {`));
-    assert.match(block.slice(0, block.indexOf('\n  },')), /backgroundColor: glass\.pillBase/, name);
+    // Styles sit inside themed(() => StyleSheet.create(...)) since the themes (23.11.2026).
+    const start = text.search(new RegExp(`\\n +${style}: \\{`));
+    const block = text.slice(start);
+    assert.match(block.slice(0, block.search(/\n +\},/)), /backgroundColor: glass\.pillBase/, name);
     // The rim colour comes from the surface drawn now (a hook), never from a value fixed once
     // per process: with Reduce Transparency on iOS 26 the solid glass shows its rim.
     assert.match(text, /= useGlassRim\(\);/, name);

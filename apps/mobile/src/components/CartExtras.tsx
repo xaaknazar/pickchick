@@ -15,7 +15,7 @@ import { orderUI } from './OrderPresentation';
 import { cartRecommendations } from '../cart-actions';
 import { lineUnitPrice, money, selectionDescription } from '../domain';
 import { ProductPhoto, productPhoto } from './ProductPhoto';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 
 export function CartRecommendations({ props }: { props: ScreenProps }) {
   useLocale();
@@ -178,70 +178,72 @@ export function CheckoutPayments() {
     </View>
   );
 }
-const s = StyleSheet.create({
-  // Owner 22.11.2026: the same card as the menu grid - photo on the light window, the name
-  // under it, then the price on the left and the round orange plus on the right.
-  extra: {
-    width: 148,
-    padding: 6,
-    paddingBottom: 10,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#FFFFFF0D',
-  },
-  extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#EEF2F8' },
-  extraText: { gap: 2, paddingTop: 10, paddingHorizontal: 6 },
-  extraName: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: colors.text },
-  extraDetail: { fontSize: 12, lineHeight: 17, color: colors.muted },
-  extraAdd: {
-    minHeight: 44,
-    marginTop: 10,
-    paddingLeft: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  extraPrice: {
-    fontFamily: font.bold,
-    fontSize: 15,
-    lineHeight: 20,
-    fontVariant: ['tabular-nums'],
-    color: colors.text,
-  },
-  extraPlus: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  promotion: {
-    width: 260,
-    padding: 18,
-    gap: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-  },
-  methods: { gap: 8 },
-  method: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 80,
-    padding: 16,
-    gap: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-  },
-  methodIcon: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.raised,
-  },
-  methodText: { flex: 1, minWidth: 0, gap: 2 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // Owner 22.11.2026: the same card as the menu grid - photo on the light window, the name
+    // under it, then the price on the left and the round orange plus on the right.
+    extra: {
+      width: 148,
+      padding: 6,
+      paddingBottom: 10,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0D'),
+    },
+    extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#EEF2F8' },
+    extraText: { gap: 2, paddingTop: 10, paddingHorizontal: 6 },
+    extraName: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: colors.text },
+    extraDetail: { fontSize: 12, lineHeight: 17, color: colors.muted },
+    extraAdd: {
+      minHeight: 44,
+      marginTop: 10,
+      paddingLeft: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+    },
+    extraPrice: {
+      fontFamily: font.bold,
+      fontSize: 15,
+      lineHeight: 20,
+      fontVariant: ['tabular-nums'],
+      color: colors.text,
+    },
+    extraPlus: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    promotion: {
+      width: 260,
+      padding: 18,
+      gap: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    methods: { gap: 8 },
+    method: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 80,
+      padding: 16,
+      gap: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    methodIcon: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: colors.raised,
+    },
+    methodText: { flex: 1, minWidth: 0, gap: 2 },
+  }),
+);

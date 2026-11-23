@@ -7,7 +7,7 @@ import { createCustomerRequest } from '../customer-http';
 import { useAccount } from '../useAccount';
 import { parseCheckoutLegal, type CheckoutLegal } from '../checkout-legal';
 import { Body, Button, Caption, Heading } from './UI';
-import { colors } from '../theme';
+import { colors, themed } from '../theme';
 import { t, useLocale } from '../i18n';
 
 /** Explicit consent is append-only on the server, never inferred from opening this dialog. */
@@ -169,7 +169,9 @@ export function useCheckoutLegal() {
     ) : null,
   };
 }
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 24, gap: 20, flexGrow: 1, justifyContent: 'center' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    content: { padding: 24, gap: 20, flexGrow: 1, justifyContent: 'center' },
+  }),
+);

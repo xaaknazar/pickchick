@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { t, useLocale } from '../i18n';
-import { font } from '../theme';
+import { colors, font, themed } from '../theme';
 import { authColors } from './AuthLayout';
 import { BirthDatePickerSheet } from './BirthDatePickerSheet';
 import {
@@ -42,7 +42,9 @@ export default function BirthDatePicker({ value, onConfirm, onCancel }: BirthDat
   );
 }
 
-const s = StyleSheet.create({ inputContainer: { paddingHorizontal: 22, paddingVertical: 20 } });
+const s = themed(() =>
+  StyleSheet.create({ inputContainer: { paddingHorizontal: 22, paddingVertical: 20 } }),
+);
 const inputStyle: CSSProperties = {
   boxSizing: 'border-box',
   width: '100%',
@@ -53,7 +55,7 @@ const inputStyle: CSSProperties = {
   border: `1px solid ${authColors.border}`,
   background: authColors.background,
   color: authColors.text,
-  colorScheme: 'dark',
+  colorScheme: colors.scheme,
   fontFamily: `${font.heading}, sans-serif`,
   fontSize: 20,
 };

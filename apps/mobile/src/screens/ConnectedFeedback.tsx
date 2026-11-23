@@ -10,7 +10,7 @@ import { useAccount } from '../useAccount';
 import { Body, Button, Caption, Heading, Icon, Loading, Notice, Page, Row } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { orderUI } from '../components/OrderPresentation';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 
 const ticketStatus = {
   new: 'Принято',
@@ -296,28 +296,30 @@ function FeedbackForm(props: ScreenProps) {
     </Page>
   );
 }
-const s = StyleSheet.create({
-  context: { gap: 8 },
-  star: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-  },
-  input: {
-    minHeight: 140,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    fontFamily: font.body,
-    fontSize: 16,
-    lineHeight: 24,
-    textAlignVertical: 'top',
-  },
-  ticket: { gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderColor: colors.border },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    context: { gap: 8 },
+    star: {
+      width: 48,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+    },
+    input: {
+      minHeight: 140,
+      padding: 16,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      color: colors.text,
+      fontFamily: font.body,
+      fontSize: 16,
+      lineHeight: 24,
+      textAlignVertical: 'top',
+    },
+    ticket: { gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderColor: colors.border },
+  }),
+);

@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import type { ScreenProps } from '../model';
 import { Body, Caption, Icon } from './UI';
 import { MotionPressable } from './Motion';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 
 export function ComboGiftChoice({ props }: { props: ScreenProps }) {
   useLocale();
@@ -58,7 +58,9 @@ export function ComboGiftChoice({ props }: { props: ScreenProps }) {
     </View>
   );
 }
-const s = StyleSheet.create({
-  panel: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, gap: 8 },
-  choice: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    panel: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, gap: 8 },
+    choice: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  }),
+);

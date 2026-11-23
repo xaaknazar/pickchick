@@ -1,3 +1,4 @@
+import { themed, tc } from '../theme';
 import { localize, t, useLocale } from '../i18n';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -321,27 +322,33 @@ export function KaspiSlideToPay({
   );
 }
 
-const s = StyleSheet.create({
-  // Transparent touch and VoiceOver frame; the visible pill fills its width, centred vertically.
-  frame: { alignItems: 'stretch', justifyContent: 'center' },
-  handle: {
-    width: '100%',
-    backgroundColor: glass.pillBase,
-    shadowColor: '#000000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  // No text selection or native scrolling while the handle is dragged with a mouse or pen.
-  webHandle: { cursor: 'pointer', userSelect: 'none', touchAction: 'none' } as unknown as ViewStyle,
-  // The mark stays in the pill's right end: under the finger while it stretches. The slot is
-  // laid over the rim (right/top -RIM), so the mark is centred on the pill and the finger.
-  markSlot: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  glyphMark: { alignItems: 'center', justifyContent: 'center' },
-  mark: { overflow: 'hidden', backgroundColor: '#F14635' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // Transparent touch and VoiceOver frame; the visible pill fills its width, centred vertically.
+    frame: { alignItems: 'stretch', justifyContent: 'center' },
+    handle: {
+      width: '100%',
+      backgroundColor: glass.pillBase,
+      shadowColor: tc('#000000'),
+      shadowOpacity: 0.3,
+      shadowOffset: { width: 0, height: 3 },
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    // No text selection or native scrolling while the handle is dragged with a mouse or pen.
+    webHandle: {
+      cursor: 'pointer',
+      userSelect: 'none',
+      touchAction: 'none',
+    } as unknown as ViewStyle,
+    // The mark stays in the pill's right end: under the finger while it stretches. The slot is
+    // laid over the rim (right/top -RIM), so the mark is centred on the pill and the finger.
+    markSlot: {
+      position: 'absolute',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    glyphMark: { alignItems: 'center', justifyContent: 'center' },
+    mark: { overflow: 'hidden', backgroundColor: tc('#F14635') },
+  }),
+);

@@ -11,7 +11,7 @@ import { MotionPressable } from '../components/Motion';
 import { CheckoutPayments } from '../components/CartExtras';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 
 export function CheckoutHeader({ props }: { props: ScreenProps }) {
   useLocale();
@@ -72,7 +72,7 @@ export function CheckoutDetails({
                 <Icon
                   name={mode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
                   size={26}
-                  color={selected ? colors.accent : '#A3B4D6'}
+                  color={selected ? colors.accent : tc('#A3B4D6')}
                 />
                 {selected ? (
                   <View style={s.selected}>
@@ -82,7 +82,7 @@ export function CheckoutDetails({
                 <Body style={s.modeTitle}>
                   {localize(mode === 'dine_in' ? 'В зале' : 'С собой')}
                 </Body>
-                <Caption style={[s.modeHint, selected && { color: '#FFC9A3' }]}>
+                <Caption style={[s.modeHint, selected && { color: tc('#FFC9A3') }]}>
                   {localize(mode === 'dine_in' ? 'Подадим на подносе' : 'Упакуем в пакет')}
                 </Caption>
               </MotionPressable>
@@ -92,7 +92,7 @@ export function CheckoutDetails({
       )}
       <View style={s.restaurant}>
         <Row style={s.placeRow}>
-          <Icon name="location-outline" color="#A3B4D6" size={20} />
+          <Icon name="location-outline" color={tc('#A3B4D6')} size={20} />
           <View style={s.place}>
             <Body style={s.placeName}>
               {localize(
@@ -105,7 +105,7 @@ export function CheckoutDetails({
         {commentEnabled ? (
           <View style={s.commentRow}>
             <View style={s.commentHeading}>
-              <Icon name="chatbubble-outline" size={20} color="#A3B4D6" />
+              <Icon name="chatbubble-outline" size={20} color={tc('#A3B4D6')} />
               <Body style={s.commentLabel}>{t('Комментарий к заказу')}</Body>
             </View>
             <TextInput
@@ -125,7 +125,7 @@ export function CheckoutDetails({
               numberOfLines={3}
               textAlignVertical="top"
               placeholder={t('Например, соус отдельно')}
-              placeholderTextColor="#A3B4D6"
+              placeholderTextColor={tc('#A3B4D6')}
               style={[
                 s.commentInput,
                 commentFocused && { borderColor: colors.accent },
@@ -183,73 +183,75 @@ export function Checkout(props: ScreenProps) {
     </Page>
   );
 }
-const s = StyleSheet.create({
-  layout: { gap: 10 },
-  section: { gap: 10, paddingVertical: 12 },
-  sectionLabel: {
-    fontFamily: font.bold,
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 1.2,
-    color: '#A3B4D6',
-    marginHorizontal: 8,
-  },
-  modes: { flexDirection: 'row', gap: 10 },
-  mode: {
-    flex: 1,
-    minHeight: 102,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF0F',
-    backgroundColor: '#141B2B',
-    gap: 3,
-  },
-  modeSelected: { borderColor: colors.accent, backgroundColor: '#FF69001F' },
-  selected: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modeTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 23, marginTop: 4 },
-  modeHint: { fontSize: 12, lineHeight: 18, color: '#A3B4D6' },
-  restaurant: {
-    backgroundColor: '#141B2B',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#FFFFFF0F',
-    marginTop: 2,
-  },
-  placeRow: { minHeight: 62, padding: 14, gap: 12 },
-  place: { flex: 1, minWidth: 0, gap: 2 },
-  placeName: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
-  commentRow: {
-    gap: 8,
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#FFFFFF0A',
-  },
-  commentHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  commentLabel: { fontSize: 15, lineHeight: 21, color: '#FFFFFF' },
-  commentInput: {
-    minHeight: 82,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FFFFFF33',
-    backgroundColor: '#0A1020',
-    color: '#FFFFFF',
-    fontFamily: font.body,
-    fontSize: 16,
-    lineHeight: 23,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: '#A3B4D6' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    layout: { gap: 10 },
+    section: { gap: 10, paddingVertical: 12 },
+    sectionLabel: {
+      fontFamily: font.bold,
+      fontSize: 12,
+      lineHeight: 18,
+      letterSpacing: 1.2,
+      color: tc('#A3B4D6'),
+      marginHorizontal: 8,
+    },
+    modes: { flexDirection: 'row', gap: 10 },
+    mode: {
+      flex: 1,
+      minHeight: 102,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: tc('#FFFFFF0F'),
+      backgroundColor: tc('#141B2B'),
+      gap: 3,
+    },
+    modeSelected: { borderColor: colors.accent, backgroundColor: tc('#FF69001F') },
+    selected: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modeTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 23, marginTop: 4 },
+    modeHint: { fontSize: 12, lineHeight: 18, color: tc('#A3B4D6') },
+    restaurant: {
+      backgroundColor: tc('#141B2B'),
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0F'),
+      marginTop: 2,
+    },
+    placeRow: { minHeight: 62, padding: 14, gap: 12 },
+    place: { flex: 1, minWidth: 0, gap: 2 },
+    placeName: { fontFamily: font.medium, fontSize: 15, lineHeight: 21 },
+    commentRow: {
+      gap: 8,
+      padding: 14,
+      borderTopWidth: 1,
+      borderTopColor: tc('#FFFFFF0A'),
+    },
+    commentHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    commentLabel: { fontSize: 15, lineHeight: 21, color: tc('#FFFFFF') },
+    commentInput: {
+      minHeight: 82,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF33'),
+      backgroundColor: tc('#0A1020'),
+      color: tc('#FFFFFF'),
+      fontFamily: font.body,
+      fontSize: 16,
+      lineHeight: 23,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: tc('#A3B4D6') },
+  }),
+);

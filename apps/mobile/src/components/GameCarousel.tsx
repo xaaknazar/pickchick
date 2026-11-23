@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { carouselIndex } from '../games/order-games';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { MotionPressable } from './Motion';
 import { Icon } from './UI';
 
@@ -34,6 +34,7 @@ const CARD_HEIGHT = 200;
 const GAP = 12;
 // Eased stops keep the 120 pt fade free of a visible edge or a solid plate.
 const fade =
+  // Over the game art in every theme: white captions need the dark shade.
   'linear-gradient(180deg, rgba(10,16,32,0) 0%, rgba(10,16,32,0.06) 16%, rgba(10,16,32,0.2) 32%, rgba(10,16,32,0.4) 50%, rgba(10,16,32,0.62) 68%, rgba(10,16,32,0.8) 84%, rgba(10,16,32,0.92) 100%)';
 const shade = (
   Platform.OS === 'web' ? { backgroundImage: fade } : { experimental_backgroundImage: fade }
@@ -175,67 +176,74 @@ const textShadow = {
   textShadowOffset: { width: 0, height: 1 },
   textShadowRadius: 6,
 };
-const s = StyleSheet.create({
-  root: { gap: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  title: {
-    flex: 1,
-    fontFamily: font.display,
-    fontSize: 20,
-    lineHeight: 26,
-    color: colors.text,
-  },
-  counter: {
-    fontFamily: font.medium,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-    fontVariant: ['tabular-nums'],
-  },
-  track: { gap: GAP },
-  card: {
-    height: CARD_HEIGHT,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: colors.raised,
-    justifyContent: 'flex-end',
-  },
-  shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
-  cardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-  },
-  cardStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
-  copy: { flex: 1, minWidth: 0 },
-  copyStacked: { alignSelf: 'stretch' },
-  cardTitle: {
-    fontFamily: font.display,
-    fontSize: 24,
-    lineHeight: 31,
-    color: colors.white,
-    ...textShadow,
-  },
-  cardText: {
-    fontFamily: font.medium,
-    fontSize: 12.5,
-    lineHeight: 17,
-    color: '#E6EEFF',
-    ...textShadow,
-  },
-  play: {
-    height: 40,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.accent,
-  },
-  playText: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: colors.orangeInk },
-  dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2A3E66' },
-  dotActive: { width: 18, backgroundColor: colors.accent },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { gap: 10 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    title: {
+      flex: 1,
+      fontFamily: font.display,
+      fontSize: 20,
+      lineHeight: 26,
+      color: colors.text,
+    },
+    counter: {
+      fontFamily: font.medium,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.muted,
+      fontVariant: ['tabular-nums'],
+    },
+    track: { gap: GAP },
+    card: {
+      height: CARD_HEIGHT,
+      borderRadius: 20,
+      overflow: 'hidden',
+      backgroundColor: colors.raised,
+      justifyContent: 'flex-end',
+    },
+    shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
+    cardBottom: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingBottom: 14,
+    },
+    cardStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
+    copy: { flex: 1, minWidth: 0 },
+    copyStacked: { alignSelf: 'stretch' },
+    cardTitle: {
+      fontFamily: font.display,
+      fontSize: 24,
+      lineHeight: 31,
+      color: colors.white,
+      ...textShadow,
+    },
+    cardText: {
+      fontFamily: font.medium,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: tc('#E6EEFF'),
+      ...textShadow,
+    },
+    play: {
+      height: 40,
+      borderRadius: 20,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.accent,
+    },
+    playText: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: colors.orangeInk },
+    dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tc('#2A3E66') },
+    dotActive: { width: 18, backgroundColor: colors.accent },
+  }),
+);

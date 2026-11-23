@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { closePaymentCopy } from '../commerce-presentation';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 import { MotionModal } from './Motion';
 import { Body, Button, Heading } from './UI';
 
@@ -55,20 +55,22 @@ export function PaymentCloseConfirm({
   );
 }
 
-const s = StyleSheet.create({
-  backdrop: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#00000099',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-    borderRadius: 24,
-    padding: 24,
-    gap: 16,
-    backgroundColor: colors.surface,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    backdrop: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      backgroundColor: tc('#00000099'),
+    },
+    card: {
+      width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
+      borderRadius: 24,
+      padding: 24,
+      gap: 16,
+      backgroundColor: colors.surface,
+    },
+  }),
+);

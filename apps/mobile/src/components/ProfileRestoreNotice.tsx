@@ -1,3 +1,4 @@
+import { tc } from '../theme';
 import { localize, useLocale } from '../i18n';
 import { useAccount } from '../useAccount';
 import { Body, Button } from './UI';
@@ -10,7 +11,7 @@ export function ProfileRestoreNotice({ restorationOnly = false }: { restorationO
   if (!demo.error || (demo.ready && (demo.mode === 'demo' || restorationOnly))) return null;
   return (
     <View testID="profile-restore-error" style={{ gap: 12, marginTop: 16 }}>
-      <Body style={{ color: '#FFB0AB' }}>{localize(demo.error)}</Body>
+      <Body style={{ color: tc('#FFB0AB') }}>{localize(demo.error)}</Body>
       <Button
         title={localize(
           demo.busy

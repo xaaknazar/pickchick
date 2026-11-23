@@ -1,3 +1,4 @@
+import { tc } from './theme';
 import { Text } from './components/LocalizedText';
 import { t, useLocale } from './i18n';
 import { OrderSheet } from './components/OrderSheet';
@@ -164,7 +165,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       </>
     );
   return (
-    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#0A1020' }}>
+    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: tc('#0A1020') }}>
       {screen()}
       {preview ? (
         <Pressable
@@ -179,10 +180,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
             paddingVertical: 10,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0A2050',
+            backgroundColor: tc('#0A2050'),
           }}
         >
-          <Text style={{ color: '#C0CDE6', fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
+          <Text style={{ color: tc('#C0CDE6'), fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
             {t('Вернуться в меню')}
           </Text>
         </Pressable>

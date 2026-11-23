@@ -3,7 +3,7 @@ import { useIsFocused } from 'expo-router';
 import type { MobileModel } from '../model';
 import { paymentStopMessage } from '../payment-availability';
 import { usePaymentAvailability } from '../usePaymentAvailability';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 import { useLocale } from '../i18n';
 import { Text } from './LocalizedText';
 import { Icon } from './UI';
@@ -32,26 +32,28 @@ export function RestaurantClosedNotice({ model }: { model: MobileModel }) {
   );
 }
 
-const s = StyleSheet.create({
-  slot: { alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
-  pill: {
-    maxWidth: '100%',
-    minHeight: 36,
-    borderRadius: 24,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  text: {
-    flexShrink: 1,
-    fontFamily: font.medium,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    slot: { alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+    pill: {
+      maxWidth: '100%',
+      minHeight: 36,
+      borderRadius: 24,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: colors.background,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    text: {
+      flexShrink: 1,
+      fontFamily: font.medium,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.muted,
+    },
+  }),
+);

@@ -8,7 +8,7 @@ import { assets } from '../assets';
 import { WebHeroVideo } from './WebHeroVideo';
 import { useHeroHostVisible } from './useHeroHostVisible';
 import { heroShouldPlay } from '../hero-playback';
-import { colors, font } from '../theme';
+import { currentTheme, colors, font, themed, tc } from '../theme';
 import { API_URL } from '../api';
 import { useMobile } from '../store';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
@@ -22,7 +22,7 @@ export function HeroVideo({
   blendBottom?: boolean;
 }) {
   useLocale();
-  const overlay = blendBottom ? productGradient : shaded ? gradient : undefined;
+  const overlay = blendBottom ? productGradient() : shaded ? gradient() : undefined;
   return Platform.OS === 'web' ? (
     <WebHeroVideo gradient={overlay} />
   ) : (
@@ -176,11 +176,11 @@ export function FeatureTile({
       onPress={onPress}
       style={({ pressed }) => [
         brand.tile,
-        orange && { backgroundColor: '#432C25' },
+        orange && { backgroundColor: tc('#432C25') },
         pressed && ui.pressed,
       ]}
     >
-      <Icon name={icon} color={orange ? colors.accent : '#92BCFF'} size={30} />
+      <Icon name={icon} color={orange ? colors.accent : tc('#92BCFF')} size={30} />
       <Heading small style={{ fontSize: 20, marginTop: 14 }}>
         {localize(title)}
       </Heading>
@@ -223,7 +223,7 @@ export function DiningSelector({
               fontFamily: font.medium,
               fontSize: 13.5,
               lineHeight: 19,
-              color: value === option.value ? '#0047BB' : '#FFFFFFDD',
+              color: value === option.value ? tc('#0047BB') : tc('#FFFFFFDD'),
             }}
           >
             {localize(option.label)}
@@ -235,63 +235,76 @@ export function DiningSelector({
 }
 // Match the owner screenshot: keep the product visible through the caption,
 // then fade broadly behind the first card into the exact page color at the edge.
-const gradient =
+const DARK_GRADIENT =
   'linear-gradient(180deg, rgba(10,16,32,0.45) 0%, rgba(10,16,32,0.05) 26%, rgba(10,16,32,0) 40%, rgba(10,16,32,0.07) 50%, rgba(10,16,32,0.19) 60%, rgba(10,16,32,0.40) 70%, rgba(10,16,32,0.66) 80%, rgba(10,16,32,0.86) 88%, rgba(10,16,32,0.965) 94%, #0A1020 99%, #0A1020 100%)';
-const productGradient =
+const DARK_PRODUCT_GRADIENT =
   'linear-gradient(180deg, rgba(10,16,32,0) 38%, rgba(10,16,32,0.08) 55%, rgba(10,16,32,0.28) 68%, rgba(10,16,32,0.62) 82%, rgba(10,16,32,0.90) 93%, #0A1020 100%)';
-const brand = StyleSheet.create({
-  loyalty: {
-    minHeight: 84,
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: colors.surface,
-    // The supplied skyline deliberately rises above the card's top edge.
-    overflow: 'visible',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  skyline: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    right: 0,
-    top: -26,
-    opacity: 0.34,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  ring: {
-    width: 52,
-    height: 52,
-    flexShrink: 0,
-    borderRadius: 26,
-    borderWidth: 6,
-    borderColor: colors.accent,
-    borderRightColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  tile: {
-    flex: 1,
-    minHeight: 159,
-    borderRadius: 20,
-    padding: 18,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 5,
-  },
-  segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
-  segmentItem: {
-    minHeight: 48,
-    paddingVertical: 10,
-    borderRadius: 9,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  segmentSelected: { backgroundColor: '#FFFFFF' },
-});
+/**
+ * Light theme (23.11.2026): the top stays shaded for the white header, the caption keeps a dark
+ * veil, and only the last stretch fades into the light page, so «Комбо недели» stays readable.
+ */
+const LIGHT_GRADIENT =
+  'linear-gradient(180deg, rgba(10,16,32,0.45) 0%, rgba(10,16,32,0.05) 26%, rgba(10,16,32,0) 40%, rgba(10,16,32,0.1) 52%, rgba(10,16,32,0.24) 64%, rgba(10,16,32,0.3) 74%, rgba(228,237,251,0.35) 86%, rgba(228,237,251,0.85) 94%, #E4EDFB 99%, #E4EDFB 100%)';
+const LIGHT_PRODUCT_GRADIENT =
+  'linear-gradient(180deg, rgba(10,16,32,0) 38%, rgba(10,16,32,0.12) 60%, rgba(228,237,251,0.4) 80%, rgba(228,237,251,0.9) 93%, #E4EDFB 100%)';
+const gradient = () => (currentTheme() === 'light' ? LIGHT_GRADIENT : tc(DARK_GRADIENT));
+const productGradient = () =>
+  currentTheme() === 'light' ? LIGHT_PRODUCT_GRADIENT : tc(DARK_PRODUCT_GRADIENT);
+const brand = themed(() =>
+  StyleSheet.create({
+    loyalty: {
+      minHeight: 84,
+      borderRadius: 20,
+      padding: 16,
+      backgroundColor: colors.surface,
+      // The supplied skyline deliberately rises above the card's top edge.
+      overflow: 'visible',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    skyline: {
+      position: 'absolute',
+      left: 0,
+      bottom: 0,
+      right: 0,
+      top: -26,
+      opacity: 0.34,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
+    },
+    ring: {
+      width: 52,
+      height: 52,
+      flexShrink: 0,
+      borderRadius: 26,
+      borderWidth: 6,
+      borderColor: colors.accent,
+      borderRightColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    tile: {
+      flex: 1,
+      minHeight: 159,
+      borderRadius: 20,
+      padding: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 5,
+    },
+    segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
+    segmentItem: {
+      minHeight: 48,
+      paddingVertical: 10,
+      borderRadius: 9,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+    },
+    segmentSelected: { backgroundColor: '#FFFFFF' },
+  }),
+);

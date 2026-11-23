@@ -1,3 +1,4 @@
+import { tc } from '../theme';
 import { t, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
@@ -20,7 +21,7 @@ export function GameAvailability({
     config = usePublishedContent(model.branch?.id);
   if (config.gameEnabled(template)) return children;
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A1020' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: tc('#0A1020') }}>
       <View
         testID="game-unavailable"
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}

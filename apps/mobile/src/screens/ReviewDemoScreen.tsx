@@ -9,7 +9,7 @@ import { useMobile } from '../store';
 import { lineUnitPrice, money, selectionDescription } from '../domain';
 import { OrderStatusView } from './OrderStatusScreen';
 import type { ScreenProps } from '../model';
-import { colors } from '../theme';
+import { colors, themed } from '../theme';
 import {
   REVIEW_DEMO_KEY,
   createDemoOrder,
@@ -262,10 +262,12 @@ export default function ReviewDemoScreen() {
     </View>
   );
 }
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  notice: { padding: 16, gap: 4, backgroundColor: colors.surface },
-  content: { padding: 20, gap: 18, maxWidth: 680, width: '100%', alignSelf: 'center' },
-  line: { flex: 1 },
-  actions: { gap: 16 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    notice: { padding: 16, gap: 4, backgroundColor: colors.surface },
+    content: { padding: 20, gap: 18, maxWidth: 680, width: '100%', alignSelf: 'center' },
+    line: { flex: 1 },
+    actions: { gap: 16 },
+  }),
+);

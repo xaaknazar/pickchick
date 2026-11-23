@@ -17,22 +17,22 @@ import type { ScreenProps } from '../model';
 import { CloseButton, Icon } from './UI';
 import { GlassButton } from './GlassButton';
 import { SheetBackLayer } from './OrderSheet';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { ProfileRestoreNotice } from './ProfileRestoreNotice';
 import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 
 // Brand theme from the supplied mobile-v2 source, scoped to its auth screens.
-export const authColors = {
-  background: '#0A1020',
-  surface: '#141B2B',
-  text: '#F2F6FF',
-  muted: '#A3B4D6',
-  blue: '#2E6FE8',
-  blueInk: '#9DC0FF',
-  blueSoft: '#12305F',
-  border: '#233962',
-  danger: '#FFB0AB',
-};
+export const authColors = themed(() => ({
+  background: tc('#0A1020'),
+  surface: tc('#141B2B'),
+  text: tc('#F2F6FF'),
+  muted: tc('#A3B4D6'),
+  blue: tc('#2E6FE8'),
+  blueInk: tc('#9DC0FF'),
+  blueSoft: tc('#12305F'),
+  border: tc('#233962'),
+  danger: tc('#FFB0AB'),
+}));
 
 export function useAuthKeyboardVisible() {
   const [visible, setVisible] = useState(() => Keyboard.isVisible());
@@ -108,7 +108,7 @@ export function AuthLayout({
   const keyboardVisible = useAuthKeyboardVisible();
   const { height } = useWindowDimensions();
   const top = props.inSheet ? Math.max(insets.top + 10, Math.min(62, height * 0.08)) : 0;
-  const gradient = 'linear-gradient(180deg, #0A2257 0%, #0A1020 300px)';
+  const gradient = tc('linear-gradient(180deg, #0A2257 0%, #0A1020 300px)');
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
@@ -197,65 +197,67 @@ export function AuthLayout({
   );
 }
 
-const s = StyleSheet.create({
-  page: { flex: 1, minHeight: 0, backgroundColor: authColors.background },
-  scroll: { flex: 1, minHeight: 0 },
-  content: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 2,
-  },
-  topAction: { minHeight: 48, marginLeft: -8, marginBottom: 16 },
-  topActionText: {
-    fontFamily: font.medium,
-    fontSize: 15,
-    lineHeight: 22,
-    color: authColors.blueInk,
-  },
-  title: {
-    fontFamily: font.display,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.68,
-    color: authColors.text,
-    marginTop: 8,
-  },
-  titleWithoutAction: { marginTop: 64 },
-  registrationTitle: { fontSize: 30, lineHeight: 38 },
-  subtitleContainer: { marginTop: 10 },
-  subtitle: { fontFamily: font.body, fontSize: 15, lineHeight: 23, color: authColors.muted },
-  bottomContent: { flexGrow: 1, justifyContent: 'flex-end', paddingTop: 22 },
-  footer: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    flexShrink: 0,
-    gap: 12,
-  },
-  registrationFooter: { marginTop: 12 },
-  button: {
-    minHeight: 56,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 28,
-    backgroundColor: colors.accent,
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    fontFamily: font.heading,
-    fontSize: 18,
-    lineHeight: 26,
-    color: '#251609',
-    textAlign: 'center',
-  },
-  disabled: { backgroundColor: '#16295A', opacity: 0.5 },
-  pressed: { opacity: 0.75 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    page: { flex: 1, minHeight: 0, backgroundColor: authColors.background },
+    scroll: { flex: 1, minHeight: 0 },
+    content: {
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingBottom: 2,
+    },
+    topAction: { minHeight: 48, marginLeft: -8, marginBottom: 16 },
+    topActionText: {
+      fontFamily: font.medium,
+      fontSize: 15,
+      lineHeight: 22,
+      color: authColors.blueInk,
+    },
+    title: {
+      fontFamily: font.display,
+      fontSize: 28,
+      lineHeight: 34,
+      letterSpacing: -0.68,
+      color: authColors.text,
+      marginTop: 8,
+    },
+    titleWithoutAction: { marginTop: 64 },
+    registrationTitle: { fontSize: 30, lineHeight: 38 },
+    subtitleContainer: { marginTop: 10 },
+    subtitle: { fontFamily: font.body, fontSize: 15, lineHeight: 23, color: authColors.muted },
+    bottomContent: { flexGrow: 1, justifyContent: 'flex-end', paddingTop: 22 },
+    footer: {
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 14,
+      flexShrink: 0,
+      gap: 12,
+    },
+    registrationFooter: { marginTop: 12 },
+    button: {
+      minHeight: 56,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 28,
+      backgroundColor: colors.accent,
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buttonText: {
+      fontFamily: font.heading,
+      fontSize: 18,
+      lineHeight: 26,
+      color: tc('#251609'),
+      textAlign: 'center',
+    },
+    disabled: { backgroundColor: tc('#16295A'), opacity: 0.5 },
+    pressed: { opacity: 0.75 },
+  }),
+);

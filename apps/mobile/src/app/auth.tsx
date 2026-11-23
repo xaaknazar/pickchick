@@ -1,3 +1,4 @@
+import { tc } from '../theme';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Animated, Easing, Keyboard, StyleSheet, View } from 'react-native';
@@ -210,7 +211,7 @@ export default function Auth() {
                 )}
               </Animated.View>
               {auxiliary ? (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1020' }]}>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: tc('#0A1020') }]}>
                   {/* Android Back closes the documents or support page, not the whole sign-in. */}
                   <SheetBackLayer onBack={() => setAuxiliary(null)} />
                   {auxiliary === 'M33' ? (

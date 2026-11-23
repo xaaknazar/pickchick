@@ -8,7 +8,7 @@ import { Icon } from '../components/UI';
 import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';
 import { phoneFieldDigits, phoneMayContinue } from '../phone-entry';
 import type { ScreenProps } from '../model';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { TELEGRAM_REQUIRED_MESSAGE, useAccount } from '../useAccount';
 import { useAuthFlow } from '../auth-flow';
 import { SupportContact } from '../components/SupportContact';
@@ -163,7 +163,7 @@ export function Phone(props: ScreenProps) {
         {valid ? <Icon name="checkmark-circle" size={24} color="#20BA62" /> : null}
       </View>
       <View style={s.delivery}>
-        <Icon name="paper-plane" size={16} color="#74C8F0" />
+        <Icon name="paper-plane" size={16} color={tc('#74C8F0')} />
         <Text style={s.hint}>
           {localize(
             account.mode === 'demo'
@@ -325,7 +325,7 @@ export function Otp(props: ScreenProps) {
                     ? 'logo-whatsapp'
                     : 'paper-plane'
               }
-              color="#7FCFF5"
+              color={tc('#7FCFF5')}
               size={15}
             />
             <Text style={s.channelText}>
@@ -473,87 +473,95 @@ export function Otp(props: ScreenProps) {
     </AuthLayout>
   );
 }
-const s = StyleSheet.create({
-  phoneField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 18,
-    marginTop: 24,
-    minHeight: 68,
-    borderRadius: 20,
-    backgroundColor: authColors.surface,
-    borderWidth: 1.5,
-    borderColor: authColors.border,
-  },
-  phonePrefix: { fontFamily: font.heading, fontSize: 26, color: authColors.text },
-  divider: { width: 1, height: 28, backgroundColor: '#344A75' },
-  phoneInput: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 15,
-    paddingHorizontal: 0,
-    fontFamily: font.heading,
-    fontSize: 26,
-    color: authColors.text,
-  },
-  focused: { borderColor: colors.accent },
-  delivery: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 12 },
-  hint: { fontFamily: font.body, fontSize: 13, lineHeight: 19, color: authColors.muted },
-  legal: {
-    fontFamily: font.body,
-    fontSize: 12,
-    lineHeight: 18,
-    color: authColors.muted,
-    textAlign: 'center',
-  },
-  link: { color: authColors.muted, textDecorationLine: 'underline' },
-  orange: { fontFamily: font.medium, fontSize: 14, lineHeight: 20, color: colors.accentText },
-  error: {
-    fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 21,
-    color: authColors.danger,
-    marginTop: 12,
-  },
-  otpRow: { marginTop: 28, position: 'relative' },
-  otpCells: { flexDirection: 'row', gap: 8 },
-  otpCell: {
-    flex: 1,
-    minWidth: 0,
-    height: 64,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#344A75',
-    backgroundColor: authColors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  otpDigit: { fontFamily: font.heading, fontSize: 28, color: authColors.text },
-  otpInput: {
-    ...StyleSheet.absoluteFill,
-    color: 'transparent',
-    backgroundColor: 'transparent',
-    fontSize: 26,
-    padding: 0,
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 12,
-  },
-  textButton: { minHeight: 48, justifyContent: 'center' },
-  channelLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  channelChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#103565',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  channelText: { color: '#7FCFF5', fontFamily: font.medium, fontSize: 13 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    phoneField: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 18,
+      marginTop: 24,
+      minHeight: 68,
+      borderRadius: 20,
+      backgroundColor: authColors.surface,
+      borderWidth: 1.5,
+      borderColor: authColors.border,
+    },
+    phonePrefix: { fontFamily: font.heading, fontSize: 26, color: authColors.text },
+    divider: { width: 1, height: 28, backgroundColor: tc('#344A75') },
+    phoneInput: {
+      flex: 1,
+      minWidth: 0,
+      paddingVertical: 15,
+      paddingHorizontal: 0,
+      fontFamily: font.heading,
+      fontSize: 26,
+      color: authColors.text,
+    },
+    focused: { borderColor: colors.accent },
+    delivery: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 12,
+      marginBottom: 12,
+    },
+    hint: { fontFamily: font.body, fontSize: 13, lineHeight: 19, color: authColors.muted },
+    legal: {
+      fontFamily: font.body,
+      fontSize: 12,
+      lineHeight: 18,
+      color: authColors.muted,
+      textAlign: 'center',
+    },
+    link: { color: authColors.muted, textDecorationLine: 'underline' },
+    orange: { fontFamily: font.medium, fontSize: 14, lineHeight: 20, color: colors.accentText },
+    error: {
+      fontFamily: font.body,
+      fontSize: 14,
+      lineHeight: 21,
+      color: authColors.danger,
+      marginTop: 12,
+    },
+    otpRow: { marginTop: 28, position: 'relative' },
+    otpCells: { flexDirection: 'row', gap: 8 },
+    otpCell: {
+      flex: 1,
+      minWidth: 0,
+      height: 64,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: tc('#344A75'),
+      backgroundColor: authColors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    otpDigit: { fontFamily: font.heading, fontSize: 28, color: authColors.text },
+    otpInput: {
+      ...StyleSheet.absoluteFill,
+      color: 'transparent',
+      backgroundColor: 'transparent',
+      fontSize: 26,
+      padding: 0,
+    },
+    actions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginTop: 12,
+    },
+    textButton: { minHeight: 48, justifyContent: 'center' },
+    channelLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+    channelChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: tc('#103565'),
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    channelText: { color: tc('#7FCFF5'), fontFamily: font.medium, fontSize: 13 },
+  }),
+);

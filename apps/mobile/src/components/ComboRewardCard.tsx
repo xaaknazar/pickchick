@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { MotionPressable } from './Motion';
 import { SheetModal } from './MotionSheets';
 import { Body, Button, Heading, Icon, CloseButton } from './UI';
@@ -61,7 +61,7 @@ export function ComboRewardCard({
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            gradient('linear-gradient(120deg, #FF8A3D 0%, #FF6900 60%, #F25500 100%)'),
+            gradient(tc('linear-gradient(120deg, #FF8A3D 0%, #FF6900 60%, #F25500 100%)')),
           ]}
         />
         <View
@@ -69,7 +69,9 @@ export function ComboRewardCard({
           style={[
             StyleSheet.absoluteFill,
             gradient(
-              'radial-gradient(circle at 78% 55%, rgba(255,226,180,0.55) 0%, rgba(255,226,180,0) 55%)',
+              tc(
+                'radial-gradient(circle at 78% 55%, rgba(255,226,180,0.55) 0%, rgba(255,226,180,0) 55%)',
+              ),
             ),
           ]}
         />
@@ -235,64 +237,66 @@ function gradient(value: string) {
   ) as ViewStyle;
 }
 
-const s = StyleSheet.create({
-  card: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#FF6900' },
-  food: { position: 'absolute', right: -10, top: 4, bottom: -8, width: 176 },
-  ticket: { minHeight: 174 },
-  offer: { flex: 1, minWidth: 0, padding: 18, gap: 10, justifyContent: 'space-between' },
-  offerCompact: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
-  title: {
-    maxWidth: '58%',
-    fontFamily: font.display,
-    fontSize: 22,
-    lineHeight: 28,
-    letterSpacing: -0.3,
-    color: INK,
-  },
-  titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
-  progress: { gap: 6 },
-  stamps: { flexDirection: 'row', gap: 5, maxWidth: '58%' },
-  stamp: {
-    flex: 1,
-    minHeight: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#25160924',
-    borderWidth: 1,
-    borderColor: '#25160959',
-  },
-  // Same fill as an empty slot; the green check and rim carry the state.
-  earned: { borderColor: INK, backgroundColor: '#2516093D' },
-  gift: { backgroundColor: '#25160924', borderColor: INK },
-  stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: INK },
-  details: {
-    maxWidth: '58%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  detailsText: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: INK },
-  overlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
-  sheet: {
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
-    gap: 20,
-  },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rules: { gap: 24, paddingBottom: 8 },
-  rule: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
-  ruleNumber: {
-    fontFamily: font.display,
-    color: colors.accentText,
-    fontSize: 24,
-    lineHeight: 30,
-    minWidth: 24,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    card: { borderRadius: 20, overflow: 'hidden', backgroundColor: tc('#FF6900') },
+    food: { position: 'absolute', right: -10, top: 4, bottom: -8, width: 176 },
+    ticket: { minHeight: 174 },
+    offer: { flex: 1, minWidth: 0, padding: 18, gap: 10, justifyContent: 'space-between' },
+    offerCompact: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
+    title: {
+      maxWidth: '58%',
+      fontFamily: font.display,
+      fontSize: 22,
+      lineHeight: 28,
+      letterSpacing: -0.3,
+      color: INK,
+    },
+    titleCompact: { fontFamily: font.heading, fontSize: 20, lineHeight: 24 },
+    progress: { gap: 6 },
+    stamps: { flexDirection: 'row', gap: 5, maxWidth: '58%' },
+    stamp: {
+      flex: 1,
+      minHeight: 30,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tc('#25160924'),
+      borderWidth: 1,
+      borderColor: tc('#25160959'),
+    },
+    // Same fill as an empty slot; the green check and rim carry the state.
+    earned: { borderColor: INK, backgroundColor: tc('#2516093D') },
+    gift: { backgroundColor: tc('#25160924'), borderColor: INK },
+    stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: INK },
+    details: {
+      maxWidth: '58%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    detailsText: { fontFamily: font.bold, fontSize: 12, lineHeight: 18, color: INK },
+    overlay: { flex: 1, backgroundColor: tc('#00000088'), justifyContent: 'flex-end' },
+    sheet: {
+      width: '100%',
+      maxWidth: 600,
+      alignSelf: 'center',
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      padding: 20,
+      gap: 20,
+    },
+    sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    rules: { gap: 24, paddingBottom: 8 },
+    rule: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+    ruleNumber: {
+      fontFamily: font.display,
+      color: colors.accentText,
+      fontSize: 24,
+      lineHeight: 30,
+      minWidth: 24,
+    },
+  }),
+);

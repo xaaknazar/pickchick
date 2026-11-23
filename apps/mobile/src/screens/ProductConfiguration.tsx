@@ -27,7 +27,7 @@ import {
   Row,
   styles as ui,
 } from '../components/UI';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 
 export function ProductConfiguration(props: ScreenProps) {
   useLocale();
@@ -466,44 +466,46 @@ function LegacyConfiguredProduct(
     </View>
   );
 }
-const s = StyleSheet.create({
-  close: { position: 'absolute', left: 16 },
-  body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
-  title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
-  description: { fontSize: 14.5, lineHeight: 23 },
-  nutrition: {
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    padding: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  info: { gap: 10, paddingHorizontal: 4 },
-  group: { gap: 12, marginTop: 8 },
-  groupTitle: { fontSize: 20, lineHeight: 27 },
-  options: { gap: 0, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surface },
-  option: {
-    minHeight: 66,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  selected: { backgroundColor: colors.raised },
-  selectionSummary: { color: colors.success, fontFamily: font.medium },
-  optionName: { fontFamily: font.body, fontSize: 15, lineHeight: 22 },
-  // Separate round glass +/- like the owner's Drinkit reference (27.10.2026).
-  stepper: { gap: 6 },
-  quantity: {
-    minWidth: 20,
-    textAlign: 'center',
-    fontFamily: font.bold,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    close: { position: 'absolute', left: 16 },
+    body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
+    title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
+    description: { fontSize: 14.5, lineHeight: 23 },
+    nutrition: {
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      padding: 16,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    info: { gap: 10, paddingHorizontal: 4 },
+    group: { gap: 12, marginTop: 8 },
+    groupTitle: { fontSize: 20, lineHeight: 27 },
+    options: { gap: 0, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surface },
+    option: {
+      minHeight: 66,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    selected: { backgroundColor: colors.raised },
+    selectionSummary: { color: colors.success, fontFamily: font.medium },
+    optionName: { fontFamily: font.body, fontSize: 15, lineHeight: 22 },
+    // Separate round glass +/- like the owner's Drinkit reference (27.10.2026).
+    stepper: { gap: 6 },
+    quantity: {
+      minWidth: 20,
+      textAlign: 'center',
+      fontFamily: font.bold,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+  }),
+);

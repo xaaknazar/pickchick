@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { CloseButton } from './UI';
 import { AuthButton, authColors } from './AuthLayout';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { useAuthFlow } from '../auth-flow';
@@ -114,8 +114,9 @@ export function AuthWelcome(props: ScreenProps) {
       : game
         ? 'Чтобы играть в игры и участвовать в событиях'
         : 'Чтобы оформлять заказы и следить за ними';
-  const glow =
-    'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(10,16,32,0) 68%)';
+  const glow = tc(
+    'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(10,16,32,0) 68%)',
+  );
   return (
     <View testID="auth-welcome" style={s.page}>
       <View style={[s.header, { pointerEvents: settled ? 'auto' : 'none' }]}>
@@ -158,10 +159,15 @@ export function AuthWelcome(props: ScreenProps) {
                 style={[
                   StyleSheet.absoluteFill,
                   (Platform.OS === 'web'
-                    ? { backgroundImage: 'radial-gradient(circle, transparent 56%, #082860 72%)' }
-                    : {
-                        experimental_backgroundImage:
+                    ? {
+                        backgroundImage: tc(
                           'radial-gradient(circle, transparent 56%, #082860 72%)',
+                        ),
+                      }
+                    : {
+                        experimental_backgroundImage: tc(
+                          'radial-gradient(circle, transparent 56%, #082860 72%)',
+                        ),
                       }) as ViewStyle,
                 ]}
               />
@@ -229,105 +235,107 @@ export function AuthWelcome(props: ScreenProps) {
     </View>
   );
 }
-const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: authColors.background },
-  content: { flexGrow: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  glow: { position: 'absolute', width: 460, height: 460, top: 8, left: -33 },
-  ring: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    left: 46,
-    top: 88,
-    borderRadius: 150,
-    borderWidth: 1,
-    borderColor: '#FFFFFF14',
-  },
-  outerRing: {
-    width: 430,
-    height: 430,
-    left: -19,
-    top: 23,
-    borderRadius: 215,
-    borderStyle: 'dashed',
-    borderColor: '#FFFFFF10',
-  },
-  mascot: {
-    position: 'absolute',
-    left: 76,
-    top: 118,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    overflow: 'hidden',
-  },
-  header: {
-    zIndex: 2,
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  support: {
-    height: 48,
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF1A',
-    borderColor: '#FFFFFF24',
-    borderWidth: 1,
-  },
-  supportText: { fontFamily: font.medium, fontSize: 15, color: '#FFFFFF' },
-  copy: { paddingHorizontal: 24, alignItems: 'center' },
-  title: {
-    fontFamily: font.display,
-    fontSize: 32,
-    lineHeight: 38,
-    letterSpacing: -0.6,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  subtitle: {
-    marginTop: 10,
-    fontFamily: font.body,
-    fontSize: 16,
-    lineHeight: 24,
-    color: authColors.muted,
-    maxWidth: 310,
-    textAlign: 'center',
-  },
-  cta: {
-    alignSelf: 'stretch',
-    marginTop: 28,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    // Android ignores the iOS shadow props (lane android 05.11.2026): the same orange glow as a
-    // box shadow around the button's own pill shape.
-    ...Platform.select({
-      android: { borderRadius: 28, boxShadow: `0 10px 32px ${colors.accent}40` },
-    }),
-  },
-  phoneIcon: { position: 'absolute', top: 19, left: '16%' },
-  footer: {
-    flexGrow: 1,
-    paddingTop: 32,
-    justifyContent: 'center',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingHorizontal: 24,
-  },
-  legalButton: { minHeight: 48, justifyContent: 'center' },
-  legal: {
-    fontFamily: font.body,
-    fontSize: 12,
-    color: authColors.muted,
-    textDecorationLine: 'underline',
-  },
-  version: { fontFamily: font.body, fontSize: 12, color: authColors.muted, paddingVertical: 16 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    page: { flex: 1, backgroundColor: authColors.background },
+    content: { flexGrow: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
+    glow: { position: 'absolute', width: 460, height: 460, top: 8, left: -33 },
+    ring: {
+      position: 'absolute',
+      width: 300,
+      height: 300,
+      left: 46,
+      top: 88,
+      borderRadius: 150,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF14'),
+    },
+    outerRing: {
+      width: 430,
+      height: 430,
+      left: -19,
+      top: 23,
+      borderRadius: 215,
+      borderStyle: 'dashed',
+      borderColor: tc('#FFFFFF10'),
+    },
+    mascot: {
+      position: 'absolute',
+      left: 76,
+      top: 118,
+      width: 240,
+      height: 240,
+      borderRadius: 120,
+      overflow: 'hidden',
+    },
+    header: {
+      zIndex: 2,
+      position: 'absolute',
+      top: 16,
+      left: 16,
+      right: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    support: {
+      height: 48,
+      borderRadius: 24,
+      paddingHorizontal: 18,
+      justifyContent: 'center',
+      backgroundColor: '#FFFFFF1A',
+      borderColor: tc('#FFFFFF24'),
+      borderWidth: 1,
+    },
+    supportText: { fontFamily: font.medium, fontSize: 15, color: tc('#FFFFFF') },
+    copy: { paddingHorizontal: 24, alignItems: 'center' },
+    title: {
+      fontFamily: font.display,
+      fontSize: 32,
+      lineHeight: 38,
+      letterSpacing: -0.6,
+      color: tc('#FFFFFF'),
+      textAlign: 'center',
+    },
+    subtitle: {
+      marginTop: 10,
+      fontFamily: font.body,
+      fontSize: 16,
+      lineHeight: 24,
+      color: authColors.muted,
+      maxWidth: 310,
+      textAlign: 'center',
+    },
+    cta: {
+      alignSelf: 'stretch',
+      marginTop: 28,
+      shadowColor: colors.accent,
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 10 },
+      // Android ignores the iOS shadow props (lane android 05.11.2026): the same orange glow as a
+      // box shadow around the button's own pill shape.
+      ...Platform.select({
+        android: { borderRadius: 28, boxShadow: `0 10px 32px ${colors.accent}40` },
+      }),
+    },
+    phoneIcon: { position: 'absolute', top: 19, left: '16%' },
+    footer: {
+      flexGrow: 1,
+      paddingTop: 32,
+      justifyContent: 'center',
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      flexWrap: 'wrap',
+      gap: 10,
+      paddingHorizontal: 24,
+    },
+    legalButton: { minHeight: 48, justifyContent: 'center' },
+    legal: {
+      fontFamily: font.body,
+      fontSize: 12,
+      color: authColors.muted,
+      textDecorationLine: 'underline',
+    },
+    version: { fontFamily: font.body, fontSize: 12, color: authColors.muted, paddingVertical: 16 },
+  }),
+);

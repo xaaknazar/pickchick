@@ -18,6 +18,7 @@ import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
 import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
 import { ActivityIndicator, View } from 'react-native';
 import { MobileProvider } from '../store';
+import { ThemeController } from '../theme-preference';
 import { AccountProvider } from '../useAccount';
 import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';
 
@@ -28,6 +29,7 @@ export default function Layout() {
   useLocale();
   return (
     <MotionProvider>
+      <ThemeController />
       <AppLayout />
     </MotionProvider>
   );
@@ -44,7 +46,7 @@ function AppLayout() {
     Manrope_700Bold,
   });
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A1020' }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View
         style={{ flex: 1 }}
         pointerEvents={introDone ? 'auto' : 'none'}
@@ -62,7 +64,7 @@ function AppLayout() {
           <AccountProvider>
             <MobileProvider>
               <NotificationsProvider>
-                <StatusBar style="light" />
+                <StatusBar style={colors.scheme === 'light' ? 'dark' : 'light'} />
                 <PaymentRecovery />
                 <SheetStackProvider>
                   <Stack
@@ -70,7 +72,7 @@ function AppLayout() {
                       headerShown: false,
                       orientation: 'portrait',
                       animation: reduced ? 'none' : 'default',
-                      contentStyle: { backgroundColor: '#0A1020' },
+                      contentStyle: { backgroundColor: colors.background },
                     }}
                   >
                     <Stack.Screen

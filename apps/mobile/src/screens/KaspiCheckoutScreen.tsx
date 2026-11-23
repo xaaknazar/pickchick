@@ -108,7 +108,7 @@ import {
 import { usePaymentAvailability } from '../usePaymentAvailability';
 import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
 /** TipTopPay methods the cart may offer after a /config read (server, build and phone). */
@@ -1437,23 +1437,25 @@ function KaspiCheckoutSession(
   );
 }
 
-const s = StyleSheet.create({
-  commentUnavailable: { gap: 8, paddingVertical: 4 },
-  savedComment: { gap: 4, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
-  card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
-  loading: { padding: 24, alignItems: 'center', gap: 12 },
-  warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
-  // On the dark payment scene, like its order card (KaspiPaymentState orderCard).
-  earlier: {
-    width: '100%',
-    maxWidth: 360,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 18,
-    backgroundColor: '#141B2B',
-  },
-  earlierText: { color: '#DCE6FA', fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  tightEarlier: { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },
-  tightEarlierText: { fontSize: 13, lineHeight: 18 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    commentUnavailable: { gap: 8, paddingVertical: 4 },
+    savedComment: { gap: 4, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
+    card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
+    loading: { padding: 24, alignItems: 'center', gap: 12 },
+    warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
+    // On the dark payment scene, like its order card (KaspiPaymentState orderCard).
+    earlier: {
+      width: '100%',
+      maxWidth: 360,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      marginBottom: 12,
+      borderRadius: 18,
+      backgroundColor: tc('#141B2B'),
+    },
+    earlierText: { color: tc('#DCE6FA'), fontSize: 14, lineHeight: 20, textAlign: 'center' },
+    tightEarlier: { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },
+    tightEarlierText: { fontSize: 13, lineHeight: 18 },
+  }),
+);

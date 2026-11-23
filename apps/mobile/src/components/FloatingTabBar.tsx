@@ -20,7 +20,7 @@ import { TabIcon } from './UI';
 import { TabCartDock } from './TabCartDock';
 import { useReducedMotion } from './Motion';
 import { TabBarGlass } from './GlassButton';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { haptic } from '../haptics';
 import {
   tabAt,
@@ -86,12 +86,14 @@ function SelectionPlatter({
   height: number;
   testID: string;
 }) {
+  // Plain strings for the UI thread (the palette changes with the theme).
+  const { pill, lens: lensFill, lensRim } = palette;
   const style = useAnimatedStyle(() => {
     const scale = tabPlatterScale(position.value, lens.value);
     return {
       transform: [{ translateX: position.value * width }, { scaleX: scale.x }, { scaleY: scale.y }],
-      backgroundColor: interpolateColor(lens.value, [0, 1], [palette.pill, palette.lens]),
-      borderColor: interpolateColor(lens.value, [0, 1], ['rgba(255,255,255,0)', palette.lensRim]),
+      backgroundColor: interpolateColor(lens.value, [0, 1], [pill, lensFill]),
+      borderColor: interpolateColor(lens.value, [0, 1], ['rgba(255,255,255,0)', lensRim]),
     };
   });
   // The lens is glass while it is raised: a specular edge and the faint colour fringe of Liquid
@@ -153,12 +155,9 @@ function TabItem({
     const pop = bounceIndex.value === index ? tabIconBounce * bounce.value : 0;
     return { transform: [{ scale: swell + pop }] };
   });
+  const { inactive, active } = palette;
   const text = useAnimatedStyle(() => ({
-    color: interpolateColor(
-      tabSelection(position.value, index),
-      [0, 1],
-      [palette.inactive, palette.active],
-    ),
+    color: interpolateColor(tabSelection(position.value, index), [0, 1], [inactive, active]),
   }));
   return (
     <Pressable
@@ -425,72 +424,75 @@ export function FloatingTabBar({
   );
 }
 
-const s = StyleSheet.create({
-  // The tab layer: the docked cart bar, then the tab capsule, stacked from the bottom inset up.
-  host: { position: 'absolute', left: 0, right: 0, alignItems: 'stretch' },
-  barRow: { alignItems: 'center' },
-  bar: {
-    width: '100%',
-    flexDirection: 'row',
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    shadowColor: palette.shadow,
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 18,
-    elevation: 12,
-  },
-  clip: { overflow: 'hidden' },
-  items: { flex: 1, flexDirection: 'row' },
-  lensShine: {
-    borderRadius: 999,
-    boxShadow:
-      'inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 2px 0 2px rgba(120, 220, 255, 0.35), inset -2px 0 2px rgba(255, 150, 120, 0.35), inset 0 -1px 1px rgba(255, 255, 255, 0.2)',
-  },
-  platter: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-  },
-  item: {
-    flex: 1,
-    minWidth: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  label: {
-    fontFamily: font.medium,
-    fontSize: tabLabelSize,
-    lineHeight: 16,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-  // Active-order counter on «Заказы»: brand orange with dark ink, like primary buttons.
-  badge: {
-    position: 'absolute',
-    top: -6,
-    left: 13,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-  },
-  badgeText: {
-    fontFamily: font.bold,
-    fontSize: 11,
-    lineHeight: 14,
-    color: colors.orangeInk,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // The tab layer: the docked cart bar, then the tab capsule, stacked from the bottom inset up.
+    host: { position: 'absolute', left: 0, right: 0, alignItems: 'stretch' },
+    barRow: { alignItems: 'center' },
+    bar: {
+      width: '100%',
+      flexDirection: 'row',
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.border,
+      shadowColor: palette.shadow,
+      shadowOpacity: 0.35,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    clip: { overflow: 'hidden' },
+    items: { flex: 1, flexDirection: 'row' },
+    lensShine: {
+      borderRadius: 999,
+      boxShadow: tc(
+        'inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 2px 0 2px rgba(120, 220, 255, 0.35), inset -2px 0 2px rgba(255, 150, 120, 0.35), inset 0 -1px 1px rgba(255, 255, 255, 0.2)',
+      ),
+    },
+    platter: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+    },
+    item: {
+      flex: 1,
+      minWidth: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingHorizontal: 4,
+      paddingVertical: 6,
+      borderRadius: 999,
+    },
+    label: {
+      fontFamily: font.medium,
+      fontSize: tabLabelSize,
+      lineHeight: 16,
+      includeFontPadding: false,
+      textAlign: 'center',
+    },
+    // Active-order counter on «Заказы»: brand orange with dark ink, like primary buttons.
+    badge: {
+      position: 'absolute',
+      top: -6,
+      left: 13,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+    },
+    badgeText: {
+      fontFamily: font.bold,
+      fontSize: 11,
+      lineHeight: 14,
+      color: colors.orangeInk,
+      includeFontPadding: false,
+      textAlign: 'center',
+    },
+  }),
+);

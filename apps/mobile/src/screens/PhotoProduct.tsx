@@ -33,7 +33,7 @@ import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../
 import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
-import { colors, font } from '../theme';
+import { colors, font, tc } from '../theme';
 
 type Props = ScreenProps & {
   product: Product;
@@ -47,13 +47,12 @@ const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 /** Navy over the glass of «Настроить комбо», so white text reads on the light photo. */
 const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
-const blueGradient =
-  'linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)';
-const blueBlend = (
-  Platform.OS === 'web'
-    ? { backgroundImage: blueGradient }
-    : { experimental_backgroundImage: blueGradient }
-) as ViewStyle;
+const blueGradient = () =>
+  tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)');
+const blueBlend = () =>
+  (Platform.OS === 'web'
+    ? { backgroundImage: blueGradient() }
+    : { experimental_backgroundImage: blueGradient() }) as ViewStyle;
 const blend = (
   Platform.OS === 'web' ? { backgroundImage: gradient } : { experimental_backgroundImage: gradient }
 ) as ViewStyle;
@@ -98,10 +97,12 @@ export function PhotoProduct(props: Props) {
   // Owner 29.10: extras and drinks use the same blue page palette as combos.
   const blue = true;
   const s = blue ? blueStyles : warmStyles;
-  const pageInk = blue ? '#FFFFFF' : ink;
+  const pageInk = blue ? colors.pure : ink;
   const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`;
+  const pageGradient = tc(
+    `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
+  );
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -333,7 +334,7 @@ export function PhotoProduct(props: Props) {
               </View>
             )}
             {drinkCutout ? null : (
-              <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+              <View pointerEvents="none" style={[s.blend, blue ? blueBlend() : blend]} />
             )}
             {combo ? (
               <Pressable
@@ -954,7 +955,7 @@ function Counter({
 }) {
   useLocale();
   const s = blue ? blueStyles : warmStyles;
-  const counterInk = blue ? '#FFFFFF' : ink;
+  const counterInk = blue ? colors.white : ink;
   return (
     <Row style={s.counter}>
       <Pressable
@@ -982,11 +983,11 @@ function Counter({
   );
 }
 function makeStyles(blue: boolean) {
-  const ink = blue ? '#FFFFFF' : '#271C15';
+  const ink = blue ? colors.white : '#271C15';
   const paper = blue ? '#0047BB' : '#FFF8EE';
-  const muted = blue ? '#D4E5FF' : '#594635';
+  const muted = blue ? tc('#D4E5FF') : '#594635';
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: blue ? '#0A1020' : paper },
+    page: { flex: 1, backgroundColor: blue ? tc('#0A1020') : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
     close: { position: 'absolute' },
     photoAction: {
@@ -1031,13 +1032,13 @@ function makeStyles(blue: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      backgroundColor: blue ? '#073987' : '#EADBC5',
+      backgroundColor: blue ? tc('#073987') : '#EADBC5',
       padding: 12,
       borderRadius: 16,
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? '#FF8A4C' : '#A33B00' },
+    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? tc('#FF8A4C') : '#A33B00' },
     moreRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1060,7 +1061,7 @@ function makeStyles(blue: boolean) {
       padding: 10,
       gap: 6,
       borderRadius: 16,
-      backgroundColor: blue ? '#0C2B5D' : '#EADBC5',
+      backgroundColor: blue ? tc('#0C2B5D') : '#EADBC5',
       borderWidth: 1,
       borderColor: 'transparent',
     },
@@ -1093,7 +1094,7 @@ function makeStyles(blue: boolean) {
     },
     addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
-    counter: { backgroundColor: blue ? '#133668' : '#F2DFC7', borderRadius: 25, gap: 0 },
+    counter: { backgroundColor: blue ? tc('#133668') : '#F2DFC7', borderRadius: 25, gap: 0 },
     countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
     modal: { flex: 1, backgroundColor: colors.background },
@@ -1162,7 +1163,7 @@ function makeStyles(blue: boolean) {
       paddingHorizontal: 4,
       minHeight: 48,
     },
-    nutritionOverlay: { flex: 1, backgroundColor: '#00000080', justifyContent: 'flex-end' },
+    nutritionOverlay: { flex: 1, backgroundColor: tc('#00000080'), justifyContent: 'flex-end' },
     nutritionWindow: {
       backgroundColor: colors.background,
       borderTopLeftRadius: 28,

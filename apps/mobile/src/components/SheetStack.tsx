@@ -1,3 +1,4 @@
+import { themed, tc } from '../theme';
 import { createContext, useContext, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -41,7 +42,9 @@ export function SheetStackBackground({ children }: { children: ReactNode }) {
   );
 }
 
-const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: '#000' },
-  fill: { flex: 1, overflow: 'hidden' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    backdrop: { flex: 1, backgroundColor: tc('#000') },
+    fill: { flex: 1, overflow: 'hidden' },
+  }),
+);

@@ -35,7 +35,33 @@ export const tabBarPalette = {
   /** The selected icon and label: brand orange (accentText). */
   active: '#FF8A3D',
   inactive: '#B4C2DC',
-} as const;
+};
+export type TabBarPalette = typeof tabBarPalette;
+
+/** The navy glass above, for the dark and navy themes (theme.ts restores it on a switch). */
+export const tabBarNavy: TabBarPalette = { ...tabBarPalette };
+
+/**
+ * «Светлая» (owner 23.11.2026, variant A of the light mock-ups): light glass like Apple's in light
+ * mode, the selected tab orange on a faint blue platter. The orange is the dark accent text
+ * (#B84800) so the 12 pt label keeps 4.5:1 on the light glass; inactive labels are slate.
+ */
+export const tabBarLight: TabBarPalette = {
+  glass: 'rgba(246, 249, 255, 0.94)',
+  webVeil: 'rgba(246, 249, 255, 0.72)',
+  webDim: 1,
+  webBackdrop: 'blur(28px) saturate(180%)',
+  chromeVeil: 'rgba(246, 249, 255, 0.6)',
+  liquidTint: 'rgba(246, 249, 255, 0.55)',
+  solid: '#F6F9FF',
+  border: 'rgba(15, 27, 61, 0.08)',
+  shadow: '#10285A',
+  pill: 'rgba(0, 71, 187, 0.08)',
+  lens: 'rgba(0, 71, 187, 0.12)',
+  lensRim: 'rgba(255, 255, 255, 0.9)',
+  active: '#B84800',
+  inactive: '#56627A',
+};
 
 /** Labels follow Dynamic Type up to this factor; the bar must stay compact. */
 export const tabLabelMaxScale = 1.3;

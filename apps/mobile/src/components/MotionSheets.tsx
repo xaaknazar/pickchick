@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { motion, spring, useReducedMotion } from './Motion';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 
 /** Apple's rubber band: past the edge the content follows the finger less and less. */
 export function rubberBand(offset: number, dimension: number) {
@@ -44,7 +44,7 @@ export function SheetModal({
   onClose,
   onDismiss,
   closeLabel,
-  dim = '#00000088',
+  dim = tc('#00000088'),
   style,
   children,
 }: {
@@ -233,23 +233,25 @@ export function RollingText({
   return <Animated.View style={[style, animated]}>{children}</Animated.View>;
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    width: '100%',
-    alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
-  grabberArea: {
-    position: 'absolute',
-    top: 0,
-    left: 72,
-    right: 72,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.6 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, justifyContent: 'flex-end' },
+    sheet: {
+      width: '100%',
+      alignSelf: 'center',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      overflow: 'hidden',
+    },
+    grabberArea: {
+      position: 'absolute',
+      top: 0,
+      left: 72,
+      right: 72,
+      height: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.6 },
+  }),
+);

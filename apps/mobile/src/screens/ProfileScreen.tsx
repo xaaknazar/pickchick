@@ -13,7 +13,7 @@ import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
 import { formatDemoPhone } from '../demo-account';
 import { formatBirthDate } from '../profile-details';
 import type { ScreenProps } from '../model';
-import { brandColors, colors, font } from '../theme';
+import { brandColors, colors, font, themed, tc } from '../theme';
 import { useAccount } from '../useAccount';
 import { useNotifications } from '../notifications/provider';
 import { useTapsSettled } from '../components/useTapGuard';
@@ -55,7 +55,7 @@ function ProfileRow({
       style={({ pressed }) => [s.row, !last && s.divider, pressed && s.pressed]}
     >
       <View style={s.rowIcon}>
-        <Icon name={icon} size={21} color="#B8D0FF" />
+        <Icon name={icon} size={21} color={tc('#B8D0FF')} />
       </View>
       <View style={s.flex}>
         <Text style={s.rowTitle}>{localize(title)}</Text>
@@ -187,7 +187,7 @@ export function Profile(props: ScreenProps) {
                     onPress={() => props.navigate('M04')}
                     style={({ pressed }) => [s.edit, pressed && s.pressed]}
                   >
-                    <Icon name="create-outline" size={18} color="#BDD3FF" />
+                    <Icon name="create-outline" size={18} color={tc('#BDD3FF')} />
                   </Pressable>
                 ) : null}
               </View>
@@ -263,7 +263,7 @@ export function Profile(props: ScreenProps) {
               onPress={() => props.navigate(item.screen)}
               style={({ pressed }) => [s.shortcut, pressed && s.pressed]}
             >
-              <Icon name={item.icon} size={24} color="#BDD3FF" />
+              <Icon name={item.icon} size={24} color={tc('#BDD3FF')} />
               <Text style={s.shortcutTitle}>{localize(item.title)}</Text>
               <Text style={s.shortcutDetail}>{localize(item.detail)}</Text>
             </Pressable>
@@ -389,180 +389,194 @@ export function Profile(props: ScreenProps) {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
-  topBar: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background },
-  scroll: { flex: 1, minHeight: 0 },
-  content: { paddingHorizontal: 18, gap: 20, width: '100%', maxWidth: 680, alignSelf: 'center' },
-  flex: { flex: 1, minWidth: 0 },
-  // Same frame as the tab header row, so back and settings line up with it on every width.
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-    maxWidth: appHeaderMetrics.maxWidth,
-    alignSelf: 'center',
-    paddingHorizontal: appHeaderMetrics.gutter,
-  },
-  title: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: font.display,
-    fontSize: 30,
-    lineHeight: 40,
-    color: colors.white,
-  },
-  identity: {
-    padding: 16,
-    borderRadius: 24,
-    backgroundColor: '#0B2454',
-    borderWidth: 1,
-    borderColor: '#FFFFFF14',
-    gap: 16,
-  },
-  identityRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  avatar: {
-    flexShrink: 0,
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: brandColors.brandOrange,
-    overflow: 'hidden',
-  },
-  avatarImage: { width: '100%', height: '100%' },
-  name: { fontFamily: font.heading, fontSize: 22, lineHeight: 30, color: colors.white },
-  subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#B6C4DD' },
-  demoLabel: {
-    marginTop: 4,
-    fontFamily: font.medium,
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#B6C4DD',
-  },
-  intro: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: '#C0CDE3' },
-  signIn: {
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    minHeight: 52,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  signInLabel: {
-    fontFamily: font.bold,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.orangeInk,
-    flexShrink: 1,
-  },
-  edit: {
-    width: 48,
-    flexShrink: 0,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: '#1C2538',
-    paddingHorizontal: 8,
-  },
-  shortcuts: { flexDirection: 'row', gap: 12 },
-  shortcut: {
-    flex: 1,
-    padding: 16,
-    gap: 8,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#FFFFFF0D',
-  },
-  shortcutTitle: { fontFamily: font.bold, fontSize: 15, lineHeight: 21, color: colors.white },
-  shortcutDetail: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD' },
-  loyalty: {
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 88,
-    borderWidth: 1,
-    borderColor: '#FFFFFF12',
-  },
-  loyaltyIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1C2538',
-  },
-  loyaltyTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 25, color: colors.white },
-  loyaltyCopy: {
-    fontFamily: font.body,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 4,
-    color: colors.muted,
-  },
-  section: { gap: 10, marginTop: 6 },
-  sectionTitle: {
-    fontFamily: font.heading,
-    fontSize: 20,
-    lineHeight: 28,
-    color: colors.white,
-    paddingLeft: 2,
-  },
-  group: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#FFFFFF0D',
-  },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 16, minHeight: 68 },
-  divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#FFFFFF12' },
-  rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#7FA6F012',
-  },
-  rowTitle: { fontFamily: font.medium, fontSize: 15, lineHeight: 22, color: colors.white },
-  rowValue: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD', marginTop: 3 },
-  soon: { fontFamily: font.medium, fontSize: 11, lineHeight: 18, color: '#B6C4DD' },
-  count: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-  },
-  countText: {
-    fontFamily: font.bold,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.orangeInk,
-    includeFontPadding: false,
-  },
-  signOut: { borderRadius: 16, marginTop: 4 },
-  version: {
-    fontFamily: font.body,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    color: colors.muted,
-  },
-  error: { color: '#FFB0AB', fontFamily: font.body, fontSize: 14, lineHeight: 22 },
-  pressed: { opacity: 0.78 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    screen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+    topBar: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background },
+    scroll: { flex: 1, minHeight: 0 },
+    content: { paddingHorizontal: 18, gap: 20, width: '100%', maxWidth: 680, alignSelf: 'center' },
+    flex: { flex: 1, minWidth: 0 },
+    // Same frame as the tab header row, so back and settings line up with it on every width.
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      width: '100%',
+      maxWidth: appHeaderMetrics.maxWidth,
+      alignSelf: 'center',
+      paddingHorizontal: appHeaderMetrics.gutter,
+    },
+    title: {
+      flex: 1,
+      minWidth: 0,
+      fontFamily: font.display,
+      fontSize: 30,
+      lineHeight: 40,
+      color: colors.white,
+    },
+    identity: {
+      padding: 16,
+      borderRadius: 24,
+      backgroundColor: tc('#0B2454'),
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF14'),
+      gap: 16,
+    },
+    identityRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    avatar: {
+      flexShrink: 0,
+      width: 52,
+      height: 52,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: brandColors.brandOrange,
+      overflow: 'hidden',
+    },
+    avatarImage: { width: '100%', height: '100%' },
+    name: { fontFamily: font.heading, fontSize: 22, lineHeight: 30, color: colors.white },
+    subtitle: {
+      marginTop: 4,
+      fontFamily: font.body,
+      fontSize: 14,
+      lineHeight: 20,
+      color: tc('#B6C4DD'),
+    },
+    demoLabel: {
+      marginTop: 4,
+      fontFamily: font.medium,
+      fontSize: 12,
+      lineHeight: 18,
+      color: tc('#B6C4DD'),
+    },
+    intro: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: tc('#C0CDE3') },
+    signIn: {
+      backgroundColor: colors.accent,
+      borderRadius: 16,
+      minHeight: 52,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    signInLabel: {
+      fontFamily: font.bold,
+      fontSize: 15,
+      lineHeight: 22,
+      color: colors.orangeInk,
+      flexShrink: 1,
+    },
+    edit: {
+      width: 48,
+      flexShrink: 0,
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+      borderRadius: 14,
+      backgroundColor: tc('#1C2538'),
+      paddingHorizontal: 8,
+    },
+    shortcuts: { flexDirection: 'row', gap: 12 },
+    shortcut: {
+      flex: 1,
+      padding: 16,
+      gap: 8,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0D'),
+    },
+    shortcutTitle: { fontFamily: font.bold, fontSize: 15, lineHeight: 21, color: colors.white },
+    shortcutDetail: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: tc('#B6C4DD') },
+    loyalty: {
+      padding: 18,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 88,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF12'),
+    },
+    loyaltyIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tc('#1C2538'),
+    },
+    loyaltyTitle: { fontFamily: font.heading, fontSize: 18, lineHeight: 25, color: colors.white },
+    loyaltyCopy: {
+      fontFamily: font.body,
+      fontSize: 13,
+      lineHeight: 20,
+      marginTop: 4,
+      color: colors.muted,
+    },
+    section: { gap: 10, marginTop: 6 },
+    sectionTitle: {
+      fontFamily: font.heading,
+      fontSize: 20,
+      lineHeight: 28,
+      color: colors.white,
+      paddingLeft: 2,
+    },
+    group: {
+      borderRadius: 20,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0D'),
+    },
+    row: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 16, minHeight: 68 },
+    divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: tc('#FFFFFF12') },
+    rowIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tc('#7FA6F012'),
+    },
+    rowTitle: { fontFamily: font.medium, fontSize: 15, lineHeight: 22, color: colors.white },
+    rowValue: {
+      fontFamily: font.body,
+      fontSize: 13,
+      lineHeight: 20,
+      color: tc('#B6C4DD'),
+      marginTop: 3,
+    },
+    soon: { fontFamily: font.medium, fontSize: 11, lineHeight: 18, color: tc('#B6C4DD') },
+    count: {
+      minWidth: 24,
+      height: 24,
+      borderRadius: 12,
+      paddingHorizontal: 7,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+    },
+    countText: {
+      fontFamily: font.bold,
+      fontSize: 12,
+      lineHeight: 16,
+      color: colors.orangeInk,
+      includeFontPadding: false,
+    },
+    signOut: { borderRadius: 16, marginTop: 4 },
+    version: {
+      fontFamily: font.body,
+      fontSize: 12,
+      lineHeight: 18,
+      textAlign: 'center',
+      color: colors.muted,
+    },
+    error: { color: tc('#FFB0AB'), fontFamily: font.body, fontSize: 14, lineHeight: 22 },
+    pressed: { opacity: 0.78 },
+  }),
+);

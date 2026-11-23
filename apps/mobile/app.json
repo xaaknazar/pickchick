@@ -6,7 +6,7 @@
     "icon": "../../design/prototype/assets/mockup/logo.png",
     "orientation": "portrait",
     "scheme": "pickchick",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/app-icon.png",
       "supportsTablet": false,

@@ -1,3 +1,4 @@
+import { tc } from '../theme';
 import { localize, t, useLocale } from '../i18n';
 import { MotionModal as Modal } from '../components/Motion';
 import { ScrollView, View } from 'react-native';
@@ -19,7 +20,7 @@ export function PromotionDialog({
   const file = key === 'logo' ? 'logo.png' : key === 'generic-drink' ? null : key + '.jpg';
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView testID="promotion-dialog" style={{ flex: 1, backgroundColor: '#0A1020' }}>
+      <SafeAreaView testID="promotion-dialog" style={{ flex: 1, backgroundColor: tc('#0A1020') }}>
         <ScrollView contentContainerStyle={{ padding: 24, gap: 20 }}>
           {file ? (
             <Image

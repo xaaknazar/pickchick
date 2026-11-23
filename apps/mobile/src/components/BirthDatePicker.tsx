@@ -1,3 +1,4 @@
+import { colors, themed } from '../theme';
 import { dateLocale } from '../i18n/core';
 import { t, useLocale } from '../i18n';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -100,7 +101,7 @@ function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps
         mode="date"
         display="spinner"
         locale={dateLocale()}
-        themeVariant="dark"
+        themeVariant={colors.scheme}
         textColor={authColors.text}
         minimumDate={birthDateAtLocalNoon(MINIMUM_BIRTH_DATE)}
         maximumDate={birthDateAtLocalNoon(maximum)}
@@ -123,4 +124,6 @@ export default function BirthDatePicker(props: BirthDatePickerProps) {
   );
 }
 
-const s = StyleSheet.create({ wheel: { alignSelf: 'center', width: '100%', height: 216 } });
+const s = themed(() =>
+  StyleSheet.create({ wheel: { alignSelf: 'center', width: '100%', height: 216 } }),
+);
