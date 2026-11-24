@@ -86,6 +86,8 @@ namespace PickChick.Labels
         public int OffsetXMm { get; set; }
         public List<string> Employees { get; set; }
         public string LastEmployee { get; set; }
+        /// <summary>Restaurant name printed at the top of every label.</summary>
+        public string Brand { get; set; }
 
         public Settings()
         {
@@ -100,6 +102,7 @@ namespace PickChick.Labels
             OffsetXMm = 0;
             Employees = new List<string>();
             LastEmployee = "";
+            Brand = "Doner na Abaya";
         }
     }
 
@@ -197,6 +200,7 @@ namespace PickChick.Labels
                         Normalize(s);
                         if (s.PrinterName == null) s.PrinterName = "";
                         if (s.LastEmployee == null) s.LastEmployee = "";
+                        if (s.Brand == null) s.Brand = "";
                         return s;
                     }
                 }
@@ -300,49 +304,46 @@ namespace PickChick.Labels
 
         public static string JournalFile { get { return JournalPath; } }
 
-        /// <summary>Example list for a fried-chicken kitchen. Shelf lives are starting values only:
-        /// the restaurant sets its own from technological cards and sanitary rules.</summary>
+        /// <summary>Marking list of Doner na Abaya («Маркировка ДНА», owner 24.11.2026).
+        /// The restaurant edits it in «Продукты».</summary>
         public static List<Product> DefaultProducts()
         {
-            const string raw = "Курица сырая", ready = "Готовое", sauce = "Соусы", veg = "Овощи",
-                dough = "Тесто и хлеб", other = "Прочее";
-            const string cold = "+0…+4 °C", fridge = "+2…+6 °C", hot = "не ниже +65 °C", frozen = "−18 °C", room = "+15…+25 °C";
             return new List<Product>
             {
-                new Product(raw, "Куриное филе охлаждённое", 48, "h", cold),
-                new Product(raw, "Куриные крылья охлаждённые", 48, "h", cold),
-                new Product(raw, "Куриные голени охлаждённые", 48, "h", cold),
-                new Product(raw, "Курица в маринаде", 24, "h", cold),
-                new Product(raw, "Курица в панировке (заготовка)", 6, "h", cold),
-                new Product(raw, "Курица разморожена", 24, "h", cold),
-                new Product(ready, "Курица жареная (тепловая витрина)", 2, "h", hot),
-                new Product(ready, "Стрипсы жареные", 2, "h", hot),
-                new Product(ready, "Крылья жареные", 2, "h", hot),
-                new Product(ready, "Картофель фри (после жарки)", 10, "min", hot),
-                new Product(ready, "Рис отварной", 12, "h", fridge),
-                new Product(sauce, "Соус сырный (вскрыт)", 72, "h", fridge),
-                new Product(sauce, "Соус чесночный (свой)", 48, "h", fridge),
-                new Product(sauce, "Соус барбекю (вскрыт)", 7, "d", fridge),
-                new Product(sauce, "Соус острый (вскрыт)", 7, "d", fridge),
-                new Product(sauce, "Кетчуп (вскрыт)", 7, "d", fridge),
-                new Product(sauce, "Майонез (вскрыт)", 72, "h", fridge),
-                new Product(sauce, "Соус в дозаторе", 24, "h", fridge),
-                new Product(veg, "Салат айсберг нарезанный", 24, "h", fridge),
-                new Product(veg, "Помидоры нарезанные", 24, "h", fridge),
-                new Product(veg, "Огурцы нарезанные", 24, "h", fridge),
-                new Product(veg, "Огурцы маринованные (вскрыты)", 72, "h", fridge),
-                new Product(veg, "Лук нарезанный", 24, "h", fridge),
-                new Product(veg, "Капуста шинкованная", 24, "h", fridge),
-                new Product(veg, "Салат коул слоу", 12, "h", fridge),
-                new Product(dough, "Тесто для лепёшек", 48, "h", cold),
-                new Product(dough, "Кляр", 12, "h", cold),
-                new Product(dough, "Панировочная смесь (вскрыта)", 7, "d", room),
-                new Product(dough, "Лаваш (вскрыт)", 72, "h", room),
-                new Product(dough, "Булочки для бургеров (разморожены)", 48, "h", room),
-                new Product(other, "Сыр нарезанный", 72, "h", fridge),
-                new Product(other, "Сыр тёртый", 48, "h", fridge),
-                new Product(other, "Масло фритюрное (залито)", 3, "d", "в фритюре"),
-                new Product(other, "Заготовка в морозилке", 30, "d", frozen),
+                new Product("Соусы", "ПФ острый соус", 12, "h", ""),
+                new Product("Соусы", "ПФ чесночный соус", 12, "h", ""),
+                new Product("Соусы", "ПФ красный соус", 12, "h", ""),
+                new Product("Соусы", "ПФ майонез", 12, "h", ""),
+                new Product("Соусы", "ПФ перчик", 24, "h", ""),
+                new Product("На станции", "ПФ острый соус (на станции)", 2, "h", ""),
+                new Product("На станции", "ПФ чесночный соус (на станции)", 2, "h", ""),
+                new Product("На станции", "ПФ красный соус (на станции)", 2, "h", ""),
+                new Product("На станции", "ПФ майонез (на станции)", 2, "h", ""),
+                new Product("На станции", "ПФ перчик (на станции)", 2, "h", ""),
+                new Product("Соусы", "Соусы (вскрытый вакуум)", 48, "h", ""),
+                new Product("Соусы", "Перчик (вскрытый вакуум)", 48, "h", ""),
+                new Product("На станции", "ПФ огурцы (на станции)", 2, "h", ""),
+                new Product("Овощи", "ПФ огурцы (саладет)", 3, "h", ""),
+                new Product("Овощи", "Огурцы маринованные (после вскрытия)", 48, "h", ""),
+                new Product("На станции", "ПФ лук (на станции)", 2, "h", ""),
+                new Product("Овощи", "ПФ лук с цеха (саладет)", 3, "h", ""),
+                new Product("Овощи", "Лук с цеха (вскрытый вакуум)", 12, "h", ""),
+                new Product("Овощи", "Лук неочищенный (в контейнере)", 48, "h", ""),
+                new Product("Овощи", "Лук нарезанный (саладет)", 2, "h", ""),
+                new Product("Мясо и картофель", "Говядина готовая (в мармите)", 1, "h", ""),
+                new Product("Мясо и картофель", "Курица готовая (в мармите)", 1, "h", ""),
+                new Product("Мясо и картофель", "Картошка с цеха (вскрытая упаковка)", 12, "h", ""),
+                new Product("Мясо и картофель", "Картошка готовая", 20, "min", ""),
+                new Product("Мясо и картофель", "Картофель фри готовый", 5, "min", ""),
+                new Product("Лаваш", "Лапиза (вскрытая упаковка)", 12, "h", ""),
+                new Product("Лаваш", "Лаваш вскрытый (холодильник)", 12, "h", ""),
+                new Product("Лаваш", "Лаваш вскрытый (на станции)", 4, "h", ""),
+                new Product("Лаваш", "Лаваш с лапизой (холодильник)", 4, "h", ""),
+                new Product("Лаваш", "Лаваш с лапизой (на станции)", 30, "min", ""),
+                new Product("Прочее", "Специя Santa Maria (вскрытая упаковка)", 7, "d", ""),
+                new Product("Прочее", "Специя Santa Maria (в солонке)", 24, "h", ""),
+                new Product("На станции", "Соусы «Дипоты» (на станции)", 120, "h", ""),
+                new Product("Прочее", "Дезраствор К-214 (0,5%)", 4, "h", ""),
             };
         }
     }
@@ -373,6 +374,17 @@ namespace PickChick.Labels
                 if (k > 1.6f) k = 1.6f;
                 if (k < 0.45f) k = 0.45f;
 
+                if (!string.IsNullOrWhiteSpace(s.Brand))
+                {
+                    using (var brandFont = new Font("Arial", 18f * k, FontStyle.Bold, GraphicsUnit.Pixel))
+                    {
+                        var c = new StringFormat();
+                        c.Alignment = StringAlignment.Center;
+                        g.DrawString(s.Brand.Trim().ToUpperInvariant(), brandFont, Brushes.Black,
+                            new RectangleF(x, y, inner, 22 * k), c);
+                    }
+                    y += (int)(22 * k);
+                }
                 using (var nameFont = FitFont(g, p.Name, "Arial", 34f * k, FontStyle.Bold, inner, (int)(80 * k)))
                 {
                     var nameRect = new RectangleF(x, y, inner, 80 * k);
@@ -681,7 +693,7 @@ namespace PickChick.Labels
 
         public MainForm()
         {
-            Text = "PickChick — Маркировка продуктов";
+            Text = "Маркировка продуктов";
             BackColor = Ui.Bg;
             Font = Ui.F(11f, false);
             WindowState = FormWindowState.Maximized;
@@ -710,7 +722,8 @@ namespace PickChick.Labels
             top.Dock = DockStyle.Top;
             top.Height = 64;
             top.BackColor = Ui.Accent;
-            var title = Ui.Lbl("Маркировка продуктов", 18f, true, Color.White);
+            var title = Ui.Lbl(string.IsNullOrWhiteSpace(settings.Brand) ? "Маркировка продуктов"
+                : settings.Brand.Trim() + " — маркировка", 18f, true, Color.White);
             title.Location = new Point(18, 14);
             top.Controls.Add(title);
 
@@ -1458,6 +1471,7 @@ namespace PickChick.Labels
                         else if (key == "cut") settings.Cut = v == "1" || v == "true";
                         else if (key == "mode") settings.Mode = v == "driver" ? "driver" : "escpos";
                         else if (key == "printer") settings.PrinterName = v;
+                        else if (key == "brand") settings.Brand = v;
                         else throw new ArgumentException("unknown key: " + key);
                     }
                     Store.Normalize(settings);
