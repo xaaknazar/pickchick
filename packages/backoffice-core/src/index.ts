@@ -1047,11 +1047,15 @@ export class Backoffice {
       }
       const captures = (
         await db.query(
-          `SELECT c.id,c.amount_minor::text,c.occurred_at,
-           ($2::boolean AND a.provider='tiptoppay') refund_adapter
-           FROM commerce_captures c JOIN commerce_provider_accounts a ON a.id=c.account_id
-           WHERE c.order_id=$1 ORDER BY c.occurred_at`,
-          [id, this.options.tipTopPayRefundsEnabled === true],
+          // Flag off: the former query exactly (no provider account read). A capture is never
+          // hidden by a missing account row (LEFT JOIN).
+          this.options.tipTopPayRefundsEnabled === true
+            ? `SELECT c.id,c.amount_minor::text,c.occurred_at,
+               COALESCE(a.provider='tiptoppay',false) refund_adapter
+               FROM commerce_captures c LEFT JOIN commerce_provider_accounts a ON a.id=c.account_id
+               WHERE c.order_id=$1 ORDER BY c.occurred_at`
+            : 'SELECT id,amount_minor::text,occurred_at FROM commerce_captures WHERE order_id=$1 ORDER BY occurred_at',
+          [id],
         )
       ).rows.map(({ refund_adapter, ...capture }) =>
         // Present only for a TipTopPay payment with its refunds on (older readers unchanged).
