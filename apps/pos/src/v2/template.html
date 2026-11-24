@@ -690,45 +690,22 @@
                   </div>
                 </sc-for>
               </div>
-              <div style="flex: none; border-top: 1.5px solid var(--n300); padding: 14px 18px 12px">
-                <div
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 19px;
-                    color: var(--n600);
-                  "
-                >
-                  <span>Подытог</span><span>{{ subtotalLabel }}</span>
-                </div>
+              <div
+                class="cart-total"
+                style="flex: none; border-top: 1.5px solid var(--n300); padding: 8px 18px 0"
+              >
                 <sc-if value="{{ hasPromo }}" hint-placeholder-val="{{ false }}"
                   ><div
                     style="
-                      margin-top: 6px;
                       display: flex;
                       justify-content: space-between;
-                      font-size: 19px;
+                      font-size: 17px;
                       color: var(--green);
                     "
                   >
                     <span>Промокод PICK15</span><span>−{{ discountLabel }}</span>
                   </div></sc-if
                 >
-                <div
-                  style="
-                    margin-top: 8px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: baseline;
-                  "
-                >
-                  <span style="font-size: 20px; font-weight: 700; letter-spacing: 0.06em"
-                    >ИТОГО</span
-                  ><span
-                    style="font-family: Montserrat, sans-serif; font-weight: 800; font-size: 42px"
-                    >{{ totalLabel }}</span
-                  >
-                </div>
                 <sc-if value="{{ hasGuest }}" hint-placeholder-val="{{ false }}"
                   ><div style="font-size: 16px; font-weight: 600; color: var(--orange)">
                     +{{ earnLabel }} Чиков гостю
@@ -737,45 +714,68 @@
               </div>
               <div
                 class="cart-tools"
-                style="flex: none; padding: 0 18px 10px; display: flex; gap: 8px"
+                style="
+                  flex: none;
+                  padding: 0 18px 8px;
+                  display: flex;
+                  gap: 8px;
+                  align-items: center;
+                "
               >
                 <div
                   onClick="{{ decSel }}"
-                  style="width:64px;height:64px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;cursor:pointer;color:{{ selFg }}"
+                  style="width:56px;height:52px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;cursor:pointer;color:{{ selFg }}"
                 >
                   −
                 </div>
                 <div
                   onClick="{{ incSel }}"
-                  style="width:64px;height:64px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;cursor:pointer;color:{{ selFg }}"
+                  style="width:56px;height:52px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;cursor:pointer;color:{{ selFg }}"
                 >
                   +
                 </div>
                 <div
                   onClick="{{ delSel }}"
-                  style="width:64px;height:64px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;color:{{ selDelFg }}"
+                  style="width:56px;height:52px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;color:{{ selDelFg }}"
                 >
                   ✕
                 </div>
                 <div
-                  onClick="{{ togglePromo }}"
-                  style="flex:1;height:64px;border-radius:14px;background:{{ promoBtnBg }};border:2px solid var(--n300);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;cursor:pointer;color:{{ promoBtnFg }}"
+                  class="cart-sum"
+                  style="flex: 1; min-width: 0; text-align: right; line-height: 1.05"
                 >
-                  {{ promoBtnLabel }}
+                  <div style="font-size: 14px; font-weight: 700; letter-spacing: 0.06em">ИТОГО</div>
+                  <div
+                    style="
+                      font-family: Montserrat, sans-serif;
+                      font-weight: 800;
+                      font-size: 30px;
+                      white-space: nowrap;
+                    "
+                  >
+                    {{ totalLabel }}
+                  </div>
                 </div>
               </div>
               <div
+                class="cart-extras"
                 style="
                   flex: none;
-                  padding: 0 18px 16px;
+                  padding: 0 18px 10px;
                   display: grid;
-                  grid-template-columns: 1fr;
+                  grid-template-columns: minmax(0, 2fr) minmax(0, 5fr);
                   gap: 8px;
                 "
               >
                 <div
+                  onClick="{{ togglePromo }}"
+                  style="height:52px;border-radius:14px;background:{{ promoBtnBg }};border:2px solid var(--n300);display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:17px;font-weight:700;cursor:pointer;color:{{ promoBtnFg }}"
+                >
+                  {{ promoBtnLabel }}
+                </div>
+                <div
                   onClick="{{ openComment }}"
-                  style="min-height:64px;border-radius:14px;background:{{ commentBg }};border:2px solid {{ commentBorder }};display:flex;align-items:center;justify-content:center;padding:0 16px;font-size:19px;font-weight:700;cursor:pointer;text-align:center;color:{{ commentFg }}"
+                  style="min-height:52px;border-radius:14px;background:{{ commentBg }};border:2px solid {{ commentBorder }};display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:17px;font-weight:700;cursor:pointer;text-align:center;color:{{ commentFg }}"
                 >
                   {{ commentLabel }}
                 </div>
