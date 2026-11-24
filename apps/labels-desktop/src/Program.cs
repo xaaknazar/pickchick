@@ -20,7 +20,7 @@ using System.Windows.Forms;
 
 [assembly: System.Reflection.AssemblyTitle("PickChick Маркировка")]
 [assembly: System.Reflection.AssemblyProduct("PickChick")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
 
 namespace PickChick.Labels
 {
@@ -76,7 +76,14 @@ namespace PickChick.Labels
         public int PrintWidthMm { get; set; }
         public int LabelHeightMm { get; set; }
         public bool Cut { get; set; }
+        /// <summary>Unused since 1.1 (kept so old settings.json still loads).</summary>
         public int FeedMm { get; set; }
+        /// <summary>Backing between two die-cut labels; label + gap = paper advanced per label.</summary>
+        public int GapMm { get; set; }
+        /// <summary>Shift of the print down from the start of each label pitch.</summary>
+        public int OffsetYMm { get; set; }
+        /// <summary>Shift of the print right from the left edge of the print head.</summary>
+        public int OffsetXMm { get; set; }
         public List<string> Employees { get; set; }
         public string LastEmployee { get; set; }
 
@@ -88,6 +95,9 @@ namespace PickChick.Labels
             LabelHeightMm = 40;
             Cut = true;
             FeedMm = 0;
+            GapMm = 3;
+            OffsetYMm = 0;
+            OffsetXMm = 0;
             Employees = new List<string>();
             LastEmployee = "";
         }
@@ -184,9 +194,7 @@ namespace PickChick.Labels
                     {
                         if (s.Employees == null) s.Employees = new List<string>();
                         if (s.Mode != "driver") s.Mode = "escpos";
-                        if (s.PrintWidthMm < 30 || s.PrintWidthMm > 104) s.PrintWidthMm = 72;
-                        if (s.LabelHeightMm < 20 || s.LabelHeightMm > 200) s.LabelHeightMm = 40;
-                        if (s.FeedMm < 0 || s.FeedMm > 50) s.FeedMm = 0;
+                        Normalize(s);
                         if (s.PrinterName == null) s.PrinterName = "";
                         if (s.LastEmployee == null) s.LastEmployee = "";
                         return s;
@@ -198,6 +206,16 @@ namespace PickChick.Labels
             fresh.PrinterName = GuessPrinter();
             SaveSettings(fresh);
             return fresh;
+        }
+
+        public static void Normalize(Settings s)
+        {
+            if (s.PrintWidthMm < 20 || s.PrintWidthMm > 72) s.PrintWidthMm = 72;
+            if (s.LabelHeightMm < 15 || s.LabelHeightMm > 200) s.LabelHeightMm = 40;
+            if (s.GapMm < 0 || s.GapMm > 30) s.GapMm = 0;
+            if (s.OffsetYMm < 0 || s.OffsetYMm > 60) s.OffsetYMm = 0;
+            if (s.OffsetXMm < 0 || s.OffsetXMm > 52) s.OffsetXMm = 0;
+            if (s.OffsetXMm + s.PrintWidthMm > 72) s.OffsetXMm = 72 - s.PrintWidthMm;
         }
 
         public static void SaveSettings(Settings s)
@@ -350,9 +368,10 @@ namespace PickChick.Labels
                 g.SmoothingMode = SmoothingMode.None;
                 int pad = 2 * DotsPerMm;
                 int x = pad, y = DotsPerMm, inner = w - 2 * pad;
-                float k = h / 320f; // scale fonts to the label height (40 mm = 320 dots)
+                // Scale to the label: 72 x 40 mm (576 x 320 dots) is 1.
+                float k = Math.Min(h / 320f, w / 576f);
                 if (k > 1.6f) k = 1.6f;
-                if (k < 0.6f) k = 0.6f;
+                if (k < 0.45f) k = 0.45f;
 
                 using (var nameFont = FitFont(g, p.Name, "Arial", 34f * k, FontStyle.Bold, inner, (int)(80 * k)))
                 {
@@ -368,7 +387,7 @@ namespace PickChick.Labels
 
                 using (var small = new Font("Arial", 20f * k, FontStyle.Regular, GraphicsUnit.Pixel))
                 using (var smallBold = new Font("Arial", 22f * k, FontStyle.Bold, GraphicsUnit.Pixel))
-                using (var big = new Font("Arial", 42f * k, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (var big = FitWidth(g, until.ToString(Stamp), "Arial", 42f * k, FontStyle.Bold, inner - 12))
                 {
                     g.DrawString("Изготовлено / вскрыто:", small, Brushes.Black, x, y);
                     y += (int)(22 * k);
@@ -396,6 +415,37 @@ namespace PickChick.Labels
                 }
             }
             return bmp;
+        }
+
+        static Font FitWidth(Graphics g, string text, string family, float start, FontStyle style, int width)
+        {
+            float size = start;
+            while (size > 10f)
+            {
+                var f = new Font(family, size, style, GraphicsUnit.Pixel);
+                if (g.MeasureString(text, f).Width <= width) return f;
+                f.Dispose();
+                size -= 1f;
+            }
+            return new Font(family, 10f, style, GraphicsUnit.Pixel);
+        }
+
+        /// <summary>The paper of one label: full head width (72 mm) x (label + gap), the label
+        /// drawn at the configured offsets. Printing exactly this much per label keeps the
+        /// print and the cut in the same place on every die-cut label.</summary>
+        public static Bitmap Compose(Bitmap label, Settings s)
+        {
+            int w = 72 * DotsPerMm;
+            int h = (s.LabelHeightMm + s.GapMm) * DotsPerMm;
+            var page = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+            page.SetResolution(203f, 203f);
+            using (var g = Graphics.FromImage(page))
+            {
+                g.Clear(Color.White);
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                g.DrawImageUnscaled(label, s.OffsetXMm * DotsPerMm, s.OffsetYMm * DotsPerMm);
+            }
+            return page;
         }
 
         static Font FitFont(Graphics g, string text, string family, float start, FontStyle style, int width, int maxHeight)
@@ -465,7 +515,7 @@ namespace PickChick.Labels
             finally { ClosePrinter(h); }
         }
 
-        /// <summary>ESC/POS: init, raster image (GS v 0) in bands, feed, optional partial cut.</summary>
+        /// <summary>ESC/POS: init, raster image (GS v 0) in bands, optional partial cut in place.</summary>
         public static byte[] EscPos(Bitmap bmp, Settings s)
         {
             var o = new MemoryStream();
@@ -493,18 +543,28 @@ namespace PickChick.Labels
                     }
                 }
             }
-            int feedDots = s.FeedMm * LabelRenderer.DotsPerMm;
-            while (feedDots > 0)
-            {
-                int n = Math.Min(255, feedDots);
-                o.WriteByte(0x1B); o.WriteByte(0x4A); o.WriteByte((byte)n); // ESC J n
-                feedDots -= n;
-            }
             if (s.Cut)
             {
-                o.WriteByte(0x1D); o.WriteByte(0x56); o.WriteByte(0x42); o.WriteByte(0x00); // GS V 66 0
+                // GS V 1: partial cut where the paper is now, without feeding to the cutter,
+                // so every label advances exactly label + gap and the cut stays in phase.
+                o.WriteByte(0x1D); o.WriteByte(0x56); o.WriteByte(0x01);
             }
             return o.ToArray();
+        }
+
+        /// <summary>Feeds paper without printing (ESC J), to bring the cut into the gap.</summary>
+        public static void Feed(Settings s, int mm)
+        {
+            var o = new MemoryStream();
+            o.WriteByte(0x1B); o.WriteByte(0x40);
+            int dots = Math.Max(0, Math.Min(200, mm)) * LabelRenderer.DotsPerMm;
+            while (dots > 0)
+            {
+                int n = Math.Min(255, dots);
+                o.WriteByte(0x1B); o.WriteByte(0x4A); o.WriteByte((byte)n);
+                dots -= n;
+            }
+            SendRaw(s.PrinterName, o.ToArray(), "Маркировка: подача");
         }
 
         public static void Print(Product p, DateTime made, DateTime until, string employee, int copies, Settings s)
@@ -518,7 +578,8 @@ namespace PickChick.Labels
                     PrintViaDriver(bmp, copies, s);
                     return;
                 }
-                var one = EscPos(bmp, s);
+                byte[] one;
+                using (var page = LabelRenderer.Compose(bmp, s)) one = EscPos(page, s);
                 var all = new MemoryStream();
                 for (int i = 0; i < copies; i++) all.Write(one, 0, one.Length);
                 SendRaw(s.PrinterName, all.ToArray(), "Маркировка: " + p.Name);
@@ -537,14 +598,14 @@ namespace PickChick.Labels
                 doc.PrintController = new StandardPrintController();
                 // Hundredths of an inch.
                 int wIn = (int)Math.Round(s.PrintWidthMm / 25.4 * 100) + 8;
-                int hIn = (int)Math.Round(s.LabelHeightMm / 25.4 * 100);
+                int hIn = (int)Math.Round((s.LabelHeightMm + s.GapMm) / 25.4 * 100);
                 doc.DefaultPageSettings.PaperSize = new PaperSize("Этикетка", wIn, hIn);
                 doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
                 doc.PrintPage += (sender, e) =>
                 {
                     e.Graphics.PageUnit = GraphicsUnit.Millimeter;
                     e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    e.Graphics.DrawImage(bmp, 0f, 0f, (float)s.PrintWidthMm, (float)s.LabelHeightMm);
+                    e.Graphics.DrawImage(bmp, (float)s.OffsetXMm, (float)s.OffsetYMm, (float)s.PrintWidthMm, (float)s.LabelHeightMm);
                     left--;
                     e.HasMorePages = left > 0;
                 };
@@ -1182,14 +1243,14 @@ namespace PickChick.Labels
     {
         readonly Settings s;
         ComboBox printer, mode;
-        NumericUpDown width, height, feed;
+        NumericUpDown width, height, gap, offY, offX;
         CheckBox cut;
 
         public SettingsForm(Settings settings)
         {
             s = settings;
             Text = "Настройки печати";
-            Size = new Size(640, 560);
+            Size = new Size(680, 720);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false; MinimizeBox = false;
@@ -1217,21 +1278,38 @@ namespace PickChick.Labels
             mode.Items.Add("Через драйвер Windows");
             mode.SelectedIndex = s.Mode == "driver" ? 1 : 0;
 
-            width = Num(30, 104, s.PrintWidthMm);
-            height = Num(20, 200, s.LabelHeightMm);
-            feed = Num(0, 50, s.FeedMm);
+            width = Num(20, 72, s.PrintWidthMm);
+            height = Num(15, 200, s.LabelHeightMm);
+            gap = Num(0, 30, s.GapMm);
+            offY = Num(0, 60, s.OffsetYMm);
+            offX = Num(0, 52, s.OffsetXMm);
             cut = new CheckBox();
-            cut.Text = "Отрезать после каждой наклейки";
+            cut.Text = "Отрезать между наклейками";
             cut.Checked = s.Cut;
             cut.AutoSize = true;
 
             Row(t, "Принтер", printer);
             Row(t, "Способ печати", mode);
-            Row(t, "Ширина печати, мм", width);
-            Row(t, "Высота наклейки, мм", height);
-            Row(t, "Протяжка после, мм", feed);
+            Row(t, "Ширина наклейки, мм", width);
+            Row(t, "Длина наклейки, мм", height);
+            Row(t, "Промежуток, мм", gap);
+            Row(t, "Сдвиг печати вниз, мм", offY);
+            Row(t, "Сдвиг печати вправо, мм", offX);
             Row(t, "", cut);
-            var note = Ui.Lbl("Для рулона 80 мм ширина печати 72 мм. Если наклейки\nс промежутками — поставьте высоту по шагу этикетки\nи снимите «Отрезать».", 10f, false, Ui.Muted);
+            var feedRow = new FlowLayoutPanel();
+            feedRow.AutoSize = true;
+            feedRow.WrapContents = false;
+            foreach (var mm in new[] { 1, 5, 10 })
+            {
+                int step = mm;
+                var b = Ui.Btn("+" + mm + " мм", Ui.Line, Ui.Text, 11f);
+                b.Size = new Size(90, 40);
+                b.Margin = new Padding(0, 0, 8, 0);
+                b.Click += delegate { FeedPaper(step); };
+                feedRow.Controls.Add(b);
+            }
+            Row(t, "Подать бумагу", feedRow);
+            var note = Ui.Lbl("Если отрезка попадает на наклейку — подайте бумагу\nкнопками «+1 мм», пока отрезка не встанет в промежуток.\nЕсли текст сползает с наклейки — меняйте сдвиг.", 10f, false, Ui.Muted);
             t.Controls.Add(new Label(), 0, t.RowCount);
             t.Controls.Add(note, 1, t.RowCount);
             t.RowCount++;
@@ -1284,8 +1362,22 @@ namespace PickChick.Labels
             target.Mode = mode.SelectedIndex == 1 ? "driver" : "escpos";
             target.PrintWidthMm = (int)width.Value;
             target.LabelHeightMm = (int)height.Value;
-            target.FeedMm = (int)feed.Value;
+            target.GapMm = (int)gap.Value;
+            target.OffsetYMm = (int)offY.Value;
+            target.OffsetXMm = (int)offX.Value;
             target.Cut = cut.Checked;
+            Store.Normalize(target);
+        }
+
+        void FeedPaper(int mm)
+        {
+            var tmp = new Settings();
+            Apply(tmp);
+            try { Printer.Feed(tmp, mm); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Подача бумаги", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         void TestPrint()
@@ -1317,6 +1409,8 @@ namespace PickChick.Labels
             //   --render <out.png> [product]   draw a label to a PNG
             //   --print [product]              print one label with the saved settings
             //   --printers                     list Windows printers
+            //   --set key=value ...            change settings (width height gap offy offx cut mode printer)
+            //   --feed <mm>                    feed paper without printing
             if (args.Length > 0) return Cli(args);
 
             bool created;
@@ -1348,6 +1442,35 @@ namespace PickChick.Labels
                     Console.WriteLine("selected: " + settings.PrinterName);
                     return 0;
                 }
+                if (args[0] == "--set")
+                {
+                    // --set width=40 height=40 gap=3 offy=0 offx=0 cut=1 mode=escpos
+                    for (int i = 1; i < args.Length; i++)
+                    {
+                        var kv = args[i].Split(new[] { '=' }, 2);
+                        if (kv.Length != 2) throw new ArgumentException("bad: " + args[i]);
+                        string key = kv[0].ToLowerInvariant(), v = kv[1];
+                        if (key == "width") settings.PrintWidthMm = int.Parse(v);
+                        else if (key == "height") settings.LabelHeightMm = int.Parse(v);
+                        else if (key == "gap") settings.GapMm = int.Parse(v);
+                        else if (key == "offy") settings.OffsetYMm = int.Parse(v);
+                        else if (key == "offx") settings.OffsetXMm = int.Parse(v);
+                        else if (key == "cut") settings.Cut = v == "1" || v == "true";
+                        else if (key == "mode") settings.Mode = v == "driver" ? "driver" : "escpos";
+                        else if (key == "printer") settings.PrinterName = v;
+                        else throw new ArgumentException("unknown key: " + key);
+                    }
+                    Store.Normalize(settings);
+                    Store.SaveSettings(settings);
+                    Console.WriteLine(new JavaScriptSerializer().Serialize(settings));
+                    return 0;
+                }
+                if (args[0] == "--feed")
+                {
+                    Printer.Feed(settings, args.Length > 1 ? int.Parse(args[1]) : 1);
+                    Console.WriteLine("fed");
+                    return 0;
+                }
                 string want = null;
                 string outPath = null;
                 if (args[0] == "--render") { outPath = args.Length > 1 ? args[1] : "label.png"; want = args.Length > 2 ? args[2] : null; }
@@ -1362,7 +1485,8 @@ namespace PickChick.Labels
                 if (outPath != null)
                 {
                     using (var bmp = LabelRenderer.Render(prod, now, prod.ExpiryFrom(now), "", settings))
-                        bmp.Save(outPath, ImageFormat.Png);
+                    using (var page = LabelRenderer.Compose(bmp, settings))
+                        page.Save(outPath, ImageFormat.Png);
                     Console.WriteLine("rendered " + prod.Name + " -> " + outPath);
                 }
                 else
