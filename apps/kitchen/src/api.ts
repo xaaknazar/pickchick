@@ -47,7 +47,9 @@ export const request: Transport = async (path, actor, body, key) => {
       credentials: 'same-origin',
       redirect: 'error',
       cache: 'no-store',
-      signal: AbortSignal.timeout(12000),
+      // A read that hangs longer than 8 s over Wi-Fi is retried by the next poll; a command
+      // keeps 12 s because its answer decides whether the journal closes.
+      signal: AbortSignal.timeout(body === undefined ? 8000 : 12000),
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
