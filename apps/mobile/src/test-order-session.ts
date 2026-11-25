@@ -147,6 +147,20 @@ export function mergeObservedOrders(previous: TestOrder[], next: TestOrder[]): T
     return old && old.version > order.version ? old : order;
   });
 }
+/**
+ * mergeObservedOrders for a watch answer: an answer that changes nothing (the bounded heartbeat
+ * of the long-poll) returns `previous` itself, so the caller can skip the render.
+ */
+export function mergeWatchedOrders(previous: TestOrder[], next: TestOrder[]): TestOrder[] {
+  const merged = mergeObservedOrders(previous, next);
+  return merged.length === previous.length &&
+    merged.every(
+      (order, index) =>
+        order === previous[index] || JSON.stringify(order) === JSON.stringify(previous[index]),
+    )
+    ? previous
+    : merged;
+}
 
 /** Platform storage, clock, entropy and HTTP are injected for recovery tests. */
 export class TestCustomerCore {

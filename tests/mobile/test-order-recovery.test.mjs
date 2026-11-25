@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import {
   observeSavedOrders,
@@ -13,6 +14,7 @@ import {
   cartMatchesOrder,
   mergeObservedOrder,
   mergeObservedOrders,
+  mergeWatchedOrders,
 } from '../../apps/mobile/src/test-order-session.ts';
 
 // Deterministic in-memory server/storage boundaries. These tests exercise the actual
@@ -583,6 +585,17 @@ test('order observations are monotonic and checkout resumes only the matching ba
   const ready = { ...order, version: 4, state: 'ready', payment_state: 'simulated_approved' };
   assert.deepEqual(mergeObservedOrder([ready], order), [ready]);
   assert.deepEqual(mergeObservedOrders([ready], [order]), [ready]);
+  // Audit 23.11 #12: a watch answer that changes nothing keeps the list itself (no render).
+  const shown = [ready];
+  assert.equal(mergeWatchedOrders(shown, [JSON.parse(JSON.stringify(ready))]), shown);
+  assert.equal(mergeWatchedOrders(shown, [order]), shown);
+  const fulfilled = { ...ready, version: 5, state: 'fulfilled' };
+  assert.deepEqual(mergeWatchedOrders(shown, [fulfilled]), [fulfilled]);
+  assert.deepEqual(mergeWatchedOrders(shown, []), []);
+  assert.match(
+    readFileSync(new URL('../../apps/mobile/src/useTestOrders.ts', import.meta.url), 'utf8'),
+    /if \(merged !== ordersRef\.current\) \{[^}]*setOrders\(merged\);\s*setObservedAt\(/,
+  );
   assert.equal(cartMatchesOrder(order, cart(), 'takeaway'), true);
   assert.equal(cartMatchesOrder(order, cart(), 'dine_in'), false);
   assert.equal(cartMatchesOrder(order, cart('test-fries'), 'takeaway'), false);

@@ -6,6 +6,10 @@ import { commerceRequest, kaspiCheckoutEnabled } from '../commerce-checkout';
 import type { ComboProgressState } from './combo-progress';
 import { keepIfSame } from '../stable-values';
 
+// One object per state without data: the app model above compares it by identity.
+const SIGNED_OUT: ComboProgressState = { status: 'signed_out', data: null };
+const LOADING: ComboProgressState = { status: 'loading', data: null };
+
 /** One account-bound source shared by profile, events and cart; never stored as a balance. */
 export function useComboRewards() {
   const account = useAccount();
@@ -75,10 +79,10 @@ export function useComboRewards() {
     };
   }, [customerId, access]);
   const progress: ComboProgressState = !customerId
-    ? { status: 'signed_out', data: null }
+    ? SIGNED_OUT
     : snapshot && snapshot.customerId === customerId
       ? snapshot.state
-      : { status: 'loading', data: null };
+      : LOADING;
   return {
     progress,
     refresh,
