@@ -34,7 +34,7 @@ import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../
 import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
-import { colors, font, tc } from '../theme';
+import { colors, font, tc, themed } from '../theme';
 
 type Props = ScreenProps & {
   product: Product;
@@ -48,8 +48,12 @@ const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 /** Navy over the glass of «Настроить комбо», so white text reads on the light photo. */
 const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
+/** The light look (owner 25.11.2026): the blue photo melts into the light page, not into navy. */
+const lightLook = () => colors.scheme === 'light';
 const blueGradient = () =>
-  tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)');
+  lightLook()
+    ? 'linear-gradient(180deg, rgba(228,237,251,0) 0%, rgba(228,237,251,0.55) 50%, #E4EDFB 100%)'
+    : tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)');
 const blueBlend = () =>
   (Platform.OS === 'web'
     ? { backgroundImage: blueGradient() }
@@ -98,12 +102,14 @@ export function PhotoProduct(props: Props) {
   // Owner 29.10: extras and drinks use the same blue page palette as combos.
   const blue = true;
   const s = blue ? blueStyles : warmStyles;
-  const pageInk = blue ? colors.pure : ink;
+  const pageInk = blue ? colors.white : ink;
   const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = tc(
-    `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
-  );
+  const pageGradient = lightLook()
+    ? `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #E4EDFB ${heroHeight}px, #E4EDFB 100%)`
+    : tc(
+        `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
+      );
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -352,7 +358,7 @@ export function PhotoProduct(props: Props) {
                 {/* Owner 15.11.2026: a control over the photo is Apple's glass, like the close
                     button; a navy tint keeps the white label readable on the light photo. */}
                 <GlassFill radius={28} place="header" tint={photoActionTint} interactive />
-                <Icon name="options-outline" color={colors.white} size={20} />
+                <Icon name="options-outline" color={colors.pure} size={20} />
                 <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
               </Pressable>
             ) : null}
@@ -1018,11 +1024,14 @@ function Counter({
   );
 }
 function makeStyles(blue: boolean) {
+  // On the light look the rows are the app's white cards on the light page, with ink text.
+  const light = lightLook();
   const ink = blue ? colors.white : '#271C15';
   const paper = blue ? '#0047BB' : '#FFF8EE';
-  const muted = blue ? tc('#D4E5FF') : '#594635';
+  const muted = blue ? (light ? colors.muted : tc('#D4E5FF')) : '#594635';
+  const row = (dark: string) => (light ? colors.surface : tc(dark));
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: blue ? tc('#0A1020') : paper },
+    page: { flex: 1, backgroundColor: blue ? colors.background : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
     close: { position: 'absolute' },
     photoAction: {
@@ -1037,7 +1046,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 48,
     },
-    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.white },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.pure },
     intro: {
       paddingHorizontal: 24,
       paddingTop: 6,
@@ -1067,13 +1076,17 @@ function makeStyles(blue: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      backgroundColor: blue ? tc('#073987') : '#EADBC5',
+      backgroundColor: blue ? row('#073987') : '#EADBC5',
       padding: 12,
       borderRadius: 16,
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? tc('#FF8A4C') : '#A33B00' },
+    replace: {
+      fontFamily: font.bold,
+      fontSize: 12,
+      color: blue ? (light ? colors.accentText : tc('#FF8A4C')) : '#A33B00',
+    },
     moreRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1096,7 +1109,7 @@ function makeStyles(blue: boolean) {
       padding: 10,
       gap: 6,
       borderRadius: 16,
-      backgroundColor: blue ? tc('#0C2B5D') : '#EADBC5',
+      backgroundColor: blue ? row('#0C2B5D') : '#EADBC5',
       borderWidth: 1,
       borderColor: 'transparent',
     },
@@ -1129,7 +1142,11 @@ function makeStyles(blue: boolean) {
     },
     addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
-    counter: { backgroundColor: blue ? tc('#133668') : '#F2DFC7', borderRadius: 25, gap: 0 },
+    counter: {
+      backgroundColor: blue ? (light ? '#D6E2F6' : tc('#133668')) : '#F2DFC7',
+      borderRadius: 25,
+      gap: 0,
+    },
     countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
     modal: { flex: 1, backgroundColor: colors.background },
@@ -1221,5 +1238,6 @@ function makeStyles(blue: boolean) {
     modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
   });
 }
-const warmStyles = makeStyles(false);
-const blueStyles = makeStyles(true);
+// Built again on every theme switch: these used to be frozen in the look the app started in.
+const warmStyles = themed(() => makeStyles(false));
+const blueStyles = themed(() => makeStyles(true));

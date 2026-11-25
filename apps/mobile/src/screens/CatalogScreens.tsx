@@ -290,6 +290,9 @@ const ProductMenuCard = memo(function ProductMenuCard({
   openProduct(product: Product): void;
   hit: boolean;
 }) {
+  // memo() stops the parent's re-render here, so the card follows language and theme itself.
+  // Without this a card kept the dark look after the page turned light (build 52).
+  useLocale();
   const photo = productPhoto(product, 'card', 'menu');
   const cutout = menuCutout(product, photo);
   return (

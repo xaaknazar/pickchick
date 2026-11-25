@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { GameBackButton } from '../GameBackButton';
 import {
   AppState,
   BackHandler,
@@ -427,13 +428,7 @@ export function PickBoxScreen() {
           height={window.height}
         />
         <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-          <Control
-            icon="close"
-            label={hud.phase === 'playing' ? copy.pause : copy.exit}
-            onPress={close}
-            testID="pick-box-exit"
-            dark={darkSky}
-          />
+          <GameBackButton testID="pick-box-exit" label={copy.exit} onPress={exit} />
           <View style={s.headerRight}>
             <View
               accessible
