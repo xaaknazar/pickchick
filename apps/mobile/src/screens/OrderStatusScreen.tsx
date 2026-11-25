@@ -441,7 +441,13 @@ const s = StyleSheet.create({
   },
   timeText: { color: colors.text, fontSize: 13, lineHeight: 19, flexShrink: 1 },
   statusText: { alignItems: 'center', gap: 6 },
-  title: { fontSize: 30, lineHeight: 37, textAlign: 'center', fontFamily: font.heading },
+  title: {
+    fontSize: 30,
+    letterSpacing: -0.6,
+    lineHeight: 37,
+    textAlign: 'center',
+    fontFamily: font.heading,
+  },
   subtitle: {
     fontSize: 14,
     lineHeight: 21,

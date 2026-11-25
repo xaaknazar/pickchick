@@ -127,7 +127,13 @@ const s = StyleSheet.create({
     columnGap: 12,
     paddingHorizontal: 22,
   },
-  title: { fontFamily: font.heading, fontSize: 24, lineHeight: 32, color: authColors.text },
+  title: {
+    fontFamily: font.heading,
+    fontSize: 24,
+    letterSpacing: -0.2,
+    lineHeight: 32,
+    color: authColors.text,
+  },
   cancel: {
     minHeight: 48,
     minWidth: 48,
@@ -137,5 +143,7 @@ const s = StyleSheet.create({
   },
   cancelText: { fontFamily: font.medium, fontSize: 15, lineHeight: 22, color: authColors.blueInk },
   footer: { paddingHorizontal: 22, paddingTop: 10 },
-  pressed: { opacity: 0.7 },
+  // MotionPressable already animates the press (scale or highlight); a second, instant
+  // opacity here doubled the dimming and snapped ahead of the animation.
+  pressed: {},
 });

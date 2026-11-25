@@ -410,6 +410,7 @@ const s = StyleSheet.create({
     minWidth: 0,
     fontFamily: font.display,
     fontSize: 30,
+    letterSpacing: -0.6,
     lineHeight: 40,
     color: colors.white,
   },
@@ -433,7 +434,13 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   avatarImage: { width: '100%', height: '100%' },
-  name: { fontFamily: font.heading, fontSize: 22, lineHeight: 30, color: colors.white },
+  name: {
+    fontFamily: font.heading,
+    fontSize: 22,
+    letterSpacing: -0.2,
+    lineHeight: 30,
+    color: colors.white,
+  },
   subtitle: { marginTop: 4, fontFamily: font.body, fontSize: 14, lineHeight: 20, color: '#B6C4DD' },
   demoLabel: {
     marginTop: 4,
@@ -515,6 +522,7 @@ const s = StyleSheet.create({
   sectionTitle: {
     fontFamily: font.heading,
     fontSize: 20,
+    letterSpacing: -0.2,
     lineHeight: 28,
     color: colors.white,
     paddingLeft: 2,
@@ -554,6 +562,7 @@ const s = StyleSheet.create({
     lineHeight: 16,
     color: colors.orangeInk,
     includeFontPadding: false,
+    fontVariant: ['tabular-nums'],
   },
   signOut: { borderRadius: 16, marginTop: 4 },
   version: {
@@ -564,5 +573,7 @@ const s = StyleSheet.create({
     color: colors.muted,
   },
   error: { color: '#FFB0AB', fontFamily: font.body, fontSize: 14, lineHeight: 22 },
-  pressed: { opacity: 0.78 },
+  // MotionPressable already animates the press (scale or highlight); a second, instant
+  // opacity here doubled the dimming and snapped ahead of the animation.
+  pressed: {},
 });

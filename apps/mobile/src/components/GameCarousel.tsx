@@ -182,6 +182,7 @@ const s = StyleSheet.create({
     flex: 1,
     fontFamily: font.display,
     fontSize: 20,
+    letterSpacing: -0.2,
     lineHeight: 26,
     color: colors.text,
   },
@@ -214,6 +215,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontFamily: font.display,
     fontSize: 24,
+    letterSpacing: -0.2,
     lineHeight: 31,
     color: colors.white,
     ...textShadow,

@@ -486,7 +486,12 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: authColors.border,
   },
-  phonePrefix: { fontFamily: font.heading, fontSize: 26, color: authColors.text },
+  phonePrefix: {
+    fontFamily: font.heading,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    color: authColors.text,
+  },
   divider: { width: 1, height: 28, backgroundColor: '#344A75' },
   phoneInput: {
     flex: 1,
@@ -495,6 +500,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 0,
     fontFamily: font.heading,
     fontSize: 26,
+    letterSpacing: -0.5,
     color: authColors.text,
   },
   focused: { borderColor: colors.accent },
@@ -529,7 +535,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  otpDigit: { fontFamily: font.heading, fontSize: 28, color: authColors.text },
+  otpDigit: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, color: authColors.text },
   otpInput: {
     ...StyleSheet.absoluteFill,
     color: 'transparent',

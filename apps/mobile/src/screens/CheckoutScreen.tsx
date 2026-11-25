@@ -251,5 +251,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: '#A3B4D6' },
+  commentCount: {
+    textAlign: 'right',
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#A3B4D6',
+    fontVariant: ['tabular-nums'],
+  },
 });

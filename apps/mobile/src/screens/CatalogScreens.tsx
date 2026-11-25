@@ -16,6 +16,7 @@ import { PromotionDialog } from '../backoffice/PromotionDialog';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useStableCallback } from '../stable-values';
 import Animated, {
+  Easing,
   FadeOut,
   LinearTransition,
   runOnJS,
@@ -81,6 +82,12 @@ import {
   SummaryRow,
   styles as ui,
 } from '../components/UI';
+
+// A removed cart line fades out quicker than the gap closes, and the gap closes on a 300 ms
+// no-bounce spring (was 450 ms): builders live at module scope so a re-render does not rebuild
+// them (Emil Kowalski: exits faster than entries, UI motion under 300 ms).
+const CART_LINE_LAYOUT = LinearTransition.springify().dampingRatio(1).duration(300);
+const CART_LINE_EXIT = FadeOut.duration(160).easing(Easing.bezier(0.23, 1, 0.32, 1));
 
 export function Welcome(props: ScreenProps) {
   useLocale();
@@ -924,10 +931,8 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
               key={cartLineKey(line)}
               style={s.cartLine}
               // A removed line fades and the rest close the gap on a spring, not in one frame.
-              layout={
-                reduced ? undefined : LinearTransition.springify().dampingRatio(1).duration(450)
-              }
-              exiting={reduced ? undefined : FadeOut.duration(180)}
+              layout={reduced ? undefined : CART_LINE_LAYOUT}
+              exiting={reduced ? undefined : CART_LINE_EXIT}
             >
               <Pressable
                 onPress={() => setEditing(line)}
@@ -1293,6 +1298,7 @@ const s = StyleSheet.create({
   productPrice: {
     fontFamily: font.display,
     fontSize: 20,
+    letterSpacing: -0.2,
     lineHeight: 28,
     fontVariant: ['tabular-nums'],
     color: colors.text,

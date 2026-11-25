@@ -806,6 +806,7 @@ const s = StyleSheet.create({
   number: {
     fontFamily: font.heading,
     fontSize: 22,
+    letterSpacing: -0.2,
     lineHeight: 28,
     color: colors.text,
     flexShrink: 1,
@@ -813,6 +814,7 @@ const s = StyleSheet.create({
   readyNumber: {
     fontFamily: font.display,
     fontSize: 30,
+    letterSpacing: -0.6,
     lineHeight: 36,
     color: colors.text,
     flexShrink: 1,
@@ -820,6 +822,7 @@ const s = StyleSheet.create({
   payNumber: {
     fontFamily: font.heading,
     fontSize: 20,
+    letterSpacing: -0.2,
     lineHeight: 26,
     color: colors.text,
     flexShrink: 1,
@@ -839,7 +842,13 @@ const s = StyleSheet.create({
   },
   chevronTop: { alignSelf: 'flex-start', paddingTop: 22 },
   eta: { alignItems: 'center', minWidth: 40 },
-  etaValue: { fontFamily: font.display, fontSize: 26, lineHeight: 30, color: colors.text },
+  etaValue: {
+    fontFamily: font.display,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    lineHeight: 30,
+    color: colors.text,
+  },
   etaUnit: { fontFamily: font.body, fontSize: 12, lineHeight: 16, color: colors.muted },
   bars: { flexDirection: 'row', gap: 6 },
   barItem: { flex: 1, gap: 8 },
@@ -950,6 +959,7 @@ const s = StyleSheet.create({
     marginTop: 18,
     fontFamily: font.display,
     fontSize: 28,
+    letterSpacing: -0.6,
     lineHeight: 34,
     color: colors.text,
     textAlign: 'center',

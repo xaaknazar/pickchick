@@ -469,7 +469,7 @@ function LegacyConfiguredProduct(
 const s = StyleSheet.create({
   close: { position: 'absolute', left: 16 },
   body: { paddingHorizontal: 18, paddingVertical: 20, gap: 16 },
-  title: { fontFamily: font.display, fontSize: 30, lineHeight: 38 },
+  title: { fontFamily: font.display, fontSize: 30, letterSpacing: -0.6, lineHeight: 38 },
   description: { fontSize: 14.5, lineHeight: 23 },
   nutrition: {
     borderRadius: 20,
@@ -505,5 +505,6 @@ const s = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 15,
     lineHeight: 22,
+    fontVariant: ['tabular-nums'],
   },
 });

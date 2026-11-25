@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Animated, Easing, Keyboard, StyleSheet, View } from 'react-native';
-import { animatedSpring, useReducedMotion } from '../components/Motion';
+import { Animated, Keyboard, StyleSheet, View } from 'react-native';
+import { animatedSpring, easing, useReducedMotion } from '../components/Motion';
 import { OrderSheet, SheetBackLayer } from '../components/OrderSheet';
 import { AuthWelcome } from '../components/AuthWelcome';
 import { Phone, Otp } from '../screens/AuthScreens';
@@ -141,8 +141,10 @@ export default function Auth() {
       setChangingStep(true);
       Animated.timing(transition, {
         toValue: 0,
-        duration: reducedMotion ? 80 : 140,
-        easing: Easing.in(Easing.quad),
+        // Leaving is quicker than arriving, and never ease-in: it starts slowly, at the very
+        // moment the guest is looking (Emil Kowalski).
+        duration: reducedMotion ? 80 : 120,
+        easing: easing.out,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) setStep(id);

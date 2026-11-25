@@ -63,6 +63,8 @@ export function CheckoutAction({
   useLocale();
   return (
     <MotionPressable
+      // The pay/checkout bar shrinks under the finger instead of dimming (Emil Kowalski).
+      feedback="scale"
       accessibilityRole="button"
       accessibilityLabel={localize(
         `${title}${amount ? `, ${amount}` : ''}${kaspi ? ' Kaspi' : ''}`,

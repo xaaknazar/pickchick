@@ -257,5 +257,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   disabled: { backgroundColor: '#16295A', opacity: 0.5 },
-  pressed: { opacity: 0.75 },
+  // MotionPressable already animates the press (scale or highlight); a second, instant
+  // opacity here doubled the dimming and snapped ahead of the animation.
+  pressed: {},
 });
