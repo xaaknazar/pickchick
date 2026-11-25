@@ -6,6 +6,7 @@ import { CheckoutAction, checkoutStyle } from '../components/CheckoutPresentatio
 import { CartTopBar, DiningModePill } from '../components/CartSheet';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
+import { menuCutouts } from '../menu-cutout-assets';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { useTabScrollToTop } from '../components/useTabScrollToTop';
@@ -262,6 +263,11 @@ export function Branches(props: ScreenProps) {
     </View>
   );
 }
+/** The «Витрина» cut-out of a product that still shows its bundled photo (not a remote upload). */
+function menuCutout(product: Product, photo = productPhoto(product, 'card', 'menu')) {
+  return photo.kind === 'id' ? menuCutouts[product.id] : undefined;
+}
+
 const ProductMenuCard = memo(function ProductMenuCard({
   product,
   compact,
@@ -277,6 +283,8 @@ const ProductMenuCard = memo(function ProductMenuCard({
   openProduct(product: Product): void;
   hit: boolean;
 }) {
+  const photo = productPhoto(product, 'card', 'menu');
+  const cutout = menuCutout(product, photo);
   return (
     <Pressable
       // Cards shrink a little under the finger and spring back, like App Store cards.
@@ -296,13 +304,24 @@ const ProductMenuCard = memo(function ProductMenuCard({
       ]}
     >
       {/* Owner 22.11.2026 (menu redesign): a light window under the food on the dark card, like the
-          Apple Store; the menu photos are retouched onto the same cool #EEF2F8. */}
-      <View testID={`product-photo-${product.id}`} style={s.productPhotoWrap}>
-        <ProductPhoto
-          photo={productPhoto(product, 'card', 'menu')}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
+          Apple Store; the menu photos are retouched onto the same cool #EEF2F8.
+          Owner 25.11.2026 («Витрина»): a bundled combo is drawn as a cut-out that rises above the
+          window's top edge; an uploaded back-office photo stays inside the window. */}
+      <View
+        testID={`product-photo-${product.id}`}
+        style={[s.productPhotoWrap, cutout ? s.productShowcase : null]}
+      >
+        {cutout ? (
+          <Image
+            testID={`product-cutout-${product.id}`}
+            source={cutout}
+            style={s.productShowcaseFood}
+            contentFit="contain"
+            contentPosition="bottom"
+          />
+        ) : (
+          <ProductPhoto photo={photo} style={StyleSheet.absoluteFill} contentFit="contain" />
+        )}
         {hit ? (
           <View style={s.hit}>
             <Caption style={s.hitText}>{t('ХИТ')}</Caption>
@@ -343,6 +362,10 @@ export function Menu(props: ScreenProps) {
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
   const loyaltyShown = upcomingFeaturesShown(undefined, props.preview);
+  // The design-sample note, the loader or the «no fresh menu» notice between the tabs and the menu.
+  const noticesShown =
+    props.model.catalogMode === 'design' ||
+    (props.model.catalogMode === 'server' && props.model.connection.status !== 'online');
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
@@ -592,12 +615,14 @@ export function Menu(props: ScreenProps) {
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
           // Without the loyalty card the categories keep their place over the hero's lower edge,
           // so the first dishes still show on the first screen (as with the card, 393 x 852).
+          // Owner 25.11.2026: «подними блок комбо ближе к надписям»: the first section starts right
+          // under the category names (their lower padding is shared with the section title).
           style={{
-            height: categoryHeight,
+            height: Math.max(0, categoryHeight - CATEGORY_TAIL),
             marginTop: loyaltyShown ? 0 : -Math.round(heroHeight * 0.13),
           }}
         />
-        <View style={s.menuBody}>
+        <View style={[s.menuBody, noticesShown ? s.menuBodyNotices : null]}>
           {props.model.catalogMode === 'design' ? (
             <Notice title={t('Образцы меню')}>
               {t(
@@ -625,6 +650,7 @@ export function Menu(props: ScreenProps) {
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             const singleColumn = fontScale > 1.3;
+            const showcase = products.some((product) => menuCutout(product));
             return (
               <View
                 key={item}
@@ -636,7 +662,7 @@ export function Menu(props: ScreenProps) {
                 <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
                   {localize(item)}
                 </Heading>
-                <View style={s.productGrid}>
+                <View style={[s.productGrid, showcase ? s.productGridShowcase : null]}>
                   {products.map((product, index) => (
                     <ProductMenuCard
                       key={product.id}
@@ -1098,6 +1124,8 @@ export function Unavailable(props: ScreenProps) {
   );
 }
 export { Checkout } from './CheckoutScreen';
+// The part of the category bar under its names (padding and touch area) that the first section uses.
+const CATEGORY_TAIL = 14;
 const s = themed(() =>
   StyleSheet.create({
     branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
@@ -1214,7 +1242,8 @@ const s = themed(() =>
     },
     heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
     loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
-    menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
+    menuBody: { paddingHorizontal: 24, paddingTop: 0, gap: 16 },
+    menuBodyNotices: { paddingTop: CATEGORY_TAIL, paddingBottom: 12 },
     stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
     categoryList: {
       gap: 24,
@@ -1241,6 +1270,8 @@ const s = themed(() =>
       letterSpacing: -0.36,
     },
     productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    // Room above each row for the food that rises out of its window.
+    productGridShowcase: { rowGap: 30, paddingTop: 18 },
     product: {
       borderRadius: 24,
       padding: 6,
@@ -1256,6 +1287,8 @@ const s = themed(() =>
       overflow: 'hidden',
       backgroundColor: '#EEF2F8',
     },
+    productShowcase: { aspectRatio: 1.3, overflow: 'visible' },
+    productShowcaseFood: { position: 'absolute', top: -28, bottom: 6, left: 2, right: 2 },
     // 12 pt between the photo and the name (owner 21.11.2026: «текст слишком близко к фото»).
     productInfo: { flex: 1, minWidth: 0, gap: 4, paddingTop: 12, paddingHorizontal: 8 },
     productTitle: {
