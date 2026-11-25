@@ -516,8 +516,14 @@ test('finger sets: optional sauces are counted, drinks are a paid upsell, 22.11 
     new URL('../../apps/mobile/src/screens/PhotoProduct.tsx', import.meta.url),
     'utf8',
   );
-  // A group with min 0 (sets: 0-8..32 sauces) must not become zero combo slots.
-  assert.match(page, /\['drink', 'sauce'\]\.includes\(g\.id\) && g\.min > 0/);
+  // A large optional group (sets: 0-8..32 sauces) must stay counters, not combo slots; a small
+  // optional choice («Соус на выбор», 0-1) is a slot like the drink (owner 25.11.2026).
+  assert.match(page, /\['drink', 'sauce'\]\.includes\(g\.id\) && comboSlotCount\(g\) > 0/);
+  const selection = readFileSync(
+    new URL('../../apps/mobile/src/product-photo-selection.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(selection, /return count >= 1 && count <= 4 \? count : 0;/);
   assert.match(page, /g\.id === 'drink-extra'/);
   assert.match(page, /testID="photo-drink-extra-track"/);
   const assets = readFileSync(

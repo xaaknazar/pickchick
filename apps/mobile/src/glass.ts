@@ -69,7 +69,7 @@ export type GlassPlace = 'button' | 'header' | 'pill' | 'bar';
 export type LiquidGlassConfig = {
   glassEffectStyle: 'regular' | 'clear';
   isInteractive: boolean;
-  colorScheme: 'dark';
+  colorScheme: 'dark' | 'light';
 };
 
 /**
@@ -89,9 +89,50 @@ export function liquidGlassConfig(place: GlassPlace): LiquidGlassConfig {
   return {
     glassEffectStyle: 'regular',
     isInteractive: place === 'button' || place === 'header',
-    colorScheme: 'dark',
+    // Only the cart capsule follows the light look; the round buttons stay dark glass.
+    colorScheme: place === 'bar' ? glassBar.scheme : 'dark',
   };
 }
+
+/** The cart bar capsule: it carries the total over scrolling photos, so its veil is denser. */
+export type GlassBar = {
+  /** Web, over `backdrop`. */
+  veil: string;
+  backdrop: string;
+  /** Native without Liquid Glass: nothing blurs behind the capsule, so the fill stays dense. */
+  fallback: string;
+  solid: string;
+  rim: string;
+  /** iOS 26: Apple's Liquid Glass tinted with the bar colour. */
+  liquidTint: string;
+  /** Which Liquid Glass the capsule asks Apple for. */
+  scheme: 'dark' | 'light';
+};
+// Owner 16.11.2026 picked «Ночной, как у Drinkit»: almost black navy glass (was navy 10,32,80).
+export const glassBarNight: GlassBar = {
+  veil: 'rgba(3, 10, 30, 0.72)',
+  backdrop: 'saturate(160%) blur(24px)',
+  fallback: 'rgba(3, 10, 30, 0.94)',
+  solid: '#030A1E',
+  rim: 'rgba(255, 255, 255, 0.14)',
+  liquidTint: 'rgba(3, 10, 30, 0.72)',
+  scheme: 'dark',
+};
+/**
+ * «Светлая» (owner 25.11.2026: the night capsule was too black on the light look and its text
+ * turned dark with the theme): the same light glass as the tab bar (`tabBarLight`), ink text.
+ */
+export const glassBarLight: GlassBar = {
+  veil: 'rgba(246, 249, 255, 0.78)',
+  backdrop: 'saturate(180%) blur(28px)',
+  fallback: 'rgba(246, 249, 255, 0.94)',
+  solid: '#F6F9FF',
+  rim: 'rgba(15, 27, 61, 0.1)',
+  liquidTint: 'rgba(246, 249, 255, 0.55)',
+  scheme: 'light',
+};
+/** The active bar glass. theme.ts switches it in place, like `tabBarPalette`. */
+export const glassBar: GlassBar = { ...glassBarNight };
 
 export const glass = {
   /** Smallest round control; Apple HIG hit target. */
@@ -136,19 +177,8 @@ export const glass = {
   icon: '#FFFFFF',
   /** Drinkit-like red trash (iOS system red, owner 27.10); >= 3:1 on the navy glass (WCAG non-text). */
   danger: '#FF3B30',
-  /** The cart bar capsule: it carries the total over scrolling photos, so its veil is denser. */
-  // Owner 16.11.2026 picked «Ночной, как у Drinkit»: almost black navy glass (was navy 10,32,80).
-  bar: {
-    /** Web, over `backdrop` (0.94 before 28.10, navy 0.8 before 16.11). */
-    veil: 'rgba(3, 10, 30, 0.72)',
-    backdrop: 'saturate(160%) blur(24px)',
-    /** Native without Liquid Glass: nothing blurs behind the capsule, so the fill stays dense. */
-    fallback: 'rgba(3, 10, 30, 0.94)',
-    solid: '#030A1E',
-    rim: 'rgba(255, 255, 255, 0.14)',
-    /** iOS 26: Apple's Liquid Glass tinted with the same night navy (untinted it read light). */
-    liquidTint: 'rgba(3, 10, 30, 0.72)',
-  },
+  /** The cart bar capsule; the values follow the theme (see `glassBarNight`). */
+  bar: glassBar,
 } as const;
 
 /** What the fallback glass is made of, per surface (`liquid` draws none of it: Apple does). */

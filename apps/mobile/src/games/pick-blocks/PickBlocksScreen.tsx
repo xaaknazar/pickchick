@@ -1,4 +1,5 @@
 import { Text } from '../../components/LocalizedText';
+import { GameBackButton } from '../GameBackButton';
 import { dateLocale } from '../../i18n/core';
 import { localize, t, useLocale } from '../../i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -572,15 +573,7 @@ export function PickBlocksScreen() {
     >
       <ArcadeBackdrop />
       <View style={s.header}>
-        <Pressable
-          testID="blocks-exit"
-          accessibilityRole="button"
-          accessibilityLabel={t('Вернуться назад')}
-          onPress={exit}
-          style={s.iconButton}
-        >
-          <Icon name="chevron-back" color="#DFE9FF" size={25} />
-        </Pressable>
+        <GameBackButton testID="blocks-exit" label={t('Вернуться назад')} onPress={exit} />
         <View style={s.headerBrand}>
           <Logo size={28} />
           <Text maxFontSizeMultiplier={1.3} style={s.headerTitle}>

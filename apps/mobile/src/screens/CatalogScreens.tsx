@@ -6,6 +6,14 @@ import { CheckoutAction, checkoutStyle } from '../components/CheckoutPresentatio
 import { CartTopBar, DiningModePill } from '../components/CartSheet';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
+import { menuCutouts } from '../menu-cutout-assets';
+import { isComboProduct } from '../product-photo-selection';
+import {
+  SHOWCASE_ASPECT,
+  defaultCutoutBox,
+  liveCutoutBoxes,
+  showcaseLayout,
+} from '../menu-cutout-live';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { useTabScrollToTop } from '../components/useTabScrollToTop';
@@ -262,6 +270,26 @@ export function Branches(props: ScreenProps) {
     </View>
   );
 }
+/** The «Витрина» cut-out of a product that still shows its bundled photo (not a remote upload). */
+// Owner 25.11.2026 (build 55): only combos, duos and finger sets rise above the window. Single
+// burgers and rolls, sauces and drinks keep their usual size, centred inside the card.
+function menuCutout(product: Product, photo = productPhoto(product, 'card', 'menu')) {
+  return isComboProduct(product.id) && photo.kind === 'id' ? menuCutouts[product.id] : undefined;
+}
+/**
+ * An uploaded back-office photo that is a transparent cut-out (owner 25.11.2026): it stands in
+ * the same window as the bundled cut-outs and rises above its top edge like them.
+ */
+function liveCutout(product: Product, photo = productPhoto(product, 'card', 'menu')) {
+  if (!isComboProduct(product.id) || photo.kind !== 'remote' || !product.media?.cutout)
+    return undefined;
+  return showcaseLayout(liveCutoutBoxes[product.media.sha256] ?? defaultCutoutBox);
+}
+const hasShowcase = (product: Product) => {
+  const photo = productPhoto(product, 'card', 'menu');
+  return !!menuCutout(product, photo) || !!liveCutout(product, photo);
+};
+
 const ProductMenuCard = memo(function ProductMenuCard({
   product,
   compact,
@@ -277,6 +305,12 @@ const ProductMenuCard = memo(function ProductMenuCard({
   openProduct(product: Product): void;
   hit: boolean;
 }) {
+  // memo() stops the parent's re-render here, so the card follows language and theme itself.
+  // Without this a card kept the dark look after the page turned light (build 52).
+  useLocale();
+  const photo = productPhoto(product, 'card', 'menu');
+  const cutout = menuCutout(product, photo);
+  const live = cutout ? undefined : liveCutout(product, photo);
   return (
     <Pressable
       // Cards shrink a little under the finger and spring back, like App Store cards.
@@ -296,13 +330,29 @@ const ProductMenuCard = memo(function ProductMenuCard({
       ]}
     >
       {/* Owner 22.11.2026 (menu redesign): a light window under the food on the dark card, like the
-          Apple Store; the menu photos are retouched onto the same cool #EEF2F8. */}
-      <View testID={`product-photo-${product.id}`} style={s.productPhotoWrap}>
-        <ProductPhoto
-          photo={productPhoto(product, 'card', 'menu')}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
+          Apple Store; the menu photos are retouched onto the same cool #EEF2F8.
+          Owner 25.11.2026 («Витрина»): a bundled combo is drawn as a cut-out that rises above the
+          window's top edge; an uploaded back-office photo stays inside the window. */}
+      <View
+        testID={`product-photo-${product.id}`}
+        style={[s.productPhotoWrap, cutout || live ? s.productShowcase : null]}
+      >
+        {cutout ? (
+          <Image
+            testID={`product-cutout-${product.id}`}
+            source={cutout}
+            style={s.productShowcaseFood}
+            contentFit="contain"
+            contentPosition="bottom"
+          />
+        ) : (
+          <ProductPhoto
+            testID={live ? `product-cutout-${product.id}` : undefined}
+            photo={photo}
+            style={live ?? StyleSheet.absoluteFill}
+            contentFit="contain"
+          />
+        )}
         {hit ? (
           <View style={s.hit}>
             <Caption style={s.hitText}>{t('ХИТ')}</Caption>
@@ -625,6 +675,7 @@ export function Menu(props: ScreenProps) {
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             const singleColumn = fontScale > 1.3;
+            const showcase = products.some(hasShowcase);
             return (
               <View
                 key={item}
@@ -636,7 +687,7 @@ export function Menu(props: ScreenProps) {
                 <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
                   {localize(item)}
                 </Heading>
-                <View style={s.productGrid}>
+                <View style={[s.productGrid, showcase ? s.productGridShowcase : null]}>
                   {products.map((product, index) => (
                     <ProductMenuCard
                       key={product.id}
@@ -1241,6 +1292,8 @@ const s = themed(() =>
       letterSpacing: -0.36,
     },
     productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    // Room above each row for the food that rises out of its window.
+    productGridShowcase: { rowGap: 30, paddingTop: 18 },
     product: {
       borderRadius: 24,
       padding: 6,
@@ -1256,6 +1309,8 @@ const s = themed(() =>
       overflow: 'hidden',
       backgroundColor: '#EEF2F8',
     },
+    productShowcase: { aspectRatio: SHOWCASE_ASPECT, overflow: 'visible' },
+    productShowcaseFood: { position: 'absolute', top: -28, bottom: 6, left: 2, right: 2 },
     // 12 pt between the photo and the name (owner 21.11.2026: «текст слишком близко к фото»).
     productInfo: { flex: 1, minWidth: 0, gap: 4, paddingTop: 12, paddingHorizontal: 8 },
     productTitle: {

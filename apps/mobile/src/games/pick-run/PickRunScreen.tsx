@@ -1,4 +1,5 @@
 import { Text } from '../../components/LocalizedText';
+import { GameBackButton } from '../GameBackButton';
 import { t, localize, useLocale } from '../../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -298,14 +299,7 @@ export function PickRunScreen(props: ScreenProps) {
     <SafeAreaView style={r.page} testID="pick-run-screen">
       <ArcadeBackdrop />
       <View style={r.header}>
-        <Pressable
-          onPress={exit}
-          accessibilityRole="button"
-          accessibilityLabel={t('К играм')}
-          style={r.icon}
-        >
-          <Icon name="chevron-back" color={arcade.white} size={24} />
-        </Pressable>
+        <GameBackButton label={t('К играм')} onPress={exit} />
         <Text style={r.name}>PICK RUN</Text>
         <Pressable
           testID="game-pause"

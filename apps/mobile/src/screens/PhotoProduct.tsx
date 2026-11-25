@@ -18,6 +18,7 @@ import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '.
 import { defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
 import {
   comboSlots,
+  comboSlotCount,
   isComboProduct,
   setPhotoChoice,
   replaceComboSlot,
@@ -26,14 +27,14 @@ import {
   comboCompanions,
   photoCartLimit,
 } from '../product-photo-selection';
-import { optionPhotos, extraPhotos } from '../product-photo-assets';
+import { optionPhotos, extraPhotos, heroCutoutIds } from '../product-photo-assets';
 import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
-import { colors, font, tc } from '../theme';
+import { colors, currentTheme, font, tc, themed } from '../theme';
 
 type Props = ScreenProps & {
   product: Product;
@@ -47,8 +48,19 @@ const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 /** Navy over the glass of «Настроить комбо», so white text reads on the light photo. */
 const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
-const blueGradient = () =>
-  tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)');
+/**
+ * Owner 25.11.2026: the page follows the app theme, and the photo stands on warm white «как в
+ * кола», not on blue. HERO_PAPER is the backdrop of the bundled warm-white photographs, so they
+ * and the transparent cut-outs share one sheet, which melts into the page colour of the look.
+ */
+const HERO_PAPER = '#FEFAF3';
+const navyLook = () => currentTheme() === 'blue';
+const rgbOf = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(',');
+/** Over an opaque photograph: its bottom edge fades into the page colour. */
+const blueGradient = () => {
+  const page = colors.background;
+  return `linear-gradient(180deg, rgba(${rgbOf(page)},0) 0%, rgba(${rgbOf(page)},0.55) 50%, ${page} 100%)`;
+};
 const blueBlend = () =>
   (Platform.OS === 'web'
     ? { backgroundImage: blueGradient() }
@@ -97,12 +109,10 @@ export function PhotoProduct(props: Props) {
   // Owner 29.10: extras and drinks use the same blue page palette as combos.
   const blue = true;
   const s = blue ? blueStyles : warmStyles;
-  const pageInk = blue ? colors.pure : ink;
-  const pagePaper = blue ? '#0047BB' : paper;
+  const pageInk = blue ? colors.white : ink;
+  const replaceInk = replaceColor(blue);
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = tc(
-    `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
-  );
+  const pageGradient = `linear-gradient(180deg, ${HERO_PAPER} 0px, ${HERO_PAPER} ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -221,10 +231,11 @@ export function PhotoProduct(props: Props) {
       </View>
     );
   };
-  const groups = (product.modifierGroups ?? []).filter(
-    // Included combo slots only; the finger sets' optional sauces (min 0) are counted below.
-    (g) => ['drink', 'sauce'].includes(g.id) && g.min > 0 && g.min <= 4,
-  );
+  // Owner 25.11.2026: sauce and drink are picked the same way, each in its own block, sauce first.
+  // The finger sets' larger optional sauce groups stay counters below.
+  const groups = (product.modifierGroups ?? [])
+    .filter((g) => ['drink', 'sauce'].includes(g.id) && comboSlotCount(g) > 0)
+    .sort((a, b) => Number(a.id === 'drink') - Number(b.id === 'drink'));
   // Owner 22.11: drinks are a paid upsell on the finger sets, shown as cards like the extras.
   const drinkExtra = product.modifierGroups?.find((g) => g.id === 'drink-extra');
   const otherGroups = (product.modifierGroups ?? []).filter(
@@ -247,6 +258,11 @@ export function PhotoProduct(props: Props) {
       : resolvedHero;
   // A transparent bottle needs no backdrop blend: show it whole, clear of the close button.
   const drinkCutout = isDrinkCutout(hero);
+  // A transparent photo stands straight on the sheet; only an opaque photograph needs the fade.
+  const transparentHero =
+    drinkCutout ||
+    (hero.kind === 'remote' && !!product.media?.cutout) ||
+    (hero === resolvedHero && hero.kind === 'id' && heroCutoutIds.has(product.id));
   const closeTop = Math.max(0, insets.top - 16);
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
@@ -291,7 +307,7 @@ export function PhotoProduct(props: Props) {
   );
   return (
     <View style={s.page} testID={`photo-product-${product.id}`}>
-      <StatusBar style={pickerVisible || info || blue ? 'light' : 'dark'} />
+      <StatusBar style={(pickerVisible || info) && colors.scheme !== 'light' ? 'light' : 'dark'} />
       <View
         style={{ flex: 1 }}
         aria-hidden={pickerVisible || info}
@@ -307,7 +323,7 @@ export function PhotoProduct(props: Props) {
           ]}
           testID="photo-product-scroll"
         >
-          <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
+          <View style={{ height: heroHeight, backgroundColor: blue ? 'transparent' : paper }}>
             {hero ? (
               <ProductPhoto
                 photo={hero}
@@ -333,7 +349,7 @@ export function PhotoProduct(props: Props) {
                 />
               </View>
             )}
-            {drinkCutout ? null : (
+            {transparentHero ? null : (
               <View pointerEvents="none" style={[s.blend, blue ? blueBlend() : blend]} />
             )}
             {combo ? (
@@ -348,7 +364,7 @@ export function PhotoProduct(props: Props) {
                 {/* Owner 15.11.2026: a control over the photo is Apple's glass, like the close
                     button; a navy tint keeps the white label readable on the light photo. */}
                 <GlassFill radius={28} place="header" tint={photoActionTint} interactive />
-                <Icon name="options-outline" color={colors.white} size={20} />
+                <Icon name="options-outline" color={colors.pure} size={20} />
                 <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
               </Pressable>
             ) : null}
@@ -500,52 +516,63 @@ export function PhotoProduct(props: Props) {
                 </View>
               );
             })}
-            {groups.flatMap((group) =>
-              comboSlots(group, selections).map((optionId, index) => {
-                const option = group.options.find((o) => o.id === optionId);
-                return (
-                  <Pressable
-                    key={`${group.id}-${index}`}
-                    style={s.choice}
-                    accessibilityRole="button"
-                    accessibilityLabel={localize(
-                      t('Заменить {p0} {p1}: {p2}', {
-                        p0: t(group.id === 'drink' ? 'напиток' : 'соус'),
-                        p1: index + 1,
-                        p2: t(option?.label ?? 'не выбран'),
-                      }),
-                    )}
-                    testID={`photo-replace-${group.id}-${index}`}
-                    onPress={() => {
-                      setPicker({ group, index, chosen: optionId });
-                      setPickerVisible(true);
-                    }}
-                  >
-                    <OptionImage id={optionId} size={82} />
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={s.choiceLabel}>
-                        {t('{p0} {p1} из {p2}', {
-                          p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
-                          p1: index + 1,
-                          p2: group.min,
-                        })}
-                      </Text>
-                      <Text style={s.choiceName}>{localize(option?.label ?? 'Выберите')}</Text>
-                      {option ? (
-                        <Text style={s.choiceLabel}>
-                          {localize(
-                            option.price_delta_minor === '0'
-                              ? 'Входит в комбо'
-                              : t('Доплата +{p0}', { p0: money(option.price_delta_minor) }),
-                          )}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={s.replace}>{t('Заменить')}</Text>
-                  </Pressable>
-                );
-              }),
-            )}
+            {groups.map((group) => {
+              const slots = comboSlots(group, selections);
+              return (
+                <View key={group.id} style={s.slotBlock} testID={`photo-slots-${group.id}`}>
+                  <Text style={s.slotTitle}>{localize(group.title)}</Text>
+                  {slots.map((optionId, index) => {
+                    const option = group.options.find((o) => o.id === optionId);
+                    return (
+                      <Pressable
+                        key={`${group.id}-${index}`}
+                        style={s.choice}
+                        accessibilityRole="button"
+                        accessibilityLabel={localize(
+                          t('Заменить {p0} {p1}: {p2}', {
+                            p0: t(group.id === 'drink' ? 'напиток' : 'соус'),
+                            p1: index + 1,
+                            p2: t(option?.label ?? 'не выбран'),
+                          }),
+                        )}
+                        testID={`photo-replace-${group.id}-${index}`}
+                        onPress={() => {
+                          setPicker({ group, index, chosen: optionId });
+                          setPickerVisible(true);
+                        }}
+                      >
+                        <OptionImage id={optionId} size={72} />
+                        <View style={{ flex: 1, gap: 3 }}>
+                          {slots.length > 1 ? (
+                            <Text style={s.choiceLabel}>
+                              {t('{p0} {p1} из {p2}', {
+                                p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
+                                p1: index + 1,
+                                p2: slots.length,
+                              })}
+                            </Text>
+                          ) : null}
+                          <Text style={s.choiceName}>{localize(option?.label ?? 'Не выбран')}</Text>
+                          {option ? (
+                            <Text style={s.choiceLabel}>
+                              {localize(
+                                option.price_delta_minor === '0'
+                                  ? 'Входит в комбо'
+                                  : t('Доплата +{p0}', { p0: money(option.price_delta_minor) }),
+                              )}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={s.replacePill}>
+                          <Text style={s.replace}>{t(option ? 'Заменить' : 'Выбрать')}</Text>
+                          <Icon name="chevron-forward" color={replaceInk} size={14} />
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
           </View>
           {extras ? (
             <View style={s.extrasSection}>
@@ -767,7 +794,7 @@ export function PhotoProduct(props: Props) {
                 {t('{p0} {p1} из {p2}', {
                   p0: localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус'),
                   p1: picker.index + 1,
-                  p2: picker.group.min,
+                  p2: comboSlotCount(picker.group) || picker.group.min,
                 })}
               </Text>
             </Row>
@@ -982,12 +1009,19 @@ function Counter({
     </Row>
   );
 }
+const replaceColor = (blue: boolean) =>
+  blue ? (colors.scheme === 'light' ? colors.accentText : tc('#FF8A4C')) : '#A33B00';
+
 function makeStyles(blue: boolean) {
+  // Light and dark: the rows are the app's cards on the page colour; «Синяя» keeps navy rows.
+  const light = colors.scheme === 'light';
+  const navy = navyLook();
   const ink = blue ? colors.white : '#271C15';
   const paper = blue ? '#0047BB' : '#FFF8EE';
-  const muted = blue ? tc('#D4E5FF') : '#594635';
+  const muted = blue ? (navy ? tc('#D4E5FF') : colors.muted) : '#594635';
+  const row = (blueRow: string) => (navy ? tc(blueRow) : colors.surface);
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: blue ? tc('#0A1020') : paper },
+    page: { flex: 1, backgroundColor: blue ? colors.background : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
     close: { position: 'absolute' },
     photoAction: {
@@ -1002,7 +1036,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 48,
     },
-    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.white },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.pure },
     intro: {
       paddingHorizontal: 24,
       paddingTop: 6,
@@ -1032,13 +1066,26 @@ function makeStyles(blue: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      backgroundColor: blue ? tc('#073987') : '#EADBC5',
+      backgroundColor: blue ? row('#073987') : '#EADBC5',
       padding: 12,
       borderRadius: 16,
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: { fontFamily: font.bold, fontSize: 12, color: blue ? tc('#FF8A4C') : '#A33B00' },
+    replace: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: replaceColor(blue) },
+    // One block per choice (owner 25.11.2026): «Соус на выбор», then «Напиток на выбор».
+    slotBlock: { gap: 8, marginTop: 6 },
+    slotTitle: { fontFamily: font.heading, fontSize: 17, lineHeight: 24, color: ink },
+    replacePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      minHeight: 36,
+      paddingLeft: 12,
+      paddingRight: 8,
+      borderRadius: 18,
+      backgroundColor: light ? '#FFF1E6' : tc('#FF8A4C1F'),
+    },
     moreRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1061,7 +1108,7 @@ function makeStyles(blue: boolean) {
       padding: 10,
       gap: 6,
       borderRadius: 16,
-      backgroundColor: blue ? tc('#0C2B5D') : '#EADBC5',
+      backgroundColor: blue ? row('#0C2B5D') : '#EADBC5',
       borderWidth: 1,
       borderColor: 'transparent',
     },
@@ -1094,7 +1141,17 @@ function makeStyles(blue: boolean) {
     },
     addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
-    counter: { backgroundColor: blue ? tc('#133668') : '#F2DFC7', borderRadius: 25, gap: 0 },
+    counter: {
+      backgroundColor: blue
+        ? navy
+          ? tc('#133668')
+          : light
+            ? '#D6E2F6'
+            : colors.raised
+        : '#F2DFC7',
+      borderRadius: 25,
+      gap: 0,
+    },
     countButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     count: { fontFamily: font.bold, fontSize: 15, minWidth: 18, textAlign: 'center', color: ink },
     modal: { flex: 1, backgroundColor: colors.background },
@@ -1186,5 +1243,6 @@ function makeStyles(blue: boolean) {
     modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
   });
 }
-const warmStyles = makeStyles(false);
-const blueStyles = makeStyles(true);
+// Built again on every theme switch: these used to be frozen in the look the app started in.
+const warmStyles = themed(() => makeStyles(false));
+const blueStyles = themed(() => makeStyles(true));

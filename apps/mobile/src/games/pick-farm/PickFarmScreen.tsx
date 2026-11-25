@@ -1,4 +1,5 @@
 import { Text } from '../../components/LocalizedText';
+import { GameBackButton } from '../GameBackButton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -856,17 +857,7 @@ export function PickFarmScreen() {
         </Animated.View>
       </View>
       <View style={[s.hud, { top, left }]}>
-        <IconButton
-          label="Выйти из фермы"
-          icon="arrow-back"
-          onPress={() => {
-            if (tool !== 'inspect' || panel) {
-              setPanel(null);
-              setTool('inspect');
-              setHint(null);
-            } else router.back();
-          }}
-        />
+        <GameBackButton label="Выйти из фермы" onPress={() => router.back()} />
         <View style={[s.pill, s.metricPill]}>
           <Text style={s.metric}>{state.coins} монет</Text>
         </View>
