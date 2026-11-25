@@ -98,12 +98,12 @@
   font-weight: 700;
 }
 .device-status.good {
-  color: #165f44;
-  background: #e1f3e9;
+  color: var(--green-ink);
+  background: var(--green-soft);
 }
 .device-status.warning {
-  color: #724008;
-  background: #fff1da;
+  color: var(--amber-ink);
+  background: var(--amber-soft);
 }
 .device-status.neutral {
   color: var(--muted);

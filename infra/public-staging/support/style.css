@@ -1,321 +1,507 @@
+/* Hallmark · shape: kept · genre: editorial · theme: brand · redesign: restyle · copy: verbatim
+ * paper: oklch(20% 0.08 262) · accent: oklch(74% 0.17 52) · display: Jost · body: Manrope · hero: kept · nav: kept · footer: kept · signature: the call button and the phone number, first on the page
+ * axes: navy/Jost/orange · posture: help desk · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P3 H4 E4 S4 R5 V3 · weakest: P, a help page argues nothing; it answers, so the call and the answers lead and nothing decorates them */
+/* Hallmark · dismissed 77 · a help page of answers and one contact block, not a landing strip */
+/* Hallmark · dismissed 58 · the words are the support answers the app links to, reviewed by the owner */
 @import url('/design/prototype/reference-fonts.css');
+
+/* Shared public-site tokens (support and legal pages use the same block). */
 :root {
   color-scheme: dark;
-  --bg: #04143a;
-  --panel: #0a2050;
-  --ink: #f2f6ff;
-  --muted: #b2c3e2;
-  --accent: #ff8a3d;
-  --line: #29436d;
-  --focus: #ffd6b5;
+  --color-paper: #04143a;
+  --color-paper-2: #0a2050;
+  --color-ink: #f2f6ff;
+  --color-muted: #b2c3e2;
+  --color-rule: #29436d;
+  --color-accent: #ff8a3d;
+  --color-accent-hover: #ffa568;
+  --color-accent-press: #f27420;
+  --color-accent-ink: #04143a;
+  --color-focus: #ffd6b5;
+  --font-display: Jost, system-ui, sans-serif;
+  --font-body: Manrope, system-ui, sans-serif;
+  --text-sm: 0.875rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-title: 1.375rem;
+  --text-section: clamp(1.75rem, 1.2vw + 1.25rem, 2.25rem);
+  --text-display: clamp(2.5rem, 3.6vw + 1rem, 4rem);
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --radius-pill: 999px;
+  --container: 1120px;
+  --gutter: 32px;
+  --dur-micro: 120ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
-* {
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
+html,
+body {
+  overflow-x: clip;
+}
 html {
-  scroll-padding-top: 24px;
+  scroll-padding-top: var(--space-lg);
 }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font:
-    17px/1.65 Manrope,
-    system-ui,
-    sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
 }
 a {
   color: inherit;
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.24em;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+a:hover {
+  color: var(--color-accent-hover);
+}
+a:active {
+  color: var(--color-accent-press);
 }
 a,
 summary {
   touch-action: manipulation;
 }
-a:focus-visible,
-summary:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 6px;
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
   border-radius: 4px;
 }
 ::selection {
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
 }
+
 header,
 main,
 footer {
-  max-width: 1120px;
-  margin: auto;
-  padding-inline: 32px;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding-top: 28px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--line);
+  gap: var(--space-lg);
+  padding-block: var(--space-lg);
+  border-bottom: 1px solid var(--color-rule);
 }
 .brand {
-  font:
-    700 30px/1 Jost,
-    system-ui,
-    sans-serif;
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: -0.02em;
   text-decoration: none;
 }
 .brand span {
-  color: var(--accent);
+  color: var(--color-accent);
 }
 nav {
   display: flex;
-  gap: 8px;
+  gap: var(--space-xs);
 }
 nav a {
   display: grid;
   place-items: center;
   min-width: 48px;
   min-height: 44px;
+  padding-inline: var(--space-sm);
   text-decoration: none;
-  border-radius: 24px;
-  color: var(--muted);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+nav a:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-2);
 }
 nav [aria-current] {
-  background: var(--ink);
-  color: var(--bg);
-  font-weight: 700;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+nav [aria-current]:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 .skip {
   position: absolute;
-  top: 8px;
-  left: 16px;
-  padding: 10px;
-  background: var(--ink);
-  color: var(--bg);
+  top: var(--space-xs);
+  left: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--color-ink);
+  color: var(--color-paper);
   transform: translateY(-200%);
 }
 .skip:focus {
   transform: none;
 }
+
 main {
   display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
-  gap: 72px;
-  padding-top: 64px;
-  padding-bottom: 72px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr);
+  gap: var(--space-2xl) 88px;
+  padding-block: var(--space-2xl) var(--space-3xl);
+}
+main > section:first-child {
+  align-self: start;
+  position: sticky;
+  top: var(--space-lg);
 }
 h1,
-h2 {
-  font-family: Jost, system-ui, sans-serif;
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
   line-height: 1.12;
+  letter-spacing: -0.015em;
   text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 h1 {
-  font-size: clamp(36px, 4.8vw, 56px);
+  font-size: var(--text-display);
   letter-spacing: -0.025em;
-  margin: 0 0 20px;
+  line-height: 1.02;
+  margin: 0 0 var(--space-lg);
 }
 h2 {
-  font-size: 28px;
-  margin: 0 0 20px;
+  font-size: var(--text-section);
+  margin: 0 0 var(--space-lg);
+}
+h3 {
+  font-size: var(--text-lg);
+  margin: var(--space-xl) 0 var(--space-xs);
+}
+p {
+  text-wrap: pretty;
 }
 .intro {
-  font-size: 20px;
+  font-size: var(--text-lg);
   line-height: 1.55;
-  color: var(--muted);
-  margin: 0 0 32px;
+  color: var(--color-muted);
+  margin: 0;
+  max-width: 32ch;
 }
+.delete-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-md);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* Contact: the one action of the page. Heading in body face, call button, then the number set large. */
 .contact {
-  margin-top: 40px;
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-rule);
 }
 .contact h2 {
-  font-size: 21px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-sm);
 }
 .call {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 15px 20px;
-  min-height: 54px;
-  background: var(--accent);
-  color: var(--bg);
-  border-radius: 28px;
-  font-weight: 800;
+  min-height: 56px;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
   text-decoration: none;
   text-align: center;
+  transition:
+    background-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
 }
 .call:hover {
-  background: #ffa568;
+  background: var(--color-accent-hover);
+  color: var(--color-accent-ink);
+}
+.call:active {
+  background: var(--color-accent-press);
+  color: var(--color-accent-ink);
+  transform: scale(0.98);
 }
 .phone {
   display: block;
-  margin-top: 12px;
-  text-align: center;
-  color: var(--muted);
+  margin-top: var(--space-md);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 .address {
-  margin: 28px 0 8px;
+  margin: var(--space-md) 0 0;
+  color: var(--color-muted);
 }
 .map {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--accent);
+  color: var(--color-accent);
+  font-weight: 600;
 }
+.map:hover {
+  color: var(--color-accent-hover);
+}
+
+/* Answers: an open list, one hairline between questions. */
 details {
-  border-top: 1px solid var(--line);
-  padding: 22px 0;
+  border-top: 1px solid var(--color-rule);
 }
 details:last-of-type {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-rule);
 }
 summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 64px;
+  padding-block: var(--space-md);
+  font-size: var(--text-lg);
   font-weight: 700;
+  line-height: 1.35;
   cursor: pointer;
-  min-height: 44px;
-  line-height: 1.5;
-  padding-right: 8px;
+  list-style: none;
 }
-summary::marker {
-  color: var(--accent);
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::after {
+  content: '+';
+  flex: none;
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  color: var(--color-accent);
+  font-weight: 600;
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+details[open] > summary::after {
+  transform: rotate(45deg);
+}
+summary:hover {
+  color: var(--color-accent-hover);
+}
+summary:active {
+  color: var(--color-accent-press);
 }
 details p {
-  margin: 12px 0 0;
-  color: var(--muted);
-  max-width: 65ch;
+  margin: 0 0 var(--space-lg);
+  color: var(--color-muted);
+  max-width: 62ch;
 }
 .prepare {
-  margin: 28px 0 0;
-  color: var(--muted);
-  font-size: 15px;
-  max-width: 65ch;
+  margin: var(--space-lg) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  max-width: 62ch;
 }
+
 /* Google Play: account deletion, reachable as /support/#delete-account (lane android 05.11.2026). */
-.delete-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: 16px;
-  font-weight: 700;
-}
 .delete {
   grid-column: 1 / -1;
-  border-top: 1px solid var(--line);
-  padding-top: 40px;
-  max-width: 760px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr);
+  column-gap: 88px;
+  border-top: 1px solid var(--color-rule);
+  padding-top: var(--space-2xl);
 }
-.delete h3 {
-  margin: 28px 0 8px;
-  font-size: 18px;
+.delete > h2,
+.delete > p:first-of-type {
+  grid-column: 1;
+}
+.delete > :not(h2):not(p:first-of-type) {
+  grid-column: 2;
+}
+.delete > h2 {
+  grid-row: 1;
+  margin-bottom: var(--space-md);
+}
+.delete > p:first-of-type {
+  grid-row: 2;
+  color: var(--color-muted);
+  max-width: 32ch;
+  margin: 0;
+}
+.delete > h3:first-of-type {
+  grid-row: 1;
+  align-self: end;
+  margin: 0 0 var(--space-md);
 }
 .delete ol {
   margin: 0;
-  padding-left: 22px;
-  color: var(--muted);
+  padding-left: var(--space-lg);
+  color: var(--color-muted);
 }
 .delete li + li {
-  margin-top: 8px;
+  margin-top: var(--space-xs);
+}
+.delete li::marker {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+.delete h3 + p {
+  margin: 0;
+  color: var(--color-muted);
+  max-width: 62ch;
 }
 .delete .call {
-  margin-top: 16px;
+  margin-top: var(--space-lg);
   max-width: 420px;
 }
+
 footer {
-  border-top: 1px solid var(--line);
-  padding-top: 24px;
-  padding-bottom: 28px;
+  border-top: 1px solid var(--color-rule);
+  padding-block: var(--space-lg);
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  color: var(--muted);
-  font-size: 14px;
+  align-items: center;
+  gap: var(--space-lg);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+footer p {
+  margin: 0;
 }
 footer div {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: var(--space-lg);
 }
 footer a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
 }
-@media (max-width: 760px) {
-  header,
-  main,
-  footer {
-    padding-inline: 22px;
+
+@media (max-width: 860px) {
+  :root {
+    --gutter: 24px;
   }
   header {
-    padding-top: 20px;
-    padding-bottom: 20px;
+    padding-block: var(--space-md);
   }
   .brand {
-    font-size: 26px;
+    font-size: 1.625rem;
   }
-  main {
-    grid-template-columns: 1fr;
-    gap: 44px;
-    padding-top: 38px;
-    padding-bottom: 40px;
+  main,
+  .delete {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xl);
+    padding-block: var(--space-xl) var(--space-2xl);
   }
-  h1 {
-    font-size: 42px;
-    max-width: 14ch;
+  main > section:first-child {
+    position: static;
   }
-  .intro {
-    font-size: 18px;
-    max-width: 30ch;
+  .delete {
+    gap: 0;
+    padding-block: var(--space-xl) 0;
   }
-  .contact {
-    margin-top: 28px;
+  .delete > *,
+  .delete > :not(h2):not(p:first-of-type) {
+    grid-column: 1;
+    grid-row: auto;
   }
-  .contact h2 {
-    display: none;
+  .delete > h3:first-of-type {
+    margin-top: var(--space-xl);
+  }
+  .intro,
+  .delete > p:first-of-type {
+    max-width: 40ch;
   }
   .call {
     max-width: 420px;
   }
-  .phone {
-    text-align: left;
-    margin-top: 14px;
-  }
-  .address {
-    margin-top: 22px;
-  }
-  h2 {
-    font-size: 26px;
-  }
-  details {
-    padding: 18px 0;
+  summary {
+    font-size: var(--text-md);
   }
   footer {
-    display: block;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
   }
   footer div {
-    margin-top: 12px;
-    gap: 16px;
+    gap: var(--space-md);
   }
 }
-@media (max-width: 360px) {
-  header,
-  main,
-  footer {
-    padding-inline: 16px;
+@media (max-width: 400px) {
+  :root {
+    --gutter: 16px;
   }
   .brand {
-    font-size: 23px;
+    font-size: 1.5rem;
   }
   nav {
-    gap: 2px;
+    gap: 4px;
   }
   nav a {
     min-width: 44px;
+    padding-inline: var(--space-xs);
   }
-  h1 {
-    font-size: 36px;
+  .phone {
+    font-size: 1.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+@media print {
+  :root {
+    color-scheme: light;
+    --color-paper: #fffdfa;
+    --color-ink: #10182b;
+    --color-muted: #3d4a63;
+    --color-rule: #c9d1de;
+  }
+  header nav,
+  .skip,
+  .call {
+    display: none;
+  }
+  main > section:first-child {
+    position: static;
+  }
+  details > :not(summary) {
+    display: block;
   }
 }

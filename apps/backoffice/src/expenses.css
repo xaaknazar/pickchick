@@ -127,12 +127,12 @@
 .expenses-status.filled {
   background: var(--green);
   border-color: var(--green);
-  color: #fff;
+  color: var(--card);
 }
 .expenses-status.mismatch {
   background: var(--red);
   border-color: var(--red);
-  color: #fff;
+  color: var(--card);
 }
 .expenses-main {
   display: grid;
@@ -311,7 +311,7 @@ tr.expenses-group th {
 .expenses-dialog-shade {
   position: fixed;
   inset: 0;
-  background: rgb(9 16 32 / 45%);
+  background: var(--scrim-light);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -412,19 +412,19 @@ button.pnl-amount {
   width: 100%;
 }
 .series-cogs {
-  background: #ff671f;
+  background: var(--accent);
 }
 .series-payroll {
-  background: #2b6cb0;
+  background: var(--link);
 }
 .series-location {
-  background: #147556;
+  background: var(--green);
 }
 .series-commissions {
-  background: #a0569c;
+  background: var(--violet);
 }
 .series-other {
-  background: #8a96a8;
+  background: var(--faint);
 }
 .expenses-legend {
   display: flex;

@@ -10,9 +10,9 @@ html.bo-fixes .wf-actions .button.selected:hover:not(:disabled),
 html.bo-fixes .inventory-tabs .button.selected:hover:not(:disabled),
 html.bo-fixes .wf-tabs .button.selected:focus-visible,
 html.bo-fixes .inventory-tabs .button.selected:focus-visible {
-  background: #0047bb;
-  border-color: #0047bb;
-  color: #fff;
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--card);
 }
 
 /* F09: who is signed in, next to the branch picker (visible on a phone as well). */
@@ -20,9 +20,9 @@ html.bo-fixes .inventory-tabs .button.selected:focus-visible {
   align-self: center;
   margin: 0;
   padding: 6px 12px;
-  border: 1px solid #c8d3e3;
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
@@ -38,8 +38,8 @@ html.bo-fixes .inventory-tabs .button.selected:focus-visible {
 html.bo-fixes select,
 html.bo-fixes .finance-workspace select {
   background-image:
-    linear-gradient(45deg, transparent 50%, #5d6b82 50%),
-    linear-gradient(135deg, #5d6b82 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position:
     calc(100% - 20px) 50%,
     calc(100% - 15px) 50%;
@@ -115,7 +115,7 @@ html.bo-fixes .inventory-table td:first-child {
   .bo-cards tbody tr {
     display: block;
     padding: 10px 12px;
-    border-bottom: 1px solid var(--border, #d8e0ea);
+    border-bottom: 1px solid var(--border, var(--border));
   }
   .bo-cards tbody tr:last-child {
     border-bottom: 0;
@@ -135,7 +135,7 @@ html.bo-fixes .inventory-table td:first-child {
   }
   .bo-cards td::before {
     content: attr(data-label);
-    color: var(--muted, #5b6474);
+    color: var(--muted, var(--muted));
     font-size: 12px;
     font-weight: 400;
   }
