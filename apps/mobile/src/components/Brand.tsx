@@ -308,7 +308,7 @@ const brand = themed(() =>
       borderColor: colors.border,
       gap: 5,
     },
-    segment: { backgroundColor: '#FFFFFF33', padding: 2, borderRadius: 11, gap: 0 },
+    segment: { backgroundColor: tc('#FFFFFF33'), padding: 2, borderRadius: 11, gap: 0 },
     segmentItem: {
       minHeight: 48,
       paddingVertical: 10,
