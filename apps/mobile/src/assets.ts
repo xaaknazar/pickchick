@@ -11,7 +11,7 @@ export const assets = {
   pickBlocksCover: require('../assets/games/pick-blocks-cover.png') as ImageSourcePropType,
   logo: require('../../../design/prototype/assets/mockup/logo.png') as ImageSourcePropType,
   skyline: require('../../../design/prototype/assets/mockup/skyline.svg') as ImageSourcePropType,
-  // Owner 25.11.2026: the Chiki coin on the loyalty card (PickChick mark on an orange coin).
+  // Owner 25.11.2026: the gold Chiki coin with Alex on the loyalty card.
   chikiCoin: require('../assets/loyalty/chiki-coin.png') as ImageSourcePropType,
   mix: require('../../../design/prototype/assets/mockup/bg-mix.png') as ImageSourcePropType,
   pickrunRunner: require('../../../design/prototype/assets/mockup/i26.jpg') as ImageSourcePropType,

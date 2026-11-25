@@ -285,7 +285,7 @@ const brand = themed(() =>
       borderBottomLeftRadius: 20,
       borderBottomRightRadius: 20,
     },
-    coin: { width: 36, height: 36 },
+    coin: { width: 38, height: 38 },
     ring: {
       width: 52,
       height: 52,
