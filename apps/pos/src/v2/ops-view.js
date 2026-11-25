@@ -842,6 +842,39 @@ export class OpsView {
     await this.model.noteWebkassaIssued(sale.order_id);
     await this.printWebkassa(receipt.receipt_id);
   }
+  /**
+   * Kiosk receipts on this desk's printer (owner 25.11). One pass at a time; a receipt whose
+   * print form does not come yet is tried at the next pass, one that main could not print is
+   * said once and left for the order card.
+   */
+  async kioskTick() {
+    if (this.kioskBusy || typeof this.model.kioskReceiptsToPrint !== 'function') return;
+    if (typeof this.printer?.print !== 'function' || this.clock() < (this.kioskOffUntil ?? 0))
+      return;
+    this.kioskBusy = true;
+    try {
+      const due = await this.model.kioskReceiptsToPrint().catch(() => undefined);
+      // A point without Webkassa (404) is asked again only every 5 minutes.
+      if (due === null) this.kioskOffUntil = this.clock() + 5 * 60_000;
+      for (const item of due ?? []) {
+        let form;
+        try {
+          form = await this.model.kioskReceiptPrint(item.order_id);
+        } catch {
+          continue;
+        }
+        this.model.markKioskPrinted(item.order_id);
+        await this.print(
+          fiscalTicket(
+            [{ type: 0, value: `Киоск · заказ №${form.display_number}`, style: 1 }, ...form.print],
+            this.terminalLabel,
+          ),
+        );
+      }
+    } finally {
+      this.kioskBusy = false;
+    }
+  }
   /** The fiscal receipt of an issued automatic Webkassa receipt; false when there is none. */
   async printWebkassa(receiptId) {
     let status;

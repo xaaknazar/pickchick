@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import type { PosPaymentMethod } from '@pickchick/contracts';
 
 /**
  * Webkassa API v4 client (docs/integrations/webkassa-api.md, vendor Postman collection
@@ -142,16 +141,8 @@ export const webkassaHttp: WebkassaTransport = {
   },
 };
 
-/**
- * Webkassa PaymentType by our tender method: 0 cash, 1 bank card, 4 mobile payment. Kaspi QR and
- * Kaspi transfers are mobile payments; the Kaspi Smart POS terminal takes cards and QR, so its
- * part counts as card (accountant to confirm, docs/integrations/webkassa-api.md).
- */
-export const WEBKASSA_PAYMENT_TYPE: Partial<Record<PosPaymentMethod, 0 | 1 | 4>> = {
-  cash: 0,
-  kaspi_terminal: 1,
-  kaspi_manual: 4,
-};
+/** Webkassa PaymentType: 0 cash, 1 bank card, 4 mobile payment. */
+export type WebkassaPaymentType = 0 | 1 | 4;
 
 export interface FiscalLine {
   name: string;
@@ -165,7 +156,7 @@ export interface FiscalLine {
   sectionCode?: string;
 }
 export interface FiscalPayment {
-  type: 0 | 1 | 4;
+  type: WebkassaPaymentType;
   amountMinor: bigint;
 }
 export interface FiscalCheck {

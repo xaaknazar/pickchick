@@ -30,17 +30,46 @@
 - «Чек» в карточке оплаченного заказа печатает фискальный чек ещё раз.
 - Строка состояния: «Чеки: Webkassa автоматически» или «Чеки: вручную в Webkassa».
 
+## Приложение и киоск (этап 2)
+
+Владелец 25.11 выбрал одну кассу Webkassa для моноблока, приложения и киоска.
+
+- Облако уже ставит в очередь чек продажи (`commerce_fiscal_documents`, событие
+  `fiscal.submit_requested`), когда заказ с политикой `required` оплачен полностью; кухня получает
+  такой заказ только после чека. Исполнитель очереди - `services/api/dist/webkassa-worker.js`
+  (`packages/commerce-core/src/webkassa-cloud.ts`, контейнер
+  `infra/payments/webkassa/worker.compose.yaml`).
+- `ExternalCheckNumber` = id заказа облака: повтор после потерянного ответа даёт тот же чек, а касса
+  точки печатает чек киоска по этому номеру. TipTopPay - карта (1), Kaspi - мобильный платёж (4).
+  Бесплатные позиции (подарки) в чек не входят, скидка заказа вычитается из самых дорогих строк.
+- Одна касса на двух отправителей (сервер точки и облако): отказ Webkassa (касса занята, офлайн
+  больше 72 ч) не окончательный, чек ждёт 5 минут и уходит снова; смена старше 24 ч закрывается
+  Z-отчётом один раз.
+- Приложение: ссылка на чек из ответа Webkassa (или из QR печатной формы) появляется в
+  `receiptUrl` заказа, кнопка «Чек» в приложении уже есть и открывает её.
+- Киоск: касса каждые 3 с спрашивает `GET pos/kiosk-receipts` (оплаченные заказы киоска за день,
+  которые получила кухня) и печатает новые через `GET pos/kiosk-receipts/{id}/print` с заголовком
+  «Киоск · заказ №N». Касса помнит напечатанные до перезапуска; после перезапуска заказы старше
+  3 минут считаются уже напечатанными.
+- Включение в облаке: строка `commerce_provider_accounts` (kind `fiscal`, provider `webkassa`,
+  enabled), переменные `WEBKASSA_FISCAL_ACCOUNT_ID`, `WEBKASSA_ACCOUNT_FILE` (приватный JSON),
+  для приложения `CUSTOMER_FISCAL_ACCOUNT_ID`, для киоска `KIOSK_CHECKOUT_FISCAL_POLICY=required` и
+  его счёт. Без них заказы остаются без чека, как сейчас.
+
 ## Чего ещё нет
 
-- Чек возврата остаётся ручным: Webkassa требует смену и время чека продажи
-  (`ReturnBasisDetails`), их хранит только будущая миграция edge 030.
-- Чеки заказов из приложения и iPad-киоска (облако, `commerce_fiscal_documents`) и печать чека
-  киоска на принтере кассы: отдельный этап, ждёт решения владельца о числе касс Webkassa.
+- Чеки возврата остаются ручными (на кассе: нужна миграция edge 030; в облаке: документ возврата
+  ждёт в очереди).
+- Заказы режима облачной кухни (ADR-0014) по-прежнему без чека.
+- Если Webkassa долго недоступна, заказ приложения или киоска оплачен, но на кухню не уходит, пока
+  чек не пробит: это правило облака (чек до кухни).
 - Production (`kkm.webkassa.kz`) только после проверки с поставщиком и согласия владельца.
 - Формат `ReturnBasisDetails.total` (тенге или тиыны) проверить на devkkm.
 
-Код: `packages/local-orders/src/webkassa-client.ts`, `webkassa-fiscal.ts`,
+Код: `packages/webkassa` (клиент), `packages/local-orders/src/webkassa-fiscal.ts`,
+`packages/commerce-core/src/webkassa-cloud.ts`,
 `services/edge/src/webkassa-loop.ts`, касса `apps/pos/src/v2/ops-view.js`, печать
 `apps/pos-desktop/printer.mjs`. Тесты: `tests/unit/webkassa-client.test.mjs`,
 `tests/integration/webkassa-fiscal.test.mjs`, `tests/pos/cashier-ui.test.mjs`,
+`packages/commerce-core/tests/webkassa-cloud.postgres.test.mjs`,
 `tests/pos-desktop/printer.test.mjs`.

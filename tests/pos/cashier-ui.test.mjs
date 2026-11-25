@@ -629,6 +629,8 @@ function saleEdge({
     drawerTaken: 0n,
     // Automatic Webkassa answers (receiptId, withPrint) => body; null: manual point (404).
     webkassa: null,
+    // Kiosk receipts of the day ({list, forms}); null: manual point (404).
+    kiosk: null,
   };
   const quoteFor = (body) => {
     const unit = body.sales_channel ? channelPrice : state.price;
@@ -806,6 +808,16 @@ function saleEdge({
         throw new ApiError('NOT_FOUND', 404);
       });
     {
+      if (path === 'pos/kiosk-receipts') {
+        if (!state.kiosk) throw new ApiError('NOT_FOUND', 404);
+        return { receipts: state.kiosk.list };
+      }
+      const kiosk = path.match(/^pos\/kiosk-receipts\/([0-9a-f-]+)\/print$/);
+      if (kiosk) {
+        const form = state.kiosk?.forms[kiosk[1]];
+        if (!form) throw new ApiError('NOT_FOUND', 404);
+        return form;
+      }
       const auto = path.match(/^pos\/fiscal-receipts\/([0-9a-f-]+)\/webkassa(\/print)?$/);
       if (auto) {
         if (!state.webkassa) throw new ApiError('NOT_FOUND', 404);
@@ -3987,6 +3999,68 @@ test('screens: a manual point (404) prints nothing by itself; a slow Webkassa gi
   assert.deepEqual(screens.said, [
     'Чек Webkassa ещё не готов: точка пришлёт его сама, печать из карточки заказа',
   ]);
+});
+
+test('screens: kiosk receipts print once on this desk; a restarted desk skips the backlog', async () => {
+  const edge = saleEdge();
+  const storage = memory();
+  const model = await saleCashier(edge, storage);
+  const printer = printerBridge();
+  let now = Date.parse('2026-11-25T10:00:00Z');
+  const { ops, said } = wiredScreens(model, printer, { clock: () => now });
+  // A manual point: one 404, then quiet for 5 minutes.
+  await ops.kioskTick();
+  await ops.kioskTick();
+  assert.equal(edge.calls.filter((c) => c.path === 'pos/kiosk-receipts').length, 1);
+  const qr = Array.from({ length: 21 }, () => '0'.repeat(21));
+  const old = randomUUID(),
+    fresh = randomUUID(),
+    later = randomUUID();
+  const at = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
+  edge.edge.kiosk = {
+    list: [
+      { order_id: fresh, display_number: '31', created_at: at(1) },
+      { order_id: old, display_number: '12', created_at: at(60) },
+    ],
+    forms: {
+      [fresh]: {
+        order_id: fresh,
+        display_number: '31',
+        print: [
+          { order: 1, type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+          { order: 2, type: 2, value: 'https://consumer.oofd.kz?i=2', style: 0, qr },
+        ],
+      },
+    },
+  };
+  now += 6 * 60_000;
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 1, 'only the fresh order; the hour-old one is backlog');
+  assert.deepEqual(printer.calls[0][1].fiscal_lines, [
+    { type: 0, value: 'Киоск · заказ №31', style: 1 },
+    { type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+    { type: 2, value: 'https://consumer.oofd.kz?i=2', style: 0, qr },
+  ]);
+  assert.equal(said.at(-1), 'Отправлено на печать');
+  // Printed once: the next pass prints nothing; a form not ready yet waits for the next pass.
+  edge.edge.kiosk.list.unshift({ order_id: later, display_number: '32', created_at: at(0) });
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 1);
+  edge.edge.kiosk.forms[later] = {
+    ...edge.edge.kiosk.forms[fresh],
+    order_id: later,
+    display_number: '32',
+  };
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 2);
+  assert.equal(printer.calls[1][1].fiscal_lines[0].value, 'Киоск · заказ №32');
+  // A restarted desk takes what is older than a few minutes as handled.
+  for (const r of edge.edge.kiosk.list) r.created_at = at(5);
+  const again = await saleCashier(edge, storage);
+  const other = printerBridge();
+  const screens = wiredScreens(again, other, { clock: () => now });
+  await screens.ops.kioskTick();
+  assert.deepEqual(other.calls, []);
 });
 
 test('screens: a cash sale opens the drawer once; the done screen prints the order ticket', async () => {

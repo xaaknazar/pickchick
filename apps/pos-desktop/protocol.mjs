@@ -30,6 +30,8 @@ export const SALE_ROUTES = Object.freeze({
     // 25.11: automatic Webkassa receipt state and its print form with the QR.
     `pos/fiscal-receipts/${UUID}/webkassa`,
     `pos/fiscal-receipts/${UUID}/webkassa/print`,
+    'pos/kiosk-receipts',
+    `pos/kiosk-receipts/${UUID}/print`,
   ]),
   write: Object.freeze([
     'staff/approvals',

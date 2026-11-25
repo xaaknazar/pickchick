@@ -1248,6 +1248,36 @@ export function webkassaReceipt(value: unknown): WebkassaReceipt {
     print,
   };
 }
+/** GET pos/kiosk-receipts: today's paid kiosk orders whose receipt this desk prints. */
+export type KioskReceipt = { order_id: string; display_number: string; created_at: string };
+export function kioskReceipts(value: unknown): KioskReceipt[] {
+  return array(record(value).receipts, 100).map((x) => {
+    const r = record(x);
+    return {
+      order_id: uuid(r.order_id),
+      display_number: displayNumber(r.display_number),
+      created_at: date(r.created_at),
+    };
+  });
+}
+/** GET pos/kiosk-receipts/{id}/print: the Webkassa print form of that kiosk receipt. */
+export function kioskReceiptPrint(value: unknown) {
+  const v = record(value);
+  const status = webkassaReceipt({
+    receiptId: v.order_id,
+    state: 'recorded',
+    receiptNumber: null,
+    error: null,
+    attempts: 0,
+    print: v.print,
+  });
+  if (!status.print?.length) throw new Error('INVALID_RESPONSE');
+  return {
+    order_id: status.receipt_id,
+    display_number: displayNumber(v.display_number),
+    print: status.print,
+  };
+}
 /** A signed amount of tiyn ("-1500", "0", "2500"); "-0" is not a number the edge writes. */
 function signed(value: unknown): string {
   const result = text(value, 21);

@@ -7,17 +7,29 @@ import { OrderError } from './errors.js';
 import { posSalesInstalled } from './approvals.js';
 import { lockBranch } from './commands.js';
 import { FISCAL_RECEIPT_COLUMNS, appendFiscalEvent, fiscalReceipt } from './pos-outbox.js';
-import { WEBKASSA_CODE, WEBKASSA_PAYMENT_TYPE } from './webkassa-client.js';
+import { WEBKASSA_CODE } from '@pickchick/webkassa';
 import type {
   FiscalCheck,
   FiscalLine,
   FiscalPayment,
   WebkassaClient,
   WebkassaError,
+  WebkassaPaymentType,
   WebkassaPrintLine,
-} from './webkassa-client.js';
+} from '@pickchick/webkassa';
 import type { PosPaymentMethod } from '@pickchick/contracts';
 import qrcode from 'qrcode-generator';
+
+/**
+ * Webkassa PaymentType by our tender method: 0 cash, 1 bank card, 4 mobile payment. Kaspi QR and
+ * Kaspi transfers are mobile payments; the Kaspi Smart POS terminal takes cards and QR, so its
+ * part counts as card (accountant to confirm, docs/integrations/webkassa-api.md).
+ */
+export const WEBKASSA_PAYMENT_TYPE: Partial<Record<PosPaymentMethod, WebkassaPaymentType>> = {
+  cash: 0,
+  kaspi_terminal: 1,
+  kaspi_manual: 4,
+};
 
 /**
  * Automatic Webkassa sale receipts (docs/integrations/webkassa-api.md, stage 1).
@@ -336,6 +348,18 @@ export class WebkassaFiscalWorker {
     );
   }
 
+  /**
+   * Print form of the Webkassa receipt of a kiosk order (stage 2: the cloud issues it on the same
+   * cashbox under the cloud order id as ExternalCheckNumber). null while Webkassa has none.
+   */
+  async kioskPrint(orderId: string): Promise<WebkassaPrintable[] | null> {
+    const lines = await this.#serial(() => this.#client.printFormat(orderId));
+    if (!lines?.length) return null;
+    return lines.map((line) =>
+      line.type === 2 && line.value.length <= 600 ? { ...line, qr: qrMatrix(line.value) } : line,
+    );
+  }
+
   /** X-report of the Webkassa shift (manager): the vendor's figures as they are. */
   xReport() {
     return this.#serial(() => this.#client.xReport());
@@ -373,4 +397,64 @@ export async function webkassaReceiptStatus(
       throw new OrderError('NOT_FOUND');
   });
   return worker.status(id, withPrint);
+}
+
+/** Kiosk orders of today that the kitchen got: their receipt is issued (cloud fiscal gate). */
+export const KIOSK_RECEIPTS_LIMIT = 100;
+
+/**
+ * GET pos/kiosk-receipts: the paid kiosk orders of the business day, so the cashier desk prints
+ * their Webkassa receipt on its printer (owner 25.11: the kiosk prints on the cashier printer).
+ * A cloud order reaches this kitchen only after its sale receipt is issued, so every row listed
+ * has one; the desk keeps which it printed. Read-only.
+ */
+export async function kioskReceipts(pool: DatabasePool, branchId: string, auth: StaffAuth) {
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    const rows = (
+      await client.query(
+        `SELECT order_id,display_number::text,created_at FROM fulfillment_reservations
+         WHERE branch_id=$1 AND commercial_owner='cloud' AND snapshot->>'channel'='kiosk'
+           AND authorized_event_id IS NOT NULL AND state NOT IN ('cancel_requested','cancelled','released')
+           AND business_day=(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date
+         ORDER BY created_at DESC,order_id LIMIT $2`,
+        [branchId, KIOSK_RECEIPTS_LIMIT],
+      )
+    ).rows as { order_id: string; display_number: string; created_at: Date }[];
+    return {
+      receipts: rows.map((r) => ({
+        order_id: r.order_id,
+        display_number: r.display_number,
+        created_at: r.created_at.toISOString(),
+      })),
+    };
+  });
+}
+
+/** GET pos/kiosk-receipts/{orderId}/print: that kiosk order's receipt form with its QR. */
+export async function kioskReceiptPrint(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  worker: WebkassaFiscalWorker,
+  orderId: string,
+) {
+  if (!UuidSchema.safeParse(orderId).success) throw new OrderError('INVALID_REQUEST');
+  const id = orderId.toLowerCase();
+  const row = await transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    return (
+      await client.query(
+        `SELECT display_number::text FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2
+         AND commercial_owner='cloud' AND snapshot->>'channel'='kiosk' AND authorized_event_id IS NOT NULL`,
+        [id, branchId],
+      )
+    ).rows[0] as { display_number: string } | undefined;
+  });
+  if (!row) throw new OrderError('NOT_FOUND');
+  const print = await worker.kioskPrint(id);
+  if (!print) throw new OrderError('NOT_FOUND');
+  return { order_id: id, display_number: row.display_number, print };
 }

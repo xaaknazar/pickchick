@@ -19,7 +19,8 @@
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
-    "qrcode-generator": "2.0.4"
+    "qrcode-generator": "2.0.4",
+    "@pickchick/webkassa": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

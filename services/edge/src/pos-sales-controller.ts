@@ -25,6 +25,8 @@ import {
   refundPosSale,
   voidPosSale,
   webkassaReceiptStatus,
+  kioskReceipts,
+  kioskReceiptPrint,
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
@@ -218,6 +220,32 @@ export class PosSalesController {
       const worker = this.webkassa.worker;
       if (!worker) throw new OrderError('NOT_FOUND');
       return webkassaReceiptStatus(this.pool, this.branchId, auth, worker, receiptId, print);
+    });
+  }
+
+  /**
+   * Kiosk orders whose Webkassa receipt this desk prints (stage 2). 404 while the point has no
+   * Webkassa account: kiosk receipts are then not printed at the desk.
+   */
+  @Get('pos/kiosk-receipts')
+  @Header('Cache-Control', 'no-store')
+  kioskReceiptList(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, async (auth) => {
+      if (!this.webkassa.worker) throw new OrderError('NOT_FOUND');
+      return kioskReceipts(this.pool, this.branchId, auth);
+    });
+  }
+
+  @Get('pos/kiosk-receipts/:orderId/print')
+  @Header('Cache-Control', 'no-store')
+  kioskReceiptForm(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.run(headers, async (auth) => {
+      const worker = this.webkassa.worker;
+      if (!worker) throw new OrderError('NOT_FOUND');
+      return kioskReceiptPrint(this.pool, this.branchId, auth, worker, orderId);
     });
   }
 

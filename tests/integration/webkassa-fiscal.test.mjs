@@ -14,6 +14,8 @@ import {
   recordFiscalReceipt,
   setOrdering,
   webkassaReceiptStatus,
+  kioskReceipts,
+  kioskReceiptPrint,
 } from '@pickchick/local-orders';
 import { localUnpaidExecution, provisionFulfillment } from '@pickchick/edge-fulfillment';
 import { withSyncDatabases } from '../helpers/sync.mjs';
@@ -436,5 +438,72 @@ test('a number typed by hand first wins; the Z-report closes Webkassa once the l
     await worker.tick();
     await worker.tick();
     assert.equal(sim.calls.filter((c) => c.path === 'api/v4/ZReport').length, 1);
+  });
+});
+
+test("the cashier desk lists today's paid kiosk orders and prints their Webkassa receipt", async () => {
+  await desk(async (ctx) => {
+    const sim = webkassa();
+    const worker = new WebkassaFiscalWorker(
+      ctx.edge.pool,
+      ctx.branch,
+      new WebkassaClient(ACCOUNT, { transport: sim }),
+      () => {},
+    );
+    const { made } = await sale(ctx, (total) => [{ method: 'cash', amount_minor: total }]);
+    const posOrder = made.order_id ?? made.sale?.order_id ?? made.order?.id;
+    // A kiosk order the cloud admitted (receipt issued in the cloud first), next to the POS sale.
+    const kiosk = randomUUID(),
+      held = randomUUID();
+    for (const [id, authorized] of [
+      [kiosk, true],
+      [held, false],
+    ])
+      await ctx.edge.pool.query(
+        `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,
+           commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,
+           state,display_number,business_day,authorized_event_id)
+         SELECT $2,branch_id,$3,$4,quote_hash,owner_hash,'cloud','edge',device_id,
+           snapshot||'{"channel":"kiosk"}'::jsonb,routing_version,task_plan,assembly_station_id,
+           $5,CASE WHEN $6 THEN display_number+100 END,CASE WHEN $6 THEN business_day END,
+           CASE WHEN $6 THEN $7::uuid END
+         FROM fulfillment_reservations WHERE order_id=$1`,
+        [
+          posOrder,
+          id,
+          randomUUID(),
+          randomUUID(),
+          authorized ? 'accepted' : 'held',
+          authorized,
+          randomUUID(),
+        ],
+      );
+    const list = await kioskReceipts(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier));
+    assert.deepEqual(
+      list.receipts.map((r) => r.order_id),
+      [kiosk],
+      'only the admitted kiosk order; not the POS sale nor a held one',
+    );
+    const form = await kioskReceiptPrint(
+      ctx.edge.pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      worker,
+      kiosk,
+    );
+    assert.equal(form.display_number, list.receipts[0].display_number);
+    assert.deepEqual(form.print[0], { order: 1, type: 0, value: 'ФИСКАЛЬНЫЙ ЧЕК', style: 1 });
+    assert.equal(form.print[1].type, 2);
+    assert.ok(form.print[1].qr.length >= 21);
+    const asked = sim.calls.find((c) => c.path === 'api/v4/Ticket/PrintFormat');
+    assert.equal(asked.body.ExternalCheckNumber, kiosk, 'the cloud issued it under the order id');
+    await assert.rejects(
+      kioskReceiptPrint(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), worker, posOrder),
+      { code: 'NOT_FOUND' },
+    );
+    await assert.rejects(
+      kioskReceiptPrint(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), worker, held),
+      { code: 'NOT_FOUND' },
+    );
   });
 });

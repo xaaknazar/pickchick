@@ -106,6 +106,8 @@ const POS_SALE_READS = [
   // 25.11: automatic Webkassa receipt state and its print form with the QR.
   `pos/fiscal-receipts/${UUID}/webkassa`,
   `pos/fiscal-receipts/${UUID}/webkassa/print`,
+  'pos/kiosk-receipts',
+  `pos/kiosk-receipts/${UUID}/print`,
 ];
 const POS_SALE_WRITES = [
   'staff/approvals',

@@ -628,6 +628,8 @@ const AUTH_KEY = 'pickchick.pos.staff-session.v1';
 export const scopeFor = (actor: StaffSession) =>
   `${actor.branch_id}.${actor.staff_id}.${actor.terminal_id}`;
 const journalKey = (scope: string) => `pickchick.pos.journal.v1.${scope}`;
+/** Kiosk orders older than this at the first read of a session are not printed by this desk. */
+export const KIOSK_BACKLOG_MS = 3 * 60_000;
 const unchanged = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 /** The edge's tenders are exactly the requested ones (method and amount, in any order). */
 function sameTenders(actual: PosSale['tenders'], requested: unknown) {
@@ -2649,6 +2651,43 @@ export class PosController {
       throw error;
     }
   }
+  /**
+   * Kiosk receipts this desk still has to print (owner 25.11: the kiosk prints on the cashier
+   * printer). null: the point has no Webkassa account (404). The desk keeps the printed ones in
+   * memory (pos-desktop storage holds only the journal): the first read of a session takes orders
+   * older than KIOSK_BACKLOG_MS as handled, so a restarted desk does not print the day again.
+   */
+  async kioskReceiptsToPrint() {
+    let list: parse.KioskReceipt[];
+    try {
+      list = parse.kioskReceipts(await this.request('pos/kiosk-receipts'));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+    if (!this.kioskPrinted) {
+      this.kioskPrinted = new Set(
+        list
+          .filter((r) => this.now() - Date.parse(r.created_at) > KIOSK_BACKLOG_MS)
+          .map((r) => r.order_id),
+      );
+    }
+    const printed = this.kioskPrinted;
+    return list.filter((r) => !printed.has(r.order_id)).reverse();
+  }
+  async kioskReceiptPrint(orderId: string) {
+    return parse.kioskReceiptPrint(
+      await this.request(`pos/kiosk-receipts/${parse.uuid(orderId)}/print`),
+    );
+  }
+  /** Marks one kiosk receipt as handled by this desk (sent to the printer). */
+  markKioskPrinted(orderId: string) {
+    if (!this.kioskPrinted) return;
+    this.kioskPrinted.add(orderId);
+    if (this.kioskPrinted.size > 300)
+      this.kioskPrinted.delete(this.kioskPrinted.values().next().value!);
+  }
+  private kioskPrinted: Set<string> | null = null;
   /** After an automatic receipt: the sale on screen and the receipt badge read it again. */
   async noteWebkassaIssued(orderId: string) {
     const epoch = this.generation;
