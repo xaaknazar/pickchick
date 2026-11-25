@@ -18,7 +18,8 @@
   "dependencies": {
     "@pickchick/contracts": "workspace:*",
     "@pickchick/database": "workspace:*",
-    "@pickchick/menu-sync": "workspace:*"
+    "@pickchick/menu-sync": "workspace:*",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "typescript": "5.9.3",

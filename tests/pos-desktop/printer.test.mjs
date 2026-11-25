@@ -464,3 +464,60 @@ test('no printer: "not configured" for print and drawer; IPC messages are exact'
     );
   assert.equal(jobs.length, 1);
 });
+
+test('fiscal receipt: Webkassa lines as they are, bold, the QR matrix as SVG or the printer QR', async () => {
+  const qr = Array.from({ length: 21 }, (_, y) =>
+    Array.from({ length: 21 }, (_, x) => ((x + y) % 3 === 0 ? '1' : '0')).join(''),
+  );
+  const link = 'http://ctest2.wofd.kz/consumer?i=132524690&f=057946199798&s=100.00';
+  const value = {
+    kind: 'fiscal',
+    fiscal_lines: [
+      { type: 0, value: '                PICK CHICK ALA AP               ', style: 0 },
+      { type: 0, value: 'БАРЛЫҒЫ/ИТОГО:                            100,00', style: 1 },
+      { type: 2, value: link, style: 0, qr },
+      { type: 0, value: '<script>x</script>', style: 0 },
+    ],
+    printed_at: '2026-11-25T09:34:29.000Z',
+    terminal_label: 'Касса 1',
+  };
+  const ticket = parseTicket(value);
+  assert.equal(ticket.fiscal_lines[0].value, '                PICK CHICK ALA AP');
+  const rows = ticketRows(ticket);
+  assert.deepEqual(
+    rows.map((r) => r.type),
+    ['mono', 'mono', 'qr', 'mono'],
+  );
+  const html = ticketHtml(ticket);
+  assert.match(html, /<div class="mono"> {16}PICK CHICK ALA AP<\/div>/);
+  assert.match(html, /class="mono bold">БАРЛЫҒЫ\/ИТОГО:/);
+  assert.match(html, /<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 29 29"/);
+  assert.match(html, /&lt;script&gt;/);
+  assert.doesNotMatch(html, /<script>/);
+  const bytes = escposBytes(ticket);
+  const qrStore = Buffer.from([0x1d, 0x28, 0x6b, link.length + 3, 0x00, 0x31, 0x50, 0x30]);
+  assert.ok(bytes.includes(Buffer.concat([qrStore, Buffer.from(link, 'ascii')])));
+  assert.ok(
+    bytes.includes(Buffer.from(encodeCp866(printable('                PICK CHICK ALA AP')))),
+  );
+  for (const bad of [
+    { ...value, fiscal_lines: [] },
+    { ...value, fiscal_lines: [{ type: 1, value: 'x', style: 0 }] },
+    { ...value, fiscal_lines: [{ type: 2, value: link, style: 0, qr: qr.slice(1) }] },
+    { ...value, fiscal_lines: [{ type: 2, value: 'javascript:x', style: 0, qr }] },
+    { ...value, fiscal_lines: [{ type: 0, value: 'a\nb', style: 0 }] },
+    { ...value, extra: true },
+  ])
+    assert.throws(() => parseTicket(bad), /INVALID_TICKET/);
+  const printed = [];
+  const printer = createPrinter({
+    printer: validatePrinter({ mode: 'windows-driver', deviceName: 'PickChick XP-A160M' }),
+    printHtml: async (job) => {
+      printed.push(job);
+      return 'sent';
+    },
+  });
+  assert.deepEqual(await printer.print(value), { state: 'sent' });
+  assert.equal(printed[0].deviceName, 'PickChick XP-A160M');
+  assert.equal(printed[0].heightMicrons, 20_000 + 3 * 5_000 + 45_000);
+});

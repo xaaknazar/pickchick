@@ -23,6 +23,7 @@ import {
   paidDayStats,
   printMessage,
   refundTicket,
+  WEBKASSA_WAIT_MS,
 } from '../../apps/pos/dist/v2/ops-view.js';
 import { RECEIPT_READS, parseBranchOrders } from '../../apps/pos/dist/model.js';
 import {
@@ -626,6 +627,8 @@ function saleEdge({
     closed: null,
     reportOverride: null,
     drawerTaken: 0n,
+    // Automatic Webkassa answers (receiptId, withPrint) => body; null: manual point (404).
+    webkassa: null,
   };
   const quoteFor = (body) => {
     const unit = body.sales_channel ? channelPrice : state.price;
@@ -802,6 +805,13 @@ function saleEdge({
             }
         throw new ApiError('NOT_FOUND', 404);
       });
+    {
+      const auto = path.match(/^pos\/fiscal-receipts\/([0-9a-f-]+)\/webkassa(\/print)?$/);
+      if (auto) {
+        if (!state.webkassa) throw new ApiError('NOT_FOUND', 404);
+        return state.webkassa(auto[1], Boolean(auto[2]));
+      }
+    }
     if (path.startsWith('pos/fiscal-receipts/pending')) {
       const shift = new URL(path, 'http://edge.invalid/').searchParams.get('shift_id');
       return { receipts: pendingReceipts(shift) };
@@ -3816,7 +3826,7 @@ function printerBridge(answers = {}) {
   };
 }
 /** SaleView and OpsView wired as in app.js: the sale hands its drawer and ticket to ops. */
-function wiredScreens(model, printer) {
+function wiredScreens(model, printer, extra = {}) {
   const said = [];
   const guard =
     (fn) =>
@@ -3849,6 +3859,7 @@ function wiredScreens(model, printer) {
     endSession: () => {},
     printer,
     terminalLabel: 'Тестовая точка',
+    ...extra,
   });
   return { view, ops, said };
 }
@@ -3857,6 +3868,126 @@ async function payOnScreen(view, method, cash) {
   await view.values().salePayConfirm();
   assert.equal(view.values().isSaleDone, true);
 }
+
+test('screens: automatic Webkassa prints the fiscal receipt with its QR once it is issued', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const qr = Array.from({ length: 21 }, (_, i) => (i % 2 ? '1' : '0').repeat(21));
+  const asked = [];
+  let tries = 0;
+  edge.edge.webkassa = (id, withPrint) => {
+    asked.push([id, withPrint]);
+    tries++;
+    const sale = [...edge.edge.sales.values()][0];
+    const receipt = sale.fiscal.find((f) => f.receipt_id === id);
+    if (tries < 3)
+      return {
+        receiptId: id,
+        state: 'pending',
+        receiptNumber: null,
+        error: tries === 2 ? { code: 13, text: 'Нет открытой смены' } : null,
+        attempts: tries,
+        print: null,
+      };
+    Object.assign(receipt, { state: 'recorded', receipt_number: '132524690', version: 2 });
+    return {
+      receiptId: id,
+      state: 'recorded',
+      receiptNumber: '132524690',
+      error: null,
+      attempts: 3,
+      print: withPrint
+        ? [
+            { order: 1, type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+            { order: 2, type: 1, value: 'logo', style: 0 },
+            { order: 3, type: 2, value: 'https://consumer.oofd.kz?i=1', style: 0, qr },
+            { order: 4, type: 0, value: 'ФП 132524690', style: 7 },
+          ]
+        : null,
+    };
+  };
+  const slept = [];
+  const { view, ops, said } = wiredScreens(model, printer, {
+    sleep: async (ms) => slept.push(ms),
+    clock: () => 0,
+  });
+  await reviewed(model, edge, 'takeaway');
+  await payOnScreen(view, 'cash', '10000');
+  await ops.autoFiscal;
+  const receiptId = [...edge.edge.sales.values()][0].fiscal[0].receipt_id;
+  assert.deepEqual(asked, [
+    [receiptId, false],
+    [receiptId, false],
+    [receiptId, false],
+    [receiptId, true],
+  ]);
+  assert.deepEqual(slept, [2000, 2000]);
+  assert.equal(said[0], 'Webkassa не приняла чек: Нет открытой смены. Точка повторит сама');
+  assert.equal(printer.calls.length, 2, 'drawer, then the fiscal receipt');
+  const ticket = printer.calls[1][1];
+  assert.deepEqual(
+    { ...ticket, printed_at: 'x' },
+    {
+      kind: 'fiscal',
+      fiscal_lines: [
+        { type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+        { type: 2, value: 'https://consumer.oofd.kz?i=1', style: 0, qr },
+        { type: 0, value: 'ФП 132524690', style: 0 },
+      ],
+      printed_at: 'x',
+      terminal_label: 'Тестовая точка',
+    },
+  );
+  assert.deepEqual(parseTicket(ticket), { ...ticket, title: 'Фискальный чек' });
+  assert.equal(model.state.webkassaAuto, true);
+  assert.equal(model.state.sale.fiscal[0].state, 'recorded', 'the sale was read again');
+  assert.equal(view.orderValues(legacyValues).kkmLine, 'Чеки: Webkassa автоматически');
+  // «Чек» of the order card prints the fiscal receipt again, not the order ticket.
+  await ops.printReceipt(model.state.sale.order_id);
+  assert.equal(printer.calls.at(-1)[1].kind, 'fiscal');
+});
+
+test('screens: a manual point (404) prints nothing by itself; a slow Webkassa gives up once', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, ops, said } = wiredScreens(model, printer);
+  await reviewed(model, edge, 'takeaway');
+  await payOnScreen(view, 'cash', '10000');
+  await ops.autoFiscal;
+  assert.deepEqual(printer.calls, [['drawer']]);
+  assert.deepEqual(said, []);
+  assert.equal(model.state.webkassaAuto, false);
+  assert.equal(view.orderValues(legacyValues).kkmLine, 'Чеки: вручную в Webkassa');
+
+  const slow = saleEdge();
+  const model2 = await saleCashier(slow);
+  let now = 0;
+  slow.edge.webkassa = (id) => ({
+    receiptId: id,
+    state: 'pending',
+    receiptNumber: null,
+    error: null,
+    attempts: 1,
+    print: null,
+  });
+  const printer2 = printerBridge();
+  const screens = wiredScreens(model2, printer2, {
+    sleep: async (ms) => {
+      now += ms;
+    },
+    clock: () => now,
+  });
+  await reviewed(model2, slow, 'takeaway');
+  await payOnScreen(screens.view, 'cash', '10000');
+  await screens.ops.autoFiscal;
+  assert.ok(now >= WEBKASSA_WAIT_MS);
+  assert.deepEqual(printer2.calls, [['drawer']]);
+  assert.deepEqual(screens.said, [
+    'Чек Webkassa ещё не готов: точка пришлёт его сама, печать из карточки заказа',
+  ]);
+});
 
 test('screens: a cash sale opens the drawer once; the done screen prints the order ticket', async () => {
   const edge = saleEdge();

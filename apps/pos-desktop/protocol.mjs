@@ -27,6 +27,9 @@ export const SALE_ROUTES = Object.freeze({
     `pos/terminal-payments/${UUID}`,
     // 23.11: «Заказы» lists every order of the branch between two days.
     'pos/branch-orders',
+    // 25.11: automatic Webkassa receipt state and its print form with the QR.
+    `pos/fiscal-receipts/${UUID}/webkassa`,
+    `pos/fiscal-receipts/${UUID}/webkassa/print`,
   ]),
   write: Object.freeze([
     'staff/approvals',

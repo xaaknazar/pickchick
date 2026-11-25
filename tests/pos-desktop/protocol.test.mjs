@@ -959,6 +959,8 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       'pos/terminal-payments/open',
       `pos/terminal-payments/${uuid}`,
       'pos/branch-orders',
+      `pos/fiscal-receipts/${uuid}/webkassa`,
+      `pos/fiscal-receipts/${uuid}/webkassa/print`,
     ],
     write: [
       'staff/approvals',
