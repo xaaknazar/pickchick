@@ -1,4 +1,5 @@
 import tokens from '../../../packages/design-tokens/tokens.json';
+import { glassBar, glassBarLight, glassBarNight } from './glass';
 import { tabBarLight, tabBarNavy, tabBarPalette } from './tab-bar-metrics';
 
 export const brandColors = tokens.color;
@@ -121,6 +122,7 @@ export function applyTheme(name: ThemeName): void {
     mapControl: tc(restaurantBase.mapControl),
   });
   Object.assign(tabBarPalette, name === 'light' ? tabBarLight : tabBarNavy);
+  Object.assign(glassBar, name === 'light' ? glassBarLight : glassBarNight);
   version += 1;
   listeners.forEach((listener) => listener());
 }

@@ -501,8 +501,9 @@ const s = themed(() =>
       flexDirection: 'row',
       alignItems: 'stretch',
       // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
-      shadowColor: tc('#000000'),
-      shadowOpacity: 0.5,
+      // A soft navy lift on the light look, like the tab bar; the night capsule keeps black.
+      shadowColor: colors.scheme === 'light' ? '#10285A' : '#000000',
+      shadowOpacity: colors.scheme === 'light' ? 0.18 : 0.5,
       shadowOffset: { width: 0, height: 8 },
       shadowRadius: 18,
       elevation: 12,
@@ -570,7 +571,7 @@ const s = themed(() =>
       backgroundColor: '#EEF2F8',
       // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
       borderWidth: 3,
-      borderColor: glass.pillBase,
+      borderColor: colors.scheme === 'light' ? '#FFFFFF' : glass.pillBase,
     },
     placeholder: {
       alignItems: 'center',
