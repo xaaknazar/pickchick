@@ -1,4 +1,5 @@
 import { Text } from '../../components/LocalizedText';
+import { GameBackButton } from '../GameBackButton';
 import { dateLocale } from '../../i18n/core';
 import { t, localize, useLocale } from '../../i18n';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -470,15 +471,11 @@ export function PickManScreen() {
     >
       <ArcadeBackdrop />
       <View style={[s.header, compact && { height: wide ? 48 : 58 }]}>
-        <Pressable
+        <GameBackButton
           testID="pick-man-exit"
-          accessibilityRole="button"
-          accessibilityLabel={localize(exitLabel(origin))}
+          label={localize(exitLabel(origin))}
           onPress={close}
-          style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
-        >
-          <Icon name="arrow-back" size={24} />
-        </Pressable>
+        />
         <View style={s.brand}>
           <Logo size={30} />
           <Text style={s.name}>PICK MAN</Text>

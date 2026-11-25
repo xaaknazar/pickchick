@@ -56,6 +56,17 @@ export function useThemePreference(): ThemePreference {
 // The system's mode is known synchronously, so the first frame already has the right colours.
 apply();
 
+// The saved choice is read from storage after launch. Until it is known the root keeps the
+// launch screen up, so no screen is first drawn in one look and then switched to another
+// (build 52: dark menu cards on the light page).
+let restored = false;
+const getRestored = () => restored;
+
+/** False until the saved «Оформление» has been read; the root waits for it before drawing. */
+export function useThemeRestored(): boolean {
+  return useSyncExternalStore(subscribe, getRestored, getRestored);
+}
+
 /** Mounted once at the root: restores the saved choice and follows the system's mode. */
 export function ThemeController() {
   useEffect(() => {
@@ -65,10 +76,13 @@ export function ThemeController() {
         if (alive && isThemePreference(saved) && saved !== preference) {
           preference = saved;
           apply();
-          listeners.forEach((listener) => listener());
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        restored = true;
+        listeners.forEach((listener) => listener());
+      });
     const subscription = Appearance.addChangeListener(() => apply());
     return () => {
       alive = false;
