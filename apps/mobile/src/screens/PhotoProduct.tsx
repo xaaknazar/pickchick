@@ -113,6 +113,10 @@ export function PhotoProduct(props: Props) {
   const pageInk = blue ? colors.white : ink;
   const replaceInk = replaceColor(blue);
   const heroHeight = Math.min(width, height * 0.61, 600);
+  // Colour review 25.11.2026: on the dark looks the warm-white photo sheet ends in a clean rounded
+  // edge (the fade to navy went through a grey haze); «Светлая» keeps the soft fade.
+  const cardHero = colors.scheme !== 'light';
+  const lightLook = colors.scheme === 'light';
   const pageGradient = `linear-gradient(180deg, ${HERO_PAPER} 0px, ${HERO_PAPER} ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
@@ -323,11 +327,21 @@ export function PhotoProduct(props: Props) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             { paddingBottom: footerHeight + 24, flexGrow: 1 },
-            blue && gradientSurface,
+            blue && !cardHero && gradientSurface,
           ]}
           testID="photo-product-scroll"
         >
-          <View style={{ height: heroHeight, backgroundColor: blue ? 'transparent' : paper }}>
+          <View
+            style={[
+              { height: heroHeight, backgroundColor: blue ? 'transparent' : paper },
+              cardHero && {
+                backgroundColor: HERO_PAPER,
+                borderBottomLeftRadius: 32,
+                borderBottomRightRadius: 32,
+                overflow: 'hidden',
+              },
+            ]}
+          >
             {hero ? (
               <ProductPhoto
                 photo={hero}
@@ -353,7 +367,7 @@ export function PhotoProduct(props: Props) {
                 />
               </View>
             )}
-            {transparentHero ? null : (
+            {transparentHero || cardHero ? null : (
               <View pointerEvents="none" style={[s.blend, blue ? blueBlend() : blend]} />
             )}
             {combo ? (
@@ -367,13 +381,24 @@ export function PhotoProduct(props: Props) {
               >
                 {/* Owner 15.11.2026: a control over the photo is Apple's glass, like the close
                     button; a navy tint keeps the white label readable on the light photo. */}
-                <GlassFill radius={28} place="header" tint={photoActionTint} interactive />
-                <Icon name="options-outline" color={colors.pure} size={20} />
-                <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
+                <GlassFill
+                  radius={28}
+                  place="header"
+                  tint={lightLook ? undefined : photoActionTint}
+                  interactive
+                />
+                <Icon
+                  name="options-outline"
+                  color={lightLook ? colors.text : colors.pure}
+                  size={20}
+                />
+                <Text style={[s.photoActionText, lightLook && { color: colors.text }]}>
+                  {t('Настроить комбо')}
+                </Text>
               </Pressable>
             ) : null}
           </View>
-          <View style={s.intro}>
+          <View style={[s.intro, cardHero && { paddingTop: 22 }]}>
             <ProductMenuNotice
               product={product}
               selections={selections}
@@ -1047,7 +1072,13 @@ function Counter({
   );
 }
 const replaceColor = (blue: boolean) =>
-  blue ? (colors.scheme === 'light' ? colors.accentText : tc('#FF8A4C')) : '#A33B00';
+  blue
+    ? colors.scheme === 'light'
+      ? colors.accentText
+      : navyLook()
+        ? '#FF9A5C'
+        : tc('#FF8A4C')
+    : '#A33B00';
 
 function makeStyles(blue: boolean) {
   // Light and dark: the rows are the app's cards on the page colour; «Синяя» keeps navy rows.

@@ -1102,7 +1102,7 @@ export function ChangedCart(props: ScreenProps) {
   return (
     <Page props={props} title={t('Меню обновилось')}>
       <View style={s.largeIcon}>
-        <Icon name="refresh" size={42} color={colors.accent} />
+        <Icon name="refresh" size={42} color={colors.accentIcon} />
       </View>
       <Heading>
         {t('Давайте проверим')}

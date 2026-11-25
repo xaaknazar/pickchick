@@ -1,4 +1,4 @@
-import { tc } from '../theme';
+import { colors, tc } from '../theme';
 import { Text } from '../components/LocalizedText';
 import { t, useLocale } from '../i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -44,7 +44,7 @@ export default function ProductPhotoRoute() {
           backgroundColor: tc('#0A1020'),
         }}
       >
-        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция сейчас недоступна')}</Text>
+        <Text style={{ color: colors.text, fontSize: 20 }}>{t('Позиция сейчас недоступна')}</Text>
         <Button title={t('Вернуться в меню')} onPress={back} />
       </View>
     );

@@ -254,7 +254,7 @@ const s = themed(() =>
       fontFamily: font.heading,
       fontSize: 18,
       lineHeight: 26,
-      color: tc('#251609'),
+      color: colors.orangeInk,
       textAlign: 'center',
     },
     disabled: { backgroundColor: tc('#16295A'), opacity: 0.5 },

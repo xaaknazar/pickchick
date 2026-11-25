@@ -83,7 +83,7 @@ function MountainHero({ preview }: { preview: boolean }) {
               )}
             </Text>
           </View>
-          <Icon name="flag-outline" color={colors.accent} size={24} />
+          <Icon name="flag-outline" color={colors.accentIcon} size={24} />
         </Row>
         <View style={s.track}>
           <View style={[s.fill, { width: `${progress.fraction * 100}%` }]} />
@@ -133,7 +133,7 @@ function PeakDetails({ peak: chosen, close }: { peak: Peak | null; close(): void
                 {t('Чиков за всё время')}
               </Text>
               <View style={s.giftPanel}>
-                <Icon name="gift-outline" color={colors.accent} size={28} />
+                <Icon name="gift-outline" color={colors.accentIcon} size={28} />
                 <View style={{ flex: 1 }}>
                   <Text style={s.giftTitle}>{localize(peak.reward)}</Text>
                   <Text style={s.copy}>{localize(peak.detail)}</Text>
@@ -222,7 +222,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
                   {t('Чиков')}
                 </Text>
                 <View style={s.rewardRow}>
-                  <Icon name="gift-outline" size={18} color={colors.accent} />
+                  <Icon name="gift-outline" size={18} color={colors.accentIcon} />
                   <Text style={s.rewardText}>{localize(peak.reward)}</Text>
                   <Icon name="chevron-forward" size={16} color={colors.muted} />
                 </View>
@@ -231,7 +231,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
           );
         })}
         <View style={s.finish}>
-          <Icon name="sparkles-outline" color={colors.accent} size={20} />
+          <Icon name="sparkles-outline" color={colors.accentIcon} size={20} />
           <Text style={s.finishText}>{t('Талгар - твоя вершина вкуса')}</Text>
         </View>
       </View>
@@ -253,7 +253,7 @@ function HowItWorks() {
         onPress={() => setOpen(!open)}
         style={s.explainerButton}
       >
-        <Icon name="compass-outline" color={colors.accent} size={23} />
+        <Icon name="compass-outline" color={colors.accentIcon} size={23} />
         <Text style={s.explainerTitle}>{t('Как устроено восхождение')}</Text>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} color={colors.muted} size={20} />
       </Pressable>
@@ -398,7 +398,7 @@ export function PeakRewards(props: ScreenProps) {
       ).map(([icon, title, copy, action, target], index) => (
         <View key={title} style={s.mission}>
           <View style={s.missionIcon}>
-            <Icon name={icon as IconName} size={24} color={colors.accent} />
+            <Icon name={icon as IconName} size={24} color={colors.accentIcon} />
           </View>
           <Text style={s.giftTitle}>{localize(title)}</Text>
           <Text style={s.copy}>{localize(copy)}</Text>

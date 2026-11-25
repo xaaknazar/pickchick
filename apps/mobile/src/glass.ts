@@ -89,8 +89,8 @@ export function liquidGlassConfig(place: GlassPlace): LiquidGlassConfig {
   return {
     glassEffectStyle: 'regular',
     isInteractive: place === 'button' || place === 'header',
-    // Only the cart capsule follows the light look; the round buttons stay dark glass.
-    colorScheme: place === 'bar' ? glassBar.scheme : 'dark',
+    // Owner 25.11.2026: on «Светлая» the round buttons are light glass too.
+    colorScheme: place === 'bar' ? glassBar.scheme : glassTone.scheme,
   };
 }
 
@@ -180,6 +180,44 @@ export const glass = {
   /** The cart bar capsule; the values follow the theme (see `glassBarNight`). */
   bar: glassBar,
 } as const;
+
+/** The parts of `glass` that follow the theme, and which Liquid Glass the buttons ask for. */
+export const glassNight = {
+  veil: glass.veil,
+  fallback: glass.fallback,
+  solid: glass.solid,
+  lift: glass.lift,
+  rim: glass.rim,
+  headerRim: glass.headerRim,
+  pillBase: glass.pillBase,
+  pressedVeil: glass.pressedVeil,
+  specular: glass.specular,
+  icon: glass.icon,
+  danger: glass.danger,
+} as Record<string, string>;
+/**
+ * «Светлая» (colour review 25.11.2026): the navy glass read as grey discs on the light page.
+ * White glass, ink glyph, a quiet ink rim; the red trash is darker so it keeps 4.5:1 on white.
+ */
+export const glassDay: Record<string, string> = {
+  veil: 'rgba(255, 255, 255, 0.66)',
+  fallback: 'rgba(255, 255, 255, 0.94)',
+  solid: '#FFFFFF',
+  lift: 'rgba(255, 255, 255, 0.2)',
+  rim: 'rgba(15, 27, 61, 0.12)',
+  headerRim: 'rgba(15, 27, 61, 0.14)',
+  pillBase: '#FFFFFF',
+  pressedVeil: 'rgba(15, 27, 61, 0.08)',
+  specular: 'inset 0 1px 1px rgba(255, 255, 255, 0.9), inset 0 -1px 1px rgba(15, 27, 61, 0.06)',
+  icon: '#0F1B3D',
+  danger: '#D92D20',
+};
+export const glassTone: { scheme: 'dark' | 'light' } = { scheme: 'dark' };
+/** theme.ts calls this; the values are swapped in place, like `glassBar`. */
+export function applyGlassTone(scheme: 'dark' | 'light'): void {
+  glassTone.scheme = scheme;
+  Object.assign(glass, scheme === 'light' ? glassDay : glassNight);
+}
 
 /** What the fallback glass is made of, per surface (`liquid` draws none of it: Apple does). */
 export type GlassLayers = {

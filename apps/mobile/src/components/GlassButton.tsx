@@ -19,6 +19,7 @@ import {
   glass,
   glassBarBody,
   glassLayers,
+  glassTone,
   glassRimColor,
   glassSize,
   liquidGlassConfig,
@@ -34,12 +35,13 @@ export { useGlassSurface } from './useGlassSurface';
 export const glassRimWidth = StyleSheet.hairlineWidth * 2;
 const RIM = glassRimWidth;
 // Sheen and specular edge of the fallback glass (Liquid Glass draws its own light).
-const highlight = {
-  ...(Platform.OS === 'web'
-    ? { backgroundImage: glass.sheen }
-    : { experimental_backgroundImage: glass.sheen }),
-  boxShadow: glass.specular,
-} as ViewStyle;
+const highlight = () =>
+  ({
+    ...(Platform.OS === 'web'
+      ? { backgroundImage: glass.sheen }
+      : { experimental_backgroundImage: glass.sheen }),
+    boxShadow: glass.specular,
+  }) as ViewStyle;
 
 /**
  * The light rim of a glass shape that is not a GlassButton (the pay handle, the bag pill), for
@@ -117,7 +119,7 @@ export function GlassFill({
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, round]}>
       {body && layers.blur ? (
         <BlurView
-          tint="dark"
+          tint={glassTone.scheme}
           intensity={glass.blurIntensity}
           style={[StyleSheet.absoluteFill, s.clip, round]}
         />
@@ -128,7 +130,7 @@ export function GlassFill({
       {body && layers.lift ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.lift }]} />
       ) : null}
-      {layers.highlights ? <View style={[StyleSheet.absoluteFill, round, highlight]} /> : null}
+      {layers.highlights ? <View style={[StyleSheet.absoluteFill, round, highlight()]} /> : null}
       {pressed && layers.pressFeedback ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.pressedVeil }]} />
       ) : null}
@@ -351,7 +353,7 @@ export function TabBarGlass({ radius }: { radius: number }) {
           surface === 'blur' ? tabBarBackdrop : null,
         ]}
       />
-      <View style={[StyleSheet.absoluteFill, round, highlight]} />
+      <View style={[StyleSheet.absoluteFill, round, highlight()]} />
     </View>
   );
 }

@@ -295,7 +295,7 @@ export function Profile(props: ScreenProps) {
               style={s.loyalty}
             >
               <View style={s.loyaltyIcon}>
-                <Icon name="sparkles-outline" size={24} color={colors.accent} />
+                <Icon name="sparkles-outline" size={24} color={colors.accentIcon} />
               </View>
               <View style={s.flex}>
                 <Text style={s.loyaltyTitle}>{t('Мои Чики и уровни')}</Text>

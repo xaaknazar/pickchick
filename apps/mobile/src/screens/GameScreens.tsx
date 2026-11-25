@@ -87,7 +87,7 @@ function UpcomingEvents() {
       <Heading style={s.eventSection}>{t('Миссии')}</Heading>
       <View style={s.missionCard}>
         <View style={s.missionIcon}>
-          <Icon name="restaurant-outline" size={26} color={colors.accent} />
+          <Icon name="restaurant-outline" size={26} color={colors.accentIcon} />
         </View>
         <View style={ui.flex}>
           <Body style={s.upcomingTitle}>{t('Найди свой любимый вкус')}</Body>

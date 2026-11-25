@@ -52,7 +52,7 @@ export function OrderActions({
               </Heading>
             </Row>
             <View style={s.symbol}>
-              <Icon name="chatbubbles-outline" color={colors.accent} size={30} />
+              <Icon name="chatbubbles-outline" color={colors.accentIcon} size={30} />
             </View>
             <Body>{t('Нужна помощь с заказом?')}</Body>
             <Caption>

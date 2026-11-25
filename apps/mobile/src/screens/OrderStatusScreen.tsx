@@ -267,7 +267,7 @@ export function OrderStatusView({
               </View>
             )}
             <Row style={s.time}>
-              <Icon name="time-outline" size={18} color={colors.accent} />
+              <Icon name="time-outline" size={18} color={colors.accentIcon} />
               <Caption style={s.timeText}>{localize(orderTimeLabel(order, now))}</Caption>
             </Row>
             <View accessibilityLiveRegion="polite" style={s.statusText}>
@@ -378,7 +378,7 @@ function ActionTile({
   useLocale();
   const content = (
     <>
-      <Icon name={icon} size={22} color={colors.accent} />
+      <Icon name={icon} size={22} color={colors.accentIcon} />
       <Text style={s.tileLabel}>{localize(label)}</Text>
       {caption ? <Text style={s.tileCaption}>{localize(caption)}</Text> : null}
     </>

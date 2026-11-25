@@ -144,7 +144,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
               onPress={() => setSelected(promo)}
               style={s.promotion}
             >
-              <Icon name="pricetag-outline" color={colors.accent} />
+              <Icon name="pricetag-outline" color={colors.accentIcon} />
               <Body style={{ fontFamily: font.bold }}>{localize(promo.title.ru)}</Body>
               <Caption numberOfLines={3}>{localize(promo.body.ru)}</Caption>
               <Body style={{ color: colors.accentText }}>{t('Условия акции')}</Body>
@@ -194,7 +194,7 @@ const s = themed(() =>
       borderWidth: 1,
       borderColor: tc('#FFFFFF0D'),
     },
-    extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#EEF2F8' },
+    extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#FEF9F2' },
     extraText: { gap: 2, paddingTop: 10, paddingHorizontal: 6 },
     extraName: {
       fontFamily: font.bold,

@@ -275,7 +275,7 @@ function FeedbackForm(props: ScreenProps) {
           {feedback.tickets.map((ticket) => (
             <View key={ticket.id} style={s.ticket}>
               <Row>
-                <Icon name="chatbubble-outline" color={colors.accent} />
+                <Icon name="chatbubble-outline" color={colors.accentIcon} />
                 <Body style={[orderUI.label, { fontFamily: font.bold }]}>
                   {localize(ticketStatus[ticket.status])}
                 </Body>

@@ -308,6 +308,7 @@ const s = themed(() =>
     cta: {
       alignSelf: 'stretch',
       marginTop: 28,
+      borderRadius: 28,
       shadowColor: colors.accent,
       shadowOpacity: 0.25,
       shadowRadius: 16,

@@ -548,7 +548,7 @@ export function ConnectedOrder(props: ScreenProps) {
       {receipt ? (
         <View style={s.section}>
           <Row>
-            <Icon name="receipt-outline" color={colors.accent} />
+            <Icon name="receipt-outline" color={colors.accentIcon} />
             <Heading small style={orderUI.section}>
               {t('Официальный чек')}
             </Heading>

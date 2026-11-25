@@ -324,7 +324,7 @@ export function CartShortcut({
               style={[s.bag, pillRim, { width: layout.handleWidth }]}
             >
               <GlassFill radius={ROW / 2} />
-              <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
+              <Icon name="bag-handle-outline" size={24} color={colors.accentIcon} />
             </View>
           ) : null}
           {handle ? (

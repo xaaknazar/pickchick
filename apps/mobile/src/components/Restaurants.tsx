@@ -201,7 +201,7 @@ export function CityButton({ city, top }: { city: string; top: number }) {
             style={s.cityOption}
           >
             <Text style={s.cityOptionText}>{localize(city)}</Text>
-            <Icon name="checkmark" size={20} color={colors.accent} />
+            <Icon name="checkmark" size={20} color={colors.accentIcon} />
           </Pressable>
         </View>
       ) : null}

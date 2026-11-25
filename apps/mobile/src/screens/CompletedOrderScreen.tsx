@@ -176,7 +176,7 @@ export function CompletedOrderScreen({
                 >
                   <Icon
                     name={value <= rating ? 'star' : 'star-outline'}
-                    color={colors.accent}
+                    color={colors.accentIcon}
                     size={30}
                   />
                 </MotionPressable>

@@ -1,5 +1,5 @@
 import tokens from '../../../packages/design-tokens/tokens.json';
-import { glassBar, glassBarLight, glassBarNight } from './glass';
+import { applyGlassTone, glassBar, glassBarLight, glassBarNight } from './glass';
 import { tabBarLight, tabBarNavy, tabBarPalette } from './tab-bar-metrics';
 
 export const brandColors = tokens.color;
@@ -19,6 +19,8 @@ const dark = {
   raised: tokens.theme.mobile.surfaceRaised,
   border: '#283247',
   orangeInk: '#251609',
+  /** Orange icons on the page and cards: the brand orange, darker on «Светлая» (3:1 on pale). */
+  accentIcon: tokens.theme.mobile.accent,
   /** Primary text and icons on the page and cards (white on the dark looks). */
   white: '#FFFFFF',
   /** Literal white: text and icons on orange/blue buttons, photos and video. */
@@ -57,6 +59,7 @@ const light: Palette = {
   muted: '#56627A',
   action: '#0047BB',
   accentText: '#B84800',
+  accentIcon: '#DB5600',
   border: '#D3DCEA',
   white: '#0F1B3D',
   hairline: '#0F1B3D14',
@@ -123,6 +126,7 @@ export function applyTheme(name: ThemeName): void {
   });
   Object.assign(tabBarPalette, name === 'light' ? tabBarLight : tabBarNavy);
   Object.assign(glassBar, name === 'light' ? glassBarLight : glassBarNight);
+  applyGlassTone(name === 'light' ? 'light' : 'dark');
   version += 1;
   listeners.forEach((listener) => listener());
 }

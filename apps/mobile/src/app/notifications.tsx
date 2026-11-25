@@ -101,7 +101,7 @@ export default function Notifications() {
               <Icon
                 name={orders ? 'notifications-outline' : 'gift-outline'}
                 size={36}
-                color={colors.accent}
+                color={colors.accentIcon}
               />
             </View>
             <Heading small style={s.center}>
@@ -157,7 +157,11 @@ const s = themed(() =>
       justifyContent: 'center',
       borderRadius: 12,
     },
-    selectedTab: { backgroundColor: colors.action },
+    // Neutral, like the cart's «В зале / С собой»: orange stays the only accent (review 25.11.2026).
+    selectedTab:
+      colors.scheme === 'light'
+        ? { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0F1B3D1F' }
+        : { backgroundColor: '#FFFFFF1F', borderWidth: 1, borderColor: '#FFFFFF2E' },
     tabText: { fontFamily: font.bold, color: colors.muted },
     selectedText: { color: colors.white },
     empty: {

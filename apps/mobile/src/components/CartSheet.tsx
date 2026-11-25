@@ -49,7 +49,7 @@ export function CartTopBar({
         accessible
         accessibilityLabel={localize(t('Заказ в ресторане {p0}', { p0: name }))}
       >
-        <Icon name="location-sharp" size={20} color={colors.accent} />
+        <Icon name="location-sharp" size={20} color={colors.accentIcon} />
         <Text style={s.pointName} numberOfLines={1} maxFontSizeMultiplier={1.4}>
           {name}
         </Text>
@@ -298,7 +298,7 @@ export function PaymentMethodSelector() {
                     <PaymentMark method={method.id} size={36} />
                     <Body style={s.optionName}>{localize(t(method.label))}</Body>
                     {method.id === payment.method ? (
-                      <Icon name="checkmark-circle" size={24} color={colors.accent} />
+                      <Icon name="checkmark-circle" size={24} color={colors.accentIcon} />
                     ) : null}
                   </MotionPressable>
                 ) : (
@@ -497,7 +497,11 @@ const s = themed(() =>
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: 'transparent',
     },
-    segmentSelected: { backgroundColor: tc('#FFFFFF1F'), borderColor: tc('#FFFFFF2E') },
+    // «Светлая»: a white pill on the pale track (the mapped ink veil read as switched off).
+    segmentSelected:
+      colors.scheme === 'light'
+        ? { backgroundColor: '#FFFFFF', borderColor: '#0F1B3D1F' }
+        : { backgroundColor: '#FFFFFF1F', borderColor: '#FFFFFF2E' },
     segmentText: {
       flexShrink: 1,
       fontFamily: font.medium,

@@ -196,7 +196,7 @@ export function Tracker(props: ScreenProps) {
       </View>
       <Card>
         <Row>
-          <Icon name="location-outline" color={colors.accent} />
+          <Icon name="location-outline" color={colors.accentIcon} />
           <View style={ui.flex}>
             <Heading small>{localize(props.model.branch?.name ?? 'Ресторан PickChick')}</Heading>
             <Caption>
@@ -426,7 +426,7 @@ export function Ledger(props: ScreenProps) {
           ].map((entry) => (
             <Card key={entry.title}>
               <Row>
-                <Icon name={entry.icon as IconName} color={colors.accent} />
+                <Icon name={entry.icon as IconName} color={colors.accentIcon} />
                 <View style={ui.flex}>
                   <Body style={{ fontFamily: font.bold }}>{localize(entry.title)}</Body>
                   <Caption>{localize(entry.subtitle)}</Caption>

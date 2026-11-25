@@ -532,7 +532,7 @@ export function Empty({
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Icon name={icon} size={32} color={colors.accent} />
+        <Icon name={icon} size={32} color={colors.accentIcon} />
       </View>
       <Heading small style={{ textAlign: 'center' }}>
         {localize(title)}

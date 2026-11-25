@@ -53,7 +53,7 @@ export function Support(props: ScreenProps) {
       <Card>
         <Row>
           <View style={s.supportIcon}>
-            <Icon name="storefront-outline" color={colors.accent} size={28} />
+            <Icon name="storefront-outline" color={colors.accentIcon} size={28} />
           </View>
           <View style={ui.flex}>
             <Heading small>{t('Поддержка в ресторане')}</Heading>
@@ -512,7 +512,7 @@ export function Rating(props: ScreenProps) {
   return (
     <Page props={props} title={t('Как всё прошло?')}>
       <View style={s.ratingHero}>
-        <Icon name="heart-outline" size={54} color={colors.accent} />
+        <Icon name="heart-outline" size={54} color={colors.accentIcon} />
         <Heading style={{ textAlign: 'center' }}>{t('Было хрустяще?')}</Heading>
         <Body muted style={{ textAlign: 'center' }}>
           {localize(
@@ -537,7 +537,7 @@ export function Rating(props: ScreenProps) {
             <Icon
               name={value <= rating ? 'star' : 'star-outline'}
               size={32}
-              color={colors.accent}
+              color={colors.accentIcon}
             />
           </Pressable>
         ))}
