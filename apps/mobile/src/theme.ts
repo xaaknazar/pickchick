@@ -187,6 +187,7 @@ const LIGHT_MAP: Record<string, string> = {
   '98a2b3': '56627a',
   a3b4d6: '4a5875',
   ff8a3d: 'b84800',
+  ff8a4c: 'b84800',
 };
 
 const COLOR =
