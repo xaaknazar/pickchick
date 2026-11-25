@@ -1,7 +1,7 @@
 import { Text } from './LocalizedText';
 import { localize, useLocale } from '../i18n';
 import { StyleSheet, View } from 'react-native';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 import { money } from '../domain';
 
 export function CartLinePrice({
@@ -27,14 +27,16 @@ export function CartLinePrice({
     </View>
   );
 }
-const s = StyleSheet.create({
-  amount: { alignItems: 'flex-end', gap: 2 },
-  current: { color: colors.text, fontFamily: font.heading, fontSize: 18, lineHeight: 24 },
-  previous: {
-    color: colors.muted,
-    fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 20,
-    textDecorationLine: 'line-through',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    amount: { alignItems: 'flex-end', gap: 2 },
+    current: { color: colors.text, fontFamily: font.heading, fontSize: 18, lineHeight: 24 },
+    previous: {
+      color: colors.muted,
+      fontFamily: font.body,
+      fontSize: 14,
+      lineHeight: 20,
+      textDecorationLine: 'line-through',
+    },
+  }),
+);

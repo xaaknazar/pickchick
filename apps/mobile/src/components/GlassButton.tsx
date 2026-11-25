@@ -1,3 +1,4 @@
+import { colors, themed, tc } from '../theme';
 import { localize, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
@@ -272,24 +273,26 @@ export function GlassButton({
   );
 }
 
-const s = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    borderWidth: RIM,
-    backgroundColor: 'transparent',
-  },
-  fallbackButton: { boxShadow: '0 6px 18px rgba(0, 8, 30, 0.28)' },
-  // Apple's glass draws its own edge and shadow; the rim keeps its width for the same layout.
-  liquidButton: { borderColor: 'transparent' },
-  // Over the shape's (transparent) rim, so the glass edge is the shape's edge.
-  liquid: { position: 'absolute', top: -RIM, right: -RIM, bottom: -RIM, left: -RIM },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  clip: { overflow: 'hidden' },
-  disabled: { opacity: 0.45 },
-  glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      borderWidth: RIM,
+      backgroundColor: 'transparent',
+    },
+    fallbackButton: { boxShadow: tc('0 6px 18px rgba(0, 8, 30, 0.28)') },
+    // Apple's glass draws its own edge and shadow; the rim keeps its width for the same layout.
+    liquidButton: { borderColor: 'transparent' },
+    // Over the shape's (transparent) rim, so the glass edge is the shape's edge.
+    liquid: { position: 'absolute', top: -RIM, right: -RIM, bottom: -RIM, left: -RIM },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    clip: { overflow: 'hidden' },
+    disabled: { opacity: 0.45 },
+    glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
+  }),
+);
 
 const tabBarBackdrop =
   Platform.OS === 'web'
@@ -316,7 +319,7 @@ export function TabBarGlass({ radius }: { radius: number }) {
       <GlassView
         pointerEvents="none"
         glassEffectStyle="regular"
-        colorScheme="dark"
+        colorScheme={colors.scheme}
         tintColor={tabBarPalette.liquidTint}
         isInteractive={false}
         style={[StyleSheet.absoluteFill, round]}

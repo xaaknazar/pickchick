@@ -9,7 +9,7 @@ import { assets } from '../assets';
 import { PeakWallet, PeakRewards } from '../loyalty/PeakScreens';
 import { restaurantLocation } from '../restaurant-location';
 import type { ScreenProps } from '../model';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import {
   Body,
   Button,
@@ -339,11 +339,11 @@ export function Receipt(props: ScreenProps) {
             props.preview ? 'Заказ №083 · пример' : 'Здесь появится документ после покупки',
           )}
         </Body>
-        <Caption style={{ textAlign: 'center', color: '#56647A' }}>
+        <Caption style={{ textAlign: 'center', color: tc('#56647A') }}>
           {t('Документ, номер и QR появятся только после подтверждения ККМ.')}
         </Caption>
         <View style={s.receiptRule} />
-        <Icon name="time-outline" color="#56647A" size={28} />
+        <Icon name="time-outline" color={tc('#56647A')} size={28} />
       </View>
       <Notice>
         {t(
@@ -456,49 +456,51 @@ export function Rewards(props: ScreenProps) {
   useLocale();
   return <PeakRewards {...props} />;
 }
-const s = StyleSheet.create({
-  paymentHero: { paddingVertical: 22, gap: 22, alignItems: 'center' },
-  statusDisc: {
-    width: 110,
-    height: 110,
-    borderRadius: 38,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trackerHeading: { fontSize: 48, lineHeight: 50, marginTop: 10 },
-  trackerNumber: {
-    fontFamily: font.display,
-    fontSize: 120,
-    lineHeight: 136,
-    color: colors.accentText,
-    letterSpacing: -5,
-  },
-  progress: { gap: 7 },
-  progressDone: { flex: 1, height: 7, backgroundColor: colors.accent, borderRadius: 4 },
-  progressPending: { flex: 1, height: 7, backgroundColor: colors.raised, borderRadius: 4 },
-  steps: { gap: 21, paddingVertical: 8 },
-  ready: { flex: 1, backgroundColor: colors.accent },
-  readyContent: { paddingHorizontal: 24, gap: 24, flexGrow: 1 },
-  readyTitle: { color: colors.orangeInk, fontSize: 46, lineHeight: 52 },
-  readyText: { color: colors.orangeInk },
-  readyNumber: {
-    color: colors.orangeInk,
-    fontFamily: font.display,
-    fontSize: 185,
-    letterSpacing: -9,
-    textAlign: 'center',
-    marginVertical: 28,
-  },
-  historyImage: { width: 70, height: 70, borderRadius: 16 },
-  receiptPaper: {
-    backgroundColor: '#F2F6FF',
-    borderRadius: 20,
-    padding: 30,
-    gap: 23,
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  receiptInk: { color: '#24304A', textAlign: 'center' },
-  receiptRule: { height: 1, width: '100%', backgroundColor: '#CBD3DF' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    paymentHero: { paddingVertical: 22, gap: 22, alignItems: 'center' },
+    statusDisc: {
+      width: 110,
+      height: 110,
+      borderRadius: 38,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    trackerHeading: { fontSize: 48, lineHeight: 50, marginTop: 10 },
+    trackerNumber: {
+      fontFamily: font.display,
+      fontSize: 120,
+      lineHeight: 136,
+      color: colors.accentText,
+      letterSpacing: -5,
+    },
+    progress: { gap: 7 },
+    progressDone: { flex: 1, height: 7, backgroundColor: colors.accent, borderRadius: 4 },
+    progressPending: { flex: 1, height: 7, backgroundColor: colors.raised, borderRadius: 4 },
+    steps: { gap: 21, paddingVertical: 8 },
+    ready: { flex: 1, backgroundColor: colors.accent },
+    readyContent: { paddingHorizontal: 24, gap: 24, flexGrow: 1 },
+    readyTitle: { color: colors.orangeInk, fontSize: 46, lineHeight: 52 },
+    readyText: { color: colors.orangeInk },
+    readyNumber: {
+      color: colors.orangeInk,
+      fontFamily: font.display,
+      fontSize: 185,
+      letterSpacing: -9,
+      textAlign: 'center',
+      marginVertical: 28,
+    },
+    historyImage: { width: 70, height: 70, borderRadius: 16 },
+    receiptPaper: {
+      backgroundColor: '#F2F6FF',
+      borderRadius: 20,
+      padding: 30,
+      gap: 23,
+      alignItems: 'center',
+      marginVertical: 12,
+    },
+    receiptInk: { color: tc('#24304A'), textAlign: 'center' },
+    receiptRule: { height: 1, width: '100%', backgroundColor: tc('#CBD3DF') },
+  }),
+);

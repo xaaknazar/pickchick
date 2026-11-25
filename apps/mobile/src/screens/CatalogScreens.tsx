@@ -6,6 +6,7 @@ import { CheckoutAction, checkoutStyle } from '../components/CheckoutPresentatio
 import { CartTopBar, DiningModePill } from '../components/CartSheet';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
+import { menuCutouts } from '../menu-cutout-assets';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { useTabScrollToTop } from '../components/useTabScrollToTop';
@@ -59,7 +60,7 @@ import {
 import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
 import { restaurantHoursNow } from '../payment-availability';
 import { useRestaurantHoursNow } from '../usePaymentAvailability';
-import { colors, font, restaurantColors } from '../theme';
+import { colors, font, restaurantColors, themed, tc } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import { upcomingFeaturesShown } from '../store-build';
 import {
@@ -88,7 +89,7 @@ export function Welcome(props: ScreenProps) {
   return (
     <View
       testID="screen-M01"
-      style={[ui.page, { paddingTop: insets.top, backgroundColor: '#0047BB' }]}
+      style={[ui.page, { paddingTop: insets.top, backgroundColor: tc('#0047BB') }]}
     >
       <Image
         source={assets.mix}
@@ -103,7 +104,7 @@ export function Welcome(props: ScreenProps) {
           onPress={() => props.navigate('M06')}
           style={{ alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' }}
         >
-          <Body style={{ color: '#FFFFFFAA', fontFamily: font.medium, fontSize: 15 }}>
+          <Body style={{ color: tc('#FFFFFFAA'), fontFamily: font.medium, fontSize: 15 }}>
             {t('Пропустить')}
           </Body>
         </Pressable>
@@ -112,7 +113,7 @@ export function Welcome(props: ScreenProps) {
           <Heading style={s.welcomeHeading}>
             {t('Куриные фингерсы для тех, кто в движении')}
           </Heading>
-          <Body style={{ color: '#FFFFFFBF', lineHeight: 24 }}>
+          <Body style={{ color: tc('#FFFFFFBF'), lineHeight: 24 }}>
             {t('Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.')}
           </Body>
         </View>
@@ -269,12 +270,16 @@ export function Branches(props: ScreenProps) {
     </View>
   );
 }
+/** The «Витрина» cut-out of a product that still shows its bundled photo (not a remote upload). */
+function menuCutout(product: Product, photo = productPhoto(product, 'card', 'menu')) {
+  return photo.kind === 'id' ? menuCutouts[product.id] : undefined;
+}
+
 const ProductMenuCard = memo(function ProductMenuCard({
   product,
   compact,
   singleColumn,
   width,
-  fontScale,
   openProduct,
   hit,
 }: {
@@ -282,10 +287,11 @@ const ProductMenuCard = memo(function ProductMenuCard({
   compact: boolean;
   singleColumn: boolean;
   width: number;
-  fontScale: number;
   openProduct(product: Product): void;
   hit: boolean;
 }) {
+  const photo = productPhoto(product, 'card', 'menu');
+  const cutout = menuCutout(product, photo);
   return (
     <Pressable
       // Cards shrink a little under the finger and spring back, like App Store cards.
@@ -300,20 +306,29 @@ const ProductMenuCard = memo(function ProductMenuCard({
       onPress={() => openProduct(product)}
       style={({ pressed }) => [
         s.product,
-        compact && [s.compactProduct, { width: singleColumn ? '100%' : (width - 48) / 2 }],
-        !compact && fontScale > 1.3 && { flexDirection: 'column' },
+        { width: singleColumn ? '100%' : (width - 46) / 2 },
         pressed && ui.pressed,
       ]}
     >
+      {/* Owner 22.11.2026 (menu redesign): a light window under the food on the dark card, like the
+          Apple Store; the menu photos are retouched onto the same cool #EEF2F8.
+          Owner 25.11.2026 («Витрина»): a bundled combo is drawn as a cut-out that rises above the
+          window's top edge; an uploaded back-office photo stays inside the window. */}
       <View
         testID={`product-photo-${product.id}`}
-        style={[s.productPhotoWrap, compact && s.compactPhoto]}
+        style={[s.productPhotoWrap, cutout ? s.productShowcase : null]}
       >
-        <ProductPhoto
-          photo={productPhoto(product, 'card', 'menu')}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
+        {cutout ? (
+          <Image
+            testID={`product-cutout-${product.id}`}
+            source={cutout}
+            style={s.productShowcaseFood}
+            contentFit="contain"
+            contentPosition="bottom"
+          />
+        ) : (
+          <ProductPhoto photo={photo} style={StyleSheet.absoluteFill} contentFit="contain" />
+        )}
         {hit ? (
           <View style={s.hit}>
             <Caption style={s.hitText}>{t('ХИТ')}</Caption>
@@ -321,33 +336,25 @@ const ProductMenuCard = memo(function ProductMenuCard({
         ) : null}
       </View>
       <View style={s.productInfo}>
-        <Heading small style={compact ? s.compactTitle : s.productTitle}>
+        <Text numberOfLines={2} style={s.productTitle}>
           {localize(product.name)}
-        </Heading>
-        {!compact ? (
-          <Caption style={s.productDescription}>{localize(product.description)}</Caption>
+        </Text>
+        {!compact && product.description ? (
+          <Text numberOfLines={2} style={s.productDescription}>
+            {localize(product.description)}
+          </Text>
         ) : null}
         <Row style={s.productPriceRow}>
-          <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
-            {localize(MinorMoney(product.priceMinor))}
-          </Body>
-          <View
-            style={
-              product.available === false
-                ? { flexShrink: 1, maxWidth: 120 }
-                : compact
-                  ? s.productPlus
-                  : s.productChoose
-            }
-          >
-            {product.available === false ? (
-              <Caption style={{ color: colors.text }}>{t('Нет в наличии')}</Caption>
-            ) : compact ? (
-              <Icon name="add" color={colors.orangeInk} size={20} />
-            ) : (
-              <Body style={s.productChooseText}>{t('Выбрать')}</Body>
-            )}
-          </View>
+          {product.available === false ? (
+            <Caption style={s.productSoldOut}>{t('Нет в наличии')}</Caption>
+          ) : (
+            <>
+              <Body style={s.productPrice}>{localize(MinorMoney(product.priceMinor))}</Body>
+              <View testID={`product-plus-${product.id}`} style={s.productPlus}>
+                <Icon name="add" color={colors.orangeInk} size={20} />
+              </View>
+            </>
+          )}
         </Row>
       </View>
     </Pressable>
@@ -459,14 +466,25 @@ export function Menu(props: ScreenProps) {
     },
   });
   // Opaque once collapsed: a translucent bar let product buttons show through behind the row.
+  // Light theme (23.11.2026): the header text is white over the hero video and takes the theme's
+  // text colour once the header turns opaque page colour while scrolling.
+  const [headerOverMedia, setHeaderOverMedia] = useState(true);
+  useAnimatedReaction(
+    () => scrollY.value < 60,
+    (over, previous) => {
+      if (over !== previous) runOnJS(setHeaderOverMedia)(over);
+    },
+  );
+  // Plain strings for the UI thread: worklets cannot call tc() or read the live palette.
+  const pageColor = colors.background;
+  const pageClear = `${colors.background}00`;
   const headerStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', colors.background]),
+    backgroundColor: interpolateColor(scrollY.value, [0, 120], [pageClear, pageColor]),
   }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
     opacity: categoryTop ? 1 : 0,
-    backgroundColor:
-      scrollY.value >= categoryTop - headerHeight ? colors.background : 'transparent',
+    backgroundColor: scrollY.value >= categoryTop - headerHeight ? pageColor : 'transparent',
   }));
   // Owner 16.11.2026: menu categories keep their plain branded appearance.
   useEffect(() => {
@@ -641,6 +659,7 @@ export function Menu(props: ScreenProps) {
           {sections.map(({ name: item, products }) => {
             const compact = ['Допы', 'Напитки', 'Соусы'].includes(item);
             const singleColumn = fontScale > 1.3;
+            const showcase = products.some((product) => menuCutout(product));
             return (
               <View
                 key={item}
@@ -653,7 +672,7 @@ export function Menu(props: ScreenProps) {
                 <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
                   {localize(item)}
                 </Heading>
-                <View style={compact ? s.compactGrid : s.productList}>
+                <View style={[s.productGrid, showcase ? s.productGridShowcase : null]}>
                   {products.map((product, index) => (
                     <ProductMenuCard
                       key={product.id}
@@ -661,7 +680,6 @@ export function Menu(props: ScreenProps) {
                       compact={compact}
                       singleColumn={singleColumn}
                       width={width}
-                      fontScale={fontScale}
                       openProduct={openProduct}
                       hit={index === 0 && item === 'Комбо' && props.model.catalogMode === 'design'}
                     />
@@ -692,7 +710,7 @@ export function Menu(props: ScreenProps) {
             )
           }
         >
-          <AppHeaderBar screen={props} />
+          <AppHeaderBar screen={props} onMedia={headerOverMedia} />
         </View>
       </Animated.View>
       <Animated.View
@@ -1121,266 +1139,267 @@ export function Unavailable(props: ScreenProps) {
   );
 }
 export { Checkout } from './CheckoutScreen';
-const s = StyleSheet.create({
-  branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
-  branchesScroll: { flexGrow: 1 },
-  // Round glass back over the map (owner 27.10.2026: every round icon button is glass).
-  mapBack: { position: 'absolute', left: 16 },
-  branchSheet: {
-    flexGrow: 1,
-    marginTop: -22,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: colors.background,
-  },
-  branchSheetContent: {
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 2.5,
-    alignSelf: 'center',
-    backgroundColor: restaurantColors.outline,
-  },
-  branchesTitle: {
-    marginTop: 2,
-    fontFamily: font.bold,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.4,
-    color: colors.text,
-  },
-  branchesSummary: {
-    marginTop: -10,
-    marginBottom: 4,
-    fontFamily: font.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  branchesFooter: {
-    flexShrink: 0,
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    gap: 9,
-    backgroundColor: colors.background,
-  },
-  branchesCaption: { textAlign: 'center', fontSize: 12.5, lineHeight: 18 },
-  branchMenuButton: { minHeight: 54, borderRadius: 14 },
-  branchMenuButtonClosed: { borderColor: restaurantColors.outline },
-  branchMenuText: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
-  clearBackdrop: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#00000099',
-  },
-  clearCard: {
-    width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-    borderRadius: 24,
-    padding: 24,
-    gap: 16,
-    backgroundColor: colors.surface,
-  },
-  welcome: { flexGrow: 1, paddingHorizontal: 26, gap: 14 },
-  welcomeHeading: {
-    fontFamily: font.display,
-    fontSize: 36,
-    lineHeight: 39,
-    letterSpacing: -0.72,
-    color: colors.white,
-  },
-  dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
-  dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: '#7897CA' },
-  hero: { backgroundColor: colors.background, overflow: 'hidden' },
-  // The shared header row (AppHeaderBar) carries the gutter and width cap of every tab.
-  heroHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 10,
-    gap: 12,
-    zIndex: 10,
-  },
-  heroCaption: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    gap: 6,
-    alignItems: 'center',
-    minHeight: 54,
-  },
-  heroTitle: {
-    fontFamily: font.medium,
-    fontSize: 28,
-    lineHeight: 36,
-    letterSpacing: -0.68,
-    color: colors.white,
-    textAlign: 'center',
-    textShadowColor: '#04143A88',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 18,
-  },
-  heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
-  loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
-  menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
-  stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
-  categoryList: {
-    gap: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-  },
-  category: {
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  categoryText: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontFamily: font.medium,
-    color: '#FFFFFFA6',
-  },
-  categoryTextSelected: { color: colors.white },
-  catalogSections: { paddingHorizontal: 18, gap: 26 },
-  sectionTitle: {
-    fontFamily: font.display,
-    fontSize: 24,
-    lineHeight: 30,
-    marginBottom: 12,
-    letterSpacing: -0.36,
-  },
-  productList: { gap: 12 },
-  product: {
-    flexDirection: 'row',
-    gap: 12,
-    borderRadius: 24,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FFFFFF12',
-    backgroundColor: colors.surface,
-  },
-  productPhotoWrap: {
-    width: 112,
-    height: 132,
-    flexShrink: 0,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#FFF8EE',
-  },
-  productInfo: { flex: 1, minWidth: 0, gap: 6 },
-  productTitle: { fontFamily: font.heading, fontSize: 19, lineHeight: 25, letterSpacing: -0.19 },
-  productDescription: { fontSize: 14, lineHeight: 20 },
-  productPriceRow: {
-    marginTop: 'auto',
-    paddingTop: 8,
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  productPrice: {
-    fontFamily: font.display,
-    fontSize: 20,
-    lineHeight: 28,
-    fontVariant: ['tabular-nums'],
-    color: colors.text,
-  },
-  productChoose: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-  },
-  productChooseText: {
-    fontFamily: font.bold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.orangeInk,
-  },
-  productPlus: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hit: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
-  },
-  hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
-  compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  compactProduct: { flexDirection: 'column', padding: 10, borderRadius: 24, gap: 12 },
-  compactPhoto: { width: '100%', height: 'auto', aspectRatio: 1, borderRadius: 14 },
-  compactTitle: { fontFamily: font.heading, fontSize: 17, lineHeight: 24 },
-  productClose: {
-    position: 'absolute',
-    right: 16,
-    backgroundColor: '#FFFFFFE6',
-    width: 44,
-    height: 44,
-  },
-  detailBody: { paddingVertical: 20, paddingHorizontal: 18, gap: 16 },
-  extraPhoto: { flex: 1, height: 122, borderRadius: 20, overflow: 'hidden' },
-  comboPhoto: { width: '100%', height: 242, borderRadius: 24 },
-  choiceImage: { width: 54, height: 54, borderRadius: 12 },
-  cartFulfilment: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    gap: 8,
-  },
-  cartLine: {
-    flexDirection: 'row',
-    gap: 14,
-    padding: 12,
-    borderRadius: 24,
-    backgroundColor: '#0B2255',
-    borderWidth: 1,
-    borderColor: '#FFFFFF0F',
-  },
-  cartName: { fontFamily: font.heading, fontSize: 18, lineHeight: 22 },
-  cartDescription: {
-    fontFamily: font.body,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 3,
-    color: '#A3B4D6',
-  },
-  upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
-  cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#FFF8EE' },
-  // Drinkit-like separate round glass -/+ (owner 27.10.2026).
-  // Owner 28.10.2026: the cart -/+ keep their original filled pill, not glass circles.
-  stepper: { backgroundColor: '#14306B', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
-  largeIcon: {
-    width: 94,
-    height: 94,
-    borderRadius: 31,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+    branchesScroll: { flexGrow: 1 },
+    // Round glass back over the map (owner 27.10.2026: every round icon button is glass).
+    mapBack: { position: 'absolute', left: 16 },
+    branchSheet: {
+      flexGrow: 1,
+      marginTop: -22,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      backgroundColor: colors.background,
+    },
+    branchSheetContent: {
+      width: '100%',
+      maxWidth: 760,
+      alignSelf: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 16,
+      gap: 12,
+    },
+    sheetHandle: {
+      width: 40,
+      height: 5,
+      borderRadius: 2.5,
+      alignSelf: 'center',
+      backgroundColor: restaurantColors.outline,
+    },
+    branchesTitle: {
+      marginTop: 2,
+      fontFamily: font.bold,
+      fontSize: 28,
+      lineHeight: 34,
+      letterSpacing: -0.4,
+      color: colors.text,
+    },
+    branchesSummary: {
+      marginTop: -10,
+      marginBottom: 4,
+      fontFamily: font.body,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.muted,
+    },
+    branchesFooter: {
+      flexShrink: 0,
+      width: '100%',
+      maxWidth: 760,
+      alignSelf: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      gap: 9,
+      backgroundColor: colors.background,
+    },
+    branchesCaption: { textAlign: 'center', fontSize: 12.5, lineHeight: 18 },
+    branchMenuButton: { minHeight: 54, borderRadius: 14 },
+    branchMenuButtonClosed: { borderColor: restaurantColors.outline },
+    branchMenuText: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
+    clearBackdrop: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      backgroundColor: tc('#00000099'),
+    },
+    clearCard: {
+      width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
+      borderRadius: 24,
+      padding: 24,
+      gap: 16,
+      backgroundColor: colors.surface,
+    },
+    welcome: { flexGrow: 1, paddingHorizontal: 26, gap: 14 },
+    welcomeHeading: {
+      fontFamily: font.display,
+      fontSize: 36,
+      lineHeight: 39,
+      letterSpacing: -0.72,
+      color: colors.white,
+    },
+    dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
+    dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: tc('#7897CA') },
+    hero: { backgroundColor: colors.background, overflow: 'hidden' },
+    // The shared header row (AppHeaderBar) carries the gutter and width cap of every tab.
+    heroHeader: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingBottom: 10,
+      gap: 12,
+      zIndex: 10,
+    },
+    heroCaption: {
+      position: 'absolute',
+      left: 24,
+      right: 24,
+      gap: 6,
+      alignItems: 'center',
+      minHeight: 54,
+    },
+    heroTitle: {
+      fontFamily: font.medium,
+      fontSize: 28,
+      lineHeight: 36,
+      letterSpacing: -0.68,
+      color: colors.pure,
+      textAlign: 'center',
+      textShadowColor: '#0A102088',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 18,
+    },
+    heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
+    loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
+    menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
+    stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
+    categoryList: {
+      gap: 24,
+      paddingVertical: 8,
+      paddingHorizontal: 24,
+    },
+    category: {
+      minHeight: 48,
+      justifyContent: 'center',
+    },
+    categoryText: {
+      fontSize: 20,
+      lineHeight: 28,
+      fontFamily: font.medium,
+      color: tc('#FFFFFFA6'),
+    },
+    categoryTextSelected: { color: colors.white },
+    catalogSections: { paddingHorizontal: 18, gap: 24 },
+    sectionTitle: {
+      fontFamily: font.display,
+      fontSize: 24,
+      lineHeight: 30,
+      marginBottom: 12,
+      letterSpacing: -0.36,
+    },
+    productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    // Room above each row for the food that rises out of its window.
+    productGridShowcase: { rowGap: 30, paddingTop: 18 },
+    product: {
+      borderRadius: 24,
+      padding: 6,
+      paddingBottom: 14,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0D'),
+      backgroundColor: colors.surface,
+    },
+    productPhotoWrap: {
+      width: '100%',
+      aspectRatio: 1.1,
+      borderRadius: 18,
+      overflow: 'hidden',
+      backgroundColor: '#EEF2F8',
+    },
+    productShowcase: { aspectRatio: 1.3, overflow: 'visible' },
+    productShowcaseFood: { position: 'absolute', top: -28, bottom: 6, left: 2, right: 2 },
+    // 12 pt between the photo and the name (owner 21.11.2026: «текст слишком близко к фото»).
+    productInfo: { flex: 1, minWidth: 0, gap: 4, paddingTop: 12, paddingHorizontal: 8 },
+    productTitle: {
+      fontFamily: font.bold,
+      fontSize: 16,
+      lineHeight: 21,
+      letterSpacing: -0.2,
+      color: colors.text,
+    },
+    productDescription: {
+      fontFamily: font.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: colors.muted,
+    },
+    productPriceRow: {
+      marginTop: 'auto',
+      paddingTop: 10,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+    },
+    productPrice: {
+      fontFamily: font.bold,
+      fontSize: 16,
+      lineHeight: 22,
+      fontVariant: ['tabular-nums'],
+      color: colors.text,
+      flexShrink: 1,
+    },
+    productSoldOut: { color: colors.muted, minHeight: 44, textAlignVertical: 'center' },
+    // The whole card is the button; the round plus only shows that a tap adds (44 pt target).
+    productPlus: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hit: {
+      position: 'absolute',
+      top: 8,
+      left: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 20,
+      backgroundColor: colors.accent,
+    },
+    hitText: { color: colors.orangeInk, fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
+    productClose: {
+      position: 'absolute',
+      right: 16,
+      backgroundColor: '#FFFFFFE6',
+      width: 44,
+      height: 44,
+    },
+    detailBody: { paddingVertical: 20, paddingHorizontal: 18, gap: 16 },
+    extraPhoto: { flex: 1, height: 122, borderRadius: 20, overflow: 'hidden' },
+    comboPhoto: { width: '100%', height: 242, borderRadius: 24 },
+    choiceImage: { width: 54, height: 54, borderRadius: 12 },
+    cartFulfilment: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      justifyContent: 'center',
+      gap: 8,
+    },
+    cartLine: {
+      flexDirection: 'row',
+      gap: 14,
+      padding: 12,
+      borderRadius: 24,
+      backgroundColor: tc('#141B2B'),
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0F'),
+    },
+    cartName: { fontFamily: font.heading, fontSize: 18, lineHeight: 22 },
+    cartDescription: {
+      fontFamily: font.body,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 3,
+      color: tc('#A3B4D6'),
+    },
+    upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
+    cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#EEF2F8' },
+    // Drinkit-like separate round glass -/+ (owner 27.10.2026).
+    // Owner 28.10.2026: the cart -/+ keep their original filled pill, not glass circles.
+    stepper: { backgroundColor: tc('#1C2538'), borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
+    largeIcon: {
+      width: 94,
+      height: 94,
+      borderRadius: 31,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 12,
+    },
+  }),
+);

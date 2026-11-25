@@ -33,7 +33,7 @@ import { spring, useReducedMotion } from './Motion';
 import { rubberBand } from './MotionSheets';
 import { useSheetStack } from './SheetStack';
 import { useTapsSettled } from './useTapGuard';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 import { createBackLayers, type BackLayer } from '../back-layers';
 
 // Keyboard events use window coordinates; children are laid out inside this sheet.
@@ -311,17 +311,19 @@ export function OrderSheet({
     </GestureHandlerRootView>
   );
 }
-const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
-  scrim: { backgroundColor: '#00000066' },
-  sheet: {
-    width: '100%',
-    maxWidth: 720,
-    overflow: 'hidden',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: colors.background,
-  },
-  handleArea: { height: 28, alignItems: 'center', justifyContent: 'center' },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.muted },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+    scrim: { backgroundColor: tc('#00000066') },
+    sheet: {
+      width: '100%',
+      maxWidth: 720,
+      overflow: 'hidden',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: colors.background,
+    },
+    handleArea: { height: 28, alignItems: 'center', justifyContent: 'center' },
+    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.muted },
+  }),
+);

@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { assets } from '../assets';
-import { font } from '../theme';
+import { font, themed, tc } from '../theme';
 import { useMotionReady, useReducedMotion } from './Motion';
 
 // Exact background of the supplied logo; avoids a visible square around the artwork.
@@ -145,21 +145,23 @@ export function LaunchReveal({
     </Animated.View>
   );
 }
-const s = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: launchBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    zIndex: 100,
-  },
-  tagline: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
-  text: {
-    fontFamily: font.medium,
-    fontSize: 22,
-    lineHeight: 30,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    overlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: launchBackground,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      zIndex: 100,
+    },
+    tagline: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
+    text: {
+      fontFamily: font.medium,
+      fontSize: 22,
+      lineHeight: 30,
+      color: tc('#FFFFFF'),
+      textAlign: 'center',
+    },
+  }),
+);

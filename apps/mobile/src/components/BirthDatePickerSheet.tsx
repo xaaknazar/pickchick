@@ -4,7 +4,7 @@ import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { font } from '../theme';
+import { font, themed, tc } from '../theme';
 import { AuthButton, authColors } from './AuthLayout';
 
 export function BirthDatePickerSheet({
@@ -106,36 +106,43 @@ export function BirthDatePickerSheet({
   );
 }
 
-const s = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 6, 22, 0.7)' },
-  sheet: {
-    flexShrink: 1,
-    width: '100%',
-    maxWidth: 560,
-    alignSelf: 'center',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: authColors.surface,
-    overflow: 'hidden',
-  },
-  scroll: { flexShrink: 1 },
-  content: { paddingTop: 10, paddingBottom: 6 },
-  header: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    columnGap: 12,
-    paddingHorizontal: 22,
-  },
-  title: { fontFamily: font.heading, fontSize: 24, lineHeight: 32, color: authColors.text },
-  cancel: {
-    minHeight: 48,
-    minWidth: 48,
-    marginLeft: 'auto',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelText: { fontFamily: font.medium, fontSize: 15, lineHeight: 22, color: authColors.blueInk },
-  footer: { paddingHorizontal: 22, paddingTop: 10 },
-  pressed: { opacity: 0.7 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: tc('rgba(0, 6, 22, 0.7)') },
+    sheet: {
+      flexShrink: 1,
+      width: '100%',
+      maxWidth: 560,
+      alignSelf: 'center',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      backgroundColor: authColors.surface,
+      overflow: 'hidden',
+    },
+    scroll: { flexShrink: 1 },
+    content: { paddingTop: 10, paddingBottom: 6 },
+    header: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      columnGap: 12,
+      paddingHorizontal: 22,
+    },
+    title: { fontFamily: font.heading, fontSize: 24, lineHeight: 32, color: authColors.text },
+    cancel: {
+      minHeight: 48,
+      minWidth: 48,
+      marginLeft: 'auto',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelText: {
+      fontFamily: font.medium,
+      fontSize: 15,
+      lineHeight: 22,
+      color: authColors.blueInk,
+    },
+    footer: { paddingHorizontal: 22, paddingTop: 10 },
+    pressed: { opacity: 0.7 },
+  }),
+);

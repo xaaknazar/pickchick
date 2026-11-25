@@ -1,3 +1,4 @@
+import { tc } from '../../theme';
 import { t, useLocale } from '../../i18n';
 import { useAccount } from '../../useAccount';
 import { guestCanOpen } from '../../account-access';
@@ -77,7 +78,7 @@ export default function TabLayout() {
               // switching is also the standard iOS tab behaviour.
               animation: 'none',
               tabBarHideOnKeyboard: true,
-              sceneStyle: { backgroundColor: '#04143A' },
+              sceneStyle: { backgroundColor: tc('#0A1020') },
             }}
           >
             <Tabs.Screen

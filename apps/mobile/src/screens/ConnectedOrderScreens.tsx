@@ -34,7 +34,7 @@ import {
   Row,
   styles as ui,
 } from '../components/UI';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 import { paymentName } from '../components/PaymentChoice';
 import { money, cartTotal } from '../domain';
 import { cartMatchesOrder } from '../test-order-session';
@@ -670,26 +670,28 @@ export function ConnectedOrder(props: ScreenProps) {
     </Page>
   );
 }
-const s = StyleSheet.create({
-  section: { gap: 12 },
-  line: { gap: 6, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  step: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.raised,
-  },
-  status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
-  number: { color: colors.accentText, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
-  input: {
-    minHeight: 90,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    color: colors.text,
-    padding: 14,
-    textAlignVertical: 'top',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    section: { gap: 12 },
+    line: { gap: 6, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+    step: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.raised,
+    },
+    status: { gap: 12, padding: 20, borderRadius: 16, backgroundColor: colors.raised },
+    number: { color: colors.accentText, fontFamily: font.heading, fontSize: 28, lineHeight: 36 },
+    input: {
+      minHeight: 90,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 16,
+      color: colors.text,
+      padding: 14,
+      textAlignVertical: 'top',
+    },
+  }),
+);

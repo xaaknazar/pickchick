@@ -9,7 +9,7 @@ import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
 import { headerHoursCaption } from '../restaurant-hours';
 import { useRestaurantHoursNow } from '../usePaymentAvailability';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { useAccount } from '../useAccount';
 import { GlassButton } from './GlassButton';
 import { MotionPressable as Pressable } from './Motion';
@@ -37,13 +37,13 @@ export const appHeaderMaxFontScale = appHeaderMetrics.maxFontScale;
  * «откроемся в 10:00» while closed. The server's published ordering hours first, otherwise the
  * restaurant directory; re-evaluated on the minute and on foreground.
  */
-function HoursCaption({ model }: { model: HeaderScreen['model'] }) {
+function HoursCaption({ model, onMedia }: { model: HeaderScreen['model']; onMedia: boolean }) {
   useLocale();
   const { hours, status } = useRestaurantHoursNow(model);
   return (
     <Text
       testID="header-hours"
-      style={s.caption}
+      style={[s.caption, onMedia && s.onMediaCaption]}
       numberOfLines={1}
       maxFontSizeMultiplier={appHeaderMaxFontScale}
       // iOS: «откроемся завтра в 10:00» (KK and EN are as long) shrinks instead of truncating at
@@ -100,7 +100,14 @@ function ProfileButton({ onPress }: { onPress(): void }) {
  * Header row: logo, restaurant picker (M05) and the round profile button. The row carries its
  * own gutter and width cap, so the button sits at the same point on every tab.
  */
-export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
+export function AppHeaderBar({
+  screen,
+  onMedia = false,
+}: {
+  screen?: HeaderScreen;
+  /** Over the menu's hero video: white text in every theme. */
+  onMedia?: boolean;
+}) {
   useLocale();
   const context = useContext(AppHeaderContext);
   const current = screen ?? context;
@@ -120,10 +127,14 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
           onPress={() => current.navigate('M05')}
           style={s.branch}
         >
-          <Text style={s.title} numberOfLines={1} maxFontSizeMultiplier={appHeaderMaxFontScale}>
+          <Text
+            style={[s.title, onMedia && s.onMedia]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={appHeaderMaxFontScale}
+          >
             {localize(location?.name ?? current.model.branch?.name ?? 'Выбрать ресторан')}
           </Text>
-          <HoursCaption model={current.model} />
+          <HoursCaption model={current.model} onMedia={onMedia} />
         </Pressable>
         {/* A guest goes through the same auth gate the profile tab used (returnTo M30). */}
         <ProfileButton onPress={() => profileTap.run(() => current.navigate('M30'))} />
@@ -143,51 +154,55 @@ export function AppHeader({ safeArea = true }: { safeArea?: boolean }) {
   );
 }
 
-const s = StyleSheet.create({
-  stack: { width: '100%', maxWidth: appHeaderMetrics.maxWidth, alignSelf: 'center' },
-  shell: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background, zIndex: 2 },
-  row: {
-    width: '100%',
-    maxWidth: appHeaderMetrics.maxWidth,
-    alignSelf: 'center',
-    paddingHorizontal: appHeaderMetrics.gutter,
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Keep the longest Kazakh hours caption at its normal size beside the 54 pt profile.
-    gap: 8,
-  },
-  branch: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
-    // As tall as the profile button, so the row (and the button) sit at the same height as the
-    // profile screen's top bar; still above the 44 pt target.
-    minHeight: appHeaderMetrics.profileSize,
-    justifyContent: 'center',
-  },
-  title: {
-    fontFamily: font.medium,
-    fontSize: 17,
-    lineHeight: 23,
-    textAlign: 'left',
-    color: colors.white,
-  },
-  caption: {
-    fontFamily: font.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#FFFFFFDD',
-    textAlign: 'left',
-  },
-  // The avatar sits inside the glass with a ring of glass around it (Drinkit's profile button,
-  // owner 28.10) and keeps its own thin light rim (owner 27.10).
-  avatarClip: {
-    width: AVATAR,
-    height: AVATAR,
-    borderRadius: AVATAR / 2,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    backgroundColor: colors.background,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    stack: { width: '100%', maxWidth: appHeaderMetrics.maxWidth, alignSelf: 'center' },
+    shell: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background, zIndex: 2 },
+    row: {
+      width: '100%',
+      maxWidth: appHeaderMetrics.maxWidth,
+      alignSelf: 'center',
+      paddingHorizontal: appHeaderMetrics.gutter,
+      flexDirection: 'row',
+      alignItems: 'center',
+      // Keep the longest Kazakh hours caption at its normal size beside the 54 pt profile.
+      gap: 8,
+    },
+    branch: {
+      flex: 1,
+      minWidth: 0,
+      alignItems: 'flex-start',
+      // As tall as the profile button, so the row (and the button) sit at the same height as the
+      // profile screen's top bar; still above the 44 pt target.
+      minHeight: appHeaderMetrics.profileSize,
+      justifyContent: 'center',
+    },
+    title: {
+      fontFamily: font.medium,
+      fontSize: 17,
+      lineHeight: 23,
+      textAlign: 'left',
+      color: colors.white,
+    },
+    onMedia: { color: colors.pure },
+    onMediaCaption: { color: '#FFFFFFDD' },
+    caption: {
+      fontFamily: font.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: tc('#FFFFFFDD'),
+      textAlign: 'left',
+    },
+    // The avatar sits inside the glass with a ring of glass around it (Drinkit's profile button,
+    // owner 28.10) and keeps its own thin light rim (owner 27.10).
+    avatarClip: {
+      width: AVATAR,
+      height: AVATAR,
+      borderRadius: AVATAR / 2,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: tc('rgba(255, 255, 255, 0.7)'),
+      backgroundColor: colors.background,
+    },
+  }),
+);

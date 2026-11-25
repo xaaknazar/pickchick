@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { colors } from '../theme';
+import { THEME_PREFERENCES, colors, themed, tc } from '../theme';
+import { setThemePreference, useThemePreference } from '../theme-preference';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { SupportContact } from '../components/SupportContact';
@@ -363,8 +364,36 @@ export function Settings(props: ScreenProps) {
   // are no disabled switches and no «ещё не подключён». The screen holds the language, privacy and
   // «Как проходит заказ»: it is «Настройки», like the gear and the App Review notes (review 29.10).
   const push = pushSettingsShown(notifications.connected);
+  const theme = useThemePreference();
+  const THEME_LABELS = {
+    system: t('Как в системе'),
+    light: t('Светлая'),
+    dark: t('Тёмная'),
+    blue: t('Синяя'),
+  } as const;
   return (
     <Page props={props} title={t('Настройки')}>
+      <Heading small>{t('Тема приложения')}</Heading>
+      <Card>
+        {THEME_PREFERENCES.map((option) => (
+          <Pressable
+            key={option}
+            testID={`theme-${option}`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: theme === option }}
+            aria-checked={theme === option}
+            accessibilityLabel={localize(THEME_LABELS[option])}
+            onPress={() => setThemePreference(option)}
+            style={s.settingRow}
+          >
+            <Body style={ui.flex}>{THEME_LABELS[option]}</Body>
+            <Icon
+              name={theme === option ? 'checkmark-circle' : 'ellipse-outline'}
+              color={theme === option ? colors.accent : colors.muted}
+            />
+          </Pressable>
+        ))}
+      </Card>
       <Heading small>{t('Язык приложения')}</Heading>
       <Card>
         {(['kk', 'ru', 'en'] as const).map((language) => (
@@ -547,36 +576,38 @@ export function UnknownScreen(props: ScreenProps) {
     </Page>
   );
 }
-const s = StyleSheet.create({
-  confirmBackdrop: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000AA',
-  },
-  confirmCard: {
-    width: '100%',
-    maxWidth: 440,
-    padding: 24,
-    gap: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  authError: { color: '#FFB0AB', fontSize: 14, lineHeight: 21 },
-  supportIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingDivider: { height: 1, backgroundColor: colors.border },
-  ratingHero: { gap: 20, alignItems: 'center', paddingVertical: 20 },
-  starButton: { width: 52, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    confirmBackdrop: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tc('#000000AA'),
+    },
+    confirmCard: {
+      width: '100%',
+      maxWidth: 440,
+      padding: 24,
+      gap: 20,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    authError: { color: tc('#FFB0AB'), fontSize: 14, lineHeight: 21 },
+    supportIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 18,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    settingRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    settingDivider: { height: 1, backgroundColor: colors.border },
+    ratingHero: { gap: 20, alignItems: 'center', paddingVertical: 20 },
+    starButton: { width: 52, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  }),
+);

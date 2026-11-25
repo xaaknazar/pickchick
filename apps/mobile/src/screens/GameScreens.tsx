@@ -5,7 +5,7 @@ import { ComboRewardCard } from '../components/ComboRewardCard';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 import type { ScreenProps } from '../model';
 import { PickBlocksCard } from '../games/pick-blocks/visuals';
 import { PickFarmCard } from '../games/pick-farm/visuals';
@@ -117,57 +117,59 @@ function UpcomingEvents() {
 }
 export { PickRunScreen as Game } from '../games/pick-run/PickRunScreen';
 export { PickRunResult as GameResult } from '../games/pick-run/PickRunScreen';
-const s = StyleSheet.create({
-  eventsPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
-  eventsScroll: { flex: 1, minHeight: 0 },
-  eventsContent: { paddingHorizontal: 18, width: '100%', maxWidth: 680, alignSelf: 'center' },
-  eventsTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 41, letterSpacing: -0.68 },
-  eventsSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },
-  eventSection: {
-    fontFamily: font.display,
-    fontSize: 20,
-    lineHeight: 26,
-    marginTop: 24,
-    letterSpacing: -0.2,
-  },
-  missionCard: {
-    marginTop: 12,
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  missionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upcomingList: {
-    marginTop: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  upcomingRow: {
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-    gap: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  upcomingIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upcomingTitle: { fontFamily: font.medium, fontSize: 14.5, lineHeight: 21 },
-  upcomingDetail: { fontSize: 12.5, lineHeight: 18, marginTop: 2 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    eventsPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+    eventsScroll: { flex: 1, minHeight: 0 },
+    eventsContent: { paddingHorizontal: 18, width: '100%', maxWidth: 680, alignSelf: 'center' },
+    eventsTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 41, letterSpacing: -0.68 },
+    eventsSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },
+    eventSection: {
+      fontFamily: font.display,
+      fontSize: 20,
+      lineHeight: 26,
+      marginTop: 24,
+      letterSpacing: -0.2,
+    },
+    missionCard: {
+      marginTop: 12,
+      padding: 18,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    missionIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    upcomingList: {
+      marginTop: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      overflow: 'hidden',
+    },
+    upcomingRow: {
+      paddingVertical: 15,
+      paddingHorizontal: 16,
+      gap: 13,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    upcomingIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    upcomingTitle: { fontFamily: font.medium, fontSize: 14.5, lineHeight: 21 },
+    upcomingDetail: { fontSize: 12.5, lineHeight: 18, marginTop: 2 },
+  }),
+);
