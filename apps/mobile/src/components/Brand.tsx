@@ -147,7 +147,7 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
         ) : (
           // Owner 25.11.2026: our Chiki coin instead of the letter «Ч».
           <Image
-            source={assets.chikiCoin}
+            source={assets.loyaltyCoin}
             testID="loyalty-coin"
             style={brand.coin}
             contentFit="contain"
