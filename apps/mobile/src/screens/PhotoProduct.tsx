@@ -26,7 +26,7 @@ import {
   comboCompanions,
   photoCartLimit,
 } from '../product-photo-selection';
-import { optionPhotos, extraPhotos } from '../product-photo-assets';
+import { optionPhotos, extraPhotos, heroCutoutIds } from '../product-photo-assets';
 import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
@@ -48,19 +48,18 @@ const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
 /**
- * Owner 25.11.2026: the page follows the app theme. The blue photo melts into the page colour of
- * the look (light #E4EDFB, dark #0A1020); only «Синяя» keeps the navy page under it.
+ * Owner 25.11.2026: the page follows the app theme, and the photo stands on warm white «как в
+ * кола», not on blue. HERO_PAPER is the backdrop of the bundled warm-white photographs, so they
+ * and the transparent cut-outs share one sheet, which melts into the page colour of the look.
  */
-const lightLook = () => colors.scheme === 'light';
+const HERO_PAPER = '#FEFAF3';
 const navyLook = () => currentTheme() === 'blue';
-const fade = (rgb: string, hex: string) =>
-  `linear-gradient(180deg, rgba(${rgb},0) 0%, rgba(${rgb},0.55) 50%, ${hex} 100%)`;
-const blueGradient = () =>
-  lightLook()
-    ? fade('228,237,251', '#E4EDFB')
-    : navyLook()
-      ? tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)')
-      : fade('10,16,32', '#0A1020');
+const rgbOf = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(',');
+/** Over an opaque photograph: its bottom edge fades into the page colour. */
+const blueGradient = () => {
+  const page = colors.background;
+  return `linear-gradient(180deg, rgba(${rgbOf(page)},0) 0%, rgba(${rgbOf(page)},0.55) 50%, ${page} 100%)`;
+};
 const blueBlend = () =>
   (Platform.OS === 'web'
     ? { backgroundImage: blueGradient() }
@@ -110,13 +109,8 @@ export function PhotoProduct(props: Props) {
   const blue = true;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? colors.white : ink;
-  const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = navyLook()
-    ? tc(
-        `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
-      )
-    : `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
+  const pageGradient = `linear-gradient(180deg, ${HERO_PAPER} 0px, ${HERO_PAPER} ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -261,6 +255,11 @@ export function PhotoProduct(props: Props) {
       : resolvedHero;
   // A transparent bottle needs no backdrop blend: show it whole, clear of the close button.
   const drinkCutout = isDrinkCutout(hero);
+  // A transparent photo stands straight on the sheet; only an opaque photograph needs the fade.
+  const transparentHero =
+    drinkCutout ||
+    (hero.kind === 'remote' && !!product.media?.cutout) ||
+    (hero === resolvedHero && hero.kind === 'id' && heroCutoutIds.has(product.id));
   const closeTop = Math.max(0, insets.top - 16);
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
@@ -305,7 +304,7 @@ export function PhotoProduct(props: Props) {
   );
   return (
     <View style={s.page} testID={`photo-product-${product.id}`}>
-      <StatusBar style={pickerVisible || info || blue ? 'light' : 'dark'} />
+      <StatusBar style={(pickerVisible || info) && colors.scheme !== 'light' ? 'light' : 'dark'} />
       <View
         style={{ flex: 1 }}
         aria-hidden={pickerVisible || info}
@@ -321,7 +320,7 @@ export function PhotoProduct(props: Props) {
           ]}
           testID="photo-product-scroll"
         >
-          <View style={{ height: heroHeight, backgroundColor: pagePaper }}>
+          <View style={{ height: heroHeight, backgroundColor: blue ? 'transparent' : paper }}>
             {hero ? (
               <ProductPhoto
                 photo={hero}
@@ -347,7 +346,7 @@ export function PhotoProduct(props: Props) {
                 />
               </View>
             )}
-            {drinkCutout ? null : (
+            {transparentHero ? null : (
               <View pointerEvents="none" style={[s.blend, blue ? blueBlend() : blend]} />
             )}
             {combo ? (
@@ -998,7 +997,7 @@ function Counter({
 }
 function makeStyles(blue: boolean) {
   // Light and dark: the rows are the app's cards on the page colour; «Синяя» keeps navy rows.
-  const light = lightLook();
+  const light = colors.scheme === 'light';
   const navy = navyLook();
   const ink = blue ? colors.white : '#271C15';
   const paper = blue ? '#0047BB' : '#FFF8EE';

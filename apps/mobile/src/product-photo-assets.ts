@@ -1,18 +1,20 @@
 import { catalogCutouts } from './catalog-cutouts';
 import { ownerDrinkPhotos } from './drink-photos';
 import type { ImageSourcePropType } from 'react-native';
+// Owner 25.11.2026: the dish page is warm white, so the 11 combos and sets are transparent
+// cut-outs (assets/hero-cutout/README.md), not the photographs on blue.
 export const photoHeroes: Record<string, ImageSourcePropType> = {
-  'pick-combo': require('../assets/catalog-hd/pick-combo.png'),
-  'master-combo': require('../assets/catalog-hd/master-combo.png'),
-  'burger-combo': require('../assets/catalog-hd/burger-combo.png'),
-  'solo-combo': require('../assets/catalog-hd/solo-combo.png'),
-  'finger-duo': require('../assets/catalog-hd/finger-duo.png'),
-  'burger-duo': require('../assets/catalog-hd/burger-duo.png'),
-  'mix-duo': require('../assets/catalog-hd/mix-duo.png'),
-  'fingers-25': require('../assets/catalog-hd/fingers-25.png'),
-  'fingers-50': require('../assets/catalog-hd/fingers-50.png'),
-  'fingers-75': require('../assets/catalog-hd/fingers-75.png'),
-  'fingers-100': require('../assets/catalog-hd/fingers-100.png'),
+  'pick-combo': require('../assets/hero-cutout/pick-combo.webp'),
+  'master-combo': require('../assets/hero-cutout/master-combo.webp'),
+  'burger-combo': require('../assets/hero-cutout/burger-combo.webp'),
+  'solo-combo': require('../assets/hero-cutout/solo-combo.webp'),
+  'finger-duo': require('../assets/hero-cutout/finger-duo.webp'),
+  'burger-duo': require('../assets/hero-cutout/burger-duo.webp'),
+  'mix-duo': require('../assets/hero-cutout/mix-duo.webp'),
+  'fingers-25': require('../assets/hero-cutout/fingers-25.webp'),
+  'fingers-50': require('../assets/hero-cutout/fingers-50.webp'),
+  'fingers-75': require('../assets/hero-cutout/fingers-75.webp'),
+  'fingers-100': require('../assets/hero-cutout/fingers-100.webp'),
   fingers: catalogCutouts['fingers']!,
   sauce: require('../assets/catalog-hd/sauce.png'),
   'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
@@ -66,3 +68,18 @@ export const extraPhotos: Record<string, ImageSourcePropType> = {
   coleslaw: require('../assets/catalog-hd/coleslaw.png'),
   wedges: require('../assets/catalog-hd/wedges.png'),
 };
+
+/** Bundled heroes that are transparent cut-outs: they stand on the page's own paper. */
+export const heroCutoutIds: ReadonlySet<string> = new Set([
+  'pick-combo',
+  'master-combo',
+  'burger-combo',
+  'solo-combo',
+  'finger-duo',
+  'burger-duo',
+  'mix-duo',
+  'fingers-25',
+  'fingers-50',
+  'fingers-75',
+  'fingers-100',
+]);
