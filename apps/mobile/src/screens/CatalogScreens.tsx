@@ -362,10 +362,6 @@ export function Menu(props: ScreenProps) {
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
   const loyaltyShown = upcomingFeaturesShown(undefined, props.preview);
-  // The design-sample note, the loader or the «no fresh menu» notice between the tabs and the menu.
-  const noticesShown =
-    props.model.catalogMode === 'design' ||
-    (props.model.catalogMode === 'server' && props.model.connection.status !== 'online');
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
@@ -615,14 +611,12 @@ export function Menu(props: ScreenProps) {
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
           // Without the loyalty card the categories keep their place over the hero's lower edge,
           // so the first dishes still show on the first screen (as with the card, 393 x 852).
-          // Owner 25.11.2026: «подними блок комбо ближе к надписям»: the first section starts right
-          // under the category names (their lower padding is shared with the section title).
           style={{
-            height: Math.max(0, categoryHeight - CATEGORY_TAIL),
+            height: categoryHeight,
             marginTop: loyaltyShown ? 0 : -Math.round(heroHeight * 0.13),
           }}
         />
-        <View style={[s.menuBody, noticesShown ? s.menuBodyNotices : null]}>
+        <View style={s.menuBody}>
           {props.model.catalogMode === 'design' ? (
             <Notice title={t('Образцы меню')}>
               {t(
@@ -1124,8 +1118,6 @@ export function Unavailable(props: ScreenProps) {
   );
 }
 export { Checkout } from './CheckoutScreen';
-// The part of the category bar under its names (padding and touch area) that the first section uses.
-const CATEGORY_TAIL = 14;
 const s = themed(() =>
   StyleSheet.create({
     branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
@@ -1242,8 +1234,7 @@ const s = themed(() =>
     },
     heroSubtitle: { fontSize: 14, lineHeight: 20, color: '#FFFFFFD9', textAlign: 'center' },
     loyaltyLead: { paddingHorizontal: 24, paddingBottom: 8 },
-    menuBody: { paddingHorizontal: 24, paddingTop: 0, gap: 16 },
-    menuBodyNotices: { paddingTop: CATEGORY_TAIL, paddingBottom: 12 },
+    menuBody: { paddingHorizontal: 24, paddingTop: 0, paddingBottom: 12, gap: 16 },
     stickyCategories: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 },
     categoryList: {
       gap: 24,

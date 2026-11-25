@@ -140,9 +140,21 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
         importantForAccessibility="no-hide-descendants"
       />
       <View style={brand.ring}>
-        <Body style={{ fontFamily: font.display, fontSize: 14, lineHeight: 18 }}>
-          {localize(preview ? '66%' : 'Ч')}
-        </Body>
+        {preview ? (
+          <Body style={{ fontFamily: font.display, fontSize: 14, lineHeight: 18 }}>
+            {localize('66%')}
+          </Body>
+        ) : (
+          // Owner 25.11.2026: our Chiki coin instead of the letter «Ч».
+          <Image
+            source={assets.chikiCoin}
+            testID="loyalty-coin"
+            style={brand.coin}
+            contentFit="contain"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          />
+        )}
       </View>
       <View style={ui.flex}>
         <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
@@ -273,6 +285,7 @@ const brand = themed(() =>
       borderBottomLeftRadius: 20,
       borderBottomRightRadius: 20,
     },
+    coin: { width: 36, height: 36 },
     ring: {
       width: 52,
       height: 52,
