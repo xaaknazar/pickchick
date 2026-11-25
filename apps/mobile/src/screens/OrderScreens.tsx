@@ -9,7 +9,7 @@ import { assets } from '../assets';
 import { PeakWallet, PeakRewards } from '../loyalty/PeakScreens';
 import { restaurantLocation } from '../restaurant-location';
 import type { ScreenProps } from '../model';
-import { colors, font, themed, tc } from '../theme';
+import { colors, font, themed } from '../theme';
 import {
   Body,
   Button,
@@ -339,11 +339,11 @@ export function Receipt(props: ScreenProps) {
             props.preview ? 'Заказ №083 · пример' : 'Здесь появится документ после покупки',
           )}
         </Body>
-        <Caption style={{ textAlign: 'center', color: tc('#56647A') }}>
+        <Caption style={{ textAlign: 'center', color: '#56647A' }}>
           {t('Документ, номер и QR появятся только после подтверждения ККМ.')}
         </Caption>
         <View style={s.receiptRule} />
-        <Icon name="time-outline" color={tc('#56647A')} size={28} />
+        <Icon name="time-outline" color="#56647A" size={28} />
       </View>
       <Notice>
         {t(
@@ -500,7 +500,8 @@ const s = themed(() =>
       alignItems: 'center',
       marginVertical: 12,
     },
-    receiptInk: { color: tc('#24304A'), textAlign: 'center' },
-    receiptRule: { height: 1, width: '100%', backgroundColor: tc('#CBD3DF') },
+    // The receipt is paper (#F2F6FF) in every theme: its ink stays dark on the light theme too.
+    receiptInk: { color: '#24304A', textAlign: 'center' },
+    receiptRule: { height: 1, width: '100%', backgroundColor: '#CBD3DF' },
   }),
 );

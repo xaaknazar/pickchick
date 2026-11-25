@@ -440,7 +440,7 @@ const s = themed(() =>
       fontSize: 11,
       lineHeight: 16,
       letterSpacing: 1,
-      color: '#C7DCFF',
+      color: tc('#C7DCFF'),
     },
     proposal: {
       flexDirection: 'row',

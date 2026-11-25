@@ -118,7 +118,7 @@ export function Welcome(props: ScreenProps) {
           onPress={() => props.navigate('M06')}
           style={{ alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' }}
         >
-          <Body style={{ color: tc('#FFFFFFAA'), fontFamily: font.medium, fontSize: 15 }}>
+          <Body style={{ color: '#FFFFFFAA', fontFamily: font.medium, fontSize: 15 }}>
             {t('Пропустить')}
           </Body>
         </Pressable>
@@ -127,7 +127,7 @@ export function Welcome(props: ScreenProps) {
           <Heading style={s.welcomeHeading}>
             {t('Куриные фингерсы для тех, кто в движении')}
           </Heading>
-          <Body style={{ color: tc('#FFFFFFBF'), lineHeight: 24 }}>
+          <Body style={{ color: '#FFFFFFBF', lineHeight: 24 }}>
             {t('Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.')}
           </Body>
         </View>
@@ -1255,7 +1255,8 @@ const s = themed(() =>
       fontSize: 36,
       lineHeight: 39,
       letterSpacing: -0.72,
-      color: colors.white,
+      // The welcome page stays brand blue in every theme, so its copy stays white.
+      color: colors.pure,
     },
     dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
     dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: tc('#7897CA') },
