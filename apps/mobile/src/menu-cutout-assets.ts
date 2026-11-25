@@ -14,9 +14,4 @@ export const menuCutouts: Record<string, ImageSourcePropType> = {
   'fingers-50': require('../assets/menu-cutout/fingers-50.webp'),
   'fingers-75': require('../assets/menu-cutout/fingers-75.webp'),
   'fingers-100': require('../assets/menu-cutout/fingers-100.webp'),
-  burger: require('../assets/menu-cutout/burger.webp'),
-  wedges: require('../assets/menu-cutout/wedges.webp'),
-  toast: require('../assets/menu-cutout/toast.webp'),
-  sauce: require('../assets/menu-cutout/sauce.webp'),
-  'sauce-hot': require('../assets/menu-cutout/sauce-hot.webp'),
 };
