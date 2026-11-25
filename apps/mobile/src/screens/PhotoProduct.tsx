@@ -34,7 +34,7 @@ import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../
 import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
-import { colors, font, tc, themed } from '../theme';
+import { colors, currentTheme, font, tc, themed } from '../theme';
 
 type Props = ScreenProps & {
   product: Product;
@@ -48,12 +48,20 @@ const priceButton = { surface: colors.accent, ink: colors.orangeInk };
 /** Navy over the glass of «Настроить комбо», so white text reads on the light photo. */
 const photoActionTint = 'rgba(10, 32, 80, 0.7)';
 const gradient = 'linear-gradient(180deg, rgba(255,248,238,0) 0%, #FFF8EE 100%)';
-/** The light look (owner 25.11.2026): the blue photo melts into the light page, not into navy. */
+/**
+ * Owner 25.11.2026: the page follows the app theme. The blue photo melts into the page colour of
+ * the look (light #E4EDFB, dark #0A1020); only «Синяя» keeps the navy page under it.
+ */
 const lightLook = () => colors.scheme === 'light';
+const navyLook = () => currentTheme() === 'blue';
+const fade = (rgb: string, hex: string) =>
+  `linear-gradient(180deg, rgba(${rgb},0) 0%, rgba(${rgb},0.55) 50%, ${hex} 100%)`;
 const blueGradient = () =>
   lightLook()
-    ? 'linear-gradient(180deg, rgba(228,237,251,0) 0%, rgba(228,237,251,0.55) 50%, #E4EDFB 100%)'
-    : tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)');
+    ? fade('228,237,251', '#E4EDFB')
+    : navyLook()
+      ? tc('linear-gradient(180deg, rgba(0,71,187,0) 0%, rgba(6,51,126,0.4) 45%, #06337E 100%)')
+      : fade('10,16,32', '#0A1020');
 const blueBlend = () =>
   (Platform.OS === 'web'
     ? { backgroundImage: blueGradient() }
@@ -105,11 +113,11 @@ export function PhotoProduct(props: Props) {
   const pageInk = blue ? colors.white : ink;
   const pagePaper = blue ? '#0047BB' : paper;
   const heroHeight = Math.min(width, height * 0.61, 600);
-  const pageGradient = lightLook()
-    ? `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #E4EDFB ${heroHeight}px, #E4EDFB 100%)`
-    : tc(
+  const pageGradient = navyLook()
+    ? tc(
         `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, #06337E ${heroHeight}px, #08265A ${heroHeight + 300}px, #0A1020 100%)`,
-      );
+      )
+    : `linear-gradient(180deg, #0047BB 0px, #0047BB ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
   const gradientSurface = (
     Platform.OS === 'web'
       ? { backgroundImage: pageGradient }
@@ -1024,12 +1032,13 @@ function Counter({
   );
 }
 function makeStyles(blue: boolean) {
-  // On the light look the rows are the app's white cards on the light page, with ink text.
+  // Light and dark: the rows are the app's cards on the page colour; «Синяя» keeps navy rows.
   const light = lightLook();
+  const navy = navyLook();
   const ink = blue ? colors.white : '#271C15';
   const paper = blue ? '#0047BB' : '#FFF8EE';
-  const muted = blue ? (light ? colors.muted : tc('#D4E5FF')) : '#594635';
-  const row = (dark: string) => (light ? colors.surface : tc(dark));
+  const muted = blue ? (navy ? tc('#D4E5FF') : colors.muted) : '#594635';
+  const row = (blueRow: string) => (navy ? tc(blueRow) : colors.surface);
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: blue ? colors.background : paper },
     blend: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 150 },
@@ -1143,7 +1152,13 @@ function makeStyles(blue: boolean) {
     addText: { fontFamily: font.bold, fontSize: 20, lineHeight: 28, color: colors.orangeInk },
     reason: { fontFamily: font.medium, color: ink, fontSize: 13, textAlign: 'center' },
     counter: {
-      backgroundColor: blue ? (light ? '#D6E2F6' : tc('#133668')) : '#F2DFC7',
+      backgroundColor: blue
+        ? navy
+          ? tc('#133668')
+          : light
+            ? '#D6E2F6'
+            : colors.raised
+        : '#F2DFC7',
       borderRadius: 25,
       gap: 0,
     },
