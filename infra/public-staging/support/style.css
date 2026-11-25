@@ -1,6 +1,6 @@
 /* Hallmark · shape: kept · genre: editorial · theme: brand · redesign: restyle · copy: verbatim
- * paper: oklch(20% 0.08 262) · accent: oklch(74% 0.17 52) · display: Jost · body: Manrope · hero: kept · nav: kept · footer: kept · signature: the call button and the phone number, first on the page
- * axes: navy/Jost/orange · posture: help desk · contrast: pass · fold: pass · v2.0.0 */
+ * paper: oklch(20% 0.08 262) · accent: oklch(74% 0.17 52) · display: Golos Text · body: Golos Text (wordmark Jost) · hero: kept · nav: kept · footer: kept · signature: the call button and the phone number, first on the page
+ * axes: navy/Golos/orange · posture: help desk · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P3 H4 E4 S4 R5 V3 · weakest: P, a help page argues nothing; it answers, so the call and the answers lead and nothing decorates them */
 /* Hallmark · dismissed 77 · a help page of answers and one contact block, not a landing strip */
 /* Hallmark · dismissed 58 · the words are the support answers the app links to, reviewed by the owner */
@@ -19,8 +19,9 @@
   --color-accent-press: #f27420;
   --color-accent-ink: #04143a;
   --color-focus: #ffd6b5;
-  --font-display: Jost, system-ui, sans-serif;
-  --font-body: Manrope, system-ui, sans-serif;
+  --font-display: 'Golos Text', system-ui, sans-serif;
+  --font-brand: Jost, system-ui, sans-serif;
+  --font-body: 'Golos Text', system-ui, sans-serif;
   --text-sm: 0.875rem;
   --text-md: 1.0625rem;
   --text-lg: 1.25rem;
@@ -104,7 +105,7 @@ header {
   border-bottom: 1px solid var(--color-rule);
 }
 .brand {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.875rem;
   font-weight: 700;
   line-height: 1;

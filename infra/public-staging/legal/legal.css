@@ -1,6 +1,6 @@
 /* Hallmark · shape: Long Document · genre: editorial · theme: brand · redesign: restyle · copy: verbatim
- * paper: oklch(20% 0.08 262) · accent: oklch(74% 0.17 52) · display: Jost · body: Manrope · hero: kept · nav: document bar · footer: kept · signature: the contents list beside the text, one tap to any section
- * axes: navy/Jost/orange · posture: document · contrast: pass · fold: pass · v2.0.0 */
+ * paper: oklch(20% 0.08 262) · accent: oklch(74% 0.17 52) · display: Golos Text · body: Golos Text (wordmark Jost) · hero: kept · nav: document bar · footer: kept · signature: the contents list beside the text, one tap to any section
+ * axes: navy/Golos/orange · posture: document · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P3 H4 E4 S4 R5 V3 · weakest: P, a legal text argues nothing; the contents list and the measure carry the page */
 /* Hallmark · dismissed 19 · the dashes are in the approved offer and policy text, which is never reworded */
 /* Hallmark · dismissed 44b · a legal document has no call to action; the title and date open the page */
@@ -18,8 +18,9 @@
   --color-accent-press: #f27420;
   --color-accent-ink: #04143a;
   --color-focus: #ffd6b5;
-  --font-display: Jost, system-ui, sans-serif;
-  --font-body: Manrope, system-ui, sans-serif;
+  --font-display: 'Golos Text', system-ui, sans-serif;
+  --font-brand: Jost, system-ui, sans-serif;
+  --font-body: 'Golos Text', system-ui, sans-serif;
   --text-sm: 0.875rem;
   --text-md: 1.0625rem;
   --text-lg: 1.25rem;
@@ -111,7 +112,7 @@ a:active {
   border-bottom: 1px solid var(--color-rule);
 }
 .brand {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.875rem;
   font-weight: 700;
   line-height: 1;
