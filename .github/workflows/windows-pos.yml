@@ -20,6 +20,8 @@ on:
       - 'tests/operations/test_windows_head_runtime_release.py'
       - 'tests/operations/test_windows_head_029_runtime_release.py'
       - 'tests/operations/test_windows_app_029_runtime_release.py'
+      - 'tests/operations/test_windows_webkassa_edge.py'
+      - 'tests/operations/windows-webkassa-edge.test.ps1'
   pull_request:
     branches: [main]
     paths:
@@ -39,6 +41,8 @@ on:
       - 'tests/operations/test_windows_head_runtime_release.py'
       - 'tests/operations/test_windows_head_029_runtime_release.py'
       - 'tests/operations/test_windows_app_029_runtime_release.py'
+      - 'tests/operations/test_windows_webkassa_edge.py'
+      - 'tests/operations/windows-webkassa-edge.test.ps1'
   workflow_dispatch:
     inputs:
       apply:
@@ -85,6 +89,8 @@ jobs:
           python tests/operations/test_windows_app_029_runtime_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_edge_backup.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/operations/test_windows_webkassa_edge.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   package:
     name: Package installed Windows x64 POS

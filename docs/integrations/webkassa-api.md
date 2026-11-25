@@ -56,6 +56,20 @@
   для приложения `CUSTOMER_FISCAL_ACCOUNT_ID`, для киоска `KIOSK_CHECKOUT_FISCAL_POLICY=required` и
   его счёт. Без них заказы остаются без чека, как сейчас.
 
+## Включение на сервере точки
+
+1. На Mac владельца: `node scripts/webkassa-account-from-env.mjs --env <приватный .env> --out
+<новый файл>`. Скрипт пишет JSON с правами 0600 и печатает только хост, кассу и имена ключей.
+2. Файл копируется на сервер точки во временную папку администратора, затем (PowerShell 5.1 от
+   администратора, из папки `infra/windows` проверенного коммита):
+   `enable-webkassa-edge.ps1 -AccountFile <файл> -ExpectedEdgeEnvSha256 <хэш edge.env>` показывает
+   план без значений; то же с `-Apply` кладёт файл в `Edge\config\webkassa.json` (защищённые права,
+   чтение службой), добавляет `EDGE_WEBKASSA_ACCOUNT_FILE` в `edge.env` по ожидаемому хэшу и
+   перезапускает только KitchenLink и Edge. Если Edge не поднялся, `edge.env` возвращается.
+3. Временный файл удаляется. Выключение: `-Mode Disable -ExpectedEdgeEnvSha256 <хэш> -Apply`
+   (ключ пустой, файл остаётся для проверки).
+4. Касса с версии 0.6.0 сама видит включение («Чеки: Webkassa автоматически»).
+
 ## Чего ещё нет
 
 - Чеки возврата остаются ручными (на кассе: нужна миграция edge 030; в облаке: документ возврата
@@ -72,4 +86,6 @@
 `apps/pos-desktop/printer.mjs`. Тесты: `tests/unit/webkassa-client.test.mjs`,
 `tests/integration/webkassa-fiscal.test.mjs`, `tests/pos/cashier-ui.test.mjs`,
 `packages/commerce-core/tests/webkassa-cloud.postgres.test.mjs`,
-`tests/pos-desktop/printer.test.mjs`.
+`tests/pos-desktop/printer.test.mjs`, `tests/unit/webkassa-account-from-env.test.mjs`,
+`tests/operations/windows-webkassa-edge.test.ps1`. Включение: `infra/windows/enable-webkassa-edge.ps1`,
+`scripts/webkassa-account-from-env.mjs`.
