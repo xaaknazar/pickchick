@@ -16,7 +16,8 @@ writeFileSync(
   join(dir, 'theme.ts'),
   readFileSync(new URL('theme.ts', src), 'utf8')
     .replace(/^import tokens from .*$/m, `const tokens = ${tokens};`)
-    .replace("from './tab-bar-metrics'", `from '${new URL('tab-bar-metrics.ts', src).href}'`),
+    .replace("from './tab-bar-metrics'", `from '${new URL('tab-bar-metrics.ts', src).href}'`)
+    .replace("from './glass'", `from '${new URL('glass.ts', src).href}'`),
 );
 const theme = await import(pathToFileURL(join(dir, 'theme.ts')).href);
 const { tabBarPalette } = await import(new URL('tab-bar-metrics.ts', src).href);
@@ -84,5 +85,17 @@ test('light tab bar labels stay readable on the light glass', () => {
   theme.applyTheme('light');
   assert.ok(contrast(tabBarPalette.active, '#F6F9FF') >= 4.5);
   assert.ok(contrast(tabBarPalette.inactive, '#F6F9FF') >= 4.5);
+  theme.applyTheme('dark');
+});
+
+test('the cart capsule is light glass with the tab bar on «Светлая» and night glass otherwise', async () => {
+  const { glassBar, glassBarLight, glassBarNight } = await import(new URL('glass.ts', src).href);
+  theme.applyTheme('light');
+  assert.deepEqual({ ...glassBar }, glassBarLight);
+  assert.equal(glassBar.scheme, 'light');
+  theme.applyTheme('dark');
+  assert.deepEqual({ ...glassBar }, glassBarNight);
+  theme.applyTheme('blue');
+  assert.deepEqual({ ...glassBar }, glassBarNight);
   theme.applyTheme('dark');
 });
