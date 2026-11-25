@@ -43,3 +43,12 @@ count small and never script bulk downloads from tile.openstreetmap.org.
 Check `tests/mobile/restaurant-map.test.mjs` and the M05 screenshots after a
 re-run. A future map SDK (2GIS MapGL or `react-native-maps`) replaces this
 folder; that choice is still open with the owner.
+
+## Light theme map - 25 November 2026
+
+`abay-plaza-light.webp` is the same crop (1179×960 px, same `abay-plaza.json`
+metadata and projection) for the «Светлая» theme, in a clean Apple Maps-like
+palette: warm off-white land `#F3F1EC`, light blocks `#E5E2DC`, white streets,
+grey labels, and a top fade into the light page `#E4EDFB`. It was derived
+offline from `abay-plaza.webp` by remapping its luma (no new tile requests), so
+the same OpenStreetMap attribution and licence apply.
