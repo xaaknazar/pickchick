@@ -290,6 +290,9 @@ const ProductMenuCard = memo(function ProductMenuCard({
   openProduct(product: Product): void;
   hit: boolean;
 }) {
+  // memo skips renders with the same props: without this a theme switch (or the saved theme
+  // restored after the first frame) left cards drawn in the old palette (owner 25.11.2026).
+  useLocale();
   const photo = productPhoto(product, 'card', 'menu');
   const cutout = menuCutout(product, photo);
   return (

@@ -34,7 +34,7 @@ import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../
 import { SheetModal } from '../components/MotionSheets';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { GlassFill } from '../components/GlassButton';
-import { colors, font, tc } from '../theme';
+import { colors, font, tc, themed } from '../theme';
 
 type Props = ScreenProps & {
   product: Product;
@@ -352,7 +352,7 @@ export function PhotoProduct(props: Props) {
                 {/* Owner 15.11.2026: a control over the photo is Apple's glass, like the close
                     button; a navy tint keeps the white label readable on the light photo. */}
                 <GlassFill radius={28} place="header" tint={photoActionTint} interactive />
-                <Icon name="options-outline" color={colors.white} size={20} />
+                <Icon name="options-outline" color={colors.pure} size={20} />
                 <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
               </Pressable>
             ) : null}
@@ -1037,7 +1037,7 @@ function makeStyles(blue: boolean) {
       alignItems: 'center',
       minHeight: 48,
     },
-    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.white },
+    photoActionText: { fontFamily: font.bold, fontSize: 14, color: colors.pure },
     intro: {
       paddingHorizontal: 24,
       paddingTop: 6,
@@ -1221,5 +1221,7 @@ function makeStyles(blue: boolean) {
     modalMuted: { fontFamily: font.body, fontSize: 14, lineHeight: 22, color: colors.muted },
   });
 }
-const warmStyles = makeStyles(false);
-const blueStyles = makeStyles(true);
+// Rebuilt after a theme switch: built once at import they kept the dark palette, so the light
+// theme showed white titles on the light page and navy choice cards (owner 25.11.2026).
+const warmStyles = themed(() => makeStyles(false));
+const blueStyles = themed(() => makeStyles(true));
