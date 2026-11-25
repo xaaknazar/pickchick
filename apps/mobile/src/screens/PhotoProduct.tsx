@@ -18,6 +18,7 @@ import type { CartLine, ModifierGroup, Product, ScreenProps, Selection } from '.
 import { defaultSelections, lineUnitPrice, money, validSelections } from '../domain';
 import {
   comboSlots,
+  comboSlotCount,
   isComboProduct,
   setPhotoChoice,
   replaceComboSlot,
@@ -110,6 +111,7 @@ export function PhotoProduct(props: Props) {
   const blue = true;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? colors.white : ink;
+  const replaceInk = replaceColor(blue);
   const heroHeight = Math.min(width, height * 0.61, 600);
   const pageGradient = `linear-gradient(180deg, ${HERO_PAPER} 0px, ${HERO_PAPER} ${heroHeight - 150}px, ${colors.background} ${heroHeight}px, ${colors.background} 100%)`;
   const gradientSurface = (
@@ -230,10 +232,11 @@ export function PhotoProduct(props: Props) {
       </View>
     );
   };
-  const groups = (product.modifierGroups ?? []).filter(
-    // Included combo slots only; the finger sets' optional sauces (min 0) are counted below.
-    (g) => ['drink', 'sauce'].includes(g.id) && g.min > 0 && g.min <= 4,
-  );
+  // Owner 25.11.2026: sauce and drink are picked the same way, each in its own block, sauce first.
+  // The finger sets' larger optional sauce groups stay counters below.
+  const groups = (product.modifierGroups ?? [])
+    .filter((g) => ['drink', 'sauce'].includes(g.id) && comboSlotCount(g) > 0)
+    .sort((a, b) => Number(a.id === 'drink') - Number(b.id === 'drink'));
   // Owner 22.11: drinks are a paid upsell on the finger sets, shown as cards like the extras.
   const drinkExtra = product.modifierGroups?.find((g) => g.id === 'drink-extra');
   const otherGroups = (product.modifierGroups ?? []).filter(
@@ -519,52 +522,63 @@ export function PhotoProduct(props: Props) {
                 </View>
               );
             })}
-            {groups.flatMap((group) =>
-              comboSlots(group, selections).map((optionId, index) => {
-                const option = group.options.find((o) => o.id === optionId);
-                return (
-                  <Pressable
-                    key={`${group.id}-${index}`}
-                    style={s.choice}
-                    accessibilityRole="button"
-                    accessibilityLabel={localize(
-                      t('Заменить {p0} {p1}: {p2}', {
-                        p0: t(group.id === 'drink' ? 'напиток' : 'соус'),
-                        p1: index + 1,
-                        p2: t(option?.label ?? 'не выбран'),
-                      }),
-                    )}
-                    testID={`photo-replace-${group.id}-${index}`}
-                    onPress={() => {
-                      setPicker({ group, index, chosen: optionId });
-                      setPickerVisible(true);
-                    }}
-                  >
-                    <OptionImage products={props.model.products} id={optionId} size={82} />
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={s.choiceLabel}>
-                        {t('{p0} {p1} из {p2}', {
-                          p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
-                          p1: index + 1,
-                          p2: group.min,
-                        })}
-                      </Text>
-                      <Text style={s.choiceName}>{localize(option?.label ?? 'Выберите')}</Text>
-                      {option ? (
-                        <Text style={s.choiceLabel}>
-                          {localize(
-                            option.price_delta_minor === '0'
-                              ? 'Входит в комбо'
-                              : t('Доплата +{p0}', { p0: money(option.price_delta_minor) }),
-                          )}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={s.replace}>{t('Заменить')}</Text>
-                  </Pressable>
-                );
-              }),
-            )}
+            {groups.map((group) => {
+              const slots = comboSlots(group, selections);
+              return (
+                <View key={group.id} style={s.slotBlock} testID={`photo-slots-${group.id}`}>
+                  <Text style={s.slotTitle}>{localize(group.title)}</Text>
+                  {slots.map((optionId, index) => {
+                    const option = group.options.find((o) => o.id === optionId);
+                    return (
+                      <Pressable
+                        key={`${group.id}-${index}`}
+                        style={s.choice}
+                        accessibilityRole="button"
+                        accessibilityLabel={localize(
+                          t('Заменить {p0} {p1}: {p2}', {
+                            p0: t(group.id === 'drink' ? 'напиток' : 'соус'),
+                            p1: index + 1,
+                            p2: t(option?.label ?? 'не выбран'),
+                          }),
+                        )}
+                        testID={`photo-replace-${group.id}-${index}`}
+                        onPress={() => {
+                          setPicker({ group, index, chosen: optionId });
+                          setPickerVisible(true);
+                        }}
+                      >
+                        <OptionImage products={props.model.products} id={optionId} size={72} />
+                        <View style={{ flex: 1, gap: 3 }}>
+                          {slots.length > 1 ? (
+                            <Text style={s.choiceLabel}>
+                              {t('{p0} {p1} из {p2}', {
+                                p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
+                                p1: index + 1,
+                                p2: slots.length,
+                              })}
+                            </Text>
+                          ) : null}
+                          <Text style={s.choiceName}>{localize(option?.label ?? 'Не выбран')}</Text>
+                          {option ? (
+                            <Text style={s.choiceLabel}>
+                              {localize(
+                                option.price_delta_minor === '0'
+                                  ? 'Входит в комбо'
+                                  : t('Доплата +{p0}', { p0: money(option.price_delta_minor) }),
+                              )}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={s.replacePill}>
+                          <Text style={s.replace}>{t(option ? 'Заменить' : 'Выбрать')}</Text>
+                          <Icon name="chevron-forward" color={replaceInk} size={14} />
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
           </View>
           {extras ? (
             <View style={s.extrasSection}>
@@ -797,7 +811,7 @@ export function PhotoProduct(props: Props) {
                 {t('{p0} {p1} из {p2}', {
                   p0: localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус'),
                   p1: picker.index + 1,
-                  p2: picker.group.min,
+                  p2: comboSlotCount(picker.group) || picker.group.min,
                 })}
               </Text>
             </Row>
@@ -1030,6 +1044,9 @@ function Counter({
     </Row>
   );
 }
+const replaceColor = (blue: boolean) =>
+  blue ? (colors.scheme === 'light' ? colors.accentText : tc('#FF8A4C')) : '#A33B00';
+
 function makeStyles(blue: boolean) {
   // Light and dark: the rows are the app's cards on the page colour; «Синяя» keeps navy rows.
   const light = colors.scheme === 'light';
@@ -1090,10 +1107,19 @@ function makeStyles(blue: boolean) {
     },
     choiceLabel: { fontFamily: font.body, fontSize: 12, lineHeight: 18, color: muted },
     choiceName: { fontFamily: font.medium, fontSize: 14, lineHeight: 21, color: ink },
-    replace: {
-      fontFamily: font.bold,
-      fontSize: 12,
-      color: blue ? (light ? colors.accentText : tc('#FF8A4C')) : '#A33B00',
+    replace: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: replaceColor(blue) },
+    // One block per choice (owner 25.11.2026): «Соус на выбор», then «Напиток на выбор».
+    slotBlock: { gap: 8, marginTop: 6 },
+    slotTitle: { fontFamily: font.heading, fontSize: 17, lineHeight: 24, color: ink },
+    replacePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      minHeight: 36,
+      paddingLeft: 12,
+      paddingRight: 8,
+      borderRadius: 18,
+      backgroundColor: light ? '#FFF1E6' : tc('#FF8A4C1F'),
     },
     moreRow: {
       flexDirection: 'row',
