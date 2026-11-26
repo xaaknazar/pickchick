@@ -187,3 +187,33 @@ test('receipt block is validated strictly', () => {
   assert.throws(() => ticket({ ...RECEIPT, extra: 1 }), /INVALID_TICKET/);
   assert.throws(() => ticket({ ...RECEIPT, cash_tendered_minor: '5.00' }), /INVALID_TICKET/);
 });
+
+test('the branded receipt survives extra 48-dash lines and a QR printed as its link', () => {
+  const extra = { type: 0, value: '-'.repeat(48), style: 0 };
+  const at = (pattern) => FORM.findIndex((l) => pattern.test(l.value));
+  const form = [...FORM];
+  form.splice(at(/ФДО:/), 0, extra); // requisites cut in two
+  form.splice(at(/ИТОГО/), 0, extra); // payments apart from the total
+  const qr = form.findIndex((l) => l.type === 2);
+  form[qr] = { type: 0, value: form[qr].value, style: 0 };
+  const rows = brandedFiscalRows(
+    parseTicket({
+      kind: 'fiscal',
+      fiscal_lines: form,
+      printed_at: '2026-11-26T07:01:10Z',
+      terminal_label: 'Касса 1',
+      receipt: RECEIPT,
+    }),
+  );
+  assert.ok(rows);
+  const texts = rows.map((r) => r.text ?? `${r.left} | ${r.right}`);
+  for (const kept of [
+    'Комбо Классик | 3 500 ₸',
+    'Барлығы/Итого | 4 190 ₸',
+    'Қолма-қол/Наличные | 4 190 ₸',
+    'ФДО/ОФД: ТОО "Smartcontract" (WOFD)',
+    'Фискальный чек',
+    'КЗН/ЗНМ: SWK00036966',
+  ])
+    assert.ok(texts.includes(kept), kept);
+});

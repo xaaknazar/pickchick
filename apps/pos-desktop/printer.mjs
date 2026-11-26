@@ -303,13 +303,20 @@ export function brandedFiscalRows(ticket) {
     if (line.type === 0 && SEPARATOR.test(line.value.trim())) sections.push([]);
     else sections.at(-1).push(line);
   }
-  const tail = sections.findIndex((s) => s.some((line) => line.type === 2));
+  // Cut by content, not by an exact count of 48-dash lines: Webkassa may split a block in two.
   const moneyAt = sections.findIndex((s) => s.some((line) => /ИТОГО/.test(line.value)));
-  if (sections.length < 6 || tail !== sections.length - 1 || moneyAt < 3 || moneyAt !== tail - 2)
-    return null;
+  const tail = sections.findIndex(
+    (s, i) => i > moneyAt && s.some((line) => line.type === 2 || /ФИСКАЛЬНЫЙ ЧЕК/.test(line.value)),
+  );
+  let goodsEnd = moneyAt - 1;
+  while (goodsEnd >= 2 && !sections[goodsEnd].some((line) => /Стоимость/.test(line.value)))
+    goodsEnd--;
+  if (moneyAt < 3 || tail < 0 || goodsEnd < 2) return null;
   const [header, info] = sections;
-  const goods = sections.slice(2, moneyAt).flat();
-  const requisites = sections[tail - 1];
+  const goods = sections.slice(2, goodsEnd + 1).flat();
+  const money = sections.slice(goodsEnd + 1, moneyAt + 1).flat();
+  const requisites = sections.slice(moneyAt + 1, tail).flat();
+  const tailLines = sections.slice(tail).flat();
   if (header.length < 2 || !info.length || !goods.length) return null;
   const items = [];
   for (const line of goods) {
@@ -353,7 +360,7 @@ export function brandedFiscalRows(ticket) {
   rows.push({ type: 'rule' });
   // Total first, then how it was paid (Webkassa prints the payments above the total).
   const paid = [];
-  for (const line of sections[moneyAt]) {
+  for (const line of money) {
     const value = squeeze(line.value);
     const amount = AMOUNT.exec(value);
     if (!amount) {
@@ -386,7 +393,7 @@ export function brandedFiscalRows(ticket) {
   }
   if (receipt.cashier) rows.push({ type: 'small', text: `Кассир: ${receipt.cashier}` });
   rows.push(...requisiteRows(requisites));
-  for (const line of sections[tail]) {
+  for (const line of tailLines) {
     if (line.type === 2) rows.push({ type: 'qr', text: line.value, qr: line.qr });
     else {
       const value = both(line.value);

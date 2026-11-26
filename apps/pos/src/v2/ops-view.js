@@ -926,6 +926,24 @@ export class OpsView {
     await this.print(fiscalTicket(status.print, this.terminalLabel, undefined, receipt));
     return true;
   }
+  /**
+   * «Печать чека» of the done screen (owner 26.11): with automatic Webkassa the branded fiscal
+   * receipt already carries the order, so it is printed again instead of a second short slip;
+   * while it is still being issued the cashier hears that it will print by itself.
+   */
+  async donePrint() {
+    const target = this.target();
+    const receipt = target?.sale.fiscal?.find((f) => f.kind === 'sale');
+    if (target && receipt && this.model.state.webkassaAuto) {
+      if (receipt.state === 'pending') {
+        this.say('Фискальный чек напечатается сам, как только Webkassa его оформит');
+        return;
+      }
+      if (receipt.state === 'recorded' && (await this.printWebkassa(receipt.receipt_id, target)))
+        return;
+    }
+    await this.printOrder();
+  }
   /** The order ticket of the paid order on screen (done screen or order card). */
   async printOrder() {
     const { order, sale } = this.model.state;
