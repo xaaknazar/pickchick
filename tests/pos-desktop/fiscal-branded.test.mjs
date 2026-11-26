@@ -88,7 +88,7 @@ const ticket = (receipt = RECEIPT) =>
     kind: 'fiscal',
     fiscal_lines: FORM,
     printed_at: '2026-11-26T07:01:10Z',
-    terminal_label: 'Касса 1',
+    terminal_label: 'ТЦ Abay Plaza',
     ...(receipt ? { receipt } : {}),
   });
 
@@ -150,6 +150,24 @@ test('branded receipt in Kazakh and Russian: logo, order, goods with choices, to
     texts.indexOf('ЖСН/ИИН 900101300000') < texts.indexOf('№27'),
     'taxpayer under the logo',
   );
+  // The point and its address right under the logo (owner 26.11).
+  assert.equal(texts[1], 'ТЦ Abay Plaza');
+  assert.ok(texts[2].startsWith('Мекенжай: Алматы қ.'));
+  assert.ok(texts[3].startsWith('Адрес: г.Алматы'));
+  assert.equal(texts.filter((t) => t.startsWith('Адрес:')).length, 1, 'the address once');
+});
+
+test('a desk label that names no point prints no point line', () => {
+  const rows = brandedFiscalRows(
+    parseTicket({
+      kind: 'fiscal',
+      fiscal_lines: FORM,
+      printed_at: '2026-11-26T07:01:10Z',
+      terminal_label: 'Локальная точка',
+      receipt: RECEIPT,
+    }),
+  );
+  assert.ok(rows[1].text.startsWith('Мекенжай:'));
 });
 
 test('the pickup line gets a Kazakh line above it', () => {
