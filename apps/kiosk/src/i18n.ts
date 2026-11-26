@@ -174,6 +174,10 @@ const ru = {
   loading: 'Загружаем меню…',
   unavailable: 'Не удалось загрузить меню',
   tryAgain: 'Попробовать снова',
+  // Audit 23.11 #2: shown instead of a screen that failed to draw; it restarts by itself.
+  crashTitle: 'Экран перезапускается',
+  crashBody:
+    'Что-то пошло не так. Киоск продолжит работу через несколько секунд. Если экран не меняется - пригласите сотрудника.',
   restore: 'Проверяем ваш заказ',
   restoreBody: 'Сначала проверим последний запрос, чтобы не создать второй заказ.',
   step: 'Шаг',
@@ -495,6 +499,9 @@ const kk: Strings = {
   loading: 'Мәзір жүктелуде…',
   unavailable: 'Мәзірді жүктеу мүмкін болмады',
   tryAgain: 'Қайталау',
+  crashTitle: 'Экран қайта іске қосылуда',
+  crashBody:
+    'Бірдеңе дұрыс болмады. Киоск бірнеше секундтан кейін жұмысын жалғастырады. Экран өзгермесе - қызметкерді шақырыңыз.',
   restore: 'Тапсырысыңызды тексереміз',
   restoreBody: 'Екінші тапсырыс жасамау үшін соңғы сұрауды тексереміз.',
   step: 'Қадам',
@@ -815,6 +822,9 @@ const en: Strings = {
   loading: 'Loading the menu…',
   unavailable: 'Could not load the menu',
   tryAgain: 'Try again',
+  crashTitle: 'The screen is restarting',
+  crashBody:
+    'Something went wrong. The kiosk will continue in a few seconds. If the screen does not change - call a team member.',
   restore: 'Checking your order',
   restoreBody: 'We are checking the last request first so that no second order is created.',
   step: 'Step',

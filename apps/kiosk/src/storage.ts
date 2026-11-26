@@ -49,7 +49,15 @@ export function createKioskIO(): KioskIO {
 const terminalTls = kaspiTlsFrom(KaspiTlsModule);
 
 /** Operator provisioning is device-local; no secret is bundled in Expo configuration. */
+let commercialIO: CommercialKioskIO | undefined;
+/**
+ * One object for the app's lifetime: it is the identity of this iPad's storage, by which a new
+ * controller retires the previous one (commercial-controller.ts, `owners`).
+ */
 export function createCommercialKioskIO(): CommercialKioskIO {
+  return (commercialIO ??= buildCommercialKioskIO());
+}
+function buildCommercialKioskIO(): CommercialKioskIO {
   const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
   const read = async (key: string) => {
     if (Platform.OS === 'web')
