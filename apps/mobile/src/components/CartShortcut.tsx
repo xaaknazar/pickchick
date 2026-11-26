@@ -42,7 +42,7 @@ import { usePaymentMethod } from '../usePaymentMethod';
 import { usePaymentAvailability } from '../usePaymentAvailability';
 import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
-import { brandColors, colors, font, themed, tc } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { tabCartGap } from '../tab-bar-metrics';
 import { BottomActions, Icon, MinorMoney } from './UI';
 
