@@ -16,7 +16,7 @@ import { StaffAuthController } from './staff-auth-controller.js';
 import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
 import { KdsController } from './kds-controller.js';
-import { RestoreFenceOnStart } from './restore-fence.js';
+import { RestoreFenceGuard, RestoreFenceOnStart } from './restore-fence.js';
 import { RemoteStopsLoop } from './remote-stops-loop.js';
 import { WebkassaLoop } from './webkassa-loop.js';
 
@@ -89,10 +89,14 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
     providers: [
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       RestoreFenceOnStart,
+      RestoreFenceGuard,
       RemoteStopsLoop,
       WebkassaLoop,
     ],
   })
   class EdgeModule {}
-  return createHttpApplication(EdgeModule);
+  const app = await createHttpApplication(EdgeModule);
+  // Until the restore fence has run, writing requests get 503 (docs/operations/edge-restore.md).
+  app.useGlobalGuards(app.get(RestoreFenceGuard));
+  return app;
 }

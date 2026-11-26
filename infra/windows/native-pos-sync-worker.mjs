@@ -28,14 +28,16 @@ export function validateWorkerConfig(config, origin, branchId, deviceId) {
 export async function readWindowsIdentity(path, schema, branchId, deviceId, now = Date.now()) {
   const info = await lstat(path);
   if (!info.isFile() || info.isSymbolicLink() || info.size > 4096)
-    throw new Error('Unsafe Windows identity file');
+    throw Object.assign(new Error('Unsafe Windows identity file'), { code: 'IDENTITY_UNSAFE' });
   const identity = schema.parse(JSON.parse(await readFile(path, 'utf8')));
   if (
     identity.branch_id !== branchId ||
     identity.device_id !== deviceId ||
     Date.parse(identity.expires_at) <= now
   )
-    throw new Error('Expired or mismatched Windows identity');
+    throw Object.assign(new Error('Expired or mismatched Windows identity'), {
+      code: 'IDENTITY_EXPIRED',
+    });
   return identity;
 }
 /**
@@ -43,6 +45,8 @@ export async function readWindowsIdentity(path, schema, branchId, deviceId, now 
  * of main(), with its own schedule in @pickchick/pos-order-sync (10 minutes while the cloud does
  * not support it, own backoff, empty probe while idle). Its failures stay here: they never delay,
  * stop or log as the two other streams. A runtime whose package has no sender skips the loop.
+ * A failure line carries the same whitelisted code as the other streams and is written when the
+ * failure changes (then every 10 minutes), with one `pos_sales_sync_recovered` line after it.
  */
 export async function runPosSalesLoop({
   pool,
@@ -56,13 +60,15 @@ export async function runPosSalesLoop({
   fail = (line) => console.error(line),
   pause = () =>
     delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
+  now = Date.now,
 }) {
   if (
     typeof sync.syncPosSalesOnce !== 'function' ||
     typeof sync.createPosSalesSchedule !== 'function'
   )
     return;
-  const schedule = sync.createPosSalesSchedule();
+  const schedule = sync.createPosSalesSchedule(),
+    standing = standingStates(once, now);
   do {
     let more = false;
     if (once || Date.now() >= schedule.nextAttemptAt) {
@@ -80,18 +86,133 @@ export async function runPosSalesLoop({
           { enabled: true, branchId, origin, identity: current },
           schedule,
         );
+        if (standing.clear('pos_sales_sync'))
+          log(JSON.stringify({ event: 'pos_sales_sync_recovered' }));
         // Whitelisted metadata only, as in main(): never bodies, URLs, credentials or identity.
         if (once || !['idle', 'busy', 'disabled', 'waiting'].includes(result.state))
           log(JSON.stringify({ event: 'pos_sales_sync', state: result.state }));
         more = result.state === 'delivered' && result.more;
         if (once && ['retry', 'parked'].includes(result.state)) process.exitCode = 1;
-      } catch {
-        fail(JSON.stringify({ event: 'pos_sales_sync_failed', retrying: !once }));
+      } catch (error) {
+        const code = syncErrorCode(error);
+        if (standing.due('pos_sales_sync', `failed:${code}`))
+          fail(JSON.stringify({ event: 'pos_sales_sync_failed', code, retrying: !once }));
         if (once) process.exitCode = 1;
       }
     }
     if (once || signal.aborted) break;
     if (!more) await pause();
+  } while (!signal.aborted);
+}
+/**
+ * Whitelisted error code of a failed step: PosSyncError.code, a PostgreSQL SQLSTATE or a Node
+ * system code, of the error or of its cause; without one the error class (ZodError,
+ * TypeError), so that different code-less failures are not one line. Anything else (messages,
+ * driver text, URLs, credentials) is never logged.
+ */
+export function syncErrorCode(error) {
+  for (const code of [error?.code, error?.cause?.code])
+    if (typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code)) return code;
+  const name = error?.name;
+  return typeof name === 'string' && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(name) ? name : 'UNKNOWN';
+}
+/** An unchanged retry, dead letter or failure is written again only after this long. */
+export const POS_SYNC_REPEAT_LOG_MS = 600_000;
+/**
+ * Which standing states (retry, dead letter, failure) were already written, per stream.
+ * `due` says whether the state needs a line: when it changed, and again every 10 minutes.
+ * `clear` forgets it and says whether there was one, which is when the stream recovered.
+ */
+function standingStates(once, now) {
+  const seen = new Map();
+  return {
+    due(stream, key) {
+      const last = seen.get(stream);
+      if (!once && last?.key === key && now() - last.at < POS_SYNC_REPEAT_LOG_MS) return false;
+      seen.set(stream, { key, at: now() });
+      return true;
+    },
+    clear: (stream) => seen.delete(stream),
+  };
+}
+/**
+ * The order and kitchen streams of main(). Each stream has its own try/catch: a stream that
+ * throws on every pass never keeps the other one from running, and its failure line names the
+ * stream and the error code.
+ *
+ * The loop passes about once a second, so a line is written when a stream's state changes, not
+ * on every pass: `delivered` always, `idle`/`busy`/`disabled` never, a standing `retry`,
+ * `dead_letter` or failure once and then every 10 minutes, and one `native_pos_sync_recovered`
+ * line when it is over. An unreadable (for example expired) identity file is read again with
+ * the 2 s .. 60 s backoff of the streams instead of every pass.
+ */
+export async function runPosStreamsLoop({
+  pool,
+  sync,
+  identity,
+  branchId,
+  origin,
+  once,
+  signal,
+  log = (line) => console.log(line),
+  fail = (line) => console.error(line),
+  pause = () =>
+    delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
+  now = Date.now,
+}) {
+  const standing = standingStates(once, now);
+  const recovered = (stream) => {
+    if (standing.clear(stream)) log(JSON.stringify({ event: 'native_pos_sync_recovered', stream }));
+  };
+  const failed = (stream, error) => {
+    const code = syncErrorCode(error);
+    if (standing.due(stream, `failed:${code}`))
+      fail(JSON.stringify({ event: 'native_pos_sync_failed', stream, code, retrying: !once }));
+    if (once) process.exitCode = 1;
+  };
+  let identityFailures = 0,
+    identityAt = 0;
+  do {
+    let delivered = false,
+      current;
+    if (once || now() >= identityAt)
+      try {
+        current = await identity();
+        identityFailures = 0;
+        recovered('identity');
+      } catch (error) {
+        identityFailures = Math.min(identityFailures + 1, 1000000);
+        identityAt = now() + Math.min(60000, 1000 * 2 ** Math.min(identityFailures, 6));
+        failed('identity', error);
+      }
+    if (current)
+      for (const [event, work] of [
+        ['pos_order_sync', sync.syncPosOrdersOnce],
+        ['pos_kitchen_sync', sync.syncPosKitchenOnce],
+      ]) {
+        try {
+          const { state } = await work(pool, {
+            enabled: true,
+            branchId,
+            origin,
+            identity: current,
+          });
+          // Whitelisted metadata only. Never log request bodies, driver errors,
+          // URLs, database credentials or the transport identity.
+          if (state === 'delivered') delivered = true;
+          if (once && ['retry', 'dead_letter'].includes(state)) process.exitCode = 1;
+          // `busy` is another holder of the same stream: it says nothing about its state.
+          if (state === 'busy' && !once) continue;
+          if (['idle', 'busy', 'disabled', 'delivered'].includes(state)) {
+            recovered(event);
+            if (once || state === 'delivered') log(JSON.stringify({ event, state }));
+          } else if (standing.due(event, state)) log(JSON.stringify({ event, state }));
+        } catch (error) {
+          failed(event, error);
+        }
+      }
+    if (once || signal.aborted) break;
+    if (!delivered) await pause();
   } while (!signal.aborted);
 }
 async function main() {
@@ -147,37 +268,15 @@ async function main() {
     signal: stop.signal,
   });
   try {
-    do {
-      let delivered = false;
-      try {
-        const identity = await readWindowsIdentity(
-          identityPath,
-          DeviceIdentitySchema,
-          branchId,
-          deviceId,
-        );
-        for (const [event, work] of [
-          ['pos_order_sync', sync.syncPosOrdersOnce],
-          ['pos_kitchen_sync', sync.syncPosKitchenOnce],
-        ]) {
-          const result = await work(pool, { enabled: true, branchId, origin, identity });
-          // Whitelisted metadata only. Never log request bodies, driver errors,
-          // URLs, database credentials or the transport identity.
-          if (once || !['idle', 'busy', 'disabled'].includes(result.state))
-            console.log(JSON.stringify({ event, state: result.state }));
-          if (result.state === 'delivered') delivered = true;
-          if (once && ['retry', 'dead_letter'].includes(result.state)) process.exitCode = 1;
-        }
-      } catch {
-        console.error(JSON.stringify({ event: 'native_pos_sync_failed', retrying: !once }));
-        if (once) process.exitCode = 1;
-      }
-      if (once || stop.signal.aborted) break;
-      if (!delivered)
-        await delay(1000 + Math.floor(Math.random() * 250), undefined, {
-          signal: stop.signal,
-        }).catch(() => undefined);
-    } while (!stop.signal.aborted);
+    await runPosStreamsLoop({
+      pool,
+      sync,
+      identity: () => readWindowsIdentity(identityPath, DeviceIdentitySchema, branchId, deviceId),
+      branchId,
+      origin,
+      once,
+      signal: stop.signal,
+    });
   } finally {
     // The posSales loop ends with the same signal (or after its single --once step).
     await sales;
