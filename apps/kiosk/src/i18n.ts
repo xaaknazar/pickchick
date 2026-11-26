@@ -194,8 +194,8 @@ const ru = {
   paymentConfirmed: 'Оплата подтверждена',
   paidNumberPending: 'Оплачено, номер появится на табло',
   awaitingRestaurant: 'Оплата подтверждена. Ожидаем ресторан.',
-  receiptIssued: 'Чек сформирован',
-  receiptMissing: 'Фискальный чек пока не сформирован. Обратитесь к сотруднику.',
+  receiptIssued: 'Чек можно забрать у кассира.',
+  receiptMissing: 'Чек напечатается у кассира, заберите его там.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Оплата по QR',
   hitTag: 'ХИТ',
@@ -505,8 +505,8 @@ const kk: Strings = {
   paymentConfirmed: 'Төлем расталды',
   paidNumberPending: 'Төленді, нөмір тақтада пайда болады',
   awaitingRestaurant: 'Төлем расталды. Мейрамхананы күтеміз.',
-  receiptIssued: 'Чек дайын',
-  receiptMissing: 'Фискалдық чек әлі жасалмады. Қызметкерге хабарласыңыз.',
+  receiptIssued: 'Чекті кассадан алыңыз.',
+  receiptMissing: 'Чек кассада басылады, оны сол жерден алыңыз.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'QR арқылы төлем',
   hitTag: 'ХИТ',
@@ -816,8 +816,8 @@ const en: Strings = {
   paymentConfirmed: 'Payment confirmed',
   paidNumberPending: 'Paid, your number will appear on the board',
   awaitingRestaurant: 'Payment confirmed. Waiting for the restaurant.',
-  receiptIssued: 'Receipt issued',
-  receiptMissing: 'The fiscal receipt has not been issued yet. Please contact a team member.',
+  receiptIssued: 'Please collect your receipt from the cashier.',
+  receiptMissing: 'Your receipt will print at the cashier desk. Please collect it there.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Pay by QR',
   hitTag: 'HIT',
