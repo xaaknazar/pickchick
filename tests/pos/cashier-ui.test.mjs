@@ -3941,8 +3941,16 @@ test('screens: automatic Webkassa prints the fiscal receipt with its QR once it 
   assert.equal(said[0], 'Webkassa не приняла чек: Нет открытой смены. Точка повторит сама');
   assert.equal(printer.calls.length, 2, 'drawer, then the fiscal receipt');
   const ticket = printer.calls[1][1];
+  // The branded receipt (26.11): the order number and lines of this very sale ride along.
+  const { receipt, ...form } = ticket;
+  assert.equal(receipt.display_number, model.state.sale.display_number);
   assert.deepEqual(
-    { ...ticket, printed_at: 'x' },
+    receipt.lines.map((l) => l.name),
+    model.state.order.snapshot.lines.map((l) => l.name.ru),
+  );
+  assert.equal(receipt.pickup_text, pickupText(model.state.sale));
+  assert.deepEqual(
+    { ...form, printed_at: 'x' },
     {
       kind: 'fiscal',
       fiscal_lines: [
@@ -4039,8 +4047,12 @@ test('screens: kiosk receipts print once on this desk; a restarted desk skips th
   now += 6 * 60_000;
   await ops.kioskTick();
   assert.equal(printer.calls.length, 1, 'only the fresh order; the hour-old one is backlog');
+  assert.deepEqual(printer.calls[0][1].receipt, {
+    display_number: '31',
+    lines: [],
+    pickup_text: 'Заказ из киоска',
+  });
   assert.deepEqual(printer.calls[0][1].fiscal_lines, [
-    { type: 0, value: 'Киоск · заказ №31', style: 1 },
     { type: 0, value: 'PICK CHICK ALA AP', style: 1 },
     { type: 2, value: 'https://consumer.oofd.kz?i=2', style: 0, qr },
   ]);
@@ -4056,7 +4068,7 @@ test('screens: kiosk receipts print once on this desk; a restarted desk skips th
   };
   await ops.kioskTick();
   assert.equal(printer.calls.length, 2);
-  assert.equal(printer.calls[1][1].fiscal_lines[0].value, 'Киоск · заказ №32');
+  assert.equal(printer.calls[1][1].receipt.display_number, '32');
   // A restarted desk takes what is older than a few minutes as handled.
   for (const r of edge.edge.kiosk.list) r.created_at = at(5);
   const again = await saleCashier(edge, storage);

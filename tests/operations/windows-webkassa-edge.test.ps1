@@ -52,23 +52,32 @@ try{
  Rejects {Update-ReviewedEnvBytes $dup 'EDGE_WEBKASSA_ACCOUNT_FILE' 'a' ''} 'Duplicate key'
  Check (-not (Get-ChildItem $temp -Filter '*.tmp')) 'No temp file left'
 }finally{Remove-Item $temp -Recurse -Force}
-# Mock SCM.
+# Mock SCM: Edge with the three reviewed dependents of a point server.
 $script:states=@{};$script:events=[Collections.Generic.List[string]]::new();$script:unknown=$false;$script:startFailure=''
-function Reset-Scm {$script:states=@{PickChickEdge='Running';PickChickKitchenLink='Running'};$script:events.Clear();$script:unknown=$false;$script:startFailure=''}
-function Get-Service($Name) {
+function Reset-Scm {$script:states=@{PickChickEdge='Running';PickChickKitchenLink='Running';PickChickKitchenLAN='Running';PickChickPosSync='Running'};$script:events.Clear();$script:unknown=$false;$script:startFailure='';$script:webkassaStarted=@()}
+function Get-Service {
+ [CmdletBinding()]param([Parameter(Position=0)]$Name)
+ if(-not $script:states.ContainsKey($Name)){if($ErrorActionPreference -eq 'SilentlyContinue'){return $null};throw 'No such service'}
  $s=[pscustomobject]@{Name=$Name;Status=$script:states[$Name];DependentServices=@()}
- if($Name -eq 'PickChickEdge'){$s.DependentServices=@([pscustomobject]@{Name='PickChickKitchenLink';Status=$script:states.PickChickKitchenLink});if($script:unknown){$s.DependentServices+=[pscustomobject]@{Name='Foreign';Status='Running'}}}
+ if($Name -eq 'PickChickEdge'){$s.DependentServices=@(foreach($d in @('PickChickKitchenLink','PickChickKitchenLAN','PickChickPosSync')){if($script:states.ContainsKey($d)){[pscustomobject]@{Name=$d;Status=$script:states[$d]}}});if($script:unknown){$s.DependentServices+=[pscustomobject]@{Name='Foreign';Status='Running'}}}
  $s|Add-Member ScriptMethod WaitForStatus {param($status,$timeout)if($script:states[$this.Name] -ne [string]$status){throw 'SCM wait failed'}}
  return $s
 }
 function Stop-Service($Name){$script:events.Add('stop:'+$Name);$script:states[$Name]='Stopped'}
 function Start-Service($Name){$script:events.Add('start:'+$Name);if($script:startFailure -eq $Name){$script:startFailure='';throw 'Start failed'};$script:states[$Name]='Running'}
+$all='stop:PickChickPosSync,stop:PickChickKitchenLAN,stop:PickChickKitchenLink,stop:PickChickEdge,replace,start:PickChickEdge,start:PickChickKitchenLink,start:PickChickKitchenLAN,start:PickChickPosSync'
 Reset-Scm;Invoke-WebkassaEdgeRestart {$script:events.Add('replace')}
-Check (($script:events -join ',') -ceq 'stop:PickChickKitchenLink,stop:PickChickEdge,replace,start:PickChickEdge,start:PickChickKitchenLink') 'Only Edge and KitchenLink restart in order'
+Check (($script:events -join ',') -ceq $all) 'Edge and its reviewed dependents restart in order'
+Reset-Scm;$script:states.PickChickKitchenLAN='Stopped';Invoke-WebkassaEdgeRestart {$script:events.Add('replace')}
+Check (-not ($script:events -contains 'start:PickChickKitchenLAN') -and $script:states.PickChickKitchenLAN -ceq 'Stopped') 'A stopped dependent stays stopped'
+Reset-Scm;$script:states.Remove('PickChickKitchenLAN');Invoke-WebkassaEdgeRestart {$script:events.Add('replace')}
+Check (($script:events -join ',') -ceq 'stop:PickChickPosSync,stop:PickChickKitchenLink,stop:PickChickEdge,replace,start:PickChickEdge,start:PickChickKitchenLink,start:PickChickPosSync') 'Missing dependent is skipped'
 Reset-Scm;$script:unknown=$true;Rejects {Invoke-WebkassaEdgeRestart {throw 'unreachable'}} 'Unknown dependent';Check ($script:events.Count -eq 0) 'Nothing stopped on unknown dependent'
+Reset-Scm;$script:states.PickChickEdge='Stopped';Rejects {Invoke-WebkassaEdgeRestart {throw 'unreachable'}} 'Stopped Edge refused without resume';Check ($script:events.Count -eq 0) 'Nothing touched when Edge is down'
 Reset-Scm;Rejects {Invoke-WebkassaEdgeRestart {throw 'CAS failed'}} 'CAS failure propagated'
-Check ($script:states.PickChickEdge -ceq 'Running' -and $script:states.PickChickKitchenLink -ceq 'Running') 'Services recover after CAS failure'
+Check (@($script:states.Values|Where-Object{$_ -ne 'Running'}).Count -eq 0) 'All services recover after CAS failure'
 Reset-Scm;$script:startFailure='PickChickEdge';Rejects {Invoke-WebkassaEdgeRestart {}} 'Failed start is not success'
-Invoke-WebkassaEdgeRestart {$script:events.Add('restore')} -ResumeStopped
-Check ($script:states.PickChickEdge -ceq 'Running' -and $script:states.PickChickKitchenLink -ceq 'Running') 'Rollback resumes a stopped Edge'
+Check ($script:states.PickChickEdge -ceq 'Stopped') 'Edge left stopped after its failed start'
+$script:events.Clear();Invoke-WebkassaEdgeRestart {$script:events.Add('restore')} -ResumeStopped
+Check (@($script:states.Values|Where-Object{$_ -ne 'Running'}).Count -eq 0) 'Rollback resumes a stopped Edge and every dependent it had stopped'
 Write-Output "$count webkassa edge guard checks passed"

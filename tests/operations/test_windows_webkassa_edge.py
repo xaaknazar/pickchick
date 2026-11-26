@@ -15,6 +15,12 @@ class WebkassaEdge(unittest.TestCase):
             self.assertIn(hashlib.sha256((ROOT / 'infra/windows' / name).read_bytes()).hexdigest(), operator)
         self.assertNotIn('Write-Output $bytes', operator)
         self.assertNotIn('Write-Host', operator)
+        # File.Replace keeps edge.env's existing (inherited) ACL: the after-check must accept the
+        # same ACL as the before-check, or a good write is reported as failed (26.11 test cashier).
+        cas = operator[operator.index('function Write-WebkassaEnvCas'):]
+        cas = cas[:cas.index('\n}\n')]
+        self.assertEqual(cas.count('Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed'), 2)
+        self.assertNotIn('Assert-Acl $Path -ServiceRead\n', cas)
 
     def test_executable_guards(self):
         exe = os.environ.get('PICKCHICK_TEST_PWSH') or shutil.which('pwsh') or shutil.which('powershell')
