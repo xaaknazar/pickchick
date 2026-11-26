@@ -443,6 +443,12 @@ export function saleContext(body: Record<string, unknown> | undefined): SaleErro
     ...(typeof first === 'string' ? { method: first } : {}),
   };
 }
+/**
+ * An amount sent to this desk's Kaspi Smart POS whose sale is not made yet (audit 26.11 P0-4).
+ * Kept in the journal so a restart, a crashed window or a power cut finds it again: the same
+ * quote and sale draft are restored and the sale is made as soon as the terminal says success.
+ */
+type TerminalHold = { attempt_id: string; quote: Quote; sale_draft: SaleDraft };
 type Journal = {
   version: 1;
   scope: string;
@@ -451,7 +457,33 @@ type Journal = {
   known: string[];
   selected: string | null;
   held?: Cart[];
+  terminal?: TerminalHold;
 };
+function parseTerminalHold(value: unknown): TerminalHold {
+  const h = parse.record(value),
+    d = parse.record(h.sale_draft);
+  const reviewed = d.reviewed === null ? null : parse.record(d.reviewed);
+  if (
+    !(parse.SALES_CHANNELS as readonly unknown[]).includes(d.channel) ||
+    typeof d.serviceModeChosen !== 'boolean' ||
+    typeof d.externalOrderRef !== 'string' ||
+    d.externalOrderRef.length > 40
+  )
+    throw new Error('STORAGE_DAMAGED');
+  return {
+    attempt_id: parse.uuid(h.attempt_id),
+    quote: parse.quote(h.quote),
+    sale_draft: {
+      channel: d.channel as SaleDraft['channel'],
+      serviceModeChosen: d.serviceModeChosen,
+      externalOrderRef: d.externalOrderRef,
+      reviewed: reviewed && {
+        quote_id: parse.uuid(reviewed.quote_id),
+        signature: parse.text(reviewed.signature, 20000),
+      },
+    },
+  };
+}
 export type State = {
   actor: StaffSession | null;
   menu: MenuSnapshot | null;
@@ -614,11 +646,14 @@ export function connectionLabel(
   s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'> & {
     /** PosController.stopsStale: the stop-list on screen may be out of date. */
     stopsStale?: boolean;
+    /** PosController.terminalRecovery: an operation of this desk's terminal nobody finishes. */
+    terminalRecovery?: string | null;
   },
 ): { label: string; tone: 'ok' | 'warn' | 'down' } {
   const local = s.operationsAvailable && !s.operationsError;
   if (!s.actor) return { label: 'Вход по личному PIN', tone: local ? 'ok' : 'down' };
   if (!local) return { label: 'Нет связи с кассой', tone: 'down' };
+  if (s.terminalRecovery) return { label: s.terminalRecovery, tone: 'down' };
   if (s.stopsStale) return { label: 'Стоп-лист не обновляется', tone: 'warn' };
   if (s.cloudLink?.state === 'offline')
     return { label: 'Нет интернета · касса работает', tone: 'warn' };
@@ -807,6 +842,7 @@ export class PosController {
                 return j.held.map(parse.cart);
               })(),
             }),
+        ...(j.terminal === undefined ? {} : { terminal: parseTerminalHold(j.terminal) }),
         draft: j.draft === null ? null : parse.cart(j.draft),
         pending,
         known: j.known.map(parse.uuid),
@@ -1090,9 +1126,94 @@ export class PosController {
     // Asked after every request of today's cashier, which stay as they were. The paid mode is
     // decided by the edge; a 404 or any failure keeps today's unpaid cashier.
     await this.refreshPosConfig(true);
+    await this.restoreTerminalHold();
+  }
+  /**
+   * After a restart: the amount this cashier sent to the terminal comes back with its quote and
+   * sale draft, so the screen shows it and the 1 s poll makes the sale once the guest has paid.
+   * A hold the edge no longer knows, already sold, or declined is dropped.
+   */
+  private async restoreTerminalHold() {
+    const hold = this.journal?.terminal,
+      epoch = this.generation;
+    if (!hold || !this.state.posConfig?.kaspi_terminal_link) return;
+    let t: TerminalPayment;
+    try {
+      t = parse.terminalPayment(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'NOT_FOUND') this.dropTerminalHold();
+      // Unreachable now: the recovery read of open payments shows it until the edge answers.
+      return;
+    }
+    if (epoch !== this.generation) return;
+    if (t.attempt_id !== hold.attempt_id || t.quote_id !== hold.quote.quote_id) return;
+    if (t.order_id || t.state === 'fail' || t.state === 'send_failed') {
+      this.dropTerminalHold();
+      return;
+    }
+    this.state.quote = hold.quote;
+    this.state.saleDraft = hold.sale_draft;
+    this.state.terminal = t;
+    this.emit();
+  }
+  /** Writes (or clears) the journal hold for the amount now on the terminal. */
+  private keepTerminalHold(t: TerminalPayment | null) {
+    const j = this.journal;
+    if (!j) return;
+    const keep =
+      t &&
+      !t.order_id &&
+      (terminalActive(t) || t.state === 'success' || t.state === 'lost') &&
+      this.state.quote?.quote_id === t.quote_id;
+    if (keep) {
+      if (j.terminal?.attempt_id === t.attempt_id) return;
+      this.save({
+        ...j,
+        terminal: {
+          attempt_id: t.attempt_id,
+          quote: this.state.quote!,
+          sale_draft: this.state.saleDraft,
+        },
+      });
+    } else if (j.terminal) this.dropTerminalHold();
+  }
+  private dropTerminalHold() {
+    const j = this.journal;
+    if (!j?.terminal) return;
+    const { terminal: _dropped, ...rest } = j;
+    void _dropped;
+    try {
+      this.save(rest);
+    } catch {
+      // Storage refused: the hold is dropped again at the next chance; nothing is charged by it.
+    }
+  }
+  /**
+   * Paid mode with a linked terminal: the open operations of this desk (GET
+   * pos/terminal-payments/open), and one status question to the terminal for each one still
+   * deciding that this screen does not poll itself, so a payment never stays stuck after a restart
+   * or a cashier change (audit 26.11 P0-4). The list is shown above the order screen.
+   */
+  async refreshTerminalRecovery() {
+    if (!this.saleMode || !this.state.posConfig?.kaspi_terminal_link) return;
+    await this.readOpenTerminalPayments();
+    const own = this.state.terminal?.attempt_id;
+    for (const t of this.state.terminalOpen.slice(0, 5)) {
+      if (t.attempt_id === own || !terminalActive(t)) continue;
+      try {
+        await this.request(`pos/terminal-payments/${t.attempt_id}`);
+      } catch {
+        // Asked again at the next refresh.
+      }
+    }
   }
   logout() {
     if (this.state.busy) return;
+    // The amount on the terminal belongs to this cashier's quote: locking now would hide it.
+    if (this.terminalHold) {
+      this.fail(new Error('TERMINAL_IN_PROGRESS'));
+      return;
+    }
     const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
@@ -1303,6 +1424,7 @@ export class PosController {
     this.operationsSaleAt = now;
     await this.refreshFiscal();
     await this.refreshShiftReport();
+    await this.refreshTerminalRecovery().catch(() => {});
   }
   /**
    * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
@@ -1802,8 +1924,10 @@ export class PosController {
       )
         throw new Error('INVALID_RESPONSE');
       const id = result.order.order_id;
+      const { terminal: _paidHold, ...rest } = j;
+      void _paidHold;
       this.save({
-        ...j,
+        ...rest,
         pending: null,
         selected: id,
         known: [id, ...j.known.filter((v) => v !== id)].slice(0, 100),
@@ -2287,14 +2411,35 @@ export class PosController {
         // The amount may have reached the terminal: what the edge recorded is shown instead.
         await this.readOpenTerminalPayments().catch(() => {});
         const open = this.state.terminalOpen.find((t) => t.quote_id === quote.quote_id);
-        if (open) this.state.terminal = open;
+        if (open) {
+          this.state.terminal = open;
+          this.keepTerminalHold(open);
+        }
         throw error;
       }
       const t = parse.terminalPayment(value);
       if (t.quote_id !== quote.quote_id || t.amount_minor !== quote.total_minor)
         throw new Error('INVALID_RESPONSE');
       this.state.terminal = t;
+      this.keepTerminalHold(t);
     });
+  }
+  /**
+   * The header line for an operation of this desk's Kaspi terminal that is not the one on this
+   * screen (another cashier's, or one whose answer was lost before a restart), or null. Paid
+   * without an order comes first: the guest has paid and has no order (audit 26.11 P0-4).
+   */
+  get terminalRecovery(): string | null {
+    const own = this.state.terminal?.attempt_id;
+    const other = this.state.terminalOpen.filter((t) => t.attempt_id !== own);
+    const paid = other.find((t) => t.state === 'success' && !t.order_id);
+    if (paid)
+      return `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
+    if (other.some((t) => t.state === 'lost'))
+      return 'Терминал Kaspi: проверьте последнюю операцию на его экране';
+    if (other.some((t) => terminalActive(t)))
+      return 'Терминал Kaspi занят: идёт оплата другого заказа';
+    return null;
   }
   /** Sent to the terminal and still deciding, or paid there without its sale yet. */
   get terminalHold() {
@@ -2329,6 +2474,7 @@ export class PosController {
         return;
       }
       this.state.terminal = next;
+      this.keepTerminalHold(next);
       this.emit();
       if (next.state !== 'success' || next.order_id) return;
     }
@@ -2340,6 +2486,7 @@ export class PosController {
   dismissTerminal() {
     if (terminalActive(this.state.terminal) || this.state.terminal?.state === 'success') return;
     this.state.terminal = null;
+    this.dropTerminalHold();
     this.emit();
   }
   /** GET pos/terminal-payments/open: operations of this desk a person must finish. */

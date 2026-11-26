@@ -507,7 +507,12 @@ function draw() {
   Object.assign(v, deskTexts(paid, config.appVersion, deskPaid ? deskNo : null));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   // Yellow as well: the stop-list on screen is not being refreshed.
-  const connection = connectionLabel({ ...m, stopsStale: model.stopsStale });
+  // Red as well: an operation of this desk's Kaspi terminal that nobody finishes (P0-4).
+  const connection = connectionLabel({
+    ...m,
+    stopsStale: model.stopsStale,
+    terminalRecovery: model.terminalRecovery,
+  });
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
@@ -1535,6 +1540,15 @@ setInterval(() => {
   if (reference.state.clock !== time()) schedule();
   // Kaspi Smart POS of this desk (ADR-0017): one poll a second while the terminal decides.
   if (model.state.actor && model.terminalHold) void sale.tick();
+  // A restart found the amount this cashier sent to the terminal (P0-4): back to its pay screen.
+  const held = model.state.terminal;
+  if (
+    held &&
+    (model.terminalHold || held.state === 'lost') &&
+    model.state.quote?.quote_id === held.quote_id &&
+    !sale.state.screen
+  )
+    sale.setState({ screen: 'pay', method: 'kaspi_terminal' });
 }, 1000);
 // One poll cycle at a time: a request may wait up to 12 s while the tick comes every 3 s, so
 // without this a slow edge collects overlapping cycles. A cycle that never settles is given up

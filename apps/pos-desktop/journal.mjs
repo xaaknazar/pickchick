@@ -188,6 +188,28 @@ function saleBody(path, body) {
   }
   if (body.approval !== undefined) proof(body.approval);
 }
+/**
+ * The amount on this desk's Kaspi terminal whose sale is not made yet (apps/pos model
+ * TerminalHold, audit 26.11 P0-4): the attempt, its quote as the edge answered it, and the sale
+ * draft. Nothing in it is sent anywhere by itself; the cashier reads it back after a restart.
+ */
+function terminalHold(value) {
+  const h = exact(value, ['attempt_id', 'quote', 'sale_draft']);
+  id(h.attempt_id);
+  const q = h.quote;
+  if (!q || typeof q !== 'object' || Array.isArray(q)) fail();
+  id(q.quote_id);
+  positive(q.total_minor);
+  const d = exact(h.sale_draft, ['channel', 'serviceModeChosen', 'externalOrderRef', 'reviewed']);
+  if (!['hall', 'yandex_eda', 'glovo'].includes(d.channel)) fail();
+  if (typeof d.serviceModeChosen !== 'boolean') fail();
+  if (typeof d.externalOrderRef !== 'string' || d.externalOrderRef.length > 40) fail();
+  if (d.reviewed !== null) {
+    exact(d.reviewed, ['quote_id', 'signature']);
+    id(d.reviewed.quote_id);
+    text(d.reviewed.signature, 20000);
+  }
+}
 export function validateJournal(key, raw, scope) {
   if (typeof scope !== 'string' || scope.split('.').length !== 3) fail();
   scope.split('.').forEach(id);
@@ -205,7 +227,9 @@ export function validateJournal(key, raw, scope) {
     'known',
     'selected',
     ...(Object.hasOwn(JSON.parse(raw), 'held') ? ['held'] : []),
+    ...(Object.hasOwn(JSON.parse(raw), 'terminal') ? ['terminal'] : []),
   ]);
+  if (j.terminal !== undefined) terminalHold(j.terminal);
   if (j.version !== 1 || j.scope !== scope || !Array.isArray(j.known) || j.known.length > 100)
     fail();
   j.known.forEach(id);

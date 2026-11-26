@@ -4999,7 +4999,7 @@ function terminalEdge() {
       terminal.attempts.set(attempt.attempt_id, attempt);
       return attempt;
     }
-    if (path === 'pos/terminal-payments/open') return { items: [] };
+    if (path === 'pos/terminal-payments/open') return { items: terminal.open ?? [] };
     if (path.startsWith('pos/terminal-payments/')) {
       base.calls.push({ path, ...globalThis.structuredClone(options) });
       const attempt = terminal.attempts.get(path.split('/')[2]);
@@ -5097,6 +5097,107 @@ test('Kaspi terminal linked: a declined or undelivered amount is sent again only
   assert.equal(edge.edge.posts.length, 0);
   model.dismissTerminal();
   assert.equal(model.state.terminal, null);
+});
+
+test('Kaspi terminal linked: a restart while the guest pays finds the amount and sells it (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const first = await saleCashier(edge, storage);
+  await reviewed(first, edge, 'takeaway');
+  const quote = first.state.quote;
+  await first.sendToTerminal();
+  assert.equal(first.terminalHold, true);
+  // The cashier cannot lock the desk while the amount is on the terminal.
+  first.logout();
+  assert.equal(first.state.error.message, 'TERMINAL_IN_PROGRESS');
+  assert.ok(first.state.actor);
+  // The window crashes: a new controller on the same journal, same desk and cashier.
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.error, null, String(second.state.error));
+  assert.equal(second.state.terminal?.state, 'wait');
+  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.reviewed, true);
+  assert.equal(second.terminalHold, true);
+  // Never a second amount for the same order.
+  await second.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 1);
+  edge.terminal.next.push({ state: 'success', transaction_id: '777', payment_method: 'qr' });
+  await second.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  assert.deepEqual(
+    posted(edge).map((b) => b.tenders),
+    [
+      [
+        {
+          method: 'kaspi_terminal',
+          amount_minor: quote.total_minor,
+          attempt_id: attempt.attempt_id,
+        },
+      ],
+    ],
+  );
+  assert.ok(second.state.sale, 'the guest who paid gets the order');
+  // The hold is gone with the sale: a third start finds nothing to resume.
+  const third = await saleCashier(edge, storage);
+  assert.equal(third.state.terminal, null);
+  assert.equal(third.state.quote, null);
+});
+
+test('Kaspi terminal linked: a declined amount found after a restart is dropped (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const first = await saleCashier(edge, storage);
+  await reviewed(first, edge, 'dine_in');
+  await first.sendToTerminal();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  Object.assign(attempt, { state: 'fail', message: 'Операция отклонена' });
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.terminal, null);
+  assert.equal(second.terminalHold, false);
+  const third = await saleCashier(edge, storage);
+  assert.equal(
+    edge.calls.filter((c) => c.path === `pos/terminal-payments/${attempt.attempt_id}`).length,
+    1,
+    'the dropped hold is not asked about again',
+  );
+  assert.equal(third.state.terminal, null);
+});
+
+test('Kaspi terminal linked: another operation of the desk shows in the header and is polled (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  const foreign = {
+    attempt_id: randomUUID(),
+    quote_id: randomUUID(),
+    terminal_id: randomUUID(),
+    amount_minor: '150000',
+    state: 'wait',
+    sub_status: null,
+    transaction_id: null,
+    payment_method: null,
+    message: null,
+    order_id: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  edge.terminal.attempts.set(foreign.attempt_id, foreign);
+  edge.terminal.open = [foreign];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalRecovery, 'Терминал Kaspi занят: идёт оплата другого заказа');
+  assert.equal(
+    connectionLabel({ ...model.state, terminalRecovery: model.terminalRecovery }).tone,
+    'down',
+  );
+  assert.ok(
+    edge.calls.some((c) => c.path === `pos/terminal-payments/${foreign.attempt_id}`),
+    'the edge is asked to check the terminal',
+  );
+  edge.terminal.open = [{ ...foreign, state: 'success', transaction_id: '9' }];
+  await model.refreshTerminalRecovery();
+  assert.match(model.terminalRecovery, /^Оплачено на терминале .* без заказа/);
+  edge.terminal.open = [];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalRecovery, null);
 });
 
 test('Kaspi terminal linked: the pay screen sends, waits and blocks going back', async () => {
