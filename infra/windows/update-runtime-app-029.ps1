@@ -18,6 +18,7 @@ param(
  [Parameter(Mandatory=$true)][guid]$BranchId,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{40}$')][string]$PredecessorCommit,
  [switch]$AllowSameDiskBackup,
+ [switch]$AcceptInterruptedPredecessor,
  [switch]$Apply
 )
 Set-StrictMode -Version Latest
@@ -200,8 +201,20 @@ $newRoot=Join-Path $program ('Edge\edge-'+$SourceCommit.Substring(0,7));$script:
 $stateRoot=Join-Path $data ('EdgeTools\runtime-app-029-'+$SourceCommit.Substring(0,7))
 if((Test-Path $newRoot) -or (Test-Path $stateRoot) -or (Test-Path (Join-Path $data ('EdgeTools\runtime-head-029-'+$SourceCommit.Substring(0,7))))){throw 'Existing attempt retained; inspect outcome, no replay.'}
 Assert-ProtectedDirectory $step028
-foreach($p in @($CiProof,$script:ownerEnv,(Join-Path $step028 'completed.json'))){Assert-UpdateAcl $p}
-$previous=Get-Content (Join-Path $step028 'completed.json') -Raw|ConvertFrom-Json
+foreach($p in @($CiProof,$script:ownerEnv)){Assert-UpdateAcl $p}
+$completedPath=Join-Path $step028 'completed.json';$interrupted=$false
+if(Test-Path -LiteralPath $completedPath){Assert-UpdateAcl $completedPath;$previous=Get-Content $completedPath -Raw|ConvertFrom-Json}
+elseif($AcceptInterruptedPredecessor -and (Split-Path $step028 -Leaf) -ceq ('runtime-app-029-'+$PredecessorCommit.Substring(0,7))){
+ # Cashier 26.11.2026 (da9f612): a run of this operator switched and started every runtime, then
+ # stopped on a restart of PickChickSyncTunnel before writing completed.json. Only its own
+ # inputs.json stands in for the record; the exact predecessor bindings, the installed runtime
+ # manifest with every file hash and the schema029 ledger are still proven below.
+ $inputsPath=Join-Path $step028 'inputs.json';Assert-UpdateAcl $inputsPath
+ $inputs=Get-Content $inputsPath -Raw|ConvertFrom-Json
+ if($inputs.sourceCommit -cne $PredecessorCommit -or $inputs.predecessorCommit -cnotmatch '^[a-f0-9]{40}$'){throw 'Interrupted predecessor inputs differ.'}
+ $previous=[pscustomobject]@{sourceCommit=$inputs.sourceCommit;predecessorCommit=$inputs.predecessorCommit;schema=29;databasePreserved=$true;environmentChanged=$false};$interrupted=$true
+}
+else{throw 'Completed schema029 runtime of the exact predecessor required.'}
 Assert-HeadPredecessor $previous $PredecessorCommit
 $originalApp=Join-Path $program ('Edge\edge-'+$previous.predecessorCommit.Substring(0,7)+'\app')
 $ci=Get-Content $CiProof -Raw|ConvertFrom-Json;Assert-UnifiedCi $ci $SourceCommit
@@ -265,6 +278,6 @@ try{
  foreach($spec in $specs){$s=Get-CimInstance Win32_Service -Filter "Name='$($spec[0])'";$children=@(Get-CimInstance Win32_Process -Filter "ParentProcessId=$($s.ProcessId)"|Where-Object {$_.Name -ieq 'node.exe' -and $_.CommandLine.Contains($script:newApp)});if($s.State -cne 'Running' -or $children.Count -ne 1){throw 'Candidate service process verification failed.'}}
  if((Get-Service 'PickChickKitchenLink').Status -ne 'Running'){throw 'KitchenLink did not resume.'}
  Assert-RuntimePreserved;Assert-RuntimeLedger (Read-RuntimeLedger).ledger $ledger
- Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;predecessorCommit=$PredecessorCommit;schema=29;completedAt=[DateTime]::UtcNow.ToString('o');environmentChanged=$false;databasePreserved=$true}|ConvertTo-Json)
+ Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;predecessorCommit=$PredecessorCommit;schema=29;completedAt=[DateTime]::UtcNow.ToString('o');environmentChanged=$false;databasePreserved=$true;predecessorInterrupted=$interrupted}|ConvertTo-Json)
  Write-Output 'READY: schema029 unchanged and four native runtimes on the candidate verified; credentials, terminal links and optional flags unchanged.'
 }finally{$zip.Dispose();$archive.Dispose();if($lease){$lease.Dispose()}}

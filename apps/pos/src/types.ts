@@ -1206,6 +1206,78 @@ export function fiscalPending(value: unknown): FiscalPendingItem[] {
     throw new Error('INVALID_RESPONSE');
   return receipts;
 }
+/** One line of the Webkassa print form, ready for the printer ticket kind 'fiscal'. */
+export type WebkassaPrintLine = { type: 0 | 2; value: string; style: 0 | 1; qr?: string[] };
+/** GET pos/fiscal-receipts/{id}/webkassa(/print): the automatic Webkassa state of one receipt. */
+export type WebkassaReceipt = {
+  receipt_id: string;
+  state: 'pending' | 'recorded' | 'not_required';
+  receipt_number: string | null;
+  error: { code: number; text: string } | null;
+  attempts: number;
+  print: WebkassaPrintLine[] | null;
+};
+export function webkassaReceipt(value: unknown): WebkassaReceipt {
+  const v = record(value);
+  const state = oneOf(v.state, ['pending', 'recorded', 'not_required'] as const);
+  const error = v.error === null || v.error === undefined ? null : record(v.error);
+  const print =
+    v.print === null || v.print === undefined
+      ? null
+      : array(v.print, 400).flatMap((x): WebkassaPrintLine[] => {
+          const l = record(x);
+          if (typeof l.value !== 'string' || l.value.length > 600) return [];
+          const style = l.style === 1 ? 1 : 0;
+          // Only text and QR lines are printable; a QR without its matrix prints as its link.
+          if (l.type === 2 && Array.isArray(l.qr))
+            return [
+              { type: 2, value: l.value, style: 0, qr: array(l.qr, 177).map((r) => text(r, 177)) },
+            ];
+          if (l.type === 0 || l.type === 2) return [{ type: 0, value: l.value, style }];
+          return [];
+        });
+  return {
+    receipt_id: uuid(v.receiptId),
+    state,
+    receipt_number:
+      v.receiptNumber === null || v.receiptNumber === undefined ? null : text(v.receiptNumber, 64),
+    error: error
+      ? { code: integer(error.code, 0), text: String(error.text ?? '').slice(0, 300) }
+      : null,
+    attempts: integer(v.attempts, 0),
+    print,
+  };
+}
+/** GET pos/kiosk-receipts: today's paid kiosk orders whose receipt this desk prints. */
+export type KioskReceipt = { order_id: string; display_number: string; created_at: string };
+export function kioskReceipts(value: unknown): KioskReceipt[] {
+  return array(record(value).receipts, 100).map((x) => {
+    const r = record(x);
+    return {
+      order_id: uuid(r.order_id),
+      display_number: displayNumber(r.display_number),
+      created_at: date(r.created_at),
+    };
+  });
+}
+/** GET pos/kiosk-receipts/{id}/print: the Webkassa print form of that kiosk receipt. */
+export function kioskReceiptPrint(value: unknown) {
+  const v = record(value);
+  const status = webkassaReceipt({
+    receiptId: v.order_id,
+    state: 'recorded',
+    receiptNumber: null,
+    error: null,
+    attempts: 0,
+    print: v.print,
+  });
+  if (!status.print?.length) throw new Error('INVALID_RESPONSE');
+  return {
+    order_id: status.receipt_id,
+    display_number: displayNumber(v.display_number),
+    print: status.print,
+  };
+}
 /** A signed amount of tiyn ("-1500", "0", "2500"); "-0" is not a number the edge writes. */
 function signed(value: unknown): string {
   const result = text(value, 21);

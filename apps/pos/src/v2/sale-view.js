@@ -555,7 +555,9 @@ export class SaleView {
               : 'К ОПЛАТЕ · ' + total,
       ...(ready ? {} : { payBtnBg: 'var(--n300)', payBtnFg: 'var(--n600)', payBtnShadow: 'none' }),
       toPay: g(() => this.startPayment()),
-      kkmLine: 'Чеки: вручную в Webkassa',
+      kkmLine: this.model.state.webkassaAuto
+        ? 'Чеки: Webkassa автоматически'
+        : 'Чеки: вручную в Webkassa',
     };
   }
   /**

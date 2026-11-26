@@ -18,6 +18,7 @@ import { FulfillmentController } from './fulfillment-controller.js';
 import { KdsController } from './kds-controller.js';
 import { RestoreFenceOnStart } from './restore-fence.js';
 import { RemoteStopsLoop } from './remote-stops-loop.js';
+import { WebkassaLoop } from './webkassa-loop.js';
 
 @Controller('edge/v1')
 class LocalMenuController {
@@ -89,6 +90,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       RestoreFenceOnStart,
       RemoteStopsLoop,
+      WebkassaLoop,
     ],
   })
   class EdgeModule {}

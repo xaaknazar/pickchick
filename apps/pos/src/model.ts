@@ -495,6 +495,8 @@ export type State = {
    * "ЗАКАЗЫ" rows say оформлен / не оформлен / не нужен as the X report counts receipts.
    */
   saleReceipts: Record<string, SaleFiscal['state']>;
+  /** Automatic Webkassa answered on this point (true), or 404: receipts by hand (false). */
+  webkassaAuto: boolean | null;
   /** The amount this desk sent to its Kaspi Smart POS for the quote on screen (ADR-0017). */
   terminal: TerminalPayment | null;
   /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
@@ -584,6 +586,7 @@ const blankOperations = () => ({
   shiftReport: null,
   zReport: null,
   saleReceipts: {},
+  webkassaAuto: null,
   terminal: null as TerminalPayment | null,
   terminalOpen: [] as TerminalPayment[],
   branchOrders: null as BranchOrders | null,
@@ -625,6 +628,8 @@ const AUTH_KEY = 'pickchick.pos.staff-session.v1';
 export const scopeFor = (actor: StaffSession) =>
   `${actor.branch_id}.${actor.staff_id}.${actor.terminal_id}`;
 const journalKey = (scope: string) => `pickchick.pos.journal.v1.${scope}`;
+/** Kiosk orders older than this at the first read of a session are not printed by this desk. */
+export const KIOSK_BACKLOG_MS = 3 * 60_000;
 const unchanged = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 /** The edge's tenders are exactly the requested ones (method and amount, in any order). */
 function sameTenders(actual: PosSale['tenders'], requested: unknown) {
@@ -2623,6 +2628,75 @@ export class PosController {
       this.state.saleReceipts = next;
     }
     return receipts;
+  }
+  /**
+   * Automatic Webkassa (point server webkassa-fiscal.ts): the state of one receipt and, with
+   * `withPrint` once issued, its print form with the QR. null: the point issues receipts by
+   * hand (no Webkassa account, 404), so the cashier punches it as before. Read-only.
+   */
+  async webkassaReceipt(receiptId: string, withPrint = false) {
+    try {
+      const status = parse.webkassaReceipt(
+        await this.request(
+          `pos/fiscal-receipts/${parse.uuid(receiptId)}/webkassa${withPrint ? '/print' : ''}`,
+        ),
+      );
+      this.state.webkassaAuto = true;
+      return status;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        this.state.webkassaAuto = false;
+        return null;
+      }
+      throw error;
+    }
+  }
+  /**
+   * Kiosk receipts this desk still has to print (owner 25.11: the kiosk prints on the cashier
+   * printer). null: the point has no Webkassa account (404). The desk keeps the printed ones in
+   * memory (pos-desktop storage holds only the journal): the first read of a session takes orders
+   * older than KIOSK_BACKLOG_MS as handled, so a restarted desk does not print the day again.
+   */
+  async kioskReceiptsToPrint() {
+    let list: parse.KioskReceipt[];
+    try {
+      list = parse.kioskReceipts(await this.request('pos/kiosk-receipts'));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+    if (!this.kioskPrinted) {
+      this.kioskPrinted = new Set(
+        list
+          .filter((r) => this.now() - Date.parse(r.created_at) > KIOSK_BACKLOG_MS)
+          .map((r) => r.order_id),
+      );
+    }
+    const printed = this.kioskPrinted;
+    return list.filter((r) => !printed.has(r.order_id)).reverse();
+  }
+  async kioskReceiptPrint(orderId: string) {
+    return parse.kioskReceiptPrint(
+      await this.request(`pos/kiosk-receipts/${parse.uuid(orderId)}/print`),
+    );
+  }
+  /** Marks one kiosk receipt as handled by this desk (sent to the printer). */
+  markKioskPrinted(orderId: string) {
+    if (!this.kioskPrinted) return;
+    this.kioskPrinted.add(orderId);
+    if (this.kioskPrinted.size > 300)
+      this.kioskPrinted.delete(this.kioskPrinted.values().next().value!);
+  }
+  private kioskPrinted: Set<string> | null = null;
+  /** After an automatic receipt: the sale on screen and the receipt badge read it again. */
+  async noteWebkassaIssued(orderId: string) {
+    const epoch = this.generation;
+    try {
+      await this.readSale(parse.uuid(orderId));
+      if (epoch === this.generation) this.emit();
+    } catch {
+      // Best effort: the 3 s refresh and the next card read show it as well.
+    }
   }
   /** Best effort for the badge and the tab; a failed read keeps the last list. */
   async refreshFiscal(scope: FiscalPending['scope'] = this.state.fiscal?.scope ?? 'shift') {

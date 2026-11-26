@@ -23,8 +23,12 @@ SHA-256 помощники. Пароли, identity и токены в чат н�
    вручную и дождаться результата 0).
 2. Отключить задачу копий на время окна и остановить: `PickChickPosSync`,
    `PickChickFulfillmentWorker`, `PickChickMenuSyncWorker`, `PickChickDeviceAccessWorker`,
-   `PickChickKitchenLink`, `PickChickKitchenLAN`, `PickChickEdge`. `PickChickPostgres`,
-   `PickChickFulfillmentTunnel` и `PickChickSyncTunnel` продолжают работать.
+   `PickChickKitchenLink`, `PickChickKitchenLAN`, `PickChickEdge`, затем `PickChickSyncTunnel`.
+   `PickChickPostgres` и `PickChickFulfillmentTunnel` продолжают работать. Туннель
+   синхронизации нужен только `PickChickPosSync` и сам перезапускается после сбоя сети; на
+   кассе 26.11 его перезапуск остановил оператор после переключения («Unrelated service
+   changed.»). Оператор запускает `PickChickPosSync` последним, и Windows поднимает туннель
+   вместе с ним.
 3. Оператор: сначала без `-Apply` (`VERIFIED: …`), затем с `-Apply` (`READY: …`):
 
    ```powershell
@@ -53,6 +57,11 @@ SHA-256 помощники. Пароли, identity и токены в чат н�
 - `-PredecessorCommit`: исходник установленного рантайма (на тестовой кассе 23.11:
   `8290c87f7e1cf3262d59c7014aec25ed0eb97a3c`). Его каталог состояния содержит
   `completed.json` (schema 29, с `predecessorCommit`) и `original-0..3.xml`.
+- `-AcceptInterruptedPredecessor`: только для предшественника, чей запуск этого же оператора
+  переключил и запустил службы, но не записал `completed.json` (тестовая касса, `da9f612`,
+  26.11). Вместо записи читается его `inputs.json`; привязки служб, manifest и хеши
+  установленных файлов и журнал 001-029 проверяются как обычно. Новый `completed.json`
+  отмечает это полем `predecessorInterrupted`.
 
 ## Что проверяется до изменений
 

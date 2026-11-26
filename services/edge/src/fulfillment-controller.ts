@@ -134,6 +134,8 @@ function kitchenOrder(
         ...(task.details.kds
           ? { kds: FulfillmentTaskKdsSchema.strip().parse(task.details.kds) }
           : {}),
+        ...(task.details.weightG ? { weightG: task.details.weightG } : {}),
+        ...(task.details.lineQuantity ? { lineQuantity: task.details.lineQuantity } : {}),
       },
     })),
   });

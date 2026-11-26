@@ -134,7 +134,7 @@ const sale = new SaleView(model, {
   next: nextOrder,
   // Declared below; called only after a sale is paid or its ticket is asked for.
   onSold: (paid) => ops.sold(paid),
-  printOrder: () => ops.printOrder(),
+  printOrder: () => ops.donePrint(),
 });
 // Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
 const ops = new OpsView(model, sale, {
@@ -1545,6 +1545,8 @@ setInterval(() => {
         await model.refreshSaleReceipts(dayOrders().map((o) => o.order_id));
       }
       if (!blocked()) await model.syncMenu();
+      // Kiosk receipts on this desk's printer (Webkassa points only; 404 otherwise).
+      if (model.saleMode && !blocked()) await ops.kioskTick();
     });
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.
