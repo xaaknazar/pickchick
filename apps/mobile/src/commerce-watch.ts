@@ -11,7 +11,11 @@ export function watchRetryDelay(error: unknown, failures: number): number | null
   return Math.min(30_000, 1000 * 2 ** Math.min(Math.max(failures - 1, 0), 5));
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
+/**
+ * A delay that ends at once on abort (also when already aborted) and leaves no listener behind
+ * on the signal, however many times a loop waits on the same one.
+ */
+export function wait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const finish = () => {
       clearTimeout(timer);
@@ -22,6 +26,47 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener('abort', finish, { once: true });
     if (signal.aborted) finish();
   });
+}
+
+/**
+ * The revision a watch asks after: the one the screen shows when the watch starts, then the one of
+ * each answer this watch accepted. The loop reads again right after an answer, before React
+ * renders, so the cursor moves here and not with the render (the server would answer a repeated
+ * revision at once). It never takes a revision from anywhere else: a ref that holds a newer copy
+ * of the order than the screen shows would make the watch wait while the screen stays old.
+ */
+export function createWatchCursor<R>(shown: { orderId: string; revision: R }) {
+  let revision = shown.revision;
+  return {
+    after: () => revision,
+    accepted(next: { orderId: string; revision: R }) {
+      if (next.orderId === shown.orderId) revision = next.revision;
+    },
+  };
+}
+
+/** How long a group of watches waits before it starts again after one of them ended for good. */
+export const WATCH_RESTART_MS = 60_000;
+/**
+ * A bounded retry for watches that ended on an error they do not retry themselves (a refusal, a
+ * broken answer, a storage failure): one restart of the group, `ms` after the first such end.
+ * `stop` (the group was restarted or left for another reason) cancels it.
+ */
+export function createWatchRestart(restart: () => void, ms: number = WATCH_RESTART_MS) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+  return {
+    ended() {
+      if (stopped || timer) return;
+      timer = setTimeout(() => {
+        if (!stopped) restart();
+      }, ms);
+    },
+    stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    },
+  };
 }
 
 /** Foreground, sequential long polling. Abort cancels both HTTP and reconnect timers. */

@@ -4,7 +4,11 @@ import { t, localize, useLocale } from '../i18n';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
-import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
+import {
+  recoverCommerceRead,
+  historyOrderNeedsWatch,
+  watchedHistoryKey,
+} from '../commerce-read-recovery';
 import {
   PAYMENT_COMMAND,
   orderingForbidden,
@@ -36,7 +40,12 @@ import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
-import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
+import {
+  createWatchCursor,
+  createWatchRestart,
+  watchCommerceOrder,
+  watchRetryDelay,
+} from '../commerce-watch';
 import {
   commerceRequest,
   CustomerCommerceOrderSchema,
@@ -95,7 +104,11 @@ import {
   usePaymentMethod,
 } from '../usePaymentMethod';
 import { phoneWallets, useTipTopPayCheckout } from '../useTipTopPayCheckout';
-import { TIPTOPPAY_TEST_BUILD, connectedTipTopPayMethods } from '../tiptoppay-checkout';
+import {
+  TIPTOPPAY_TEST_BUILD,
+  confirmConnectedMethod,
+  connectedTipTopPayMethods,
+} from '../tiptoppay-checkout';
 import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
 import { receiptShown } from '../store-build';
 import { runSlidePayIntent } from '../slide-pay-intent';
@@ -205,6 +218,8 @@ function KaspiCheckoutSession(
   // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
   const [methodStop, setMethodStop] = useState(false);
   useEffect(() => setMethodStop(false), [payment.method]);
+  const methodRef = useRef(payment.method);
+  methodRef.current = payment.method;
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
@@ -252,6 +267,9 @@ function KaspiCheckoutSession(
     : undefined;
   const giftDiscount = props.model.comboRewards?.discountMinor ?? '0';
   const localTotal = (BigInt(cartTotal(props.model.cart)) - BigInt(giftDiscount)).toString();
+  // The total the pay button shows now, for a press that continues after an await (submit).
+  const shownTotal = useRef(localTotal);
+  shownTotal.current = quote?.totalMinor ?? localTotal;
   const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode, '', giftIndex);
   // Lines, modifiers, gift and «В зале / С собой»: what a cart edit changes.
   const lastCartKey = useRef<string | null>(null);
@@ -533,13 +551,14 @@ function KaspiCheckoutSession(
       return;
     const controller = new AbortController();
     orderWatch.current = controller;
+    const cursor = createWatchCursor(order);
     void watchCommerceOrder({
       signal: controller.signal,
       read: (signal) =>
-        request(`/orders/${order.orderId}/watch?after=${order.revision}`, 'GET', undefined, signal),
+        request(`/orders/${order.orderId}/watch?after=${cursor.after()}`, 'GET', undefined, signal),
       accept: async (next) => {
         // A watch answer is never the create command of a pending intent.
-        await acceptRef.current(next, false);
+        cursor.accepted(await acceptRef.current(next, false));
       },
       // Connection recovery keeps the last confirmed order on screen without banners.
       onError: () => {},
@@ -549,12 +568,24 @@ function KaspiCheckoutSession(
       controller.abort();
       if (orderWatch.current === controller) orderWatch.current = null;
     };
-    // watchRun: «Проверить ещё раз» starts a fresh watch after its own read.
-  }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchRun]);
+    // watchRun: «Проверить ещё раз» starts a fresh watch after its own read. Not the revision:
+    // the loop keeps its own (createWatchCursor), so one watch follows the order through its
+    // revisions instead of being aborted and started again by each of its own answers.
+  }, [request, order?.orderId, order?.phase, foreground, watchRun]);
+  // The list's watches depend on which orders are watched, not on the list itself: an answer
+  // updates the list (setHistory below) and must not abort and reissue every other long-poll.
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const watchedHistory = watchedHistoryKey(history);
+  // A watch that ended for good (an error it does not retry) is started again a minute later,
+  // with the others: before, any change of the list did that; now the list no longer restarts.
+  const [historyWatchRun, setHistoryWatchRun] = useState(0);
   useEffect(() => {
-    if (props.screenId !== 'M19' || order || !foreground) return;
+    if (props.screenId !== 'M19' || order || !foreground || !watchedHistory) return;
     const controller = new AbortController();
-    for (const item of history.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
+    const restart = createWatchRestart(() => setHistoryWatchRun((run) => run + 1));
+    // Each watch starts from the revision the list shows now and then follows its own answers.
+    for (const item of historyRef.current.filter((entry) => historyOrderNeedsWatch(entry.phase))) {
       let revision = item.revision;
       void watchCommerceOrder({
         signal: controller.signal,
@@ -577,12 +608,17 @@ function KaspiCheckoutSession(
               items.map((entry) => (entry.orderId === next.orderId ? next : entry)),
             );
         },
-        onError: () => {},
+        onError: (_error, reconnecting) => {
+          if (!reconnecting) restart.ended();
+        },
         onRecovered: () => {},
       });
     }
-    return () => controller.abort();
-  }, [props.screenId, order, foreground, history, request, key]);
+    return () => {
+      restart.stop();
+      controller.abort();
+    };
+  }, [props.screenId, order, foreground, watchedHistory, historyWatchRun, request, key]);
 
   // Tab badge mirrors the list already loaded here; no extra request or poll.
   const activeCount =
@@ -731,9 +767,49 @@ function KaspiCheckoutSession(
     // nothing is created, quoted or sent.
     if (payment.method !== 'kaspi') {
       // TipTopPay card / Apple Pay / Google Pay (18.11.2026) when this cart may offer it now.
-      if (connectedMethodsStore.methods().includes(payment.method)) {
+      if (connectedMethodsStore.fresh()) {
+        if (connectedMethodsStore.methods().includes(payment.method)) {
+          setMethodStop(false);
+          tipTopPay.start(payment.method, quote?.totalMinor ?? localTotal);
+          return;
+        }
+        setMethodStop(true);
+        return;
+      }
+      // No /config answer in this app run yet (audit 23.11 #3): the handle shows the customer's
+      // last method on the phone's word and the list is an earlier run's. The server is asked
+      // before the press is started or refused. This only reads /config; the press itself (its
+      // consent, quote, order and charge) is tipTopPay.start below, unchanged.
+      const method = payment.method;
+      const controller = new AbortController();
+      preparation.current = controller;
+      lock.current = true;
+      setTipTopPayBusy(true);
+      let connected: boolean;
+      try {
+        connected = await confirmConnectedMethod(connectedMethodsStore, method, async () => {
+          const setup = CustomerCheckoutConfigSchema.parse(
+            await request('/config', 'GET', undefined, controller.signal),
+          );
+          if (controller.signal.aborted) return;
+          noteCheckoutSwitch(customerId, setup.enabled);
+          noteConnectedMethods(setup);
+          setConfig(setup);
+        });
+      } finally {
+        if (preparation.current === controller) preparation.current = null;
+        lock.current = false;
+        setTipTopPayBusy(false);
+      }
+      // Left the cart, emptied it or chose another method meanwhile: that press is over, nothing
+      // starts.
+      if (controller.signal.aborted || methodRef.current !== method || !cart.current.length) return;
+      if (connected) {
         setMethodStop(false);
-        tipTopPay.start(payment.method, quote?.totalMinor ?? localTotal);
+        // The read can take a while (a reprice, a cart edit meanwhile): the card sheet shows the
+        // total of this moment, not the one of the render of the press. The charge itself is the
+        // fresh quote of tipTopPay.start, as before.
+        tipTopPay.start(method, shownTotal.current);
         return;
       }
       setMethodStop(true);
@@ -1446,10 +1522,12 @@ function KaspiCheckoutSession(
         ratings={reviews.ratings}
         onOpen={(item) => {
           setInitialRating(undefined);
+          orderRef.current = item;
           setOrder(item);
         }}
         onRate={(item, stars) => {
           setInitialRating(stars);
+          orderRef.current = item;
           setOrder(item);
         }}
       />

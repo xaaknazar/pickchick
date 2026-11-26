@@ -18,6 +18,8 @@ import {
   CustomerTestPaymentSetupSchema,
 } from './commerce-checkout';
 import { paymentReceived } from './commerce-presentation';
+// The poll delay: ends at once on abort and leaves no listener on the signal (audit 23.11 #10).
+import { wait as sleep } from './commerce-watch';
 import { CardPaymentSheet, TipTopPayResultSheet } from './components/TipTopPaySheets';
 import {
   APPLE_PAY_MERCHANT_ID,
@@ -93,14 +95,6 @@ const RETURN_URL = 'pickchick://tiptoppay-return';
 const randomKey = () => randomUUID();
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 45_000;
-const sleep = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
 
 /**
  * TipTopPay card / Apple Pay / Google Pay of the cart (owner 18.11.2026, «Полностью нативно»).
