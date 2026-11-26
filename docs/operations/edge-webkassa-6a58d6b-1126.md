@@ -62,5 +62,4 @@ Webkassa осталась включённой (`edge.env` прежний).
 - Все десять служб PickChick Running (включая `PickChickSyncTunnel` и `PickChickPosSync`); Edge и
   четыре воркера из `C:\Program Files\PickChick\Edge\edge-6a58d6b\app`.
 
-Отзыв (если понадобится): тот же оператор с `-SourceCommit da9f6125…` и `-PredecessorCommit
-6a58d6b8…` из `infra\windows` подходящего коммита, сначала без `-Apply`.
+Отзыв: отдельно не проверялся; по runbook после первого запуска кандидата разбираться вперёд.
