@@ -3860,7 +3860,7 @@ function wiredScreens(model, printer, extra = {}) {
       view.reset();
     },
     onSold: (paid) => ops.sold(paid),
-    printOrder: () => ops.printOrder(),
+    printOrder: () => ops.donePrint(),
   });
   ops = new OpsView(model, view, {
     onChange: () => {},
@@ -3966,6 +3966,10 @@ test('screens: automatic Webkassa prints the fiscal receipt with its QR once it 
   assert.equal(model.state.webkassaAuto, true);
   assert.equal(model.state.sale.fiscal[0].state, 'recorded', 'the sale was read again');
   assert.equal(view.orderValues(legacyValues).kkmLine, 'Чеки: Webkassa автоматически');
+  // «Печать чека» of the done screen repeats the branded fiscal receipt, no second short slip.
+  await view.values().saleDonePrint();
+  assert.equal(printer.calls.at(-1)[1].kind, 'fiscal');
+  assert.equal(printer.calls.at(-1)[1].receipt.display_number, model.state.sale.display_number);
   // «Чек» of the order card prints the fiscal receipt again, not the order ticket.
   await ops.printReceipt(model.state.sale.order_id);
   assert.equal(printer.calls.at(-1)[1].kind, 'fiscal');
