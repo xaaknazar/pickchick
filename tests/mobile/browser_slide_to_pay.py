@@ -41,7 +41,7 @@ with local fixtures only: no bank, no real customer, no VPS request.
      press or a slide stops with a visible message and sends nothing; «Выбрать Kaspi.kz» is only
      a choice, and the next explicit press pays once with Kaspi
   O  owner 28.10 (TestFlight 25): the server keeps answering «sending» after a slide: the glass X
-     is there at once at the top right; after 20 s «Kaspi отвечает дольше обычного» with
+     is there at once at the top left; after 20 s «Kaspi отвечает дольше обычного» with
      «Проверить ещё раз» (one read, nothing sent) and «Вернуться в корзину»; closing asks first,
      returns to the cart with its lines and keeps the intent without its automatic invoice; a
      changed cart paid again reopens the same order (no new quote, order or payment command) and
@@ -951,13 +951,14 @@ def posts(state):
 
 
 def close_box_ok(page, width, height):
-    # The glass X of a payment screen: top right, a 44 pt target, the top element at its centre.
+    # The glass X of a payment screen: top left as on iOS (owner 23.11, baf4598b), a 44 pt target,
+    # the top element at its centre.
     close = page.get_by_test_id('kaspi-state-close')
     expect(close).to_be_visible()
     box = close.bounding_box()
     sheet = page.get_by_test_id('order-sheet').bounding_box()
     assert box['width'] >= 44 and box['height'] >= 44, box
-    assert width - 16 - box['width'] - 2 <= box['x'] and box['x'] + box['width'] <= width - 14, (box, width)
+    assert 14 <= box['x'] <= 18, (box, width)
     assert sheet['y'] <= box['y'] <= sheet['y'] + 24, (box, sheet)
     hit = page.evaluate('([x, y]) => !!document.elementFromPoint(x, y)?.closest("[data-testid=kaspi-state-close]")',
                         [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2])
@@ -985,7 +986,7 @@ def scenario_stuck_sending(browser, width, height):
             break
         page.wait_for_timeout(100)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # The X is there at once, top right; the bottom «Закрыть» still waits as before (90 s).
+    # The X is there at once, top left; the bottom «Закрыть» still waits as before (90 s).
     close = close_box_ok(page, width, height)
     expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
     expect(page.get_by_test_id('kaspi-stuck-recheck')).to_have_count(0)
