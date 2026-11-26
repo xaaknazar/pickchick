@@ -277,6 +277,8 @@ export const russian = (value) =>
     .replace(/(^|\s)[^\s/\d.:]+\/(?=[^\s/\d])/g, '$1');
 /** «1 500,00» -> «1 500 ₸», «12,50» -> «12,50 ₸» (Webkassa prints tenge with two decimals). */
 const money2 = (value) => `${value.replace(/,00$/, '')} ₸`;
+/** Desk labels that name no point: then no point line is printed. */
+const GENERIC_POINT = /^(Локальная точка|Тестовая точка|Касса( \d+)?)$/i;
 const AMOUNT = /(-?\d[\d ]*,\d{2})$/;
 /** Kazakh line printed above the cashier's Russian pickup text (receipt in both languages). */
 export function kazakhPickup(value) {
@@ -338,6 +340,13 @@ export function brandedFiscalRows(ticket) {
   if (!items.length || items.some((item) => item.cost === null)) return null;
 
   const rows = [{ type: 'logo' }];
+  // The point and where it is (owner 26.11): the desk's point name, then the address of the
+  // Webkassa cashbox registration (the point's own address on a real cashbox) right under it.
+  const requisiteBlock = requisiteRows(requisites);
+  const place = requisiteBlock.filter((r) => /^(Мекенжай|Адрес|Мекенжай\/Адрес):/.test(r.text));
+  if (!GENERIC_POINT.test(ticket.terminal_label))
+    rows.push({ type: 'center', text: ticket.terminal_label });
+  rows.push(...place);
   for (const line of header) rows.push({ type: 'small', text: both(line.value) });
   rows.push({ type: 'center', text: 'Тапсырыс / Заказ' });
   rows.push({ type: 'big', text: `№${receipt.display_number}` });
@@ -394,7 +403,7 @@ export function brandedFiscalRows(ticket) {
     if (value && !/Кассир/i.test(value)) rows.push({ type: 'small', text: value });
   }
   if (receipt.cashier) rows.push({ type: 'small', text: `Кассир: ${receipt.cashier}` });
-  rows.push(...requisiteRows(requisites));
+  rows.push(...requisiteBlock.filter((r) => !place.includes(r)));
   for (const line of tailLines) {
     if (line.type === 2) rows.push({ type: 'qr', text: line.value, qr: line.qr });
     else {

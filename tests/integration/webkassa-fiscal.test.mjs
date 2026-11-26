@@ -391,6 +391,47 @@ test('refusals keep the receipt pending with the reason; an expired session sign
   });
 });
 
+test('a Webkassa shift past 24 h is closed with a Z-report and the receipt goes through at once', async () => {
+  await desk(async (ctx) => {
+    const sim = webkassa();
+    const logs = [];
+    const worker = new WebkassaFiscalWorker(
+      ctx.edge.pool,
+      ctx.branch,
+      new WebkassaClient(ACCOUNT, { transport: sim }),
+      (entry) => logs.push(entry),
+    );
+    const { made } = await sale(ctx, (total) => [
+      { method: 'kaspi_terminal', amount_minor: total },
+    ]);
+    const orderId = made.order_id ?? made.sale?.order_id ?? made.order?.id;
+    const receipt = await receiptOf(ctx, orderId);
+    sim.script.push({ kind: 'ok', data: { Token: 'token-1' }, top: {} });
+    sim.script.push({
+      kind: 'refused',
+      httpStatus: 200,
+      errors: [{ code: 11, text: 'Продолжительность смены превышает 24 часа' }],
+      top: {},
+    });
+    assert.equal(await worker.tick(Date.now()), 1);
+    assert.deepEqual(
+      sim.calls.map((c) => c.path),
+      ['api/v4/Authorize', 'api/v4/check', 'api/v4/ZReport', 'api/v4/check'],
+    );
+    assert.equal(sim.calls.at(-1).body.ExternalCheckNumber, receipt.id);
+    assert.ok(logs.some((l) => l.event === 'webkassa_shift_over_24h' && l.report === 'ok'));
+    const issued = await webkassaReceiptStatus(
+      ctx.edge.pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      worker,
+      receipt.id,
+      false,
+    );
+    assert.equal(issued.state, 'recorded');
+  });
+});
+
 test('a number typed by hand first wins; the Z-report closes Webkassa once the last shift is closed', async () => {
   await desk(async (ctx) => {
     const sim = webkassa();

@@ -228,7 +228,21 @@ export class WebkassaFiscalWorker {
       return false;
     }
     this.#attempts.set(row.id, (this.#attempts.get(row.id) ?? 0) + 1);
-    const result = await this.#client.issue(check);
+    let result = await this.#client.issue(check);
+    // Code 11: the Webkassa shift is past 24 h (a cash shift left open overnight). Close it with a
+    // Z-report and repeat once under the same external number; Webkassa opens a new shift itself.
+    if (
+      result.kind === 'refused' &&
+      result.errors.some((e) => e.code === WEBKASSA_CODE.SHIFT_OVER_24H)
+    ) {
+      const closed = await this.#client.zReport();
+      this.#log({
+        event: 'webkassa_shift_over_24h',
+        receiptId: row.id,
+        report: closed.kind === 'ok' ? 'ok' : closed.kind,
+      });
+      if (closed.kind === 'ok') result = await this.#client.issue(check);
+    }
     if (result.kind === 'issued') {
       await this.#record(row, result.receipt.checkNumber);
       this.#errors.delete(row.id);
