@@ -529,6 +529,8 @@ export type State = {
   saleReceipts: Record<string, SaleFiscal['state']>;
   /** Automatic Webkassa answered on this point (true), or 404: receipts by hand (false). */
   webkassaAuto: boolean | null;
+  /** GET pos/webkassa: the point's register is Webkassa's TEST or live one; null unknown/off. */
+  webkassaEnvironment: 'test' | 'live' | null;
   /** The amount this desk sent to its Kaspi Smart POS for the quote on screen (ADR-0017). */
   terminal: TerminalPayment | null;
   /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
@@ -619,6 +621,7 @@ const blankOperations = () => ({
   zReport: null,
   saleReceipts: {},
   webkassaAuto: null,
+  webkassaEnvironment: null as 'test' | 'live' | null,
   terminal: null as TerminalPayment | null,
   terminalOpen: [] as TerminalPayment[],
   branchOrders: null as BranchOrders | null,
@@ -644,6 +647,8 @@ export const STOPS_STALE_MS = 30000;
  */
 export function connectionLabel(
   s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'> & {
+    /** State.webkassaEnvironment: 'test' is the vendor's TEST register (no OFD). */
+    webkassaEnvironment?: 'test' | 'live' | null;
     /** PosController.stopsStale: the stop-list on screen may be out of date. */
     stopsStale?: boolean;
     /** PosController.terminalRecovery: an operation of this desk's terminal nobody finishes. */
@@ -655,6 +660,8 @@ export function connectionLabel(
   if (!local) return { label: 'Нет связи с кассой', tone: 'down' };
   if (s.terminalRecovery) return { label: s.terminalRecovery, tone: 'down' };
   if (s.stopsStale) return { label: 'Стоп-лист не обновляется', tone: 'warn' };
+  if (s.webkassaEnvironment === 'test')
+    return { label: 'Webkassa: тестовая касса, чеки не уходят в ОФД', tone: 'warn' };
   if (s.cloudLink?.state === 'offline')
     return { label: 'Нет интернета · касса работает', tone: 'warn' };
   return { label: 'Локальная сеть', tone: 'ok' };
@@ -1425,6 +1432,7 @@ export class PosController {
     await this.refreshFiscal();
     await this.refreshShiftReport();
     await this.refreshTerminalRecovery().catch(() => {});
+    await this.refreshWebkassaRegister().catch(() => {});
   }
   /**
    * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
@@ -2423,6 +2431,24 @@ export class PosController {
       this.state.terminal = t;
       this.keepTerminalHold(t);
     });
+  }
+  /**
+   * GET pos/webkassa (audit 26.11 P0-2): a point on Webkassa's TEST register says so in the
+   * header. 404 (Webkassa off, or an older point server) leaves the line as it was.
+   */
+  async refreshWebkassaRegister() {
+    const epoch = this.generation;
+    let environment: 'test' | 'live' | null;
+    try {
+      const v = parse.record(await this.request('pos/webkassa'));
+      environment = v.environment === 'live' ? 'live' : v.environment === 'test' ? 'test' : null;
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 404)) return;
+      environment = null;
+    }
+    if (epoch !== this.generation || environment === this.state.webkassaEnvironment) return;
+    this.state.webkassaEnvironment = environment;
+    this.emit();
   }
   /**
    * The header line for an operation of this desk's Kaspi terminal that is not the one on this

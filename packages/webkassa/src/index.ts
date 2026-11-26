@@ -439,7 +439,10 @@ export class WebkassaClient {
  * password, cashboxUniqueNumber}. Absent path = Webkassa off (manual mode). The file never enters
  * git, logs or the database.
  */
-export function readWebkassaAccount(path: string | undefined): WebkassaAccount | null {
+export function readWebkassaAccount(
+  path: string | undefined,
+  options: { requireLive?: boolean } = {},
+): WebkassaAccount | null {
   if (!path) return null;
   const raw = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')) as Record<
     string,
@@ -451,11 +454,23 @@ export function readWebkassaAccount(path: string | undefined): WebkassaAccount |
       throw new Error(`Webkassa account file: invalid ${name}`);
     return value;
   };
-  return {
+  const account = {
     baseUrl: field('baseUrl', /^https:\/\/(devkkm|kkm)\.webkassa\.kz\/?$/),
     apiKey: field('apiKey', /^\S{8,200}$/),
     login: field('login', /^\S{3,200}$/),
     password: field('password', /^.{1,200}$/),
     cashboxUniqueNumber: field('cashboxUniqueNumber', /^SWK\d{8}$/),
   };
+  // Audit 26.11 P0-2: a live point never runs on the test register by mistake.
+  if (options.requireLive && webkassaEnvironment(account) !== 'live')
+    throw new Error('Webkassa account file: the test host devkkm is refused, live is required');
+  return account;
+}
+
+/**
+ * Which Webkassa a register talks to: devkkm.webkassa.kz is the vendor's TEST server (its receipts
+ * never reach the OFD), kkm.webkassa.kz the live one (audit 26.11 P0-2).
+ */
+export function webkassaEnvironment(account: Pick<WebkassaAccount, 'baseUrl'>): 'test' | 'live' {
+  return /^https:\/\/kkm\.webkassa\.kz\/?$/.test(account.baseUrl) ? 'live' : 'test';
 }

@@ -25,6 +25,7 @@ import {
   refundPosSale,
   voidPosSale,
   webkassaReceiptStatus,
+  webkassaRegister,
   kioskReceipts,
   kioskReceiptPrint,
   OrderError,
@@ -187,6 +188,17 @@ export class PosSalesController {
     return this.run(headers, (auth) =>
       listPendingFiscalReceipts(this.pool, this.branchId, auth, shiftId),
     );
+  }
+
+  /** Test or live Webkassa register of this point (audit 26.11 P0-2); 404 while it is off. */
+  @Get('pos/webkassa')
+  @Header('Cache-Control', 'no-store')
+  webkassaInfo(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, async (auth) => {
+      const environment = this.webkassa.environment;
+      if (!this.webkassa.worker || !environment) throw new OrderError('NOT_FOUND');
+      return webkassaRegister(this.pool, this.branchId, auth, environment);
+    });
   }
 
   /**

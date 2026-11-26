@@ -5200,6 +5200,35 @@ test('Kaspi terminal linked: another operation of the desk shows in the header a
   assert.equal(model.terminalRecovery, null);
 });
 
+test('a point on the Webkassa TEST register says so in the header (audit 26.11 P0-2)', async () => {
+  const base = saleEdge();
+  let answer = { environment: 'test' };
+  const edge = {
+    ...base,
+    api: async (path, auth, options = {}) => {
+      if (path === 'pos/webkassa') {
+        if (answer === null) throw new ApiError('NOT_FOUND', 404);
+        return answer;
+      }
+      return base.api(path, auth, options);
+    },
+  };
+  const model = await saleCashier(edge);
+  await model.refreshWebkassaRegister();
+  assert.equal(model.state.webkassaEnvironment, 'test');
+  assert.deepEqual(connectionLabel(model.state), {
+    label: 'Webkassa: тестовая касса, чеки не уходят в ОФД',
+    tone: 'warn',
+  });
+  answer = { environment: 'live' };
+  await model.refreshWebkassaRegister();
+  assert.equal(connectionLabel(model.state).tone, 'ok');
+  // An older point server (404) or Webkassa off: no line.
+  answer = null;
+  await model.refreshWebkassaRegister();
+  assert.equal(model.state.webkassaEnvironment, null);
+});
+
 test('Kaspi terminal linked: the pay screen sends, waits and blocks going back', async () => {
   const edge = terminalEdge();
   const model = await saleCashier(edge);

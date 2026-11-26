@@ -115,3 +115,17 @@ Webkassa ставит строку «Тапсырыс нөмірі/Номер з
 `tests/pos-desktop/printer.test.mjs`, `tests/unit/webkassa-account-from-env.test.mjs`,
 `tests/operations/windows-webkassa-edge.test.ps1`. Включение: `infra/windows/enable-webkassa-edge.ps1`,
 `scripts/webkassa-account-from-env.mjs`.
+
+## Тест или бой (аудит 26.11, P0-2)
+
+- `devkkm.webkassa.kz` - тестовый сервер Webkassa: чек печатается с QR, но в ОФД не уходит.
+  `kkm.webkassa.kz` - боевой.
+- Касса показывает в шапке жёлтую строку «Webkassa: тестовая касса, чеки не уходят в ОФД»,
+  пока сервер точки работает с тестовой кассой (`GET pos/webkassa` → `{environment}`; 404, если
+  Webkassa выключена или сервер точки старый). Сервер точки пишет `environment` в событие
+  `webkassa_enabled`.
+- `EDGE_WEBKASSA_REQUIRE_LIVE=true` в `edge.env` боевой точки: файл учётной записи с тестовым
+  адресом отклоняется, автоматические чеки не включаются (остаётся ручной режим).
+  `WEBKASSA_REQUIRE_LIVE=true` - то же для облачного воркера.
+- Боевая точка: после получения боевого ключа записать файл учётной записи с `kkm.webkassa.kz`
+  и включить оба флага.

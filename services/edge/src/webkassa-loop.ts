@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { RESOURCE, Resources } from '@pickchick/platform';
-import { WebkassaClient, WebkassaFiscalWorker, readWebkassaAccount } from '@pickchick/local-orders';
+import {
+  WebkassaClient,
+  WebkassaFiscalWorker,
+  readWebkassaAccount,
+  webkassaEnvironment,
+} from '@pickchick/local-orders';
 
 /** Pending receipts are looked at this often; a sale also nudges the worker at once. */
 export const WEBKASSA_INTERVAL_MS = 5000;
@@ -14,18 +19,25 @@ export const WEBKASSA_INTERVAL_MS = 5000;
 @Injectable()
 export class WebkassaLoop implements OnApplicationBootstrap, OnModuleDestroy {
   readonly worker: WebkassaFiscalWorker | null;
+  /** Test (devkkm) or live register; null while Webkassa is off. Shown on the POS (P0-2). */
+  readonly environment: 'test' | 'live' | null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running: Promise<unknown> | undefined;
   private stopped = false;
 
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {
-    const { webkassaAccountFile, branchId } = resources.config;
+    const { webkassaAccountFile, branchId, webkassaRequireLive } = resources.config;
     let worker: WebkassaFiscalWorker | null = null;
+    let environment: 'test' | 'live' | null = null;
     if (webkassaAccountFile && branchId) {
       try {
-        const account = readWebkassaAccount(webkassaAccountFile);
-        if (account)
+        const account = readWebkassaAccount(webkassaAccountFile, {
+          requireLive: webkassaRequireLive === true,
+        });
+        if (account) {
           worker = new WebkassaFiscalWorker(resources.pool, branchId, new WebkassaClient(account));
+          environment = webkassaEnvironment(account);
+        }
       } catch (error) {
         console.error(
           JSON.stringify({ event: 'webkassa_account_invalid', message: (error as Error).message }),
@@ -33,11 +45,12 @@ export class WebkassaLoop implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
     this.worker = worker;
+    this.environment = environment;
   }
 
   onApplicationBootstrap() {
     if (!this.worker) return;
-    console.log(JSON.stringify({ event: 'webkassa_enabled' }));
+    console.log(JSON.stringify({ event: 'webkassa_enabled', environment: this.environment }));
     this.schedule(0);
   }
 

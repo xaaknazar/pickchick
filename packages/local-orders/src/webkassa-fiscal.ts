@@ -472,3 +472,21 @@ export async function kioskReceiptPrint(
   if (!print) throw new OrderError('NOT_FOUND');
   return { order_id: id, display_number: row.display_number, print };
 }
+
+/**
+ * GET pos/webkassa (audit 26.11 P0-2): which Webkassa register the point's receipts go to, so
+ * the cashier sees a TEST register (devkkm, receipts never reach the OFD) at a glance. The
+ * controller answers 404 while Webkassa is off. No credential or cashbox number is returned.
+ */
+export async function webkassaRegister(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  environment: 'test' | 'live',
+) {
+  await transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+  });
+  return { environment };
+}

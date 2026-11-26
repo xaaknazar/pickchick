@@ -11,6 +11,7 @@ import {
   fiscalPaymentsOf,
   readWebkassaAccount,
   readWebkassaAnswer,
+  webkassaEnvironment,
 } from '@pickchick/local-orders';
 
 // Webkassa API v4 client: request shapes and answers as seen on devkkm.webkassa.kz 25.11.2026.
@@ -204,4 +205,26 @@ test('account file: only Webkassa hosts, a SWK number and present fields; absent
     writeFileSync(file, JSON.stringify({ ...good, ...bad }));
     assert.throws(() => readWebkassaAccount(file));
   }
+});
+
+test('test or live register: devkkm is TEST, a live point refuses it (audit 26.11 P0-2)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wk-env-'));
+  const file = join(dir, 'account.json');
+  const account = {
+    baseUrl: 'https://devkkm.webkassa.kz',
+    apiKey: 'test-api-key-1',
+    login: 'cashier@example.com',
+    password: 'p',
+    cashboxUniqueNumber: 'SWK00036966',
+  };
+  assert.equal(webkassaEnvironment(account), 'test');
+  assert.equal(webkassaEnvironment({ baseUrl: 'https://kkm.webkassa.kz/' }), 'live');
+  writeFileSync(file, JSON.stringify(account));
+  assert.deepEqual(readWebkassaAccount(file, { requireLive: false }), account);
+  assert.throws(() => readWebkassaAccount(file, { requireLive: true }), /live is required/);
+  writeFileSync(file, JSON.stringify({ ...account, baseUrl: 'https://kkm.webkassa.kz' }));
+  assert.equal(
+    readWebkassaAccount(file, { requireLive: true })?.baseUrl,
+    'https://kkm.webkassa.kz',
+  );
 });

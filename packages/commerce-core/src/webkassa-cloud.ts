@@ -43,7 +43,8 @@ export function webkassaCloudConfig(env: NodeJS.ProcessEnv): WebkassaCloudConfig
   if (!file && !accountId) return null;
   if (!file || !accountId || !file.startsWith('/') || !UUIDSchema.safeParse(accountId).success)
     throw new Error('INVALID_WEBKASSA_CONFIG');
-  const account = readWebkassaAccount(file);
+  // WEBKASSA_REQUIRE_LIVE=true (audit 26.11 P0-2): the cloud refuses the TEST register devkkm.
+  const account = readWebkassaAccount(file, { requireLive: env.WEBKASSA_REQUIRE_LIVE === 'true' });
   if (!account) throw new Error('INVALID_WEBKASSA_CONFIG');
   return { accountId, account };
 }
