@@ -14,7 +14,7 @@ const METHODS = [
   'staff_meal',
   'marketing',
 ];
-export const TICKET_KINDS = ['order', 'x_report', 'z_report', 'refund'];
+export const TICKET_KINDS = ['order', 'x_report', 'z_report', 'refund', 'fiscal'];
 const MONEY = /^(0|[1-9][0-9]{0,17})$/;
 const DISPLAY_NUMBER = /^[1-9][0-9]{0,18}$/;
 /** Characters per line of the ESC/POS layout: Font A of an 80 mm printer has 48, so 42 leaves a
@@ -116,7 +116,40 @@ const itemKind = (kind) => kind === 'order' || kind === 'refund';
  * tickets carry item lines and tender amounts; X/Z reports carry text lines and method rows, as
  * apps/pos/src/v2/ops-view.js builds them. Anything else is INVALID_TICKET and is not printed.
  */
+/**
+ * Fiscal receipt (automatic Webkassa, packages/local-orders webkassa-fiscal.ts): the print form
+ * Webkassa made, line by line as it is (48 columns of an 80 mm printer, spaces kept), Style 1
+ * bold, Type 2 the receipt link drawn as the QR matrix the point server computed.
+ */
+function parseFiscal(value) {
+  keys(value, ['kind', 'fiscal_lines', 'printed_at', 'terminal_label']);
+  if (typeof value.printed_at !== 'string' || !Number.isFinite(Date.parse(value.printed_at)))
+    throw new Error('INVALID_TICKET');
+  const lines = list(value.fiscal_lines, 400, 1).map((line) => {
+    keys(line, ['type', 'value', 'style'], ['qr']);
+    if (![0, 2].includes(line.type) || ![0, 1].includes(line.style))
+      throw new Error('INVALID_TICKET');
+    if (typeof line.value !== 'string' || line.value.length > 600 || CONTROL.test(line.value))
+      throw new Error('INVALID_TICKET');
+    if (line.type === 0)
+      return { type: 0, value: line.value.replace(/\s+$/, ''), style: line.style };
+    const qr = list(line.qr, 177, 21);
+    if (qr.some((row) => typeof row !== 'string' || row.length !== qr.length || /[^01]/.test(row)))
+      throw new Error('INVALID_TICKET');
+    if (!/^https?:\/\/\S+$/.test(line.value)) throw new Error('INVALID_TICKET');
+    return { type: 2, value: line.value, style: 0, qr };
+  });
+  return {
+    kind: 'fiscal',
+    title: 'Фискальный чек',
+    fiscal_lines: lines,
+    printed_at: value.printed_at,
+    terminal_label: text(value.terminal_label, 120),
+  };
+}
+
 export function parseTicket(value) {
+  if (plain(value) && value.kind === 'fiscal') return parseFiscal(value);
   keys(
     value,
     ['kind', 'title', 'totals', 'printed_at', 'terminal_label'],
@@ -207,6 +240,12 @@ export function printedAt(value) {
  * tickets: number, pickup, items, totals, tenders, change. Reports: money rows, methods, notes.
  */
 export function ticketRows(ticket) {
+  if (ticket.kind === 'fiscal')
+    return ticket.fiscal_lines.map((line) =>
+      line.type === 2
+        ? { type: 'qr', text: line.value, qr: line.qr }
+        : { type: 'mono', text: line.value, bold: line.style === 1 },
+    );
   const rows = [{ type: 'title', text: ticket.title }];
   if (ticket.display_number) rows.push({ type: 'big', text: `Заказ №${ticket.display_number}` });
   if (ticket.pickup_text) rows.push({ type: 'center', text: ticket.pickup_text });
@@ -255,7 +294,21 @@ export function ticketRows(ticket) {
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = (value) => value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 /** Approximate printed height of a ticket in microns, for the driver's custom page size. */
-export const ticketHeightMicrons = (rows) => Math.max(60_000, 20_000 + rows.length * 5_000);
+export const ticketHeightMicrons = (rows) =>
+  Math.max(
+    60_000,
+    20_000 + rows.reduce((sum, row) => sum + (row.type === 'qr' ? 45_000 : 5_000), 0),
+  );
+/** A QR matrix as a static SVG (no script, no external resource), 40 mm wide with a quiet zone. */
+export function qrSvg(matrix) {
+  const size = matrix.length + 8;
+  const cells = [];
+  matrix.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++)
+      if (row[x] === '1') cells.push(`M${x + 4} ${y + 4}h1v1h-1z`);
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="40mm" height="40mm" shape-rendering="crispEdges"><rect width="${size}" height="${size}" fill="#fff"/><path d="${cells.join('')}" fill="#000"/></svg>`;
+}
 /**
  * The HTML of a ticket for the Windows driver: a static document with every text escaped, no
  * script, no external resource (the print window also blocks every request).
@@ -264,6 +317,9 @@ export function ticketHtml(ticket) {
   const body = ticketRows(ticket)
     .map((row) => {
       if (row.type === 'rule') return '<hr>';
+      if (row.type === 'qr') return `<div class="qr">${qrSvg(row.qr)}</div>`;
+      if (row.type === 'mono')
+        return `<div class="mono${row.bold ? ' bold' : ''}">${escapeHtml(row.text) || '&nbsp;'}</div>`;
       if (row.type === 'pair')
         return `<div class="pair${row.bold ? ' bold' : ''}"><span>${escapeHtml(row.left)}</span><b>${escapeHtml(row.right)}</b></div>`;
       return `<div class="${row.type}">${escapeHtml(row.text)}</div>`;
@@ -283,6 +339,9 @@ body { margin: 0; padding: 2mm 3mm; width: 72mm; font: 11pt/1.3 Arial, sans-seri
 .pair b { font-weight: normal; white-space: nowrap; }
 .pair.bold, .pair.bold b { font-weight: bold; }
 hr { border: 0; border-top: 1px dashed #000; margin: 1.5mm 0; }
+.mono { font: 8.4pt/1.25 'Courier New', monospace; white-space: pre; overflow: hidden; }
+.mono.bold { font-weight: bold; }
+.qr { text-align: center; margin: 2mm 0; }
 </style></head>
 <body>
 ${body}
@@ -382,9 +441,36 @@ export function pairLines(left, right, width) {
   return lines;
 }
 /** The exact bytes of one ticket for an ESC/POS printer (PC866, 42 columns, partial cut). */
+/** GS ( k: the printer's own QR (model 2, module 6 dots, correction M) of an ASCII link. */
+export function escposQr(value) {
+  const data = [...value].map((c) => c.charCodeAt(0) & 0x7f);
+  const length = data.length + 3;
+  return [
+    ...[0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00],
+    ...[0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06],
+    ...[0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31],
+    ...[0x1d, 0x28, 0x6b, length & 0xff, length >> 8, 0x31, 0x50, 0x30, ...data],
+    ...[0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30],
+  ];
+}
 export function escposBytes(ticket, width = ESCPOS_COLUMNS) {
   const out = [...ESC.init, ...ESC.codepage];
   const line = (value) => out.push(...encodeCp866(value), 0x0a);
+  if (ticket.kind === 'fiscal') {
+    // Webkassa lays the receipt out for 48 columns (Font A of an 80 mm printer).
+    for (const row of ticketRows(ticket)) {
+      if (row.type === 'qr') {
+        out.push(...ESC.center, ...escposQr(row.text), 0x0a, ...ESC.left);
+        continue;
+      }
+      if (row.bold) out.push(...ESC.boldOn);
+      const value = printable(row.text);
+      for (const l of value.length <= 48 ? [value] : wrap(value, 48)) line(l);
+      if (row.bold) out.push(...ESC.boldOff);
+    }
+    out.push(0x0a, ...ESC.cut);
+    return Buffer.from(out);
+  }
   for (const row of ticketRows(ticket)) {
     if (row.type === 'rule') {
       line('-'.repeat(width));

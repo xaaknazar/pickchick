@@ -1,0 +1,37 @@
+# Webkassa receipts of app and kiosk orders (docs/integrations/webkassa-api.md, stage 2).
+# Exact CI-verified API image. The account file is private: never in git, logs or the database.
+name: pickchick-webkassa-worker
+services:
+  worker:
+    image: pickchick-api:${API_RELEASE_SHA:?Set verified API SHA}
+    container_name: pickchick-webkassa-worker
+    # The cloud database on the internal staging network, and its own bridge to reach Webkassa.
+    networks: [private, egress]
+    user: '1000:1000'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    environment:
+      WEBKASSA_ACCOUNT_FILE: /run/pickchick/webkassa.json
+    command:
+      - node
+      - --env-file=/run/pickchick/worker.env
+      - services/api/dist/webkassa-worker.js
+    volumes:
+      - ${WEBKASSA_SECRETS_DIR:?Set protected directory}/worker.env:/run/pickchick/worker.env:ro
+      - ${WEBKASSA_SECRETS_DIR:?Set protected directory}/webkassa.json:/run/pickchick/webkassa.json:ro
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+networks:
+  private:
+    external: true
+    name: pickchick-staging_private
+  egress:
+    driver: bridge

@@ -103,6 +103,11 @@ const POS_SALE_READS = [
   `pos/terminal-payments/${UUID}`,
   // 23.11: «Заказы» lists every order of the branch between two days.
   'pos/branch-orders',
+  // 25.11: automatic Webkassa receipt state and its print form with the QR.
+  `pos/fiscal-receipts/${UUID}/webkassa`,
+  `pos/fiscal-receipts/${UUID}/webkassa/print`,
+  'pos/kiosk-receipts',
+  `pos/kiosk-receipts/${UUID}/print`,
 ];
 const POS_SALE_WRITES = [
   'staff/approvals',

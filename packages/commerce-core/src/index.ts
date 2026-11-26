@@ -23,3 +23,5 @@ export { MenuChangedError } from './menu-changed.js';
 export { comboProgramOptions, type ComboProgramOptions } from './combo-reward-ledger.js';
 export * from './kiosk-terminal.js';
 export * from './kiosk-branches.js';
+
+export * from './webkassa-cloud.js';

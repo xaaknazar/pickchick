@@ -145,3 +145,70 @@ test('whole-product combo routing is explicit per product and retains all kitche
   assert.equal(expanded[0].details.productId, 'chicken');
   assert.equal(expanded[0].details.quantity, 6);
 });
+test('expanded combo parts carry the catalog grams and the line quantity for the kitchen', () => {
+  const station = randomUUID();
+  const plan = taskPlan(
+    {
+      lines: [
+        {
+          lineId: randomUUID(),
+          productId: 'pick-combo',
+          title: 'Finger Combo',
+          description: '',
+          quantity: 2,
+          selectedDetails: {
+            kind: 'combo',
+            modifiers: [],
+            components: [
+              {
+                productId: 'fingers',
+                quantity: 4,
+                name: { ru: 'Фингерс 1 шт' },
+                description: { ru: '' },
+                weightG: 30,
+              },
+              {
+                productId: 'toast',
+                quantity: 1,
+                name: { ru: 'Тост 1 шт' },
+                description: { ru: '' },
+                weightG: null,
+              },
+            ],
+          },
+        },
+        {
+          lineId: randomUUID(),
+          productId: 'wedges',
+          title: 'Фри',
+          description: '',
+          quantity: 1,
+          selectedDetails: { kind: 'item', modifiers: [], components: [], weightG: 150 },
+        },
+      ],
+    },
+    {
+      version: 1,
+      assemblyStationId: station,
+      routes: ['fingers', 'toast', 'wedges', 'pick-combo'].map((productId) => ({
+        productId,
+        stationId: station,
+        kind: 'prep',
+      })),
+    },
+  );
+  assert.deepEqual(
+    plan.map((p) => [
+      p.details.title,
+      p.details.quantity,
+      p.details.weightG,
+      p.details.lineQuantity,
+    ]),
+    [
+      ['Фингерс 1 шт', 8, 30, 2],
+      ['Тост 1 шт', 2, undefined, 2],
+      ['Фри', 1, 150, undefined],
+    ],
+  );
+  assert.equal('weightG' in plan[1].details, false);
+});

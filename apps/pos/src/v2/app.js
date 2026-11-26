@@ -1545,6 +1545,8 @@ setInterval(() => {
         await model.refreshSaleReceipts(dayOrders().map((o) => o.order_id));
       }
       if (!blocked()) await model.syncMenu();
+      // Kiosk receipts on this desk's printer (Webkassa points only; 404 otherwise).
+      if (model.saleMode && !blocked()) await ops.kioskTick();
     });
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.
