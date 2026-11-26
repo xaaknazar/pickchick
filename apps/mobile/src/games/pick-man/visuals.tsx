@@ -5,12 +5,13 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { assets } from '../../assets';
+import { svgDataUri } from '../../svg-data-uri';
 import { GamePosterCard } from '../GamePosterCard';
 import { MAZE, COLS, ROWS, type Direction, type Food } from './engine';
 
 // Rival artwork remains vector-based for crisp rendering at maze-cell size.
 const svg = (body: string) => ({
-  uri: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' + body + '</svg>')}`,
+  uri: svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' + body + '</svg>'),
 });
 // Transparent vector silhouettes with shaded surfaces stay crisp even at
 // maze-cell size. The shapes and packaging follow the owner's menu photos.
@@ -142,9 +143,9 @@ function wallContours() {
   return paths.join('');
 }
 const wallsSource = {
-  uri: `data:image/svg+xml;utf8,${encodeURIComponent(
+  uri: svgDataUri(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${COLS} ${ROWS}"><defs><linearGradient id="walls" x2="0" y2="1"><stop stop-color="#183765"/><stop offset="1" stop-color="#0A1833"/></linearGradient></defs><path d="${wallContours()}" fill="url(#walls)" fill-rule="evenodd" stroke="#4B8FCE" stroke-width=".075" stroke-linejoin="round"/></svg>`,
-  )}`,
+  ),
 };
 export const MazeWalls = memo(function MazeWalls({ cell }: { cell: number }) {
   return (

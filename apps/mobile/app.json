@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "scheme": "pickchick",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#04143A",
     "ios": {
       "icon": "./assets/app-icon.png",
       "supportsTablet": false,
@@ -21,7 +22,7 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android/adaptive-icon-foreground.png",
         "monochromeImage": "./assets/android/adaptive-icon-monochrome.png",
