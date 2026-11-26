@@ -172,7 +172,12 @@ export function reportTicket(report, terminalLabel, printedAt = new Date().toISO
 export const WEBKASSA_WAIT_MS = 60_000;
 export const WEBKASSA_POLL_MS = 2_000;
 /** The fiscal receipt as Webkassa formats it (Ticket/PrintFormat), printed by pos-desktop. */
-export function fiscalTicket(lines, terminalLabel, printedAt = new Date().toISOString()) {
+export function fiscalTicket(
+  lines,
+  terminalLabel,
+  printedAt = new Date().toISOString(),
+  receipt = undefined,
+) {
   return {
     kind: 'fiscal',
     fiscal_lines: lines.map(({ type, value, style, qr }) =>
@@ -180,6 +185,30 @@ export function fiscalTicket(lines, terminalLabel, printedAt = new Date().toISOS
     ),
     printed_at: printedAt,
     terminal_label: terminalLabel,
+    ...(receipt ? { receipt } : {}),
+  };
+}
+/**
+ * What the branded fiscal receipt adds to the Webkassa form (owner 26.11): the order number,
+ * pickup, what the guest chose under each line, the comment, cash received and change, and the
+ * shift cashier's first name instead of the Webkassa cabinet owner.
+ */
+export function receiptOf(order, sale, actor) {
+  const comment = order?.snapshot?.details?.kitchen_comment?.trim();
+  const cashier = actor?.name?.trim().split(/\s+/)[0];
+  return {
+    display_number: sale.display_number,
+    lines: (order?.snapshot?.lines ?? []).slice(0, 100).map((line) => ({
+      name: (line.name?.ru ?? '').trim() || 'Позиция',
+      options: (line.modifiers ?? [])
+        .slice(0, 30)
+        .map((m) => m.name.ru + (m.quantity > 1 ? ` × ${m.quantity}` : '')),
+    })),
+    pickup_text: pickupText(sale),
+    ...(comment ? { comment: comment.slice(0, 120) } : {}),
+    ...(cashier ? { cashier: cashier.slice(0, 40) } : {}),
+    ...(sale.cash_tendered_minor ? { cash_tendered_minor: sale.cash_tendered_minor } : {}),
+    ...(sale.change_minor ? { change_minor: sale.change_minor } : {}),
   };
 }
 /** The non-fiscal order ticket of a paid order (section 5.8): number, pickup, lines, payment. */
@@ -807,7 +836,9 @@ export class OpsView {
   async sold(sale) {
     if (sale?.tenders.some((t) => t.method === 'cash')) await this.openDrawer({ quiet: true });
     // Automatic Webkassa: never holds the done screen; the next guest can be served meanwhile.
-    this.autoFiscal = this.webkassaPrint(sale).catch(() => {});
+    const target = this.target();
+    const context = target?.sale.order_id === sale?.order_id ? target : null;
+    this.autoFiscal = this.webkassaPrint(sale, context).catch(() => {});
   }
   /**
    * Automatic Webkassa (point server webkassa-fiscal.ts): waits for the sale receipt of a sale
@@ -815,7 +846,7 @@ export class OpsView {
    * null, and the receipt stays to punch by hand as before; a refusal is said once, the point
    * keeps trying, and «Чеки» still takes the number by hand.
    */
-  async webkassaPrint(sale) {
+  async webkassaPrint(sale, context = null) {
     const receipt = sale?.fiscal?.find((f) => f.kind === 'sale' && f.state === 'pending');
     if (!receipt || typeof this.model.webkassaReceipt !== 'function') return;
     const deadline = this.clock() + WEBKASSA_WAIT_MS;
@@ -840,7 +871,7 @@ export class OpsView {
       await this.sleep(WEBKASSA_POLL_MS);
     }
     await this.model.noteWebkassaIssued(sale.order_id);
-    await this.printWebkassa(receipt.receipt_id);
+    await this.printWebkassa(receipt.receipt_id, context);
   }
   /**
    * Kiosk receipts on this desk's printer (owner 25.11). One pass at a time; a receipt whose
@@ -865,10 +896,11 @@ export class OpsView {
         }
         this.model.markKioskPrinted(item.order_id);
         await this.print(
-          fiscalTicket(
-            [{ type: 0, value: `Киоск · заказ №${form.display_number}`, style: 1 }, ...form.print],
-            this.terminalLabel,
-          ),
+          fiscalTicket(form.print, this.terminalLabel, undefined, {
+            display_number: form.display_number,
+            lines: [],
+            pickup_text: 'Заказ из киоска',
+          }),
         );
       }
     } finally {
@@ -876,7 +908,7 @@ export class OpsView {
     }
   }
   /** The fiscal receipt of an issued automatic Webkassa receipt; false when there is none. */
-  async printWebkassa(receiptId) {
+  async printWebkassa(receiptId, context = null) {
     let status;
     try {
       status = await this.model.webkassaReceipt(receiptId, true);
@@ -888,7 +920,10 @@ export class OpsView {
       this.say('Чек Webkassa оформлен, но печатная форма не пришла: повторите из карточки заказа');
       return true;
     }
-    await this.print(fiscalTicket(status.print, this.terminalLabel));
+    const receipt = context
+      ? receiptOf(context.order, context.sale, this.model.state.actor)
+      : undefined;
+    await this.print(fiscalTicket(status.print, this.terminalLabel, undefined, receipt));
     return true;
   }
   /** The order ticket of the paid order on screen (done screen or order card). */
@@ -909,7 +944,10 @@ export class OpsView {
     if (target?.order.order_id !== orderId) return;
     const receipt = this.saleReceipt();
     if (receipt?.state === 'pending') this.askReceipt(receipt);
-    else if (receipt?.state === 'recorded' && (await this.printWebkassa(receipt.receipt_id)))
+    else if (
+      receipt?.state === 'recorded' &&
+      (await this.printWebkassa(receipt.receipt_id, target))
+    )
       return;
     else if (target.order.state === 'paid') await this.printOrder();
   }
