@@ -10,7 +10,7 @@ on:
       - 'pnpm-workspace.yaml'
       - '.github/workflows/kiosk-ui-library.yml'
   pull_request:
-    branches: [main, 'codex/shared-development']
+    branches: [main, 'codex/**']
     paths:
       - 'apps/kiosk/**'
       - 'tests/kiosk/**'

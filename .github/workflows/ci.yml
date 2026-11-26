@@ -4,7 +4,8 @@ on:
   push:
     branches: [main, 'codex/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,8 +37,10 @@ jobs:
         run: cp .env.example .env
       - name: Start isolated local databases and cache
         run: pnpm infra:up
+      # Formatting runs as its own last step (audit 26.11 C-4): a Prettier miss in a document
+      # must not skip every test after it.
       - name: Build and static checks
-        run: pnpm check
+        run: pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm contracts:check && pnpm design:check
       - name: Offline stand unit invariants
         run: pnpm test:offline-stand:unit
       - name: Migrate and seed
@@ -66,6 +69,9 @@ jobs:
         run: pnpm test:mobile
       - name: Check dependency advisories
         run: pnpm audit:release
+      - name: Formatting
+        if: ${{ !cancelled() }}
+        run: pnpm format:check
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down

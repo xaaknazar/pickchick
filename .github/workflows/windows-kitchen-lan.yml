@@ -8,7 +8,7 @@ on:
       - 'tests/operations/kitchen-lan-files.test.ps1'
       - '.github/workflows/windows-kitchen-lan.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
     paths:
       - 'infra/windows/**'
       - 'tests/operations/kitchen-lan-files.test.ps1'

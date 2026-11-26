@@ -23,7 +23,7 @@ on:
       - 'tests/operations/test_windows_webkassa_edge.py'
       - 'tests/operations/windows-webkassa-edge.test.ps1'
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
     paths:
       - 'apps/pos/**'
       - 'apps/pos-desktop/**'
