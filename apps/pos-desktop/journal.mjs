@@ -150,10 +150,15 @@ function saleBody(path, body) {
   if (body.service_mode_confirmed !== true || body.order_repeated !== true) fail();
   tenderCount(body.tenders);
   for (const tender of body.tenders) {
-    only(tender, ['method', 'amount_minor', 'reference'], ['method', 'amount_minor']);
+    only(tender, ['method', 'amount_minor', 'reference', 'attempt_id'], ['method', 'amount_minor']);
     if (!PAYMENT_METHODS.includes(tender.method)) fail();
     positive(tender.amount_minor);
     if (tender.reference !== undefined) text(tender.reference, 40);
+    // Paid on the linked Kaspi Smart POS (ADR-0017): the edge writes the operation number.
+    if (tender.attempt_id !== undefined) {
+      if (tender.method !== 'kaspi_terminal' || tender.reference !== undefined) fail();
+      id(tender.attempt_id);
+    }
   }
   if (body.external_order_ref !== undefined) {
     text(body.external_order_ref, 40);

@@ -191,6 +191,8 @@ const CUTOVER_EDGE = {
   // CR pos-7 (lead decision 07.11 (1)): the desk number, applied only after 027.
   '028_edge_pos_desk_number.sql':
     '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf',
+  // ADR-0017: the Kaspi Smart POS link and attempts, applied only after 028.
+  '029_edge_kaspi_pos.sql': 'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
 };
 
 test('cutover edge migrations upgrade a 025 edge in order with their reviewed bytes, earlier ledger unchanged', async () => {
@@ -251,7 +253,7 @@ test('cutover edge 027 is never applied before 026: a gapped install refuses 026
 test('cutover edge 028 is never followed by 027: a gapped install without 027 refuses 027 later without changes', async () => {
   await isolated(async (pool) =>
     subset(
-      (name) => name !== '027_edge_kds_foundation.sql',
+      (name) => name !== '027_edge_kds_foundation.sql' && name < '029',
       async (gapped) => {
         await migrate(pool, gapped, 'edge');
         const before = await ledger(pool);

@@ -43,6 +43,12 @@ export const CheckoutOptionsSchema = z.strictObject({
     .regex(/^[1-9][0-9]{0,8}$/)
     .default('10000'),
   approvalReference: z.string().trim().min(3).max(250),
+  /**
+   * CUSTOMER_FISCAL_ACCOUNT_ID: the branch's Webkassa fiscal account (docs/integrations/
+   * webkassa-api.md). Set, new app orders take fiscal policy `required`: the receipt is issued
+   * before the kitchen gets the order. Unset, they stay `deferred_pilot` (no receipt) as before.
+   */
+  fiscalAccountId: z.uuid().optional(),
   hours: RestaurantHoursSchema.optional(),
   /** CUSTOMER_KASPI_SALES_ENABLED (default true): false closes new mobile Kaspi payments. */
   salesEnabled: z.boolean().optional(),
@@ -76,6 +82,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     allVerifiedCustomers: env.CUSTOMER_KASPI_ALL_VERIFIED_CUSTOMERS === 'true',
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
     approvalReference: env.CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE,
+    ...(env.CUSTOMER_FISCAL_ACCOUNT_ID ? { fiscalAccountId: env.CUSTOMER_FISCAL_ACCOUNT_ID } : {}),
     hours: restaurantHoursFromEnv(env),
     salesEnabled: booleanFlag(env.CUSTOMER_KASPI_SALES_ENABLED, true),
     unpaidOrderTtlMinutes:
@@ -273,6 +280,7 @@ export class CustomerCheckout {
       orderCommentEnabled: true,
       branchId: scope.branchId,
       restaurant: row.name,
+      // Released app builds accept only this literal; the receipt state of an order is order.receipt.
       fiscalPolicy: 'deferred_pilot' as const,
     };
   }
@@ -377,8 +385,9 @@ export class CustomerCheckout {
         total_minor: string;
         order_id: string | null;
         fiscal_deferral_reference: string | null;
+        fiscal_account_id: string | null;
       }>(
-        `SELECT q.total_minor,o.id AS order_id,o.fiscal_deferral_reference FROM commerce_quotes q
+        `SELECT q.total_minor,o.id AS order_id,o.fiscal_deferral_reference,o.fiscal_account_id FROM commerce_quotes q
        LEFT JOIN commerce_orders o ON o.quote_id=q.id
        WHERE q.id=$1 AND q.organization_id=$2 AND q.branch_id=$3 AND q.principal_id=$4 AND q.customer_id=$4 AND q.snapshot->>'channel'='mobile'`,
         [request.quoteId, scope.organizationId, scope.branchId, customerId],
@@ -402,7 +411,16 @@ export class CustomerCheckout {
             approvalReference: quote.fiscal_deferral_reference,
           })
         : this.repository;
-    const created = await repository.createDeferredFiscalOrder(scope, request.key, request.quoteId);
+    // A new order takes today's policy; a retry keeps the policy its order was created with.
+    const fiscalAccountId = quote.order_id
+      ? quote.fiscal_account_id
+      : (this.options!.fiscalAccountId ?? null);
+    const created = fiscalAccountId
+      ? await this.repository.createOrder(scope, request.key, {
+          quoteId: request.quoteId,
+          fiscalAccountId,
+        })
+      : await repository.createDeferredFiscalOrder(scope, request.key, request.quoteId);
     return this.read(customerId, created.orderId);
   }
   async pay(customerId: string, orderId: string) {

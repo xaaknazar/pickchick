@@ -1,0 +1,74 @@
+{
+  "packageSource": "4df05b795226408ad1c81d5801425f3c2b9814d4",
+  "packageReused": "/opt/pickchick-staging/incoming/desktop-updates-4df05b79-1117/package",
+  "packageFiles": {
+    "infra/desktop-updates/remote-deploy.py": "73fbd37e7a69fa30d279712b89ebc74053ba95025d744ca2196a9f186da5bb93",
+    "infra/desktop-updates/compose.yaml": "0e81f290c8c36f5a9e306de50e5d0a6186d715d25684d780695e3a6667bf6d99",
+    "infra/desktop-updates/sidecar.Caddyfile": "24acf41fdf81c9330a1d3b1b4497487d366d896e458d6344ea6612a8de20052c",
+    "infra/roadmap/remote-deploy.py": "cd40654d2f347ba8f76385012e8067a91d56417c491805bedad8212697297de6"
+  },
+  "buildSource": "0612f93b1a1b24cf19eea698a99021e06a0dfca8",
+  "buildBase": "4df05b795226408ad1c81d5801425f3c2b9814d4",
+  "buildBranch": "claude/project-thread-ntdsta, PR #399 (CI copy codex/report-fn-grants-1118), not merged into codex/cutover-1119",
+  "ci": [
+    {
+      "id": 44326359248,
+      "name": "Windows Kitchen package",
+      "sha": "0612f93b1a1b24cf19eea698a99021e06a0dfca8",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44326359248"
+    },
+    {
+      "id": 44326357859,
+      "name": "Foundation CI",
+      "sha": "0612f93b1a1b24cf19eea698a99021e06a0dfca8",
+      "conclusion": "failure",
+      "onlyFailedStep": "Check dependency advisories (picomatch GHSA-fc5q-39xc-vjpf, red on every branch since 18.11, no fixed release)",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44326357859"
+    },
+    {
+      "id": 44326357871,
+      "name": "Windows POS package",
+      "sha": "0612f93b1a1b24cf19eea698a99021e06a0dfca8",
+      "conclusion": "success",
+      "url": "https://github.com/xaaknazar/pickchick/actions/runs/44326357871"
+    }
+  ],
+  "foundationJobs": [
+    { "name": "iPad kiosk state, bundles and browser recovery", "conclusion": "success" },
+    { "name": "Foundation mobile bundles and checkout recovery", "conclusion": "success" },
+    { "name": "Foundation POS and backoffice integration", "conclusion": "success" },
+    { "name": "Foundation simulator browser regressions", "conclusion": "success" },
+    {
+      "name": "Foundation static checks and transaction invariants",
+      "conclusion": "failure",
+      "note": "all steps success except the last one, Check dependency advisories"
+    },
+    { "name": "Design screens and interaction smoke", "conclusion": "success" },
+    { "name": "Private staging image and restricted database role", "conclusion": "success" },
+    { "name": "Local kitchen UI and recovery", "conclusion": "success" },
+    { "name": "Foundation server account and Kaspi fixtures", "conclusion": "success" },
+    { "name": "Cloud-edge fulfillment transport and recovery", "conclusion": "success" },
+    {
+      "name": "Build, contracts and PostgreSQL integration",
+      "conclusion": "failure",
+      "note": "summary job, red only because of the advisory step above"
+    }
+  ],
+  "windowsJobs": [
+    { "name": "Package and launch Windows x64 Kitchen", "conclusion": "success" },
+    { "name": "Installed Kitchen updates itself from a feed", "conclusion": "success" },
+    { "name": "Where the POS installer puts PickChickPOS.exe", "conclusion": "success" }
+  ],
+  "artifact": {
+    "id": 14436707688,
+    "name": "pickchick-kitchen-update-feed-0612f93b1a1b24cf19eea698a99021e06a0dfca8",
+    "zipBytes": 120914507,
+    "githubDigest": "sha256:d663e383723d7004f0d977897d8e890c45bb1853d1d384da2f1a5cd48a9af1ba",
+    "installer": "PickChick-Kitchen-Setup-0.4.7-x64.exe",
+    "installerBytes": 120902775,
+    "installerSha256": "39b2785e3906f8f26c24b7b2f720d9c10bad60561680434e3e5c9f72432719ec",
+    "apply": "idle"
+  },
+  "deviceAcceptance": false
+}

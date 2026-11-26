@@ -14,18 +14,25 @@ import {
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   createPosSale,
+  createTerminalPayment,
+  listOpenTerminalPayments,
   listPendingFiscalReceipts,
+  readTerminalPayment,
   readPosConfig,
   readPosSale,
   readShiftReport,
   recordFiscalReceipt,
   refundPosSale,
   voidPosSale,
+  webkassaReceiptStatus,
+  kioskReceipts,
+  kioskReceiptPrint,
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
 import type { StaffAuth } from '@pickchick/local-orders';
 import { localUnpaidExecution } from '@pickchick/edge-fulfillment';
+import { WebkassaLoop } from './webkassa-loop.js';
 
 /**
  * Cutover 19.11 (contracts 5.1, lane pos): paid POS sales on the cashier edge. Everything here
@@ -34,7 +41,10 @@ import { localUnpaidExecution } from '@pickchick/edge-fulfillment';
  */
 @Controller('edge/v1')
 export class PosSalesController {
-  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+  constructor(
+    @Inject(RESOURCE) private readonly resources: Resources,
+    @Inject(WebkassaLoop) private readonly webkassa: WebkassaLoop,
+  ) {}
 
   private async run<T>(
     headers: Record<string, string | undefined>,
@@ -79,15 +89,45 @@ export class PosSalesController {
   @Post('pos/sales')
   @HttpCode(201)
   sell(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
-    return this.run(headers, (auth) =>
-      createPosSale(
+    return this.run(headers, async (auth) => {
+      const sale = await createPosSale(
         this.pool,
         this.branchId,
         auth,
         headers['idempotency-key'] ?? '',
         body,
         this.execution,
-      ),
+      );
+      // Automatic Webkassa: issue the new sale's receipt now rather than on the next tick.
+      this.webkassa.worker?.nudge();
+      return sale;
+    });
+  }
+
+  /** ADR-0017: send a whole-tenge amount of the quote to this desk's Kaspi Smart POS. */
+  @Post('pos/terminal-payments')
+  @HttpCode(201)
+  terminalPayment(@Headers() headers: Record<string, string | undefined>, @Body() body: unknown) {
+    return this.run(headers, (auth) =>
+      createTerminalPayment(this.pool, this.branchId, auth, headers['idempotency-key'] ?? '', body),
+    );
+  }
+
+  @Get('pos/terminal-payments/open')
+  @Header('Cache-Control', 'no-store')
+  openTerminalPayments(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, (auth) => listOpenTerminalPayments(this.pool, this.branchId, auth));
+  }
+
+  /** ADR-0017: the attempt after asking the terminal once (the POS polls about once a second). */
+  @Get('pos/terminal-payments/:attemptId')
+  @Header('Cache-Control', 'no-store')
+  terminalPaymentState(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('attemptId') attemptId: string,
+  ) {
+    return this.run(headers, (auth) =>
+      readTerminalPayment(this.pool, this.branchId, auth, attemptId),
     );
   }
 
@@ -147,6 +187,66 @@ export class PosSalesController {
     return this.run(headers, (auth) =>
       listPendingFiscalReceipts(this.pool, this.branchId, auth, shiftId),
     );
+  }
+
+  /**
+   * Automatic Webkassa (webkassa-fiscal.ts): state of one receipt, and its print form with the
+   * QR once issued. 404 while the point has no Webkassa account (manual mode, ADR-0015).
+   */
+  @Get('pos/fiscal-receipts/:receiptId/webkassa')
+  @Header('Cache-Control', 'no-store')
+  webkassaReceipt(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('receiptId') receiptId: string,
+  ) {
+    return this.webkassaStatus(headers, receiptId, false);
+  }
+
+  @Get('pos/fiscal-receipts/:receiptId/webkassa/print')
+  @Header('Cache-Control', 'no-store')
+  webkassaPrint(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('receiptId') receiptId: string,
+  ) {
+    return this.webkassaStatus(headers, receiptId, true);
+  }
+
+  private webkassaStatus(
+    headers: Record<string, string | undefined>,
+    receiptId: string,
+    print: boolean,
+  ) {
+    return this.run(headers, async (auth) => {
+      const worker = this.webkassa.worker;
+      if (!worker) throw new OrderError('NOT_FOUND');
+      return webkassaReceiptStatus(this.pool, this.branchId, auth, worker, receiptId, print);
+    });
+  }
+
+  /**
+   * Kiosk orders whose Webkassa receipt this desk prints (stage 2). 404 while the point has no
+   * Webkassa account: kiosk receipts are then not printed at the desk.
+   */
+  @Get('pos/kiosk-receipts')
+  @Header('Cache-Control', 'no-store')
+  kioskReceiptList(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(headers, async (auth) => {
+      if (!this.webkassa.worker) throw new OrderError('NOT_FOUND');
+      return kioskReceipts(this.pool, this.branchId, auth);
+    });
+  }
+
+  @Get('pos/kiosk-receipts/:orderId/print')
+  @Header('Cache-Control', 'no-store')
+  kioskReceiptForm(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.run(headers, async (auth) => {
+      const worker = this.webkassa.worker;
+      if (!worker) throw new OrderError('NOT_FOUND');
+      return kioskReceiptPrint(this.pool, this.branchId, auth, worker, orderId);
+    });
   }
 
   /** POS-5: the Webkassa number of one receipt (a correction needs fiscal_correct). */

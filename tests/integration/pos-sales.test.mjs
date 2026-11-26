@@ -1566,6 +1566,8 @@ test('GET pos/config: 404 on an edge without schema026; fetch record per desk', 
           server_time: undefined,
           // Schema028 (CR pos-7): no desk has a number until the operator sets one.
           desk_number: null,
+          // Schema029 (ADR-0017): no desk has a Kaspi Smart POS until the owner links one.
+          kaspi_terminal_link: false,
         },
       );
       const fetch = async () =>

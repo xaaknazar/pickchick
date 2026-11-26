@@ -46,6 +46,7 @@ import {
   posSalesMigration,
 } from '../../infra/windows/pos-sales-upgrade-db.mjs';
 import { setDeskNumber } from '../../scripts/pos-sales-setup.mjs';
+import { kaspiPosMigration } from '../../infra/windows/kaspi-pos-upgrade-db.mjs';
 import {
   KDS_TABLES,
   assertKdsRuntimePrivileges,
@@ -1391,8 +1392,14 @@ test('night C4 chain on a populated 024 edge: the operator 025 database step, th
             false,
           );
           assert.equal((await tool(deskNumberMigration, { mode: 'apply', ...desk })).applied, true);
+          // ADR-0017: the Kaspi Smart POS step 029 accepts what the 028 tool left.
+          assert.equal(
+            (await tool(kaspiPosMigration, { mode: 'inspect', ...desk })).applied,
+            false,
+          );
+          assert.equal((await tool(kaspiPosMigration, { mode: 'apply', ...desk })).applied, true);
 
-          // The ledger is the reviewed 001-028 of the repository, byte for byte.
+          // The ledger is the reviewed 001-029 of the repository, byte for byte.
           const pinned = JSON.parse(
             await readFile(join(repoRoot, 'infra/windows/native-edge-backup-ledger.json'), 'utf8'),
           );
@@ -1400,7 +1407,7 @@ test('night C4 chain on a populated 024 edge: the operator 025 database step, th
             await ledger(pool),
             pinned.map(({ version, checksum }) => ({ version, checksum })),
           );
-          assert.equal(pinned.length, 28);
+          assert.equal(pinned.length, 29);
 
           // Every tool still verifies after the whole chain; the operator's grants survived it.
           assert.equal((await tool(posSalesMigration, { mode: 'inspect', ...pos })).applied, true);

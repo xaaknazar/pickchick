@@ -2,6 +2,7 @@ import { transaction } from '@pickchick/database';
 import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
 import { MIGRATION as POS_SALES_MIGRATION, posSalesRuntimeGrants } from './pos-sales-grants.mjs';
 import { MIGRATION as KDS_MIGRATION, kdsRuntimeGrantSql } from './kds-grants.mjs';
+import { MIGRATION as KASPI_POS_MIGRATION, kaspiPosRuntimeGrantSql } from './kaspi-pos-grants.mjs';
 
 const posRead = [
   'schema_migrations',
@@ -371,6 +372,17 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     ).rows[0];
     if (kds.applied !== kds.settings) throw new Error('KDS migration objects differ');
     if (kds.applied && options.fulfillment) await client.query(kdsRuntimeGrantSql(role, schema));
+    // Edge schema029 (ADR-0017): the Kaspi Smart POS link and attempts of the cash desks
+    // (infra/windows/kaspi-pos-grants.mjs). Before 029 nothing is granted.
+    const kaspi = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version=$1) AS applied,
+       to_regclass($2) IS NOT NULL AS attempts`,
+        [KASPI_POS_MIGRATION, `${namespace}.kaspi_pos_attempts`],
+      )
+    ).rows[0];
+    if (kaspi.applied !== kaspi.attempts) throw new Error('Kaspi POS migration objects differ');
+    if (kaspi.applied) await client.query(kaspiPosRuntimeGrantSql(role, schema));
 
     const create = await client.query("SELECT has_schema_privilege($1,$2,'CREATE') AS permitted", [
       role,

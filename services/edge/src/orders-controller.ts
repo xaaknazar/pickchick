@@ -29,6 +29,7 @@ import {
   readCashShift,
   listCashShifts,
   listLocalOrders,
+  listBranchOrders,
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
@@ -119,6 +120,16 @@ export class LocalOrdersController {
     @Query('shift_id') shiftId?: string,
   ) {
     return this.run(headers, (auth) => listLocalOrders(this.pool, this.branchId, auth, shiftId));
+  }
+
+  // 23.11: every order of the branch (desk, app, kiosk, aggregators) between two days.
+  @Get('pos/branch-orders')
+  branchOrders(
+    @Headers() headers: Record<string, string | undefined>,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.run(headers, (auth) => listBranchOrders(this.pool, this.branchId, auth, from, to));
   }
 
   @Get('cash-shifts/current')

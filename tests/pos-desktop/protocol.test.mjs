@@ -112,6 +112,10 @@ test('foreign origins, unsupported edge operations and query tricks never reach 
       ['GET', `/edge/v1/orders?shift_id=${ID}&shift_id=${ID}`],
       ['GET', `/edge/v1/orders?shift_id=${ID}&all=true`],
       ['GET', `/edge/v1/cash-shifts?shift_id=${ID}`],
+      ['GET', '/edge/v1/pos/branch-orders?from=x&to=y'],
+      ['GET', '/edge/v1/pos/branch-orders?from=2026-11-01'],
+      ['GET', '/edge/v1/pos/branch-orders?from=2026-11-01&to=2026-11-23&all=1'],
+      ['POST', '/edge/v1/pos/branch-orders?from=2026-11-01&to=2026-11-23'],
       ['POST', `/edge/v1/orders?shift_id=${ID}`],
       ['GET', '/edge/v1/http://127.0.0.1/'],
       ['POST', `/edge/v1/orders/${ID}/payments`],
@@ -144,6 +148,7 @@ test('reviewed menu photos are local and shift/order routes preserve only the al
       'cash-shifts',
       'cash-shifts/current',
       `cash-shifts/${ID}`,
+      'pos/branch-orders?from=2026-11-01&to=2026-11-23',
     ]) {
       const url = `/edge/v1/${path}`;
       assert.equal(isAllowedRendererURL(new URL(url, APP_URL).href), true);
@@ -951,6 +956,13 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       'pos/fiscal-receipts/pending',
       `cash-shifts/${uuid}/x-report`,
       `cash-shifts/${uuid}/z-report`,
+      'pos/terminal-payments/open',
+      `pos/terminal-payments/${uuid}`,
+      'pos/branch-orders',
+      `pos/fiscal-receipts/${uuid}/webkassa`,
+      `pos/fiscal-receipts/${uuid}/webkassa/print`,
+      'pos/kiosk-receipts',
+      `pos/kiosk-receipts/${uuid}/print`,
     ],
     write: [
       'staff/approvals',
@@ -958,6 +970,7 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       `pos/sales/${uuid}/void`,
       `pos/sales/${uuid}/refunds`,
       `pos/fiscal-receipts/${uuid}/record`,
+      'pos/terminal-payments',
     ],
   });
   // The gateway profile (CL-4) imports these two expressions instead of copying them.

@@ -98,6 +98,16 @@ const POS_SALE_READS = [
   'pos/fiscal-receipts/pending',
   `cash-shifts/${UUID}/x-report`,
   `cash-shifts/${UUID}/z-report`,
+  // ADR-0017: Kaspi Smart POS attempts of this desk.
+  'pos/terminal-payments/open',
+  `pos/terminal-payments/${UUID}`,
+  // 23.11: «Заказы» lists every order of the branch between two days.
+  'pos/branch-orders',
+  // 25.11: automatic Webkassa receipt state and its print form with the QR.
+  `pos/fiscal-receipts/${UUID}/webkassa`,
+  `pos/fiscal-receipts/${UUID}/webkassa/print`,
+  'pos/kiosk-receipts',
+  `pos/kiosk-receipts/${UUID}/print`,
 ];
 const POS_SALE_WRITES = [
   'staff/approvals',
@@ -105,6 +115,7 @@ const POS_SALE_WRITES = [
   `pos/sales/${UUID}/void`,
   `pos/sales/${UUID}/refunds`,
   `pos/fiscal-receipts/${UUID}/record`,
+  'pos/terminal-payments',
 ];
 export const POS_READ_PATH = new RegExp(
   `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${POS_SALE_READS.join('|')})$`,
@@ -114,6 +125,8 @@ export const POS_WRITE_PATH = new RegExp(
   `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops|${POS_SALE_WRITES.join('|')})$`,
   'i',
 );
+/** pos-desktop DAY_RANGE_QUERY: GET pos/branch-orders carries exactly `?from=<day>&to=<day>`. */
+export const POS_DAY_RANGE_QUERY = '\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}';
 /** GET paths of the desk that may carry exactly one `?shift_id=<uuid>`. */
 export const POS_SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/pending']);
 /** Content-addressed menu photos the desk reads through its edge transport. */
@@ -136,6 +149,8 @@ export function allowedPosRoute(method, raw) {
       url.search.startsWith('?client_version=') &&
       POS_CLIENT_VERSION.test(url.search.slice('?client_version='.length))
     );
+  if (url.search && url.pathname === '/edge/v1/pos/branch-orders')
+    return method === 'GET' && new RegExp(`^${POS_DAY_RANGE_QUERY}$`).test(url.search);
   if (url.search)
     return (
       method === 'GET' &&

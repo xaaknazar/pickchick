@@ -299,8 +299,10 @@ function render() {
     const ids = visibleOrders.filter((o) => 'orderId' in o).map((o) => o.orderId);
     if (newOrders.update(newScreen, ids, Date.now())) chime();
   }
+  // The 5-second background read does not lock the screen: a tap waits for it.
+  const busy = s.busy && !s.background;
   const blocked =
-    s.busy ||
+    busy ||
     !!s.pending ||
     !!s.cloudPending ||
     s.storageBlocked ||
@@ -309,7 +311,7 @@ function render() {
   // Each owner has its own journal: a stuck cashier command leaves cloud tickets workable.
   const blockedFor = (o: { fulfillmentOwner?: Owner }) =>
     s.cloud
-      ? s.busy ||
+      ? busy ||
         s.storageBlocked ||
         !!s.error ||
         (ownerOf(o) === 'cloud' ? !s.screenLease || !!s.cloudPending : !s.lease || !!s.pending) ||
@@ -437,7 +439,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const notice =
     s.kdsNotice && !s.kds
       ? `<aside class="kds-notice" role="status">${escape(errors[s.kdsNotice]!)}</aside>`
@@ -453,8 +455,8 @@ function render() {
     const conflict = owner === 'cloud' ? s.cloudConflict : s.conflict;
     const reviewed = owner === 'cloud' ? s.cloudReviewed : s.reviewed;
     const suffix = owner === 'cloud' ? '-cloud' : '';
-    const busy = s.busy || (s.cloud && s.streams[owner] === 'offline');
-    return `<aside class="recovery" data-testid="recovery${suffix}"><h2>${conflict ? 'Требуется сверка' : 'Незавершённая команда'}${s.cloud ? ` · ${owner === 'cloud' ? 'сервер' : 'касса'}` : ''}</h2><p>${escape(actionLabel[pending.body.action])} · заказ ${escape(reviewed?.displayNumber ?? pending.orderId)}. Новые действия${s.cloud ? (owner === 'cloud' ? ' по заказам сервера' : ' по заказам кассы') : ''} заблокированы.</p>${conflict ? `<p>Состояние на узле: <strong>${escape(reviewed ? (labels[reviewed.state] ?? reviewed.state) : 'не получено')}</strong>${reviewed ? ` · версия ${reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', `id="review${suffix}"`, busy)} ${button('Сверил состояние - продолжить', `id="acknowledge${suffix}"`, busy || !reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', `id="retry${suffix}"`, busy || s.storageBlocked)}`}</aside>`;
+    const locked = busy || (s.cloud && s.streams[owner] === 'offline');
+    return `<aside class="recovery" data-testid="recovery${suffix}"><h2>${conflict ? 'Требуется сверка' : 'Незавершённая команда'}${s.cloud ? ` · ${owner === 'cloud' ? 'сервер' : 'касса'}` : ''}</h2><p>${escape(actionLabel[pending.body.action])} · заказ ${escape(reviewed?.displayNumber ?? pending.orderId)}. Новые действия${s.cloud ? (owner === 'cloud' ? ' по заказам сервера' : ' по заказам кассы') : ''} заблокированы.</p>${conflict ? `<p>Состояние на узле: <strong>${escape(reviewed ? (labels[reviewed.state] ?? reviewed.state) : 'не получено')}</strong>${reviewed ? ` · версия ${reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', `id="review${suffix}"`, locked)} ${button('Сверил состояние - продолжить', `id="acknowledge${suffix}"`, locked || !reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', `id="retry${suffix}"`, locked || s.storageBlocked)}`}</aside>`;
   };
   const recovery = recoveryPanel('edge') + (s.cloud ? recoveryPanel('cloud') : '');
   const board = displayWindow(s.display, boardPage);

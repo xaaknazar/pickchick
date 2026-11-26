@@ -641,3 +641,76 @@ export async function readStops(pool: DatabasePool, branchId: string, auth: Staf
     };
   });
 }
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * «Заказы» of the cashier (23.11 owner): every order of the branch between two Almaty days,
+ * whatever its channel: the desk (hall and aggregators), the app and the kiosk. Read from the
+ * kitchen admissions (fulfillment_reservations), where every admitted order lands; at most
+ * 31 days and 2000 orders, newest first. Read-only, for any signed-in cashier or shift manager.
+ */
+export function listBranchOrders(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  from: string | undefined,
+  to: string | undefined,
+) {
+  if (!from || !to || !DAY.test(from) || !DAY.test(to)) throw new OrderError('INVALID_REQUEST');
+  const start = Date.parse(from + 'T00:00:00Z'),
+    end = Date.parse(to + 'T00:00:00Z');
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || end - start > 30 * 864e5)
+    throw new OrderError('INVALID_REQUEST');
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    const rows = (
+      await client.query(
+        `SELECT r.order_id, r.display_number::text AS display_number, r.created_at, r.state,
+          r.commercial_owner, r.admission_kind, r.snapshot
+        FROM fulfillment_reservations r
+        WHERE r.branch_id=$1 AND r.state NOT IN ('held','released')
+          AND (r.created_at AT TIME ZONE 'Asia/Almaty')::date BETWEEN $2::date AND $3::date
+        ORDER BY r.created_at DESC, r.order_id DESC LIMIT 2001`,
+        [branchId, from, to],
+      )
+    ).rows;
+    const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time;
+    return {
+      from,
+      to,
+      truncated: rows.length > 2000,
+      orders: rows.slice(0, 2000).map((r) => {
+        const s = r.snapshot ?? {};
+        const channel =
+          s.channel === 'pos'
+            ? (s.delivery?.provider ?? 'pos')
+            : s.channel === 'kiosk'
+              ? 'kiosk'
+              : 'mobile';
+        return {
+          order_id: r.order_id,
+          number: r.display_number,
+          created_at: new Date(r.created_at).toISOString(),
+          channel,
+          external_number: s.delivery?.externalNumber ?? null,
+          service_mode: s.serviceMode === 'dine_in' ? 'dine_in' : 'takeaway',
+          display_name: typeof s.displayName === 'string' ? s.displayName : null,
+          total_minor: String(s.totalMinor ?? '0'),
+          state: r.state,
+          // Desk orders are paid at the desk or passed unpaid; app and kiosk orders are paid
+          // before the kitchen gets them (cloud_authorized).
+          paid: r.admission_kind !== 'unpaid_service',
+          desk: r.commercial_owner === 'edge_pos',
+          lines: (Array.isArray(s.lines) ? s.lines : []).map(
+            (l: { title?: unknown; quantity?: unknown }) => ({
+              title: String(l.title ?? ''),
+              quantity: Number(l.quantity ?? 1),
+            }),
+          ),
+        };
+      }),
+      server_time: time.toISOString(),
+    };
+  });
+}

@@ -138,5 +138,10 @@
     "version": "028_edge_pos_desk_number.sql",
     "checksum": "684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf",
     "scope": "edge"
+  },
+  {
+    "version": "029_edge_kaspi_pos.sql",
+    "checksum": "edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784",
+    "scope": "edge"
   }
 ]
