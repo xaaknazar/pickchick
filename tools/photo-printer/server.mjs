@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { PhotoService, handler } from './service.mjs';
 import { privateIPv4 } from './transport.mjs';
 import { createPrintTransport } from './printer.mjs';
+import { preparePhoto, preparePhotoSlip } from './raster.mjs';
 
 process.umask(0o077);
 const configPath = process.argv[2];
@@ -18,6 +19,19 @@ const bind = config.bind ?? '127.0.0.1';
 if (bind !== '127.0.0.1' && !privateIPv4(bind))
   throw new Error('Bind photo HTTPS to loopback or one private LAN IPv4, never all interfaces.');
 const send = await createPrintTransport(config);
+const layout = config.layout ?? 'slip-v2';
+if (!['v1', 'slip-v2'].includes(layout)) throw new Error('Unknown slip layout.');
+if (config.point !== undefined && (typeof config.point !== 'string' || config.point.length > 40))
+  throw new Error('Point name: up to 40 characters.');
+// Slip v2 (approved by the owner 26.11.2026): logo, framed photo, point name, Almaty time.
+const render =
+  layout === 'v1'
+    ? preparePhoto
+    : (input, logo, width, locale) =>
+        preparePhotoSlip(input, logo, width, locale, {
+          point: config.point ?? '',
+          timeZone: config.timeZone ?? 'Asia/Almaty',
+        });
 const database = resolve(config.database);
 mkdirSync(dirname(database), { recursive: true, mode: 0o700 });
 const service = new PhotoService({
@@ -27,6 +41,7 @@ const service = new PhotoService({
   cut: config.cut === true,
   enabled,
   send,
+  render,
 });
 const server = https.createServer(
   { cert: readFileSync(config.tlsCert), key: readFileSync(config.tlsKey), minVersion: 'TLSv1.2' },

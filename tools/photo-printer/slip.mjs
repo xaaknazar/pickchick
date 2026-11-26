@@ -4,13 +4,24 @@ const glyphs = JSON.parse(readFileSync(new URL('./glyphs.json', import.meta.url)
 
 /** Russian, Kazakh and English copy of the souvenir slip. Only one language reaches paper. */
 export const slipCopy = Object.freeze({
-  ru: { kicker: 'ФОТО НА ПАМЯТЬ', title: ['Хрустящий момент', 'на память'], wish: 'Приятного аппетита!' },
+  ru: {
+    kicker: 'ФОТО НА ПАМЯТЬ',
+    title: ['Хрустящий момент', 'на память'],
+    wish: 'Приятного аппетита!',
+  },
   kk: { kicker: 'ЕСТЕЛІККЕ ФОТО', title: ['Қытырлақ сәт —', 'тәтті естелік'], wish: 'Ас болсын!' },
-  en: { kicker: 'PHOTO TO REMEMBER', title: ['A crispy moment', 'to remember'], wish: 'Enjoy your meal!' },
+  en: {
+    kicker: 'PHOTO TO REMEMBER',
+    title: ['A crispy moment', 'to remember'],
+    wish: 'Enjoy your meal!',
+  },
 });
 
 const escapeXml = (value) =>
-  value.replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
+  value.replace(
+    /[<>&"']/g,
+    (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 
 /** Width in dots of `text` set in `face` at `size` px with `tracking` em/1000 between letters. */
 export function measure(face, text, size, tracking = 0) {
@@ -21,7 +32,14 @@ export function measure(face, text, size, tracking = 0) {
 }
 
 /** Outlined lettering: no system font, printer code page or font install is involved. */
-export function textPath(face, text, size, x, baseline, { tracking = 0, anchor = 'start', fill = 'black' } = {}) {
+export function textPath(
+  face,
+  text,
+  size,
+  x,
+  baseline,
+  { tracking = 0, anchor = 'start', fill = 'black' } = {},
+) {
   const table = glyphs[face];
   const width = measure(face, text, size, tracking);
   let left = anchor === 'middle' ? x - width / 2 : anchor === 'end' ? x - width : x;
@@ -29,7 +47,10 @@ export function textPath(face, text, size, x, baseline, { tracking = 0, anchor =
   const parts = [];
   for (const ch of text) {
     const [advance, d] = table[ch] ?? table['?'];
-    if (d) parts.push(`<path transform="translate(${left.toFixed(2)} ${baseline}) scale(${scale})" d="${d}"/>`);
+    if (d)
+      parts.push(
+        `<path transform="translate(${left.toFixed(2)} ${baseline}) scale(${scale})" d="${d}"/>`,
+      );
     left += (advance + tracking) * scale;
   }
   return `<g fill="${fill}" aria-label="${escapeXml(text)}">${parts.join('')}</g>`;
@@ -57,7 +78,10 @@ export function stamp(date = new Date(), timeZone = 'Asia/Almaty') {
       .formatToParts(date)
       .map((p) => [p.type, p.value]),
   );
-  return { date: `${parts.day}.${parts.month}.${parts.year}`, time: `${parts.hour}:${parts.minute}` };
+  return {
+    date: `${parts.day}.${parts.month}.${parts.year}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
 }
 
 /**
@@ -87,8 +111,20 @@ export function slipLayout(width) {
     inner,
     logo: { left: Math.round((width - logoWidth) / 2), top, width: logoWidth, height: logoHeight },
     kickerTop,
-    frame: { left: margin, top: frameTop, width: inner, height: frameHeight, border, radius: Math.round(width * 0.035) },
-    photo: { left: margin + border + pad, top: frameTop + border + pad, width: photoWidth, height: photoHeight },
+    frame: {
+      left: margin,
+      top: frameTop,
+      width: inner,
+      height: frameHeight,
+      border,
+      radius: Math.round(width * 0.035),
+    },
+    photo: {
+      left: margin + border + pad,
+      top: frameTop + border + pad,
+      width: photoWidth,
+      height: photoHeight,
+    },
     captionTop,
     footerTop,
   };
@@ -103,7 +139,8 @@ export function slipSvg(layout, { locale = 'ru', point = '', when = stamp() } = 
   const kickerSize = Math.round(17 * u);
   const kickerTrack = 260;
   const kickerWidth = measure('title', copy.kicker, kickerSize, kickerTrack);
-  const rule = (y, x1, x2) => `<rect x="${x1}" y="${y}" width="${Math.max(0, x2 - x1)}" height="${Math.max(2, Math.round(2 * u))}"/>`;
+  const rule = (y, x1, x2) =>
+    `<rect x="${x1}" y="${y}" width="${Math.max(0, x2 - x1)}" height="${Math.max(2, Math.round(2 * u))}"/>`;
   const gap = Math.round(14 * u);
   const titleSize = fit('title', copy.title[0], Math.round(40 * u), inner);
   const titleSize2 = Math.min(titleSize, fit('title', copy.title[1], Math.round(40 * u), inner));
@@ -121,7 +158,9 @@ export function slipSvg(layout, { locale = 'ru', point = '', when = stamp() } = 
   const dashY = footerTop - Math.round(24 * u);
   const dashes = [];
   for (let x = margin; x < width - margin; x += Math.round(14 * u))
-    dashes.push(`<rect x="${x}" y="${dashY}" width="${Math.round(7 * u)}" height="${Math.max(2, Math.round(2 * u))}"/>`);
+    dashes.push(
+      `<rect x="${x}" y="${dashY}" width="${Math.round(7 * u)}" height="${Math.max(2, Math.round(2 * u))}"/>`,
+    );
   const left = point ? `PickChick · ${point}` : 'PickChick';
   const right = `${when.date}  ${when.time}`;
   const leftSize = fit('text', left, smallSize, inner - measure('text', right, smallSize) - 16 * u);
@@ -141,7 +180,10 @@ ${textPath('text', copy.wish, wishSize, cx, captionTop + Math.round(titleSize * 
 ${textPath('text', left, leftSize, margin, footerTop + Math.round(smallSize * 0.9))}
 ${textPath('text', right, smallSize, width - margin, footerTop + Math.round(smallSize * 0.9), { anchor: 'end' })}
 ${textPath('text', 'pickchick.kz', Math.round(17 * u), cx, footerTop + Math.round(smallSize * 0.9 + 34 * u), { anchor: 'middle', tracking: 40 })}
-</svg>`.replace('</svg>', `<g id="viewfinder">${corner(fx1, fy1, 1, 1)}${corner(fx2, fy1, -1, 1)}${corner(fx1, fy2, 1, -1)}${corner(fx2, fy2, -1, -1)}</g></svg>`);
+</svg>`.replace(
+    '</svg>',
+    `<g id="viewfinder">${corner(fx1, fy1, 1, 1)}${corner(fx2, fy1, -1, 1)}${corner(fx1, fy2, 1, -1)}${corner(fx2, fy2, -1, -1)}</g></svg>`,
+  );
 }
 
 /** Only the viewfinder ticks: drawn over the photograph after it is placed. */

@@ -162,7 +162,11 @@ export async function preparePhoto(input, logoPath, width = 576, locale = 'ru') 
 
 /** Thermal print tone curve for the photograph only: lift shadows, keep detail. */
 async function thermalPhoto(input, width, height) {
-  const resized = await sharp(input, { limitInputPixels: 16000000, failOn: 'warning', animated: false })
+  const resized = await sharp(input, {
+    limitInputPixels: 16000000,
+    failOn: 'warning',
+    animated: false,
+  })
     .rotate()
     .flatten({ background: '#fff' })
     .resize(width, height, { fit: 'cover', position: 'attention' })
@@ -175,7 +179,9 @@ async function thermalPhoto(input, width, height) {
     .raw()
     .toBuffer();
   for (let i = 0; i < gray.length; i++) gray[i] = Math.round(255 * (gray[i] / 255) ** 0.8);
-  const png = await sharp(gray, { raw: { width, height, channels: 1 } }).png().toBuffer();
+  const png = await sharp(gray, { raw: { width, height, channels: 1 } })
+    .png()
+    .toBuffer();
   resized.fill(0);
   gray.fill(0);
   return png;
@@ -213,7 +219,9 @@ export async function preparePhotoSlip(input, logoPath, width = 576, locale = 'r
     if (a > 110 && 0.299 * r + 0.587 * g + 0.114 * b < 205) mark[i] = 0;
   }
   rgba.fill(0);
-  const logo = await sharp(mark, { raw: { width: layout.logo.width, height: layout.logo.height, channels: 1 } })
+  const logo = await sharp(mark, {
+    raw: { width: layout.logo.width, height: layout.logo.height, channels: 1 },
+  })
     .png()
     .toBuffer();
   const composed = await sharp(base)
@@ -232,12 +240,19 @@ export async function preparePhotoSlip(input, logoPath, width = 576, locale = 'r
   const photoBottom = layout.photo.top + layout.photo.height;
   const bits = Buffer.alloc((width * height) / 8);
   const pixels = Buffer.alloc(width * height, 255);
-  const band = monochrome(gray.subarray(width * photoTop, width * photoBottom), width, photoBottom - photoTop);
+  const band = monochrome(
+    gray.subarray(width * photoTop, width * photoBottom),
+    width,
+    photoBottom - photoTop,
+  );
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       const inPhoto =
-        y >= photoTop && y < photoBottom && x >= layout.photo.left && x < layout.photo.left + layout.photo.width;
+        y >= photoTop &&
+        y < photoBottom &&
+        x >= layout.photo.left &&
+        x < layout.photo.left + layout.photo.width;
       const black = inPhoto ? band.pixels[(y - photoTop) * width + x] === 0 : gray[i] < 140;
       if (black) {
         pixels[i] = 0;
@@ -249,7 +264,9 @@ export async function preparePhotoSlip(input, logoPath, width = 576, locale = 'r
   photo.fill(0);
   composed.fill(0);
   gray.fill(0);
-  const png = await sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
+  const png = await sharp(pixels, { raw: { width, height, channels: 1 } })
+    .png()
+    .toBuffer();
   pixels.fill(0);
   return { width, height, bits, png };
 }
