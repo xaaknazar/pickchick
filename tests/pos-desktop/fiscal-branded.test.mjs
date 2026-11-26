@@ -28,6 +28,8 @@ export const FORM = [
   'Кассир/Кассир Иванов Иван',
   pad('САТУ/ПРОДАЖА', '№3'),
   sep,
+  // Printed since the point sends ExternalOrderNumber (forms of 26.11, receipts 132431784, 132490612).
+  'Тапсырыс нөмірі/Номер заказа: 27',
   '  1. Комбо Классик',
   '   2 дана/шт x 1 750,00',
   pad('   Құны/Стоимость', '3 500,00'),
@@ -143,6 +145,7 @@ test('branded receipt in Kazakh and Russian: logo, order, goods with choices, to
   assert.ok(!all.includes('Тестовая касса'), 'cabinet cashbox title is not printed');
   assert.ok(!all.includes('ЖШС'), 'the ОФД is printed once');
   assert.ok(!all.includes('Чек/Чек'), 'identical halves are printed once');
+  assert.ok(!all.includes('Номер заказа'), 'the order number is printed once, big, on top');
   assert.ok(
     texts.indexOf('ЖСН/ИИН 900101300000') < texts.indexOf('№27'),
     'taxpayer under the logo',
@@ -214,6 +217,77 @@ test('the branded receipt survives extra 48-dash lines and a QR printed as its l
     'ФДО/ОФД: ТОО "Smartcontract" (WOFD)',
     'Фискальный чек',
     'КЗН/ЗНМ: SWK00036966',
+  ])
+    assert.ok(texts.includes(kept), kept);
+});
+
+test('the real form of receipt 132490612 (order 24, 26.11) gets the branded layout', () => {
+  const form = [
+    center('PICK CHICK ALA AP'),
+    center('ЖСН/ИИН 900101300000'),
+    sep,
+    center('Тестовая касса 25.11.26 12:16'),
+    center('Ауысым/Смена 1'),
+    'Чек/Чек №132490612',
+    'Кассир/Кассир Иванов Иван',
+    pad('САТУ/ПРОДАЖА', '№4'),
+    sep,
+    'Тапсырыс нөмірі/Номер заказа: 24',
+    '  1. Finger Combo',
+    '   1 дана/шт x 1,00',
+    pad('   Құны/Стоимость', '1,00'),
+    sep,
+    pad('Қолма-қол/Наличные:', '1,00'),
+    pad('БАРЛЫҒЫ/ИТОГО:', '1,00'),
+    sep,
+    'ФБ/ФП: 132490612',
+    'Уақыты/Время: 26.11.2026 13:37:41',
+    'Алматы қ., Алатау ауданы, Шаңырақ-2, көш.',
+    'Рахымов ш.а., 172 үй, wk-devkkm-test',
+    'г.Алматы, Алатауский район, мкр. Шанырак-2,',
+    'көш. Рахымов, д. 172, wk-devkkm-test',
+    'ФДО: ЖШС "Smartcontract" (WOFD)',
+    'ОФД: ТОО "Smartcontract" (WOFD)',
+    'Чекті тексеру үшін сайтқа кіріңіз/Для проверки',
+    'чека зайдите на сайт: ctest2.wofd.kz/consumer',
+    'Чек автономды режимде құрастырылған/Чек',
+    'сформирован в автономном режиме',
+    sep,
+    center('ФИСКАЛДЫ ЧЕК/ФИСКАЛЬНЫЙ ЧЕК'),
+    null,
+    center('КСН/ИНК: 12132'),
+    'МКК БКМ коды (КТН)/Код ККМ КГД (РНМ):',
+    '057946199798',
+    'КЗН/ЗНМ: SWK00036966',
+    center('WEBKASSA.KZ'),
+  ].map((value) =>
+    value === null
+      ? { type: 2, value: 'http://ctest2.wofd.kz/consumer?i=132490612', style: 0, qr }
+      : { type: 0, value, style: /ИТОГО|ФИСКАЛ/.test(value) ? 1 : 0 },
+  );
+  const rows = brandedFiscalRows(
+    parseTicket({
+      kind: 'fiscal',
+      fiscal_lines: form,
+      printed_at: '2026-11-26T08:37:42Z',
+      terminal_label: 'Касса 1',
+      receipt: {
+        display_number: '24',
+        lines: [{ name: 'Finger Combo', options: ['Соус барбекю', 'Кола 0,5'] }],
+        cash_tendered_minor: '100',
+      },
+    }),
+  );
+  assert.ok(rows, 'not the plain Webkassa form');
+  const texts = rows.map((r) => r.text ?? `${r.left} | ${r.right}`);
+  for (const kept of [
+    '№24',
+    'Finger Combo | 1 ₸',
+    '+ Соус барбекю',
+    '+ Кола 0,5',
+    'Барлығы/Итого | 1 ₸',
+    'Қолма-қол/Наличные | 1 ₸',
+    'Фискальный чек',
   ])
     assert.ok(texts.includes(kept), kept);
 });

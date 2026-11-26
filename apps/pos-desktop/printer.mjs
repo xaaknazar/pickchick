@@ -323,7 +323,9 @@ export function brandedFiscalRows(ticket) {
     const value = squeeze(line.value);
     const start = /^(\d+)\.\s+(.*)$/.exec(value);
     if (start) items.push({ name: start[2], qty: null, cost: null, notes: [] });
-    else if (!items.length) return null;
+    // Lines before the first position («Тапсырыс нөмірі/Номер заказа: 24» since the point sends
+    // ExternalOrderNumber): the big order number on top already says it.
+    else if (!items.length) continue;
     else {
       const item = items.at(-1);
       const r = russian(value);
