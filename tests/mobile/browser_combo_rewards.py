@@ -65,8 +65,10 @@ with sync_playwright() as p:
     const check=document.querySelector(`[data-testid="${card}-stamp-1-check"]`);let ink=null;
     if(check){const glyphs=[...check.querySelectorAll('*')].filter(e=>e.textContent&&!e.children.length);ink=getComputedStyle(glyphs[glyphs.length-1]).color}
     return {first:bg(1),sixth:bg(6),ink,text:document.querySelector(`[data-testid="${card}-stamp-6"]`).textContent}}''',card)
-   assert look['first']==look['sixth']=='rgb(19, 43, 69)',look
-   if n: assert look['ink']=='rgb(95, 211, 160)',look
+   # Brand-orange card (b110c3da): dark ink slots, an earned slot a little darker, dark check.
+   empty,earned='rgba(37, 22, 9, 0.14)','rgba(37, 22, 9, 0.24)'
+   assert look['first']==(earned if n else empty) and look['sixth']==(earned if n==6 else empty),look
+   if n: assert look['ink']=='rgb(37, 22, 9)',look
    if n<6: assert look['text']=='6',look
    center(page.get_by_test_id(card)).screenshot(path=str(OUT/f'profile-card-{n}-{width}.png'))
   page.screenshot(path=str(OUT/f'profile-{width}.png'))
