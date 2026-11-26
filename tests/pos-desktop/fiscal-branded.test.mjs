@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   brandedFiscalRows,
   escposBytes,
+  kazakhPickup,
   parseTicket,
   russian,
   ticketHtml,
@@ -95,49 +96,64 @@ test('bilingual Webkassa labels keep their Russian half', () => {
   assert.equal(russian('057946199798'), '057946199798');
 });
 
-test('branded receipt: logo, order, goods with choices, totals, every fiscal requisite', () => {
+test('branded receipt in Kazakh and Russian: logo, order, goods with choices, totals, requisites', () => {
   const rows = brandedFiscalRows(ticket());
   assert.ok(rows);
   const texts = rows.map((r) => r.text ?? `${r.left} | ${r.right}`);
   assert.equal(rows[0].type, 'logo');
-  assert.ok(texts.includes('Заказ №27'));
-  assert.ok(texts.includes('Комбо Классик | 3 500 ₸'));
-  assert.ok(texts.includes('2 шт × 1 750 ₸'));
-  assert.ok(texts.includes('+ Соус сырный'));
-  assert.ok(texts.includes('Морс клюквенный 0,4 | 690 ₸'));
-  assert.ok(texts.includes('Комментарий: Побольше салфеток'));
-  assert.ok(texts.includes('Итого | 4 190 ₸'));
-  assert.ok(texts.includes('Наличные | 4 190 ₸'));
-  assert.ok(texts.includes('Получено | 5 000 ₸'));
-  assert.ok(texts.includes('Сдача | 810 ₸'));
   for (const kept of [
     'PICK CHICK ALA AP',
-    'ИИН 900101300000',
-    'Смена 2',
+    'ЖСН/ИИН 900101300000',
+    'Тапсырыс / Заказ',
+    '№27',
+    'С собой',
+    'Комбо Классик | 3 500 ₸',
+    '2 дана/шт × 1 750 ₸',
+    '+ Соус сырный',
+    'Морс клюквенный 0,4 | 690 ₸',
+    'Ескерту/Комментарий: Побольше салфеток',
+    'Барлығы/Итого | 4 190 ₸',
+    'Қолма-қол/Наличные | 4 190 ₸',
+    'Алынды/Получено | 5 000 ₸',
+    'Қайтарым/Сдача | 810 ₸',
+    'Ауысым/Смена 2',
     'Чек №132600001',
-    'ФП: 132600001',
-    'Время: 26.11.2026 12:01:05',
+    'САТУ/ПРОДАЖА №3',
+    'ФБ/ФП: 132600001',
+    'Уақыты/Время: 26.11.2026 12:01:05',
+    'Мекенжай: Алматы қ., Алатау ауданы, Шаңырақ-2, көш. Рахымов ш.а., 172 үй, wk-devkkm-test',
     'Адрес: г.Алматы, Алатауский район, мкр. Шанырак-2, көш. Рахымов, д. 172, wk-devkkm-test',
-    'ОФД: ТОО "Smartcontract" (WOFD)',
-    'Проверка чека: ctest2.wofd.kz/consumer',
+    'ФДО/ОФД: ТОО "Smartcontract" (WOFD)',
+    'Чекті тексеру/Проверка чека: ctest2.wofd.kz/consumer',
+    'Чек автономды режимде құрастырылған',
     'Чек сформирован в автономном режиме',
-    'ИНК: 12132',
+    'КСН/ИНК: 12132',
     '057946199798',
-    'ЗНМ: SWK00036966',
+    'КЗН/ЗНМ: SWK00036966',
     'Кассир: Айгерим',
+    'Фискалдық чек',
     'Фискальный чек',
+    'PickChick-ті таңдағаныңызға рахмет!',
+    'Спасибо, что выбрали PickChick!',
   ])
     assert.ok(texts.includes(kept), kept);
   assert.ok(rows.some((r) => r.type === 'qr' && r.qr.length === 21));
   const all = texts.join('\n');
   assert.ok(!all.includes('Иванов'), 'cabinet owner name is not printed');
   assert.ok(!all.includes('Тестовая касса'), 'cabinet cashbox title is not printed');
-  assert.ok(!all.includes('ФДО'), 'the Kazakh duplicate of the ОФД line is dropped');
-  assert.ok(!all.includes('Шаңырақ'), 'the address is printed once, in Russian');
+  assert.ok(!all.includes('ЖШС'), 'the ОФД is printed once');
+  assert.ok(!all.includes('Чек/Чек'), 'identical halves are printed once');
   assert.ok(
-    texts.indexOf('ИИН 900101300000') < texts.indexOf('Заказ №27'),
+    texts.indexOf('ЖСН/ИИН 900101300000') < texts.indexOf('№27'),
     'taxpayer under the logo',
   );
+});
+
+test('the pickup line gets a Kazakh line above it', () => {
+  assert.equal(kazakhPickup('Забрать на выдаче'), 'Беру орнынан алыңыз');
+  assert.equal(kazakhPickup('Заказ из киоска'), 'Киосктан тапсырыс');
+  assert.equal(kazakhPickup('Выдача доставки · Wolt №12'), 'Жеткізуге беру · Wolt №12');
+  assert.equal(kazakhPickup('С собой'), null);
 });
 
 test('a form without the expected sections, or no order context, prints as Webkassa made it', () => {
@@ -160,7 +176,7 @@ test('HTML and ESC/POS both carry the branded receipt', () => {
   assert.ok(
     !/<img|<script|https?:\/\/(?!www\.w3\.org)/.test(html.replace(/ctest2\.wofd\.kz[^<"]*/g, '')),
   );
-  assert.match(html, /class="total"><span>Итого<\/span><b>4 190 ₸<\/b>/);
+  assert.match(html, /class="total"><span>Барлығы\/Итого<\/span><b>4 190 ₸<\/b>/);
   const bytes = escposBytes(ticket());
   const text = bytes.toString('latin1');
   assert.ok(text.includes('PICK CHICK'));
