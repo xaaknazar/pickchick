@@ -294,3 +294,25 @@ test('success notice: centred icon and it closes itself (owner 23.11.2026)', () 
   assert.match(sheet, /if \(!success\) return;/);
   assert.match(sheet, /clearTimeout\(timer\)/);
 });
+
+test('a lost live charge answer keeps the same order and never says «Деньги не списаны» (audit 26.11 P0-5)', () => {
+  const hook = readFileSync(
+    new URL('../../apps/mobile/src/useTipTopPayCheckout.tsx', import.meta.url),
+    'utf8',
+  );
+  const catchBlock = hook.slice(hook.indexOf('} catch (e) {'), hook.indexOf('} finally {'));
+  // The order is marked before the charge request leaves the phone …
+  assert.ok(
+    hook.indexOf('chargedOrder = order.orderId;') <
+      hook.indexOf('`/orders/${order.orderId}/tiptoppay`'),
+  );
+  // … and a network error after that shows «Проверяем оплату» for that order and keeps it for
+  // the retry, before the generic failed sheet.
+  const keep = catchBlock.indexOf('retryOrder.current = chargedOrder;');
+  assert.ok(keep > 0);
+  assert.ok(catchBlock.indexOf("setResult({ state: 'pending', orderId: chargedOrder })") > keep);
+  assert.ok(keep < catchBlock.indexOf("state: 'failed'"));
+  // A retry that could not read its order keeps it as well.
+  assert.ok(catchBlock.includes('if (!chargedOrder && again) chargedOrder = again;'));
+  assert.equal(tipTopPayResultCopy({ state: 'pending' }, false).title, 'Проверяем оплату');
+});
