@@ -506,7 +506,8 @@ function draw() {
   const paid = sells();
   Object.assign(v, deskTexts(paid, config.appVersion, deskPaid ? deskNo : null));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
-  const connection = connectionLabel(m);
+  // Yellow as well: the stop-list on screen is not being refreshed.
+  const connection = connectionLabel({ ...m, stopsStale: model.stopsStale });
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
@@ -1535,9 +1536,17 @@ setInterval(() => {
   // Kaspi Smart POS of this desk (ADR-0017): one poll a second while the terminal decides.
   if (model.state.actor && model.terminalHold) void sale.tick();
 }, 1000);
+// One poll cycle at a time: a request may wait up to 12 s while the tick comes every 3 s, so
+// without this a slow edge collects overlapping cycles. A cycle that never settles is given up
+// after a minute.
+let pollStartedAt = null;
 setInterval(() => {
-  if (model.state.actor && !blocked() && !document.hidden)
-    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(async () => {
+  if (!model.state.actor || blocked() || document.hidden) return;
+  if (pollStartedAt !== null && Date.now() - pollStartedAt < 60000) return;
+  const started = (pollStartedAt = Date.now());
+  // The stop poll keeps its failure to itself: it never replaces the error of an action.
+  void Promise.all([model.refreshOperations(), model.refreshStops(true)])
+    .then(async () => {
       if (blocked()) return;
       // Paid mode only (no request otherwise): Webkassa states of the rows on screen.
       if (reference.state.tab === 'orders') {
@@ -1547,6 +1556,9 @@ setInterval(() => {
       if (!blocked()) await model.syncMenu();
       // Kiosk receipts on this desk's printer (Webkassa points only; 404 otherwise).
       if (model.saleMode && !blocked()) await ops.kioskTick();
+    })
+    .finally(() => {
+      if (pollStartedAt === started) pollStartedAt = null;
     });
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.

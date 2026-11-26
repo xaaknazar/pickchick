@@ -6,6 +6,9 @@ import {
   POS_CONFIG_MISSING_MS,
   POS_CONFIG_POLL_MS,
   PosController,
+  STOPS_STALE_FAILURES,
+  STOPS_STALE_MS,
+  connectionLabel,
   approvalQuoteSpare,
   closeSubject,
   fiscalSubject,
@@ -392,6 +395,111 @@ test('late operations reads cannot overwrite a newer authoritative shift count',
   resume();
   await staleRead;
   assert.equal(model.state.shift.order_count, 138);
+});
+
+test('a failed background stop poll never replaces the error of an action; a lost session signs out', async () => {
+  const f = fixture();
+  let stops = () => ({ stops: [{ variant_id: f.item.variant_id, stopped: true, version: 3 }] });
+  const api = async (...args) => (args[0] === 'availability/stops' ? stops() : f.api(...args));
+  const model = new PosController(api, memory(), memory(), randomUUID);
+  await model.login(JSON.stringify(f.credential));
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true);
+  // The poll fails while the cashier looks at the result of an action.
+  const action = new Error('ACTION_RESULT');
+  model.state.error = action;
+  const down = new ApiError('EDGE_UNREACHABLE', 0);
+  stops = () => {
+    throw down;
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.error, action, 'the poll keeps its failure to itself');
+  assert.equal(model.stopsError, down);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true, 'the last list is kept');
+  assert.ok(model.state.actor);
+  // The same failure of a read the cashier asked for is shown, as before.
+  await model.refreshStops();
+  assert.equal(model.state.error, down);
+  // A good poll clears the record.
+  stops = () => ({ stops: [] });
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.size, 0);
+  // A lost session is never kept quiet.
+  stops = () => {
+    throw new ApiError('UNAUTHORIZED', 401);
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.actor, null);
+  assert.equal(model.state.error.code, 'UNAUTHORIZED');
+});
+
+test('a stop poll that keeps failing marks the stop-list as out of date in the header; a good read clears it', async () => {
+  const f = fixture();
+  let clock = 1_000_000,
+    stops = () => ({ stops: [{ variant_id: f.item.variant_id, stopped: true, version: 3 }] });
+  const api = async (...args) => (args[0] === 'availability/stops' ? stops() : f.api(...args));
+  const model = new PosController(
+    api,
+    memory(),
+    memory(),
+    randomUUID,
+    undefined,
+    undefined,
+    () => clock,
+  );
+  await model.login(JSON.stringify(f.credential));
+  await model.refreshOperations();
+  const header = () => connectionLabel({ ...model.state, stopsStale: model.stopsStale });
+  let draws = 0;
+  model.subscribe(() => (draws += 1));
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  assert.deepEqual(header(), { label: 'Локальная сеть', tone: 'ok' });
+  // Only the stop-list read fails; operations still answer.
+  stops = () => {
+    throw new ApiError('EDGE_TIMEOUT', 0);
+  };
+  for (let i = 1; i < STOPS_STALE_FAILURES; i++) {
+    clock += 3000;
+    draws = 0;
+    await model.refreshStops(true);
+    assert.equal(model.stopsStale, false, 'a short hiccup is not shown');
+    assert.equal(draws, 0);
+  }
+  clock += 3000;
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, true);
+  assert.equal(draws, 1, 'the header is redrawn once when it changes');
+  assert.deepEqual(header(), { label: 'Стоп-лист не обновляется', tone: 'warn' });
+  assert.equal(model.state.error, null);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true, 'the last list is kept');
+  await model.refreshStops(true);
+  assert.equal(draws, 1, 'no redraw per failed poll');
+  // The next good answer clears it.
+  stops = () => ({ stops: [] });
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  assert.deepEqual(header(), { label: 'Локальная сеть', tone: 'ok' });
+  // One slow failure long after the last good answer is enough.
+  stops = () => {
+    throw new ApiError('EDGE_TIMEOUT', 0);
+  };
+  clock += STOPS_STALE_MS - 1;
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  clock += 1;
+  assert.equal(model.stopsStale, true);
+  // Time alone made it stale: the next failed poll redraws the header.
+  draws = 0;
+  await model.refreshStops(true);
+  assert.equal(draws, 1);
+  // No connection to the cashier server at all is still the red line.
+  assert.deepEqual(
+    connectionLabel({ ...model.state, operationsError: new Error('x'), stopsStale: true }),
+    { label: 'Нет связи с кассой', tone: 'down' },
+  );
 });
 
 test('oversized modifier drafts leave the last recoverable journal intact', async () => {
