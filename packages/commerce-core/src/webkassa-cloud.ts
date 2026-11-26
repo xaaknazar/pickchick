@@ -23,12 +23,21 @@ import { UUIDSchema } from './model.js';
  * The owner chose one Webkassa cashbox for the POS, the app and the kiosk (25.11). The point server
  * and this worker may therefore meet on that cashbox: a refusal is never final here, the document
  * stays queued and is tried again after REFUSED_RETRY_MS, and the same external number can never
- * become a second receipt. Refund receipts stay queued for now (they need the sale's shift, stage 3).
+ * become a second receipt.
+ *
+ * Refund receipts (audit 26.11 P0-1): a refund document is queued only once its sale receipt is
+ * issued. Its ReturnBasisDetails come from commerce_webkassa_receipts (cloud 083), which this
+ * worker writes when a sale receipt is issued; the refund's own document id is its
+ * ExternalCheckNumber. A sale issued without those data (a Code 14 repeat after a lost answer, or
+ * before 083) cannot be named: the refund stays queued, is logged, and is retried hourly so an
+ * operator can issue it by hand in the Webkassa cabinet.
  */
 export const WEBKASSA_PROVIDER = 'webkassa';
 export const WEBKASSA_LEASE_SECONDS = 120;
 /** After a refusal (busy cashbox, offline over 72 h, no licence...) the next try is this late. */
 export const REFUSED_RETRY_MS = 5 * 60_000;
+/** A refund whose sale receipt data are unknown is looked at again this late. */
+export const BASIS_MISSING_RETRY_MS = 60 * 60_000;
 
 export interface WebkassaCloudConfig {
   /** commerce_provider_accounts row (kind fiscal, provider webkassa) of the branch. */
@@ -115,10 +124,20 @@ interface DocumentRow {
   id: string;
   order_id: string;
   kind: 'sale' | 'refund';
+  business_operation_id: string;
+  original_sale_id: string | null;
   amount_minor: string;
   state: string;
   request: { snapshot?: { lines?: SnapshotLine[] } };
 }
+interface BasisRow {
+  check_number: string;
+  issued_at: string;
+  registration_number: string;
+  offline: boolean;
+  sale_amount_minor: string;
+}
+const WEBKASSA_DATE = /^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}$/;
 
 export class WebkassaCloudFiscalWorker {
   private readonly repo: CommerceRepository;
@@ -155,7 +174,8 @@ export class WebkassaCloudFiscalWorker {
       accountId: this.config.accountId,
     };
     const token = randomUUID();
-    // Sale receipts only; one cashbox means one request at a time, so they go one by one.
+    // Sales and refunds (a refund is queued only after its sale receipt); one cashbox means one
+    // request at a time, so they go one by one.
     const events = (
       await this.pool.query<ClaimedEvent>(
         `WITH selected AS (
@@ -163,7 +183,7 @@ export class WebkassaCloudFiscalWorker {
       JOIN commerce_fiscal_documents d ON d.id=(e.payload->>'documentId')::uuid AND d.order_id=o.id
       WHERE e.event_type='fiscal.submit_requested' AND e.acknowledged_at IS NULL
        AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-       AND d.account_id=$1 AND (e.payload->>'accountId')::uuid=$1 AND d.kind='sale'
+       AND d.account_id=$1 AND (e.payload->>'accountId')::uuid=$1 AND d.kind IN ('sale','refund')
        AND d.state IN ('queued','pending') AND NOT o.attention_required
       ORDER BY e.sequence LIMIT $2 FOR UPDATE OF e SKIP LOCKED)
       UPDATE commerce_outbox e SET lease_worker=$3,lease_token=$4,
@@ -194,17 +214,39 @@ export class WebkassaCloudFiscalWorker {
   ): Promise<'issued' | 'refused' | 'retry'> {
     const document = (
       await this.pool.query<DocumentRow>(
-        'SELECT id,order_id,kind,amount_minor::text,state,request FROM commerce_fiscal_documents WHERE id=$1 AND account_id=$2',
+        'SELECT id,order_id,kind,business_operation_id,original_sale_id,amount_minor::text,state,request FROM commerce_fiscal_documents WHERE id=$1 AND account_id=$2',
         [event.document_id, this.config.accountId],
       )
     ).rows[0];
-    if (!document || document.kind !== 'sale') throw new Error('FISCAL_DOCUMENT');
+    if (!document || (document.kind !== 'sale' && document.kind !== 'refund'))
+      throw new Error('FISCAL_DOCUMENT');
+    const refund = document.kind === 'refund';
     const amount = BigInt(document.amount_minor);
+    let basis: BasisRow | undefined;
+    if (refund) {
+      basis = (
+        await this.pool.query<BasisRow>(
+          `SELECT r.check_number,r.issued_at,r.registration_number,r.offline,s.amount_minor::text sale_amount_minor
+           FROM commerce_fiscal_documents s JOIN commerce_webkassa_receipts r ON r.document_id=s.id
+           WHERE s.id=$1 AND s.order_id=$2 AND s.kind='sale' AND s.state='issued'`,
+          [document.original_sale_id, document.order_id],
+        )
+      ).rows[0];
+      if (!basis) {
+        await this.hold(event, token, BASIS_MISSING_RETRY_MS);
+        this.log({ event: 'webkassa_cloud_refund_basis_missing', documentId: document.id });
+        return 'retry';
+      }
+    }
+    // A sale is paid by its captures; a refund goes back by the account of its refund.
     const captures = (
       await this.pool.query<{ provider: string; amount_minor: string }>(
-        `SELECT a.provider,SUM(c.amount_minor)::text amount_minor FROM commerce_captures c
-         JOIN commerce_provider_accounts a ON a.id=c.account_id WHERE c.order_id=$1 GROUP BY a.provider`,
-        [document.order_id],
+        refund
+          ? `SELECT a.provider,e.amount_minor::text amount_minor FROM commerce_refund_effects e
+             JOIN commerce_provider_accounts a ON a.id=e.account_id WHERE e.id=$1 AND e.order_id=$2`
+          : `SELECT a.provider,SUM(c.amount_minor)::text amount_minor FROM commerce_captures c
+             JOIN commerce_provider_accounts a ON a.id=c.account_id WHERE c.order_id=$1 GROUP BY a.provider`,
+        refund ? [document.business_operation_id, document.order_id] : [document.order_id],
       )
     ).rows;
     const payments = new Map<WebkassaPaymentType, bigint>();
@@ -227,12 +269,25 @@ export class WebkassaCloudFiscalWorker {
         outcome: 'pending',
         occurredAt: new Date().toISOString(),
       });
+    // A sale: the cloud order id (the cashier desk prints a kiosk receipt by it,
+    // pos/kiosk-receipts). A refund: its own document id.
+    const externalNumber = refund ? document.id : document.order_id;
     const answer = await this.client.issue({
-      operation: 'sale',
-      // The cloud order id: the cashier desk prints a kiosk receipt by it (pos/kiosk-receipts).
-      externalNumber: document.order_id,
+      operation: refund ? 'refund' : 'sale',
+      externalNumber,
       lines,
       payments: list,
+      ...(basis
+        ? {
+            returnBasis: {
+              checkNumber: basis.check_number,
+              dateTime: basis.issued_at,
+              total: BigInt(basis.sale_amount_minor),
+              registrationNumber: basis.registration_number,
+              offline: basis.offline,
+            },
+          }
+        : {}),
     });
     if (answer.kind === 'refused') {
       const error = answer.errors[0] ?? { code: -1, text: '' };
@@ -245,10 +300,24 @@ export class WebkassaCloudFiscalWorker {
       return 'refused';
     }
     if (answer.kind !== 'issued') return 'retry';
+    // What a later refund receipt must name (ReturnBasisDetails); a Code 14 repeat carries none,
+    // so they are kept before anything else can fail.
+    if (!refund && WEBKASSA_DATE.test(answer.receipt.dateTime) && answer.receipt.registrationNumber)
+      await this.pool.query(
+        `INSERT INTO commerce_webkassa_receipts(document_id,check_number,issued_at,registration_number,offline)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT(document_id) DO NOTHING`,
+        [
+          document.id,
+          answer.receipt.checkNumber,
+          answer.receipt.dateTime,
+          answer.receipt.registrationNumber,
+          answer.receipt.offline,
+        ],
+      );
     // The receipt link for the guest: from the answer, else the QR line of its print form.
     const url =
       answer.receipt.ticketUrl ??
-      (await this.client.printFormat(document.order_id))?.find(
+      (await this.client.printFormat(externalNumber))?.find(
         (l) => l.type === 2 && /^https:\/\//.test(l.value),
       )?.value ??
       null;

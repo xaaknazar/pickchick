@@ -6,6 +6,7 @@ import { createPool, migrate } from '@pickchick/database';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { WebkassaClient } from '@pickchick/webkassa';
 import {
+  BASIS_MISSING_RETRY_MS,
   CommerceRepository,
   REFUSED_RETRY_MS,
   WebkassaCloudFiscalWorker,
@@ -55,6 +56,7 @@ function simulator() {
             DateTime: '25.11.2026 14:34:29',
             OfflineMode: true,
             ShiftNumber: 1,
+            Cashbox: { RegistrationNumber: '600400123456' },
             TicketUrl: `https://devkkm.webkassa.kz/Ticket?chb=SWK00036966&extnum=${number}`,
           },
           top: {},
@@ -193,7 +195,22 @@ async function fixture(run) {
       ),
       (entry) => logs.push(entry),
     );
-    await run({ pool, repo, scope, paid, wk, worker, logs, fiscal });
+    const manager = { ...scope, principalId: randomUUID(), role: 'manager' };
+    await run({
+      pool,
+      repo,
+      scope,
+      manager,
+      provider,
+      paid,
+      wk,
+      worker,
+      logs,
+      fiscal,
+      admin,
+      schema,
+      url: url.toString(),
+    });
   } finally {
     await pool.end();
     await admin.query(`DROP SCHEMA ${schema} CASCADE`);
@@ -269,6 +286,139 @@ test('a lost answer resolves to the same receipt; a refusal (busy cashbox) waits
     await f.pool.query("UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 s'");
     assert.deepEqual(await f.worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
     assert.equal(f.wk.issued.size, 2);
+  }));
+
+/** A manager's refund of the order's capture, confirmed by the bank. */
+async function refunded(f, orderId, amountMinor) {
+  const view = await f.repo.readOrder(f.scope, orderId);
+  const refund = await f.repo.requestRefund(f.manager, randomUUID(), {
+    orderId,
+    captureId: view.captures[0].id,
+    amountMinor,
+    reason: 'Синтетический возврат',
+    fulfillmentPolicy: 'manager_reviewed',
+  });
+  await f.repo.observeRefund(f.provider, {
+    eventId: randomUUID(),
+    refundId: refund.refundId,
+    outcome: 'succeeded',
+    operationId: randomUUID(),
+    amountMinor,
+    occurredAt: now(),
+  });
+  return refund.refundId;
+}
+
+test('a refund gets a Webkassa refund receipt that names the sale receipt (P0-1)', () =>
+  fixture(async (f) => {
+    const orderId = await f.paid([burger()]);
+    assert.equal((await f.worker.tick()).issued, 1);
+    const kept = (await f.pool.query('SELECT * FROM commerce_webkassa_receipts')).rows;
+    assert.equal(kept.length, 1);
+    assert.equal(kept[0].check_number, '132524690');
+    assert.equal(kept[0].issued_at, '25.11.2026 14:34:29');
+    assert.equal(kept[0].registration_number, '600400123456');
+    await assert.rejects(
+      f.pool.query("UPDATE commerce_webkassa_receipts SET check_number='1'"),
+      /immutable/,
+    );
+    await refunded(f, orderId, '40000');
+    assert.deepEqual(await f.worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
+    const checks = f.wk.calls.filter(([p]) => p === 'api/v4/check').map(([, b]) => b);
+    const back = checks.at(-1);
+    assert.equal(back.OperationType, 3, 'a refund');
+    assert.notEqual(back.ExternalCheckNumber, orderId, 'its own number, not the sale');
+    assert.deepEqual(back.Payments, [{ Sum: 400, PaymentType: 1 }]);
+    assert.equal(
+      back.Positions.reduce((sum, l) => sum + l.Price * l.Count - (l.Discount ?? 0), 0),
+      400,
+    );
+    assert.deepEqual(back.ReturnBasisDetails, {
+      CheckNumber: '132524690',
+      DateTime: '2026-11-25 14:34:29',
+      Total: 1000,
+      RegistrationNumber: '600400123456',
+      IsOffline: true,
+    });
+    const view = await f.repo.readOrder(f.scope, orderId);
+    assert.deepEqual(view.fiscalDocuments.map((d) => [d.kind, d.state]).sort(), [
+      ['refund', 'issued'],
+      ['sale', 'issued'],
+    ]);
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_webkassa_receipts')).rows[0].n,
+      1,
+      'only sale receipts are kept',
+    );
+    assert.deepEqual(await f.worker.tick(), { issued: 0, refused: 0, retry: 0, errors: 0 });
+  }));
+
+test('a refund of a sale whose receipt data are unknown waits and is logged', () =>
+  fixture(async (f) => {
+    const orderId = await f.paid([burger()]);
+    // A lost answer, then Code 14: the sale is issued without its date and registration number.
+    f.wk.loseNext = true;
+    await f.worker.tick();
+    await f.pool.query("UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 s'");
+    assert.equal((await f.worker.tick()).issued, 1);
+    assert.equal((await f.pool.query('SELECT 1 FROM commerce_webkassa_receipts')).rowCount, 0);
+    await refunded(f, orderId, '100000');
+    const before = f.wk.calls.length;
+    assert.deepEqual(await f.worker.tick(), { issued: 0, refused: 0, retry: 1, errors: 0 });
+    assert.equal(f.wk.calls.length, before, 'no guessed refund receipt');
+    assert.equal(f.logs.at(-1).event, 'webkassa_cloud_refund_basis_missing');
+    const lease = (
+      await f.pool.query(
+        "SELECT lease_until-clock_timestamp() > interval '50 minutes' later FROM commerce_outbox WHERE event_type='fiscal.submit_requested' AND acknowledged_at IS NULL",
+      )
+    ).rows[0];
+    assert.equal(lease.later, true, `held about ${BASIS_MISSING_RETRY_MS} ms`);
+  }));
+
+test('restricted role: the Webkassa worker issues sale and refund receipts with its own grants', () =>
+  fixture(async (f) => {
+    const { webkassaWorkerGrants } =
+      await import('../../../infra/staging/webkassa-worker-grants.mjs');
+    const role = 'wk_worker_' + randomUUID().replaceAll('-', '');
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let pool;
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await f.pool.query(webkassaWorkerGrants(role, true));
+      const url = new URL(f.url);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      pool = createPool(url.toString(), 2);
+      const account = {
+        baseUrl: 'https://devkkm.webkassa.kz',
+        apiKey: 'k',
+        login: 'l',
+        password: 'p',
+        cashboxUniqueNumber: 'SWK00036966',
+      };
+      const worker = new WebkassaCloudFiscalWorker(
+        pool,
+        { accountId: f.fiscal, account },
+        new WebkassaClient(account, { transport: f.wk.transport }),
+        (entry) => f.logs.push(entry),
+      );
+      const orderId = await f.paid([burger()]);
+      assert.deepEqual(await worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
+      assert.ok((await f.repo.readOrder(f.scope, orderId)).kitchenEffectId, 'kitchen admitted');
+      await refunded(f, orderId, '100000');
+      assert.deepEqual(await worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
+      for (const sql of [
+        'UPDATE commerce_captures SET amount_minor=1',
+        'DELETE FROM commerce_fiscal_documents',
+        'INSERT INTO commerce_refunds(id) VALUES(gen_random_uuid())',
+      ])
+        await assert.rejects(pool.query(sql), /permission denied/);
+      await f.pool.query(webkassaWorkerGrants(role, false));
+      await assert.rejects(pool.query('SELECT 1 FROM commerce_outbox'), /permission denied/);
+    } finally {
+      await pool?.end();
+      await f.admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+      await f.admin.query(`DROP ROLE ${role}`).catch(() => undefined);
+    }
   }));
 
 test('receipt lines: gifts are left out, an order discount comes off the largest line', () => {
