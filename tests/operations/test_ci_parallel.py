@@ -31,7 +31,9 @@ class ParallelCiTest(unittest.TestCase):
         self.assertNotIn('tests/mobile/browser_review_account.py', account)
 
     def test_transaction_coverage(self):
-        for command in ['pnpm check', 'pnpm test:integration', 'pnpm test:commerce',
+        # `pnpm check` minus formatting, which runs as its own last step (audit 26.11 C-4).
+        for command in ['pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm contracts:check && pnpm design:check',
+                        'pnpm format:check', 'pnpm test:integration', 'pnpm test:commerce',
                         'pnpm test:loyalty', 'pnpm test:fulfillment\n', 'pnpm test:mobile',
                         'pnpm test:pos\n', 'pnpm test:backoffice', 'pnpm audit:release',
                         'windows-reserved-number.test.mjs', 'windows-native-service-upgrade.test.mjs',

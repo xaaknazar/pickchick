@@ -30,9 +30,9 @@ Runbook `docs/operations/stage2-windows-1030/app-runtime-029.md`, операто
 - Копия `schema029` (ручной запуск задачи) 11:03:30 (+05), `state ok`; задача копий отключена.
   В 11:04:20 остановлены семь служб; Postgres и оба туннеля работали.
 - `-PredecessorCommit e34051ec30c6e641abcc1cd82a8ae040e775e77d`, `-BranchId
-  7a6f6d98-395d-4462-b5e4-b0364a4a8ec1`, `-AllowSameDiskBackup`.
+7a6f6d98-395d-4462-b5e4-b0364a4a8ec1`, `-AllowSameDiskBackup`.
 - Без `-Apply` (11:04:23-11:05:00): `VERIFIED: candidate runtime, CI, predecessor schema029 runtime,
-  stopped writers and schema029 backup; no persistent change.`
+stopped writers and schema029 backup; no persistent change.`
 - С `-Apply` (11:05:10-11:12:04): привязки переключены и службы кандидата запущены в 11:11:43-11:11:46,
   затем оператор завершился `Unrelated service changed.` (строка 134, `Assert-RuntimeNeighbor`):
   в 11:11:50 `PickChickSyncTunnel` неожиданно завершился и был перезапущен своей службой (11:11:55).
@@ -87,7 +87,7 @@ Edge также PosSync и KitchenLAN и переиспользует уже п�
 `f657ad26dc7e7cd1656bc933046ee7ec55d50e3be2a8648a78484ca2686c2858` совпал с коммитом.
 
 - План (11:27:20, без `-AccountFile`): `account {host devkkm.webkassa.kz, cashbox SWK00036966,
-  reused_file true}`, `env_before ee59ae58…1c32`, `env_after 9b5f20ac…078c`, перезапуск PosSync,
+reused_file true}`, `env_before ee59ae58…1c32`, `env_after 9b5f20ac…078c`, перезапуск PosSync,
   KitchenLAN, KitchenLink, Edge.
 - `-Apply` (11:27:31-11:27:39): `Webkassa activation did not complete`. Службы остановлены и снова
   запущены (Edge 11:27:37, KitchenLink и KitchenLAN 11:27:38, PosSync 11:27:39), `edge.env` записан
@@ -115,7 +115,7 @@ success. `infra\windows` из `e6dbe59b` в `EdgeTools\incoming-webkassa-1126c` 
 - План (11:34:18): `reused_file true`, `devkkm.webkassa.kz`, `SWK00036966`, `env_before ee59ae58…1c32`,
   `env_after 9b5f20ac…078c`.
 - `-Apply` (11:34:30-11:34:48): `pickchick-webkassa-edge-ready-v1`, `env_after_sha256
-  9b5f20ac7a24dff60003fcf0b6e5ccf668d4ded2b9b17f858a8716d50f97078c`, `completed_epoch 1795674888`.
+9b5f20ac7a24dff60003fcf0b6e5ccf668d4ded2b9b17f858a8716d50f97078c`, `completed_epoch 1795674888`.
   Попытка `EdgeTools\webkassa-b878de3b868d4af2b77738a84e176b17` (`before.env`, `intent.json`,
   `verified.json`).
 - Проверка: `/health/ready` 200; все десять служб Running; задача копий Ready;
