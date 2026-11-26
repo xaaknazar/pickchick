@@ -79,7 +79,7 @@ function Write-WebkassaEnvCas([string]$Path,[byte[]]$Before,[byte[]]$After) {
  $h=[IO.File]::Open($temp,'CreateNew','Write','None');try{$h.Write($After,0,$After.Length);$h.Flush($true)}finally{$h.Dispose()}
  Set-ProtectedAcl $temp -ServiceRead
  [IO.File]::Replace($temp,$Path,[Management.Automation.Language.NullString]::Value)
- Assert-Acl $Path -ServiceRead
+ Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed
  if((Hash-File $Path) -cne (Get-WebkassaBytesHash $After)){throw 'Replaced environment bytes differ.'}
 }
 
