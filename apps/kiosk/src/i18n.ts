@@ -212,6 +212,8 @@ const ru = {
   awaitingRestaurant: 'Оплата подтверждена. Ожидаем ресторан.',
   receiptIssued: 'Чек можно забрать у кассира.',
   receiptMissing: 'Чек напечатается у кассира, заберите его там.',
+  // Audit 26.11 P0-1: an order without a receipt (deferred pilot) promises none.
+  receiptDeferred: 'Номер заказа на экране: по нему вас позовут на выдачу.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Оплата по QR',
   hitTag: 'ХИТ',
@@ -536,6 +538,7 @@ const kk: Strings = {
   awaitingRestaurant: 'Төлем расталды. Мейрамхананы күтеміз.',
   receiptIssued: 'Чекті кассадан алыңыз.',
   receiptMissing: 'Чек кассада басылады, оны сол жерден алыңыз.',
+  receiptDeferred: 'Тапсырыс нөмірі экранда: сізді осы нөмір бойынша шақырады.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'QR арқылы төлем',
   hitTag: 'ХИТ',
@@ -860,6 +863,7 @@ const en: Strings = {
   awaitingRestaurant: 'Payment confirmed. Waiting for the restaurant.',
   receiptIssued: 'Please collect your receipt from the cashier.',
   receiptMissing: 'Your receipt will print at the cashier desk. Please collect it there.',
+  receiptDeferred: 'Your order number is on the screen: we will call it when the order is ready.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Pay by QR',
   hitTag: 'HIT',

@@ -431,7 +431,9 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                       : model.commercial
                         ? model.receiptState === 'issued'
                           ? t.receiptIssued
-                          : t.receiptMissing
+                          : model.receiptState === 'pending'
+                            ? t.receiptMissing
+                            : t.receiptDeferred
                         : t.testPayment
             }
           />
