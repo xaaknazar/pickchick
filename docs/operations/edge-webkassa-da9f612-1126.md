@@ -5,8 +5,8 @@
 - Сервер точки: DEPLOYED, но оператор не записал `READY`. Edge и четыре воркера тестовой кассы
   (192.168.2.66) работают из рантайма `da9f61251b7076a52e619ecf127a3309ff4f362a` (Webkassa, касса 0.6.0;
   внутри установленный ранее `e34051ec`). Схема 029 не менялась.
-- Webkassa на точке: НЕ ВКЛЮЧЕНА. `enable-webkassa-edge.ps1 -Apply` отказал до остановки служб,
-  `edge.env` не изменён.
+- Webkassa на точке: ВКЛЮЧЕНА 26.11 в 11:34:48 (+05) оператором из `e6dbe59b` (третья попытка, см.
+  конец записи); первые две (`da9f6125`, `81ece158`) отказали, `edge.env` оба раза остался прежним.
 
 Владелец 26.11 в 05:25 UTC: «Разрешаю опубликовать кассу 0.6.0, обновить сервер точки и включить
 Webkassa на тестовой кассе и в облаке». Выполнил Claude через Remote Control на MacBook владельца
@@ -102,3 +102,25 @@ Edge также PosSync и KitchenLAN и переиспользует уже п�
 `rollback_verified=false`, но содержимое восстановлено. Исправление: в строке 82 проверять как в
 строке 76 (`Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed`), тест PS 5.1 с
 унаследованным ACL у `edge.env`, затем повторить план и `-Apply` (файл учётной записи на месте).
+
+## Включено оператором e6dbe59b (26.11, 11:34 +05)
+
+`e6dbe59b4f25f33f07aae08672e4e0feb4b6a182` (`codex/webkassa-1125`) меняет только проверку после
+`Replace` на `Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed` (+ статический тест).
+[Windows POS package 45768501497](https://github.com/xaaknazar/pickchick/actions/runs/45768501497) -
+success. `infra\windows` из `e6dbe59b` в `EdgeTools\incoming-webkassa-1126c` (Администраторы и SYSTEM),
+`enable-webkassa-edge.ps1` SHA-256 `fb3827551b5dd1f24bce8c8ed57fe2ed7464238fa108e5039aac7470a858d7ff`
+совпал с коммитом.
+
+- План (11:34:18): `reused_file true`, `devkkm.webkassa.kz`, `SWK00036966`, `env_before ee59ae58…1c32`,
+  `env_after 9b5f20ac…078c`.
+- `-Apply` (11:34:30-11:34:48): `pickchick-webkassa-edge-ready-v1`, `env_after_sha256
+  9b5f20ac7a24dff60003fcf0b6e5ccf668d4ded2b9b17f858a8716d50f97078c`, `completed_epoch 1795674888`.
+  Попытка `EdgeTools\webkassa-b878de3b868d4af2b77738a84e176b17` (`before.env`, `intent.json`,
+  `verified.json`).
+- Проверка: `/health/ready` 200; все десять служб Running; задача копий Ready;
+  `GET /edge/v1/pos/fiscal-receipts/00000000-0000-4000-8000-000000000000/webkassa` без сессии 401
+  (маршрут включён).
+
+Отключение: тот же оператор `-Mode Disable -ExpectedEdgeEnvSha256 9b5f20ac…078c` (сначала без
+`-Apply`). Дальше: продажа на кассе 0.6.0 - чек Webkassa печатается автоматически с QR.
