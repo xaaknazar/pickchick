@@ -32426,6 +32426,16 @@
                         "function"
                       ],
                       "additionalProperties": false
+                    },
+                    "weightG": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000
+                    },
+                    "lineQuantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
                     }
                   },
                   "required": [
@@ -32793,6 +32803,16 @@
                         "function"
                       ],
                       "additionalProperties": false
+                    },
+                    "weightG": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000
+                    },
+                    "lineQuantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
                     }
                   },
                   "required": [
@@ -33194,6 +33214,16 @@
                               "function"
                             ],
                             "additionalProperties": false
+                          },
+                          "weightG": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100000
+                          },
+                          "lineQuantity": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000
                           }
                         },
                         "required": [

@@ -177,8 +177,13 @@ export type TaskPlan = {
     parentTitle: string;
     description: string;
     modifiers: unknown[];
+    /** Same optional kitchen fields as the edge plan (grams, combo line quantity). */
+    weightG?: number;
+    lineQuantity?: number;
   };
 };
+const grams = (v: unknown) =>
+  typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && v <= 100_000 ? v : undefined;
 /**
  * Port of edge `taskPlan` (packages/edge-fulfillment/src/model.ts) with identical rules and
  * output; tests/unit/cloud-kitchen-task-plan.test.mjs compares both on the same vectors.
@@ -215,6 +220,7 @@ export function taskPlan(snapshot: Pick<Snapshot, 'lines'>, routing: Routing): T
               quantity: 1,
               title: line.title,
               description: line.description,
+              weightG: grams((selected as { weightG?: unknown } | undefined)?.weightG),
               key: 'parent',
             },
           ]
@@ -224,6 +230,7 @@ export function taskPlan(snapshot: Pick<Snapshot, 'lines'>, routing: Routing): T
         quantity: c.quantity,
         title: c.name.ru,
         description: c.description.ru,
+        weightG: grams((c as { weightG?: unknown }).weightG),
         key: 'component:' + c.productId,
       })),
     ];
@@ -244,6 +251,8 @@ export function taskPlan(snapshot: Pick<Snapshot, 'lines'>, routing: Routing): T
           parentTitle: line.title,
           description: part.description,
           modifiers: selected?.modifiers ?? [],
+          ...(part.weightG ? { weightG: part.weightG } : {}),
+          ...(part.key === 'parent' ? {} : { lineQuantity: line.quantity }),
         },
       });
     }
