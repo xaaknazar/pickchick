@@ -65,7 +65,8 @@
    `enable-webkassa-edge.ps1 -AccountFile <файл> -ExpectedEdgeEnvSha256 <хэш edge.env>` показывает
    план без значений; то же с `-Apply` кладёт файл в `Edge\config\webkassa.json` (защищённые права,
    чтение службой), добавляет `EDGE_WEBKASSA_ACCOUNT_FILE` в `edge.env` по ожидаемому хэшу и
-   перезапускает только KitchenLink и Edge. Если Edge не поднялся, `edge.env` возвращается.
+   перезапускает только Edge и зависящие от него KitchenLink, KitchenLAN и PosSync (запущенные). Если Edge не поднялся, `edge.env` возвращается. Файл ключа, уже положенный прошлой попыткой,
+   проверяется и используется повторно: запуск без `-AccountFile`.
 3. Временный файл удаляется. Выключение: `-Mode Disable -ExpectedEdgeEnvSha256 <хэш> -Apply`
    (ключ пустой, файл остаётся для проверки).
 4. Касса с версии 0.6.0 сама видит включение («Чеки: Webkassa автоматически»).

@@ -4,7 +4,8 @@
 Default is inspection: it validates the staged private account file and prints the plan without
 its contents. -Apply places that file as Edge\config\webkassa.json (service-readable, protected),
 adds EDGE_WEBKASSA_ACCOUNT_FILE to edge.env under the expected-hash CAS and restarts only
-KitchenLink and Edge. Nothing in the database, identity, runtime, prices or other services
+KitchenLink, KitchenLAN, PosSync and Edge. An account file left by an
+earlier attempt is validated and reused (run without -AccountFile). Nothing in the database, identity, runtime, prices or other services
 changes. A failed activation restores the previous edge.env and restarts Edge again.
 -Disable removes the key again (the account file stays for inspection; delete it by hand).
 Secrets are never printed, logged or copied anywhere else. #>
@@ -51,16 +52,23 @@ function Wait-WebkassaEdgeReady([int]$Seconds=120) {
  throw 'Edge did not become ready.'
 }
 function Invoke-WebkassaEdgeRestart([scriptblock]$Action,[switch]$ResumeStopped) {
- $order=@('PickChickKitchenLink','PickChickEdge')
- $unknown=@((Get-Service PickChickEdge).DependentServices|Where-Object{$_.Status -ne 'Stopped' -and $_.Name -cne 'PickChickKitchenLink'})
+ # Reviewed Edge dependents on a point server: KitchenLink, KitchenLAN and PosSync. Each is
+ # stopped before Edge only when it runs, and started again after Edge in the same reverse order.
+ $reviewed=@('PickChickPosSync','PickChickKitchenLAN','PickChickKitchenLink')
+ $unknown=@((Get-Service PickChickEdge).DependentServices|Where-Object{$_.Status -ne 'Stopped' -and $reviewed -cnotcontains $_.Name})
  if($unknown.Count){throw 'Unreviewed Edge dependent; no service stopped.'}
- $running=@();foreach($name in $order){$s=Get-Service $name;if($s.Status -ne 'Running' -and -not ($ResumeStopped -and $s.Status -eq 'Stopped')){throw 'Edge/Link not initially running.'};$running+=$name}
+ $edge=Get-Service PickChickEdge
+ if($edge.Status -ne 'Running' -and -not ($ResumeStopped -and $edge.Status -eq 'Stopped')){throw 'Edge not initially running.'}
+ $running=@()
+ foreach($name in $reviewed){$s=Get-Service $name -ErrorAction SilentlyContinue;if($s -and ($s.Status -eq 'Running' -or ($ResumeStopped -and $s.Status -eq 'Stopped' -and $script:webkassaStarted -contains $name))){$running+=$name}}
+ $running+='PickChickEdge'
+ $script:webkassaStarted=@($running)
  try{
   foreach($name in $running){if((Get-Service $name).Status -ne 'Stopped'){Stop-Service $name};(Get-Service $name).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(35))}
   & $Action
  }finally{
-  $errors=@();[array]::Reverse($running)
-  foreach($name in $running){try{if((Get-Service $name).Status -ne 'Running'){Start-Service $name};(Get-Service $name).WaitForStatus('Running',[TimeSpan]::FromSeconds(35))}catch{$errors+=$name}}
+  $errors=@();$order=@($running);[array]::Reverse($order)
+  foreach($name in $order){try{if((Get-Service $name).Status -ne 'Running'){Start-Service $name};(Get-Service $name).WaitForStatus('Running',[TimeSpan]::FromSeconds(35))}catch{$errors+=$name}}
   if($errors.Count){throw ('Service recovery needs inspection: '+($errors -join ', '))}
  }
 }
@@ -75,6 +83,7 @@ function Write-WebkassaEnvCas([string]$Path,[byte[]]$Before,[byte[]]$After) {
  if((Hash-File $Path) -cne (Get-WebkassaBytesHash $After)){throw 'Replaced environment bytes differ.'}
 }
 
+$script:webkassaStarted=@()
 if($MyInvocation.InvocationName -eq '.'){return}
 if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitProcess -or $PSVersionTable.PSEdition -cne 'Desktop'){throw 'Elevated Windows PowerShell 5.1 required.'}
 $script:operatorSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
@@ -91,22 +100,31 @@ try{
  if((Get-WebkassaBytesHash $before) -cne $ExpectedEdgeEnvSha256){throw 'edge.env differs from the inspected hash.'}
  if($Mode -ceq 'Disable'){
   $after=Update-ReviewedEnvBytes $before 'EDGE_WEBKASSA_ACCOUNT_FILE' $target ''
-  $account=$null
+  $account=$null;$reuse=$false
  }else{
-  if(-not $AccountFile){throw 'Staged account file required.'}
-  Assert-NtfsPath $AccountFile;Assert-Acl $AccountFile -Foundation -InheritedAllowed
-  $bytes=[IO.File]::ReadAllBytes($AccountFile);$account=Assert-WebkassaAccount $bytes
-  if(Test-Path -LiteralPath $target){throw 'An account file is already in place; inspect it, never overwrite.'}
+  $reuse=Test-Path -LiteralPath $target
+  if($reuse){
+   # A file this operator placed earlier (protected, service-read) is validated and reused;
+   # it is never overwritten. A new staged file is refused while one is in place.
+   if($AccountFile){throw 'An account file is already in place; run without -AccountFile to reuse it, never overwrite.'}
+   Assert-NtfsPath $target;Assert-Acl $target -ServiceRead
+   $bytes=[IO.File]::ReadAllBytes($target)
+  }else{
+   if(-not $AccountFile){throw 'Staged account file required.'}
+   Assert-NtfsPath $AccountFile;Assert-Acl $AccountFile -Foundation -InheritedAllowed
+   $bytes=[IO.File]::ReadAllBytes($AccountFile)
+  }
+  $account=Assert-WebkassaAccount $bytes;$account['reused_file']=$reuse
   $after=Update-ReviewedEnvBytes $before 'EDGE_WEBKASSA_ACCOUNT_FILE' '' $target -AllowAbsent
  }
- $plan=[ordered]@{format='pickchick-webkassa-edge-plan-v1';mode=$Mode;account=$account;target=$target;env_before_sha256=(Get-WebkassaBytesHash $before);env_after_sha256=(Get-WebkassaBytesHash $after);restart=@('PickChickKitchenLink','PickChickEdge')}
+ $plan=[ordered]@{format='pickchick-webkassa-edge-plan-v1';mode=$Mode;account=$account;target=$target;env_before_sha256=(Get-WebkassaBytesHash $before);env_after_sha256=(Get-WebkassaBytesHash $after);restart=@('PickChickPosSync','PickChickKitchenLAN','PickChickKitchenLink','PickChickEdge')}
  if(-not $Apply){$plan|ConvertTo-Json -Depth 6 -Compress;return}
  $attempt=Join-Path $data ('EdgeTools\webkassa-'+[guid]::NewGuid().ToString('N'))
  Set-ProtectedAcl $attempt -Directory
  $saved=Join-Path $attempt 'before.env';$h=[IO.File]::Open($saved,'CreateNew','Write','None');try{$h.Write($before,0,$before.Length);$h.Flush($true)}finally{$h.Dispose()};Set-ProtectedAcl $saved
  if((Hash-File $saved) -cne $ExpectedEdgeEnvSha256){throw 'Private environment copy failed.'}
  Write-NewText (Join-Path $attempt 'intent.json') ($plan|ConvertTo-Json -Depth 6)
- if($Mode -cne 'Disable'){
+ if($Mode -cne 'Disable' -and -not $reuse){
   $h=[IO.File]::Open($target,'CreateNew','Write','None');try{$h.Write($bytes,0,$bytes.Length);$h.Flush($true)}finally{$h.Dispose()}
   Set-ProtectedAcl $target -ServiceRead
   if((Hash-File $target) -cne (Get-WebkassaBytesHash $bytes)){throw 'Placed account bytes differ.'}
