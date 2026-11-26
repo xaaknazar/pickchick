@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
+import { slipLayout, slipSvg, stamp, viewfinderSvg } from './slip.mjs';
 
 const captionPaths = Object.fromEntries(
   ['ru', 'kk', 'en'].map((locale) => [
@@ -17,7 +18,7 @@ export function monochrome(gray, width, height) {
     width % 8 ||
     !Number.isInteger(height) ||
     height < 1 ||
-    height > 1000 ||
+    height > 1400 ||
     gray.length !== width * height
   )
     throw new Error('INVALID_RASTER');
@@ -52,7 +53,7 @@ export function escpos(bits, width, height, cut = false) {
     ![384, 512, 576].includes(width) ||
     !Number.isInteger(height) ||
     height < 1 ||
-    height > 1000 ||
+    height > 1400 ||
     bits.length !== (width / 8) * height
   )
     throw new Error('INVALID_RASTER');
@@ -155,6 +156,100 @@ export async function preparePhoto(input, logoPath, width = 576, locale = 'ru') 
   const png = await sharp(pixels, { raw: { width, height, channels: 1 } })
     .png()
     .toBuffer();
+  pixels.fill(0);
+  return { width, height, bits, png };
+}
+
+/** Thermal print tone curve for the photograph only: lift shadows, keep detail. */
+async function thermalPhoto(input, width, height) {
+  const resized = await sharp(input, { limitInputPixels: 16000000, failOn: 'warning', animated: false })
+    .rotate()
+    .flatten({ background: '#fff' })
+    .resize(width, height, { fit: 'cover', position: 'attention' })
+    .png()
+    .toBuffer();
+  const gray = await sharp(resized)
+    .grayscale()
+    .normalise({ lower: 0.5, upper: 99.5 })
+    .sharpen({ sigma: 0.8, m1: 0, m2: 1.8, y2: 8, y3: 8 })
+    .raw()
+    .toBuffer();
+  for (let i = 0; i < gray.length; i++) gray[i] = Math.round(255 * (gray[i] / 255) ** 0.8);
+  const png = await sharp(gray, { raw: { width, height, channels: 1 } }).png().toBuffer();
+  resized.fill(0);
+  gray.fill(0);
+  return png;
+}
+
+/**
+ * Souvenir slip v2 (26.11.2026): logo, «ФОТО НА ПАМЯТЬ», framed photograph with viewfinder
+ * ticks, the caption in the guest's language, point name, date and time. Same contract as
+ * preparePhoto: the returned PNG is exactly the dots sent to the printer.
+ */
+export async function preparePhotoSlip(input, logoPath, width = 576, locale = 'ru', options = {}) {
+  if (!Object.hasOwn(captionPaths, locale)) throw new Error('INVALID_LOCALE');
+  if (![384, 512, 576].includes(width) || input.length > 5 * 1024 * 1024)
+    throw new Error('INVALID_IMAGE');
+  const metadata = await sharp(input, { limitInputPixels: 16000000, failOn: 'warning' }).metadata();
+  if (!['jpeg', 'png'].includes(metadata.format) || (metadata.pages ?? 1) !== 1)
+    throw new Error('INVALID_IMAGE');
+  const layout = slipLayout(width);
+  const svg = slipSvg(layout, {
+    locale,
+    point: options.point ?? '',
+    when: stamp(options.now ?? new Date(), options.timeZone ?? 'Asia/Almaty'),
+  });
+  const base = await sharp(Buffer.from(svg)).png().toBuffer();
+  const photo = await thermalPhoto(input, layout.photo.width, layout.photo.height);
+  // The orange sticker prints solid black, its white lettering stays paper white.
+  const { data: rgba } = await sharp(logoPath)
+    .resize(layout.logo.width, layout.logo.height, { fit: 'contain', background: '#0000' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const mark = Buffer.alloc(layout.logo.width * layout.logo.height, 255);
+  for (let i = 0; i < mark.length; i++) {
+    const [r, g, b, a] = rgba.subarray(i * 4, i * 4 + 4);
+    if (a > 110 && 0.299 * r + 0.587 * g + 0.114 * b < 205) mark[i] = 0;
+  }
+  rgba.fill(0);
+  const logo = await sharp(mark, { raw: { width: layout.logo.width, height: layout.logo.height, channels: 1 } })
+    .png()
+    .toBuffer();
+  const composed = await sharp(base)
+    .composite([
+      { input: logo, left: layout.logo.left, top: layout.logo.top },
+      { input: photo, left: layout.photo.left, top: layout.photo.top },
+      { input: Buffer.from(viewfinderSvg(svg, layout)), left: 0, top: 0 },
+    ])
+    .png()
+    .toBuffer();
+  const gray = await sharp(composed).flatten({ background: '#fff' }).grayscale().raw().toBuffer();
+  const { height } = layout;
+  // Photo rows are dithered; vector rows (logo, lettering, frame) are thresholded so the
+  // edges stay crisp. Rows of the frame that hold the photo go through error diffusion.
+  const photoTop = layout.photo.top;
+  const photoBottom = layout.photo.top + layout.photo.height;
+  const bits = Buffer.alloc((width * height) / 8);
+  const pixels = Buffer.alloc(width * height, 255);
+  const band = monochrome(gray.subarray(width * photoTop, width * photoBottom), width, photoBottom - photoTop);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      const inPhoto =
+        y >= photoTop && y < photoBottom && x >= layout.photo.left && x < layout.photo.left + layout.photo.width;
+      const black = inPhoto ? band.pixels[(y - photoTop) * width + x] === 0 : gray[i] < 140;
+      if (black) {
+        pixels[i] = 0;
+        bits[i >> 3] |= 0x80 >> (x % 8);
+      }
+    }
+  band.bits.fill(0);
+  band.pixels.fill(0);
+  photo.fill(0);
+  composed.fill(0);
+  gray.fill(0);
+  const png = await sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
   pixels.fill(0);
   return { width, height, bits, png };
 }
