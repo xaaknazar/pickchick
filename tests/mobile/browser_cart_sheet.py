@@ -45,10 +45,10 @@ with sync_playwright() as p:
   box=sheet.bounding_box(); assert box['y'] > 10 and box['y'] + box['height'] <= height+1, box
   expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
   expect(page.get_by_test_id('cart-checkout')).to_contain_text('4 190')
-  # Owner 27.10.2026 (Drinkit): red glass trash left, pin + point centred, glass close right,
-  # no «Корзина» title; the dining pill under it; no add-more, promo or small print.
+  # Owner 27.10.2026 (Drinkit): pin + point centred, no «Корзина» title; the dining pill under it;
+  # no add-more, promo or small print. Owner 23.11.2026: close X left as on iOS, red trash right.
   clear,point,shut=(page.get_by_test_id(i).bounding_box() for i in ('cart-clear','cart-restaurant','cart-close'))
-  assert clear['x']+clear['width']<=point['x'] and point['x']+point['width']<=shut['x'],(clear,point,shut)
+  assert shut['x']+shut['width']<=point['x'] and point['x']+point['width']<=clear['x'],(clear,point,shut)
   assert abs(point['x']+point['width']/2-(box['x']+box['width']/2))<=2,(point,box)
   expect(page.get_by_test_id('cart-restaurant')).to_contain_text('ТЦ Abay Plaza')
   expect(cart.get_by_role('heading',name='Корзина',exact=True)).to_have_count(0)

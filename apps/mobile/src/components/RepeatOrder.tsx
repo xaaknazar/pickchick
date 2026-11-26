@@ -114,7 +114,7 @@ export function RepeatOrder({
                           width: 80,
                           height: 80,
                           borderRadius: 14,
-                          backgroundColor: '#FFF8EE',
+                          backgroundColor: '#EEF2F8',
                         }}
                       />
                       <View style={{ flex: 1, gap: 4 }}>

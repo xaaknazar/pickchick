@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { GameBackButton } from '../GameBackButton';
 import {
   AppState,
   BackHandler,
@@ -40,7 +41,7 @@ const records = new PickBoxRecords({
   read: () => AsyncStorage.getItem(RECORD_KEY),
   write: (value) => AsyncStorage.setItem(RECORD_KEY, value),
 });
-const INK = '#04143A';
+const INK = '#0A1020';
 
 function Control({
   icon,
@@ -427,13 +428,7 @@ export function PickBoxScreen() {
           height={window.height}
         />
         <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-          <Control
-            icon="close"
-            label={hud.phase === 'playing' ? copy.pause : copy.exit}
-            onPress={close}
-            testID="pick-box-exit"
-            dark={darkSky}
-          />
+          <GameBackButton testID="pick-box-exit" label={copy.exit} onPress={exit} />
           <View style={s.headerRight}>
             <View
               accessible
@@ -639,7 +634,7 @@ const s = StyleSheet.create({
   countdown: {
     ...StyleSheet.absoluteFill,
     zIndex: 5,
-    backgroundColor: '#04143A80',
+    backgroundColor: '#0A102080',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -739,7 +734,7 @@ const s = StyleSheet.create({
   peakRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 },
   peak: { flexShrink: 1, fontFamily: font.bold, color: '#FFF4D5', fontSize: 12, lineHeight: 17 },
   playfield: { flex: 1 },
-  modalBackdrop: { flex: 1, backgroundColor: '#04143AF2', alignItems: 'center' },
+  modalBackdrop: { flex: 1, backgroundColor: '#0A1020F2', alignItems: 'center' },
   overlay: { flex: 1, width: '100%', maxWidth: 540 },
   overlayContent: {
     flexGrow: 1,

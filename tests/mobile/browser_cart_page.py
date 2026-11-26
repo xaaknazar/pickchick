@@ -335,7 +335,7 @@ def cart_page(browser, width, height):
     # the App Store build shows no card and no empty «Акции» heading (owner 29.10.2026).
     expect(page.get_by_test_id('cart-combo-reward')).to_have_count(0)
     expect(sheet.get_by_text('Акции', exact=True)).to_have_count(0)
-    expect(sheet.get_by_text('Отметки пока у кассира', exact=False)).to_have_count(0)
+    expect(sheet.get_by_text('Отметка за каждое комбо', exact=False)).to_have_count(0)
     # Footer: payment method left, «Итого» right, white pay button below. The floating cart bar
     # under the sheet has its own cart-total, so the footer one is read inside the cart screen.
     method = page.get_by_test_id('cart-payment-method')

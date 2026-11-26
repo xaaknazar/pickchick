@@ -1,3 +1,4 @@
+import { colors, themed, tc } from '../theme';
 import { localize, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
@@ -18,6 +19,7 @@ import {
   glass,
   glassBarBody,
   glassLayers,
+  glassTone,
   glassRimColor,
   glassSize,
   liquidGlassConfig,
@@ -33,12 +35,13 @@ export { useGlassSurface } from './useGlassSurface';
 export const glassRimWidth = StyleSheet.hairlineWidth * 2;
 const RIM = glassRimWidth;
 // Sheen and specular edge of the fallback glass (Liquid Glass draws its own light).
-const highlight = {
-  ...(Platform.OS === 'web'
-    ? { backgroundImage: glass.sheen }
-    : { experimental_backgroundImage: glass.sheen }),
-  boxShadow: glass.specular,
-} as ViewStyle;
+const highlight = () =>
+  ({
+    ...(Platform.OS === 'web'
+      ? { backgroundImage: glass.sheen }
+      : { experimental_backgroundImage: glass.sheen }),
+    boxShadow: glass.specular,
+  }) as ViewStyle;
 
 /**
  * The light rim of a glass shape that is not a GlassButton (the pay handle, the bag pill), for
@@ -116,7 +119,7 @@ export function GlassFill({
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, round]}>
       {body && layers.blur ? (
         <BlurView
-          tint="dark"
+          tint={glassTone.scheme}
           intensity={glass.blurIntensity}
           style={[StyleSheet.absoluteFill, s.clip, round]}
         />
@@ -127,7 +130,7 @@ export function GlassFill({
       {body && layers.lift ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.lift }]} />
       ) : null}
-      {layers.highlights ? <View style={[StyleSheet.absoluteFill, round, highlight]} /> : null}
+      {layers.highlights ? <View style={[StyleSheet.absoluteFill, round, highlight()]} /> : null}
       {pressed && layers.pressFeedback ? (
         <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.pressedVeil }]} />
       ) : null}
@@ -272,24 +275,26 @@ export function GlassButton({
   );
 }
 
-const s = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    borderWidth: RIM,
-    backgroundColor: 'transparent',
-  },
-  fallbackButton: { boxShadow: '0 6px 18px rgba(0, 8, 30, 0.28)' },
-  // Apple's glass draws its own edge and shadow; the rim keeps its width for the same layout.
-  liquidButton: { borderColor: 'transparent' },
-  // Over the shape's (transparent) rim, so the glass edge is the shape's edge.
-  liquid: { position: 'absolute', top: -RIM, right: -RIM, bottom: -RIM, left: -RIM },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  clip: { overflow: 'hidden' },
-  disabled: { opacity: 0.45 },
-  glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      borderWidth: RIM,
+      backgroundColor: 'transparent',
+    },
+    fallbackButton: { boxShadow: tc('0 6px 18px rgba(0, 8, 30, 0.28)') },
+    // Apple's glass draws its own edge and shadow; the rim keeps its width for the same layout.
+    liquidButton: { borderColor: 'transparent' },
+    // Over the shape's (transparent) rim, so the glass edge is the shape's edge.
+    liquid: { position: 'absolute', top: -RIM, right: -RIM, bottom: -RIM, left: -RIM },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    clip: { overflow: 'hidden' },
+    disabled: { opacity: 0.45 },
+    glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
+  }),
+);
 
 const tabBarBackdrop =
   Platform.OS === 'web'
@@ -316,7 +321,7 @@ export function TabBarGlass({ radius }: { radius: number }) {
       <GlassView
         pointerEvents="none"
         glassEffectStyle="regular"
-        colorScheme="dark"
+        colorScheme={colors.scheme}
         tintColor={tabBarPalette.liquidTint}
         isInteractive={false}
         style={[StyleSheet.absoluteFill, round]}
@@ -348,7 +353,7 @@ export function TabBarGlass({ radius }: { radius: number }) {
           surface === 'blur' ? tabBarBackdrop : null,
         ]}
       />
-      <View style={[StyleSheet.absoluteFill, round, highlight]} />
+      <View style={[StyleSheet.absoluteFill, round, highlight()]} />
     </View>
   );
 }

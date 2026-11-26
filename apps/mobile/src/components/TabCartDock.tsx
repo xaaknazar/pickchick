@@ -1,10 +1,16 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useReducedMotion } from './Motion';
+import Animated, { Easing, FadeInDown } from 'react-native-reanimated';
+import { curve, useReducedMotion } from './Motion';
 import { useMobile } from '../store';
 import { CartShortcut } from './CartShortcut';
 import { PaymentResumeBanner } from './PaymentResumeBanner';
+
+/**
+ * The bar rises like a toast: 300 ms strong ease-out, no spring (nothing was thrown), built once
+ * at module scope rather than on every render (Emil Kowalski, animate-expo «Toast»).
+ */
+const DOCK_ENTER = FadeInDown.duration(300).easing(Easing.bezier(...curve.out));
 
 /**
  * The cart bar (quick pay) of Меню, События and Заказы, drawn by the tab bar itself, right on top
@@ -52,11 +58,9 @@ export function TabCartDock({
         <PaymentResumeBanner cartBelow={model.cart.length > 0} />
       ) : null}
       {focused ? (
-        // The bar comes back (a sheet over it closed, a new item) rising on a soft spring
-        // instead of appearing in one frame.
-        <Animated.View
-          entering={reduced ? undefined : FadeInDown.springify().dampingRatio(0.9).duration(420)}
-        >
+        // The bar comes back (a sheet over it closed, a new item) rising instead of appearing
+        // in one frame.
+        <Animated.View entering={reduced ? undefined : DOCK_ENTER}>
           <CartShortcut
             model={model}
             aboveTabBar

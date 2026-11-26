@@ -14,7 +14,7 @@ import { money } from '../domain';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { menuPhotos } from '../menu-photo-assets';
 import type { ScreenProps } from '../model';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 
 export type CompletedOrderScreenProps = {
   props: ScreenProps;
@@ -176,7 +176,7 @@ export function CompletedOrderScreen({
                 >
                   <Icon
                     name={value <= rating ? 'star' : 'star-outline'}
-                    color={colors.accent}
+                    color={colors.accentIcon}
                     size={30}
                   />
                 </MotionPressable>
@@ -376,78 +376,80 @@ export function CompletedOrderScreen({
   );
 }
 
-const s = StyleSheet.create({
-  content: { paddingBottom: 24 },
-  layout: { gap: 20 },
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, gap: 10 },
-  headerTitle: { fontSize: 26, lineHeight: 32 },
-  overview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-  },
-  numberBox: { gap: 4, flexShrink: 0, maxWidth: '45%' },
-  status: { gap: 4 },
-  statusText: { color: colors.success, fontFamily: font.medium, fontSize: 13 },
-  number: { fontSize: 32, lineHeight: 38 },
-  restaurant: { fontFamily: font.bold, fontSize: 16, lineHeight: 21 },
-  muted: { color: colors.muted },
-  facts: { flex: 1, minWidth: 0, gap: 2 },
-  section: { gap: 12 },
-  sectionTitle: { fontSize: 20, lineHeight: 26 },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  photo: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  image: { width: 56, height: 56 },
-  itemCopy: { flex: 1, minWidth: 0, gap: 4 },
-  itemName: { fontFamily: font.bold, fontSize: 15, lineHeight: 22 },
-  modifiers: { color: colors.muted, lineHeight: 20 },
-  itemBottom: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
-  itemAmount: { fontFamily: font.bold, fontSize: 15 },
-  total: { justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
-  totalLabel: { fontFamily: font.bold, fontSize: 17 },
-  totalAmount: { color: colors.accent, fontSize: 25 },
-  kitchenComment: { gap: 6, paddingTop: 6 },
-  review: { gap: 10 },
-  stars: { flexDirection: 'row', gap: 8 },
-  star: { minWidth: 48, minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center' },
-  locked: { opacity: 0.6 },
-  commentGroup: { gap: 4 },
-  input: {
-    minHeight: 72,
-    maxHeight: 140,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
-    color: colors.text,
-    fontFamily: font.body,
-    fontSize: 16,
-    lineHeight: 24,
-    backgroundColor: colors.raised,
-  },
-  inputFocused: { borderColor: colors.accent },
-  counter: { textAlign: 'right', color: colors.muted },
-  error: { color: colors.danger, lineHeight: 21 },
-  saved: { color: colors.success, lineHeight: 21 },
-  save: { minHeight: 48 },
-  receipt: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  flex: { flex: 1, minWidth: 0 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    content: { paddingBottom: 24 },
+    layout: { gap: 20 },
+    header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, gap: 10 },
+    headerTitle: { fontSize: 26, lineHeight: 32 },
+    overview: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+    },
+    numberBox: { gap: 4, flexShrink: 0, maxWidth: '45%' },
+    status: { gap: 4 },
+    statusText: { color: colors.success, fontFamily: font.medium, fontSize: 13 },
+    number: { fontSize: 32, lineHeight: 38 },
+    restaurant: { fontFamily: font.bold, fontSize: 16, lineHeight: 21 },
+    muted: { color: colors.muted },
+    facts: { flex: 1, minWidth: 0, gap: 2 },
+    section: { gap: 12 },
+    sectionTitle: { fontSize: 20, lineHeight: 26 },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    photo: {
+      width: 60,
+      height: 60,
+      borderRadius: 12,
+      backgroundColor: colors.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    image: { width: 56, height: 56 },
+    itemCopy: { flex: 1, minWidth: 0, gap: 4 },
+    itemName: { fontFamily: font.bold, fontSize: 15, lineHeight: 22 },
+    modifiers: { color: colors.muted, lineHeight: 20 },
+    itemBottom: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+    itemAmount: { fontFamily: font.bold, fontSize: 15, fontVariant: ['tabular-nums'] },
+    total: { justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+    totalLabel: { fontFamily: font.bold, fontSize: 17 },
+    totalAmount: { color: colors.accent, fontSize: 25, fontVariant: ['tabular-nums'] },
+    kitchenComment: { gap: 6, paddingTop: 6 },
+    review: { gap: 10 },
+    stars: { flexDirection: 'row', gap: 8 },
+    star: { minWidth: 48, minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center' },
+    locked: { opacity: 0.6 },
+    commentGroup: { gap: 4 },
+    input: {
+      minHeight: 72,
+      maxHeight: 140,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: 12,
+      color: colors.text,
+      fontFamily: font.body,
+      fontSize: 16,
+      lineHeight: 24,
+      backgroundColor: colors.raised,
+    },
+    inputFocused: { borderColor: colors.accent },
+    counter: { textAlign: 'right', color: colors.muted },
+    error: { color: colors.danger, lineHeight: 21 },
+    saved: { color: colors.success, lineHeight: 21 },
+    save: { minHeight: 48 },
+    receipt: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    flex: { flex: 1, minWidth: 0 },
+  }),
+);

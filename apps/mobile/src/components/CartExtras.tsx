@@ -15,7 +15,7 @@ import { orderUI } from './OrderPresentation';
 import { cartRecommendations } from '../cart-actions';
 import { lineUnitPrice, money, selectionDescription } from '../domain';
 import { ProductPhoto, productPhoto } from './ProductPhoto';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 
 export function CartRecommendations({ props }: { props: ScreenProps }) {
   useLocale();
@@ -34,7 +34,6 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                 fontSize: 22,
                 lineHeight: 28,
                 marginTop: 18,
-                marginLeft: 8,
               },
             ]}
           >
@@ -54,13 +53,15 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   style={s.extraPhoto}
                   accessible={false}
                 />
-                {/* Two lines at most (owner 23.11.2026): one long drink name stretched every card. */}
-                <Body numberOfLines={2} style={s.extraName}>
-                  {localize(line.product.name)}
-                </Body>
-                <Caption numberOfLines={1} style={s.extraDetail}>
-                  {localize(selectionDescription(line) || line.product.servingLabel)}
-                </Caption>
+                <View style={s.extraText}>
+                  {/* Two lines at most (owner 23.11.2026): one long drink name stretched every card. */}
+                  <Body numberOfLines={2} style={s.extraName}>
+                    {localize(line.product.name)}
+                  </Body>
+                  <Caption numberOfLines={1} style={s.extraDetail}>
+                    {localize(selectionDescription(line) || line.product.servingLabel)}
+                  </Caption>
+                </View>
                 <View style={{ flex: 1 }} />
                 <MotionPressable
                   style={s.extraAdd}
@@ -81,7 +82,9 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   }}
                 >
                   <Body style={s.extraPrice}>{localize(money(lineUnitPrice(line)))}</Body>
-                  <Icon name="add" size={19} color={colors.accent} />
+                  <View style={s.extraPlus}>
+                    <Icon name="add" size={20} color={colors.orangeInk} />
+                  </View>
                 </MotionPressable>
               </View>
             ))}
@@ -108,7 +111,14 @@ export function CartOffers({ props }: { props: ScreenProps }) {
   if (!combo && !content?.promos.length) return null;
   return (
     <View style={{ gap: 14 }}>
-      <Heading small style={orderUI.section}>
+      {/* Same heading as «Всегда кстати»: one left edge and one size for cart sections. */}
+      <Heading
+        small
+        style={[
+          orderUI.section,
+          { fontFamily: font.display, fontSize: 22, lineHeight: 28, marginTop: 18 },
+        ]}
+      >
         {t('Акции')}
       </Heading>
       {combo ? (
@@ -134,7 +144,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
               onPress={() => setSelected(promo)}
               style={s.promotion}
             >
-              <Icon name="pricetag-outline" color={colors.accent} />
+              <Icon name="pricetag-outline" color={colors.accentIcon} />
               <Body style={{ fontFamily: font.bold }}>{localize(promo.title.ru)}</Body>
               <Caption numberOfLines={3}>{localize(promo.body.ru)}</Caption>
               <Body style={{ color: colors.accentText }}>{t('Условия акции')}</Body>
@@ -171,62 +181,78 @@ export function CheckoutPayments() {
     </View>
   );
 }
-const s = StyleSheet.create({
-  extra: {
-    width: 136,
-    padding: 12,
-    paddingTop: 0,
-    gap: 3,
-    borderRadius: 22,
-    backgroundColor: '#0B2255',
-    borderWidth: 1,
-    borderColor: '#FFFFFF0F',
-  },
-  extraPhoto: { width: 110, height: 96, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  extraName: {
-    fontFamily: font.heading,
-    fontSize: 15,
-    lineHeight: 19,
-    minHeight: 38,
-    marginTop: 6,
-  },
-  extraDetail: { fontSize: 12, lineHeight: 17, color: '#A3B4D6' },
-  extraAdd: {
-    minHeight: 48,
-    paddingHorizontal: 10,
-    marginTop: 8,
-    borderRadius: 24,
-    backgroundColor: '#14306B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 4,
-  },
-  extraPrice: { fontFamily: font.heading, fontSize: 15, lineHeight: 20 },
-  promotion: {
-    width: 260,
-    padding: 18,
-    gap: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-  },
-  methods: { gap: 8 },
-  method: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 80,
-    padding: 16,
-    gap: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-  },
-  methodIcon: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.raised,
-  },
-  methodText: { flex: 1, minWidth: 0, gap: 2 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // Owner 22.11.2026: the same card as the menu grid - photo on the light window, the name
+    // under it, then the price on the left and the round orange plus on the right.
+    extra: {
+      width: 148,
+      padding: 6,
+      paddingBottom: 10,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0D'),
+    },
+    extraPhoto: { width: '100%', height: 112, borderRadius: 16, backgroundColor: '#FEF9F2' },
+    extraText: { gap: 2, paddingTop: 10, paddingHorizontal: 6 },
+    extraName: {
+      fontFamily: font.bold,
+      fontSize: 15,
+      lineHeight: 20,
+      minHeight: 40,
+      color: colors.text,
+    },
+    extraDetail: { fontSize: 12, lineHeight: 17, color: colors.muted },
+    extraAdd: {
+      minHeight: 44,
+      marginTop: 10,
+      paddingLeft: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+    },
+    extraPrice: {
+      fontFamily: font.bold,
+      fontSize: 15,
+      lineHeight: 20,
+      fontVariant: ['tabular-nums'],
+      color: colors.text,
+    },
+    extraPlus: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    promotion: {
+      width: 260,
+      padding: 18,
+      gap: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    methods: { gap: 8 },
+    method: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 80,
+      padding: 16,
+      gap: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    methodIcon: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: colors.raised,
+    },
+    methodText: { flex: 1, minWidth: 0, gap: 2 },
+  }),
+);

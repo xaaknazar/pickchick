@@ -29,11 +29,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router';
-import { spring, useReducedMotion } from './Motion';
+import { project, spring, useReducedMotion } from './Motion';
 import { rubberBand } from './MotionSheets';
 import { useSheetStack } from './SheetStack';
 import { useTapsSettled } from './useTapGuard';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 import { createBackLayers, type BackLayer } from '../back-layers';
 
 // Keyboard events use window coordinates; children are laid out inside this sheet.
@@ -245,7 +245,8 @@ export function OrderSheet({
     })
     .onEnd((e) => {
       if (closing.value) return;
-      if (y.value > 90 || e.velocityY > 850) {
+      // A flick that would carry the sheet past 90 pt closes it, however short the drag was.
+      if (y.value + project(e.velocityY, 0.99) > 90 && e.velocityY > -200) {
         closing.value = true;
         runOnJS(close)(e.velocityY);
       }
@@ -254,7 +255,7 @@ export function OrderSheet({
       if (!closing.value)
         y.value = reduced
           ? withTiming(0, { duration: 0 })
-          : withSpring(0, { ...spring.smooth, velocity: e.velocityY });
+          : withSpring(0, { ...spring.release, velocity: e.velocityY });
     });
   // The screen underneath steps back while this sheet is open (iOS page sheet).
   const stack = useSheetStack();
@@ -311,17 +312,19 @@ export function OrderSheet({
     </GestureHandlerRootView>
   );
 }
-const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
-  scrim: { backgroundColor: '#00000066' },
-  sheet: {
-    width: '100%',
-    maxWidth: 720,
-    overflow: 'hidden',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: colors.background,
-  },
-  handleArea: { height: 28, alignItems: 'center', justifyContent: 'center' },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.muted },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+    scrim: { backgroundColor: tc('#00000066') },
+    sheet: {
+      width: '100%',
+      maxWidth: 720,
+      overflow: 'hidden',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: colors.background,
+    },
+    handleArea: { height: 28, alignItems: 'center', justifyContent: 'center' },
+    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.muted },
+  }),
+);

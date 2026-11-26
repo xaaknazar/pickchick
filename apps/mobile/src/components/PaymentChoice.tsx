@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import type { PaymentMethod } from '../model';
 import type { PaymentMethodId } from '../payment-method';
 import { Icon, type IconName } from './UI';
-import { colors } from '../theme';
+import { colors, tc } from '../theme';
 import { nativeApplePayMark } from '../../modules/pickchick-payments';
 
 // The old «Способ оплаты» sheet of this file (Kaspi / card with «Онлайн-оплата скоро появится»)
@@ -31,7 +31,12 @@ export function PaymentMark({
         accessibilityLabel="Kaspi"
         testID="kaspi-logo"
         contentFit="contain"
-        style={{ width: size, height: size, borderRadius: size * 0.3, backgroundColor: '#FFFFFF' }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size * 0.3,
+          backgroundColor: '#FFFFFF',
+        }}
       />
     );
   const ApplePayMark = method === 'apple_pay' ? nativeApplePayMark() : null;
@@ -79,8 +84,8 @@ export function methodGlyph(method: Exclude<PaymentMethodId, 'kaspi'>): {
   background: string;
 } {
   if (method === 'apple_pay')
-    return { icon: 'logo-apple', color: '#FFFFFF', background: '#000000' };
+    return { icon: 'logo-apple', color: tc('#FFFFFF'), background: tc('#000000') };
   if (method === 'google_pay')
-    return { icon: 'logo-google', color: '#1A73E8', background: '#FFFFFF' };
+    return { icon: 'logo-google', color: tc('#1A73E8'), background: tc('#FFFFFF') };
   return { icon: 'card-outline', color: colors.white, background: colors.action };
 }

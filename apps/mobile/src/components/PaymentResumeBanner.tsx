@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { MotionPressable as Pressable } from './Motion';
 import { GlassFill, glassBarRim, useGlassBarStyle } from './GlassButton';
 import { Icon } from './UI';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { tabCartGap } from '../tab-bar-metrics';
 import { showPendingPayment } from '../payment-recovery';
 import { PAYMENT_RESUME_TITLE } from '../payment-resume';
@@ -34,6 +34,15 @@ export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
       <View testID="payment-resume-banner" style={[s.banner, glass]}>
         <GlassFill radius={RADIUS + glassBarRim} rim={glassBarRim} place="bar" body={false} />
         <Pressable
+          testID="payment-resume-close"
+          accessibilityRole="button"
+          accessibilityLabel={t('Скрыть напоминание об оплате')}
+          onPress={() => void hidePaymentResume(resume)}
+          style={s.close}
+        >
+          <Icon name="close" size={20} color={colors.white} />
+        </Pressable>
+        <Pressable
           testID="payment-resume-open"
           accessibilityRole="button"
           accessibilityLabel={title}
@@ -59,82 +68,77 @@ export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
             </Text>
           </View>
         </Pressable>
-        <Pressable
-          testID="payment-resume-close"
-          accessibilityRole="button"
-          accessibilityLabel={t('Скрыть напоминание об оплате')}
-          onPress={() => void hidePaymentResume(resume)}
-          style={s.close}
-        >
-          <Icon name="close" size={20} color={colors.white} />
-        </Pressable>
       </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  // The same column as the cart bar below it (CartShortcut: 24 pt sides, at most 320 pt wide).
-  dock: { paddingTop: 10, paddingHorizontal: 24 },
-  // Without the cart bar under it, the banner keeps the cart bar's gap to the tab capsule.
-  last: { paddingBottom: tabCartGap },
-  banner: {
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-    minHeight: 56,
-    borderRadius: RADIUS,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    shadowColor: '#000000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  open: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingLeft: 10,
-    borderRadius: RADIUS,
-  },
-  mark: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 138, 61, 0.16)',
-  },
-  words: { flex: 1, minWidth: 0, gap: 1 },
-  title: {
-    fontFamily: font.medium,
-    fontSize: 14,
-    lineHeight: 19,
-    color: colors.white,
-    includeFontPadding: false,
-  },
-  action: {
-    fontFamily: font.bold,
-    fontSize: 13,
-    lineHeight: 18,
-    // The orange that stays readable on the dark glass (tab bar labels use it too).
-    color: colors.accentText,
-    includeFontPadding: false,
-  },
-  // A 44 pt target at the right end, as the glass X of the payment screens.
-  close: {
-    width: 44,
-    minHeight: 44,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-    borderRadius: 22,
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // The same column as the cart bar below it (CartShortcut: 24 pt sides, at most 320 pt wide).
+    dock: { paddingTop: 10, paddingHorizontal: 24 },
+    // Without the cart bar under it, the banner keeps the cart bar's gap to the tab capsule.
+    last: { paddingBottom: tabCartGap },
+    banner: {
+      width: '100%',
+      maxWidth: 320,
+      alignSelf: 'center',
+      minHeight: 56,
+      borderRadius: RADIUS,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      shadowColor: tc('#000000'),
+      shadowOpacity: 0.3,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 14,
+      elevation: 10,
+    },
+    open: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+      paddingLeft: 4,
+      paddingRight: 12,
+      borderRadius: RADIUS,
+    },
+    mark: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tc('rgba(255, 138, 61, 0.16)'),
+    },
+    words: { flex: 1, minWidth: 0, gap: 1 },
+    title: {
+      fontFamily: font.medium,
+      fontSize: 14,
+      lineHeight: 19,
+      color: colors.white,
+      includeFontPadding: false,
+    },
+    action: {
+      fontFamily: font.bold,
+      fontSize: 13,
+      lineHeight: 18,
+      // The orange that stays readable on the dark glass (tab bar labels use it too).
+      color: colors.accentText,
+      includeFontPadding: false,
+    },
+    // A 44 pt target at the right end, as the glass X of the payment screens.
+    close: {
+      width: 44,
+      minHeight: 44,
+      alignSelf: 'center',
+      alignItems: 'center',
+      justifyContent: 'center',
+      // Owner 23.11.2026: the close X on the left, as on iOS.
+      marginLeft: 6,
+      borderRadius: 22,
+    },
+  }),
+);
