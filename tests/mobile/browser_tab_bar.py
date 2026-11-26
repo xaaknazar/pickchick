@@ -207,7 +207,8 @@ with sync_playwright() as p:
             # The collapsed storefront header is opaque: no product button shows through it.
             color = page.get_by_test_id('storefront-header').evaluate('(e) => getComputedStyle(e).backgroundColor')
             channels = [float(v) for v in re.findall(r'[\d.]+', color)]
-            assert channels[:3] == [4, 20, 58] and channels[3:] in ([], [1.0]), color
+            # Neutral dark theme of the menu redesign (86877341): #0A1020; navy stays on «Синяя».
+            assert channels[:3] == [10, 16, 32] and channels[3:] in ([], [1.0]), color
             assert_floating_bar(page, width, height, 'menu')
         header = None
         for route, screen, _ in TABS:

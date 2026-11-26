@@ -174,7 +174,8 @@ with sync_playwright() as p:
         first, second = geometry['first'], geometry['second']
         assert chip['x'] >= 0 and chip['x'] + chip['width'] <= width + 1, chip
         assert section['y'] >= chip['y'] + chip['height'] - 1, (section, chip)
-        assert abs(first['width'] - first['height']) < 1, first
+        # Grid card photo window is 1.1:1 since the menu redesign (86877341).
+        assert abs(first['width'] / first['height'] - 1.1) < 0.01, first
         assert abs(first['y'] - second['y']) < 1 and second['x'] > first['x'], (first, second)
     assert errors == [], errors
     reduced = isolated_context(browser,viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
