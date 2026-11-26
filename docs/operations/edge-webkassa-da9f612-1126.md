@@ -76,3 +76,29 @@ Runbook `docs/operations/stage2-windows-1030/app-runtime-029.md`, операто
 Что нужно: исправить `enable-webkassa-edge.ps1` - останавливать и запускать вместе с Edge также
 `PickChickPosSync` и `PickChickKitchenLAN` (или принимать их как известных зависимых), тест PS 5.1,
 CI; затем удалить `Edge\config\webkassa.json` и повторить план и `-Apply`.
+
+## Повтор с исправленным оператором 81ece158 (26.11, 11:27 +05)
+
+Оператор `81ece158477d7bda963fd8382c20c42fd0d87b40` (`codex/webkassa-1125`): останавливает вместе с
+Edge также PosSync и KitchenLAN и переиспользует уже положенный `Edge\config\webkassa.json`.
+[Windows POS package 45767569481](https://github.com/xaaknazar/pickchick/actions/runs/45767569481)
+(включая guards PS 5.1) - success. `infra\windows` из `81ece158` в новой папке
+`EdgeTools\incoming-webkassa-1126b` (Администраторы и SYSTEM), `enable-webkassa-edge.ps1` SHA-256
+`f657ad26dc7e7cd1656bc933046ee7ec55d50e3be2a8648a78484ca2686c2858` совпал с коммитом.
+
+- План (11:27:20, без `-AccountFile`): `account {host devkkm.webkassa.kz, cashbox SWK00036966,
+  reused_file true}`, `env_before ee59ae58…1c32`, `env_after 9b5f20ac…078c`, перезапуск PosSync,
+  KitchenLAN, KitchenLink, Edge.
+- `-Apply` (11:27:31-11:27:39): `Webkassa activation did not complete`. Службы остановлены и снова
+  запущены (Edge 11:27:37, KitchenLink и KitchenLAN 11:27:38, PosSync 11:27:39), `edge.env` записан
+  в 11:27:37 и вернулся к `ee59ae58…1c32`. Попытка `EdgeTools\webkassa-abfcb6a96e384abab97e67214309a34d`
+  (`failed.json`: `rollback_verified=false`).
+- Итог: Edge ready 200, все десять служб Running, маршрут webkassa 404 (ключа нет), касса - ручной чек.
+
+Причина (по коду): `Write-WebkassaEnvCas` после `[IO.File]::Replace` проверяет `Assert-Acl $Path
+-ServiceRead` без `-Foundation -InheritedAllowed`. `ReplaceFile` оставляет у `edge.env` прежний ACL -
+унаследованный, с записью `Админ` FullControl, - и проверка падает («Protected ACL required»), хотя
+байты уже заменены. Откат пишет прежние байты тем же путём и падает на той же проверке, поэтому
+`rollback_verified=false`, но содержимое восстановлено. Исправление: в строке 82 проверять как в
+строке 76 (`Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed`), тест PS 5.1 с
+унаследованным ACL у `edge.env`, затем повторить план и `-Apply` (файл учётной записи на месте).
