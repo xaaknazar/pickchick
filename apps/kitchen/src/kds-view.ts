@@ -73,14 +73,25 @@ export const channelName: Record<Order['channel'], string> = {
 export function sourceLabel(o: { channel?: string; delivery?: Delivery }) {
   if (o.delivery || !o.channel || !Object.hasOwn(channelName, o.channel)) return '';
   const channel = o.channel as Order['channel'];
-  return `<p class="channel" data-source="${channel}">${escape(channelName[channel])}</p>`;
+  return `<p class="channel" data-source="${channel}"><span class="source source-${channel}">${escape(channelName[channel])}</span></p>`;
 }
-/** Minutes a ticket may wait before its head turns amber, then red. */
-export const WAIT_WARN_MINUTES = 7;
-export const WAIT_LATE_MINUTES = 12;
+/**
+ * Minutes a ticket may wait: green until `warn`, amber until `late`, red after (owner 27.11:
+ * 5 and 10 minutes). A point can set its own limits; setWaitLimits keeps them sane.
+ */
+export const waitLimits = { warn: 5, late: 10 };
+export function setWaitLimits(warn: unknown, late: unknown) {
+  const ok = (n: unknown): n is number =>
+    Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 120;
+  if (ok(warn) && ok(late) && warn < late) {
+    waitLimits.warn = warn;
+    waitLimits.late = late;
+  }
+}
 export function waitClass(createdAt: string | undefined, now: number) {
   const age = (now - Date.parse(createdAt ?? '')) / 60000;
-  return age >= WAIT_LATE_MINUTES ? 'wait-late' : age >= WAIT_WARN_MINUTES ? 'wait-warn' : '';
+  if (!Number.isFinite(age)) return '';
+  return age >= waitLimits.late ? 'wait-late' : age >= waitLimits.warn ? 'wait-warn' : 'wait-ok';
 }
 const open = (t: Task) => t.state === 'queued' || t.state === 'in_progress';
 /** Orders the regular ticket view shows as today: stopping, or held for the restore review. */

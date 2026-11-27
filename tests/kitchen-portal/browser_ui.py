@@ -24,6 +24,7 @@ def transport(route):
 with sync_playwright() as p:
     browser=p.chromium.launch()
     context=browser.new_context(viewport={'width':1366,'height':768},has_touch=True)
+    context.add_init_script("localStorage.setItem('pickchick.kitchen.undoMs','0')")
     context.route('**/*',transport)
     pages={};errors=[]
     for mode,path in [('prep','/kitchen/prep'),('assembly','/kitchen/assembly'),('display','/display')]:

@@ -12,7 +12,7 @@
  * Pure HTML builders: every value is escaped; buttons keep the data-command contract of app.ts.
  */
 import type { Action, Order, Station, Task } from './types.js';
-import { modeChip, sourceLabel, waitClass } from './kds-view.js';
+import { channelName, modeChip, waitClass } from './kds-view.js';
 
 const escape = (s: string) =>
   s.replace(
@@ -170,6 +170,86 @@ export function unlockAudioOnTouch(target: EventTarget) {
   target.addEventListener('pointerdown', unlock, { once: true });
 }
 
+/** Three short low beeps: an order is late (different from the new-order chime). */
+export function alarm() {
+  tones([660, 660, 660], 0.22, 'square', 0.25);
+}
+/** A rising chime for the guest board: a number is ready. */
+export function readyChime() {
+  tones([660, 880, 1100], 0.16, 'sine', 0.5);
+}
+function tones(freqs: number[], step: number, type: OscillatorType, peak: number) {
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === 'suspended') void audio.resume();
+    const start = audio.currentTime + 0.02;
+    freqs.forEach((freq, i) => {
+      const osc = audio!.createOscillator(),
+        gain = audio!.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const t0 = start + i * step;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + step * 0.9);
+      osc.connect(gain).connect(audio!.destination);
+      osc.start(t0);
+      osc.stop(t0 + step);
+    });
+  } catch {
+    /* No audio device: the blinking ticket still shows it. */
+  }
+}
+/**
+ * Late orders (owner 27.11): one alarm when an order on this screen passes the red limit, and a
+ * reminder every LATE_REPEAT_MS while any order stays late. Opening a screen never rings.
+ */
+export const LATE_REPEAT_MS = 3 * 60 * 1000;
+export class LateAlarm {
+  private rung = new Map<string, Set<string>>();
+  private last = 0;
+  update(screen: string, late: string[], now: number) {
+    const known = this.rung.get(screen);
+    this.rung.set(screen, new Set(late));
+    if (!known) {
+      this.last = now;
+      return false;
+    }
+    const fresh = late.some((id) => !known.has(id));
+    if (fresh || (late.length > 0 && now - this.last >= LATE_REPEAT_MS)) {
+      this.last = now;
+      return true;
+    }
+    return false;
+  }
+  enter(screen: string) {
+    this.rung.delete(screen);
+  }
+}
+/** Guest board: numbers that turned ready a moment ago are highlighted; true when one did. */
+export const JUST_READY_MS = 30000;
+export class ReadyNumbers {
+  private known: Set<string> | null = null;
+  private since = new Map<string, number>();
+  update(ready: string[], now: number) {
+    const before = this.known;
+    this.known = new Set(ready);
+    let fresh = false;
+    if (before)
+      for (const n of ready)
+        if (!before.has(n)) {
+          this.since.set(n, now);
+          fresh = true;
+        }
+    for (const [n, at] of this.since) if (now - at >= JUST_READY_MS) this.since.delete(n);
+    return fresh;
+  }
+  isFresh(number: string, now: number) {
+    const at = this.since.get(number);
+    return at !== undefined && now - at < JUST_READY_MS;
+  }
+}
+
 const amount = (n: number) => (Number.isInteger(n) ? String(n) : String(n).replace('.', ','));
 type Piece = { name: string; count: number };
 /**
@@ -259,6 +339,7 @@ export function tickTimers(root: ParentNode, now: number) {
     const head = el.closest('.ticket-head');
     if (!head) return;
     const wait = waitClass(since, now);
+    head.classList.toggle('wait-ok', wait === 'wait-ok');
     head.classList.toggle('wait-warn', wait === 'wait-warn');
     head.classList.toggle('wait-late', wait === 'wait-late');
   });
@@ -274,12 +355,31 @@ const clock = (iso: string) => {
       });
 };
 const qty = (n: number) => `<span class="quantity${n > 1 ? ' many' : ''}">${n}×</span>`;
-/** «Киоск · В очереди»: source and order status under the type chip (TZ 27.11 п.1). */
+/**
+ * «Киоск · В очереди»: source and order status under the type chip (TZ 27.11 п.1). The source is
+ * a coloured pill (owner 27.11): Касса, Киоск and Приложение read apart at a glance.
+ */
 function origin(o: Order, stateLabel: (state: string) => string) {
-  const source = sourceLabel(o).replace(/<\/?p[^>]*>/g, '');
+  const known = !o.delivery && !!o.channel && Object.hasOwn(channelName, o.channel);
+  const source = known
+    ? `<span class="source source-${escape(o.channel)}">${escape(channelName[o.channel])}</span>`
+    : '';
   const status = escape(stateLabel(o.state));
-  return `<p class="channel"${o.channel && !o.delivery ? ` data-source="${escape(o.channel)}"` : ''}>${source ? source + ' · ' : ''}<span class="order-status">${status}</span></p>`;
+  return `<p class="channel"${known ? ` data-source="${escape(o.channel)}"` : ''}>${source}<span class="order-status">${status}</span></p>`;
 }
+/**
+ * Changes the cook must not miss (owner 27.11, over TZ 27.11 п.2): «Без лука», «Острый» and the
+ * like, one red line under the dish. Drinks and sauces stay on the assembly screen.
+ */
+function cookNote(list: Modifier[]) {
+  return list.length
+    ? `<p class="cook-note">${list
+        .map((m) => escape(m.label.ru) + (m.quantity > 1 ? ' ×' + m.quantity : ''))
+        .join(' · ')}</p>`
+    : '';
+}
+/** An order comment that speaks of an allergy is shown in red on every screen. */
+export const ALLERGY = /аллерг|allerg|аллергия|непереносим/i;
 export type TicketInput = {
   order: Order;
   stationId: string;
@@ -356,7 +456,8 @@ export function kitchenTicket(input: TicketInput) {
       .map((g) => {
         const list = groupTasksOf(g);
         const done = allDone(list);
-        return `<section class="line cook-line${done ? ' line-done' : ''}">${qty(groupQty(g))}<div class="line-info"><h3>${escape(title(g))}</h3>${doneMark(done)}${lineButtons(list)}</div></section>`;
+        const first = g.kind === 'task' ? g.task : (g.base ?? g.parts[0]!);
+        return `<section class="line cook-line${done ? ' line-done' : ''}">${qty(groupQty(g))}<div class="line-info"><h3>${escape(title(g))}</h3>${cookNote(cookModifiers(first))}${doneMark(done)}${lineButtons(list)}</div></section>`;
       })
       .join('')}</div>`;
   } else {
@@ -403,5 +504,5 @@ export function kitchenTicket(input: TicketInput) {
         ? `<p>${assembly ? 'Ждём кухню' : 'Ожидание следующей станции'}</p>`
         : '';
   const wait = ready ? '' : waitClass(o.createdAt, input.now);
-  return `<article class="ticket kitchen-ticket ${assembly ? 'ticket-assembly' : 'ticket-cook'}${o.state === 'cancel_requested' ? ' cancel' : ''}${ready ? ' is-ready' : ''}${input.isNew ? ' is-new' : ''}${input.offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${input.owner ? ` data-owner="${input.owner}"` : ''}><div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div class="ticket-origin">${modeChip(o)}${origin(o, input.stateLabel)}${input.badge ?? ''}</div><div class="age">${timer(o.createdAt, input.now, !ready)}<small>принят ${clock(o.createdAt)}</small></div></div>${input.review ?? ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}${body}<div class="ticket-actions">${buttons}${note}</div></article>`;
+  return `<article class="ticket kitchen-ticket ${assembly ? 'ticket-assembly' : 'ticket-cook'}${o.state === 'cancel_requested' ? ' cancel' : ''}${ready ? ' is-ready' : ''}${input.isNew ? ' is-new' : ''}${input.offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${input.owner ? ` data-owner="${input.owner}"` : ''}><div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div class="ticket-origin">${modeChip(o)}${origin(o, input.stateLabel)}${input.badge ?? ''}</div><div class="age">${timer(o.createdAt, input.now, !ready)}<small>принят ${clock(o.createdAt)}</small></div></div>${input.review ?? ''}${o.kitchenComment ? `<aside class="order-note${ALLERGY.test(o.kitchenComment) ? ' allergy' : ''}"><strong>${ALLERGY.test(o.kitchenComment) ? 'Аллергия' : 'Комментарий'}</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}${body}<div class="ticket-actions">${buttons}${note}</div></article>`;
 }

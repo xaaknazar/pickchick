@@ -2,12 +2,15 @@ import { request, assetPrefix, ApiError } from '../api.js';
 import { displayPage, type DisplayItem } from '../types.js';
 import { displayWindow } from '../model.js';
 import type { TerminalAccess } from '../terminal-access.js';
+import { ReadyNumbers, readyChime } from '../kitchen-ticket.js';
 /** Paired display never creates/imports a staff session or offers a kitchen action. */
 export class DisplayAccess {
   private items: DisplayItem[] = [];
   private error = '';
   private busy = false;
   private page = 0;
+  /** A number that just turned ready glows and rings once (owner 27.11). */
+  private fresh = new ReadyNumbers();
   constructor(
     private readonly access: TerminalAccess,
     private readonly changed: () => void,
@@ -40,6 +43,8 @@ export class DisplayAccess {
       if (cursor !== null) throw new Error();
       this.items = next;
       this.error = '';
+      const ready = next.filter((i) => i.state === 'ready').map((i) => i.number);
+      if (this.fresh.update(ready, Date.now())) readyChime();
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         this.items = [];
@@ -83,6 +88,8 @@ export class DisplayAccess {
           number = document.createElement('strong');
         number.textContent = item.number;
         article.append(number);
+        if (kind === 'ready' && this.fresh.isFresh(item.number, Date.now()))
+          article.className = 'just-ready';
         if (item.name) {
           const name = document.createElement('span');
           name.className = 'guest-display-name';

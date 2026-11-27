@@ -39,6 +39,8 @@ def capture(page, name):
 with sync_playwright() as p:
     browser = p.chromium.launch()
     context = browser.new_context(viewport={'width':width,'height':height}, has_touch=workstation)
+    # Commands go out at once here; the 5-second undo wait has its own check.
+    context.add_init_script("localStorage.setItem('pickchick.kitchen.undoMs','0')")
     context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(url+'/') else route.abort())
     page = context.new_page()
     errors = []
@@ -155,8 +157,23 @@ with sync_playwright() as p:
     capture(page, 'display')
     activate(page.locator('#mode-kitchen'))
     ticket = page.locator('[data-order="'+fixture['orderId']+'"]')
+    # Owner 27.11: a tap waits 5 seconds with «Вернуть»; undo sends nothing, a second tap goes out.
+    page.evaluate("localStorage.setItem('pickchick.kitchen.undoMs','5000')")
+    posts = []
+    page.on('request', lambda req: posts.append(req.url) if req.method=='POST' and '/actions' in req.url else None)
     activate(ticket.get_by_role('button',name='Подтвердить выдачу'))
-    expect(ticket).to_have_count(0)
+    expect(page.locator('.undo-bar')).to_be_visible()
+    expect(ticket.get_by_role('button',name='Подтвердить выдачу')).to_be_disabled()
+    capture(page, 'undo')
+    activate(page.locator('#undo'))
+    expect(page.locator('.undo-bar')).to_have_count(0)
+    page.wait_for_timeout(5500)
+    assert posts == [], posts
+    expect(ticket).to_be_visible()
+    activate(ticket.get_by_role('button',name='Подтвердить выдачу'))
+    expect(ticket).to_have_count(0, timeout=12000)
+    assert len(posts) == 1, posts
+    page.evaluate("localStorage.setItem('pickchick.kitchen.undoMs','0')")
     # A transport outage leaves stale data explicit and does not invent success.
     count = page.locator('[data-order]').count()
     page.route('**/edge/v1/fulfillment/kitchen?*', lambda route: route.abort('failed'))
