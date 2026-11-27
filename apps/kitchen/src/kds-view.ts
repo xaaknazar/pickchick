@@ -164,7 +164,7 @@ const minutes = (from: string, now: number) =>
 function line(t: Task, extra = '', orderComment = '') {
   void orderComment; // Menu descriptions are never shown on a kitchen ticket (22.11).
   const d = t.details;
-  return `<section class="line kds-line"><span class="quantity${d.quantity > 1 ? ' many' : ''}">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
+  return `<section class="line kds-line"><span class="quantity${d.quantity > 1 ? ' many' : ''}">${d.quantity}×</span><div class="line-info"><h3>${escape(d.title)}</h3>${d.parentTitle && d.parentTitle !== d.title ? `<p class="parent">${escape(d.parentTitle)}</p>` : ''}${d.modifiers.length ? `<p class="modifiers">${d.modifiers.map((m) => `${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${d.kds?.unmapped ? '<p class="kds-unmapped" role="note">Нет в раскладке - сообщите менеджеру</p>' : ''}${extra}</div></section>`;
 }
 const comment = (o: Order) =>
   o.kitchenComment

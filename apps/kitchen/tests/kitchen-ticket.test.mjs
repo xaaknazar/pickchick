@@ -1,13 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import {
-  composition,
-  cookModifiers,
-  kitchenTicket,
-  modifierKind,
-  stopwatch,
-} from '../dist/kitchen-ticket.js';
+import { kitchenTicket, modifierKind, stopwatch } from '../dist/kitchen-ticket.js';
 
 const PREP = '00000000-0000-4000-8000-000000000001';
 const ASM = '00000000-0000-4000-8000-000000000002';
@@ -84,43 +78,96 @@ test('drinks and sauces are assembly modifiers by slug (cloud) and by title (cas
   assert.equal(modifierKind(mod('taste', 'Вкус', 'Острый')), 'cook');
 });
 
-test('cook ticket: number, dish, live timer; no drinks, sauces or menu description', () => {
-  const combo = task(PREP, 'Finger Combo', {
+// Restaurant TZ 27.11 «Отображение заказов», example: order 10, in the hall, kiosk, queued.
+const tzOrder = () => {
+  const meal = task(PREP, 'Chick N Roll Meal', {
+    productId: 'chick-n-roll-meal-combo',
     modifiers: [
-      mod('drink', 'Напиток на выбор', 'Coca-Cola 0.5 л'),
-      mod('sauce', 'Соус на выбор', 'Фирменный соус'),
-      mod('taste', 'Вкус', 'Острый'),
+      mod('drink', 'Напиток на выбор', 'Sprite 0.5 л'),
+      mod('sauce', 'Соус на выбор', 'Heinz сырный'),
     ],
   });
-  const o = order([combo, task(ASM, 'Fuse Tea Персик')]);
-  const html = render(o, PREP);
-  assert.match(html, /class="number">27</);
-  assert.match(html, /Finger Combo/);
-  assert.match(html, /Острый/);
-  assert.match(html, /data-since="2026-11-22T10:00:00.000Z"[^>]*>4:35</);
-  for (const hidden of ['Coca-Cola', 'Фирменный соус', 'Fuse Tea', 'сочных', 'На других'])
+  const finger = task(PREP, 'Finger Combo', {
+    productId: 'pick-combo',
+    modifiers: [
+      mod('drink', 'Напиток на выбор', 'Fuse Tea Манго-Ромашка 0.5 л'),
+      mod('sauce', 'Соус на выбор', 'Острый соус Pick Chick'),
+    ],
+  });
+  return order([meal, finger], { displayNumber: '10', serviceMode: 'dine_in' });
+};
+const at17 = Date.parse('2026-11-22T10:17:00Z');
+
+test('TZ 27.11 kitchen: number, type, source, status, timer; dish and quantity only', () => {
+  const html = render(tzOrder(), PREP, at17);
+  assert.match(html, /class="number">10</);
+  assert.match(html, /В ЗАЛЕ/);
+  assert.match(html, /Киоск · <span class="order-status">accepted<\/span>/);
+  assert.match(html, /data-since="2026-11-22T10:00:00.000Z"[^>]*>17:00</);
+  assert.match(html, /1×<\/span><div class="line-info"><h3>Chick N Roll Meal<\/h3>/);
+  assert.match(html, /1×<\/span><div class="line-info"><h3>Finger Combo<\/h3>/);
+  for (const hidden of [
+    'Sprite',
+    'Heinz',
+    'Fuse Tea',
+    'Острый соус',
+    'Напиток на выбор',
+    'Фингерсы',
+    'Фри',
+    'Тост',
+    'сочных',
+  ])
     assert.doesNotMatch(html, new RegExp(hidden), hidden);
-  assert.equal(cookModifiers(combo).length, 1);
 });
 
-test('assembly ticket: whole order with drinks and sauces, quantities multiplied', () => {
+test('TZ 27.11 kitchen: other modifiers are not shown either', () => {
+  const html = render(
+    order([
+      task(PREP, 'Pick Burger', {
+        modifiers: [mod('x1', 'Изменения', 'Без лука'), mod('taste', 'Вкус', 'Острый')],
+      }),
+    ]),
+    PREP,
+  );
+  assert.match(html, /Pick Burger/);
+  assert.doesNotMatch(html, /Без лука|Острый/);
+});
+
+test('TZ 27.11 assembly: dish, quantity, each modifier on its own line without group titles', () => {
+  const html = render(tzOrder(), ASM, at17);
+  assert.match(html, /class="number">10</);
+  assert.match(html, /В ЗАЛЕ/);
+  assert.match(html, /Киоск · <span class="order-status">accepted<\/span>/);
+  assert.match(
+    html,
+    /<h3>Chick N Roll Meal<\/h3><ul class="line-mods"><li class="mod-drink">– Sprite 0.5 л<\/li><li class="mod-sauce">– Heinz сырный<\/li><\/ul>/,
+  );
+  assert.match(
+    html,
+    /<h3>Finger Combo<\/h3><ul class="line-mods"><li class="mod-drink">– Fuse Tea Манго-Ромашка 0.5 л<\/li><li class="mod-sauce">– Острый соус Pick Chick<\/li><\/ul>/,
+  );
+  assert.ok(html.indexOf('Chick N Roll Meal') < html.indexOf('Finger Combo'), 'order of the order');
+  for (const hidden of ['Напиток на выбор', 'Соус на выбор', 'Фингерсы', 'Фри', 'Тост', 'сочных'])
+    assert.doesNotMatch(html, new RegExp(hidden), hidden);
+});
+
+test('assembly: kitchen readiness per line, items made here with their button, quantity', () => {
   const combo = task(PREP, 'Finger Combo', {
     quantity: 2,
-    modifiers: [mod('drink', 'Напиток на выбор', 'Coca-Cola 0.5 л')],
+    modifiers: [mod('drink', 'Напиток на выбор', 'Coca-Cola 0.5 л', 2)],
   });
   combo.state = 'done';
-  const o = order([combo, task(ASM, 'Сырный соус 60 г')]);
+  const sauce = task(ASM, 'Сырный соус 60 г');
+  const o = order([combo, sauce]);
   const html = render(o, ASM, Date.parse('2026-11-22T10:13:00Z'), [
     { action: 'complete_station', expectedVersion: 3, stationId: ASM },
   ]);
-  assert.match(html, /С кухни/);
-  assert.match(html, /✓ всё готово/);
-  assert.match(html, /Finger Combo/);
-  assert.match(html, /2×<\/span><div class="line-info"><h3>Coca-Cola 0.5 л/);
+  assert.match(html, /2×<\/span><div class="line-info"><h3>Finger Combo/);
+  assert.match(html, /– Coca-Cola 0.5 л ×2/);
+  assert.match(html, /line-state done">✓/);
   assert.match(html, /Сырный соус 60 г/);
   assert.match(html, /Заказ собран/);
   assert.match(html, /wait-late/);
-  assert.doesNotMatch(html, /сочных/);
 });
 
 test('a ready order keeps its timer but loses the wait colour', () => {
@@ -128,53 +175,56 @@ test('a ready order keeps its timer but loses the wait colour', () => {
   const html = render(o, ASM, Date.parse('2026-11-22T10:30:00Z'));
   assert.match(html, /data-still=""/);
   assert.doesNotMatch(html, /wait-late/);
-  assert.match(html, /Готов к выдаче/);
+  assert.match(html, /order-status">ready</);
 });
 
-test('combo contents for the cook: by slug or cashier name, times quantity, no drinks', () => {
-  const bySlug = task(PREP, 'Finger Combo', { productId: 'pick-combo', quantity: 2 });
-  assert.deepEqual(composition(bySlug), [
-    { name: 'Фингерсы', count: 8 },
-    { name: 'Фри', count: 2 },
-    { name: 'Тост', count: 2 },
-    { name: 'Коулслоу', count: 2 },
-  ]);
-  const cashier = task(PREP, 'Master Combo', { productId: 'a1b2c3d4-hashed' });
-  assert.equal(composition(cashier).find((p) => p.name === 'Фингерсы').count, 6);
-  assert.deepEqual(composition(task(PREP, 'Pick Burger')), []);
-  for (const t of [bySlug, cashier])
-    assert.ok(composition(t).every((p) => !/напит|соус/i.test(p.name)));
-  const html = render(order([bySlug]), PREP);
-  assert.match(html, /<li><strong>8<\/strong> Фингерсы<\/li>/);
-  const duo = task(PREP, 'Finger Duo', { productId: 'finger-duo' });
-  assert.match(render(order([duo]), PREP), /<strong>1,5<\/strong> Фри/);
-});
-
-test('all day: combo contents and single items summed for the station, drinks left out', async () => {
+test('all day: items counted by their own name, combos not decoded, drinks left out', async () => {
   const { allDay, allDayStrip } = await import('../dist/kitchen-ticket.js');
   const a = order([
     task(PREP, 'Finger Combo', { productId: 'pick-combo', quantity: 2 }),
     task(ASM, 'Sprite 0.5 л'),
   ]);
-  const b = order([
-    task(PREP, 'Фингерс 1 шт', { productId: 'f0f0-hashed', quantity: 3 }),
-    task(PREP, 'Pick Burger'),
-    task(PREP, 'Новый ролл'),
-  ]);
+  const b = order([task(PREP, 'Finger Combo'), task(PREP, 'Pick Burger')]);
   const done = task(PREP, 'Master Combo');
   done.state = 'done';
-  const c = order([done]);
   const ready = order([task(PREP, 'Solo Combo')], { state: 'ready' });
-  assert.deepEqual(allDay([a, b, c, ready], PREP), [
-    { name: 'Фингерсы', count: 11 },
-    { name: 'Фри', count: 2 },
-    { name: 'Тост', count: 2 },
-    { name: 'Коулслоу', count: 2 },
+  assert.deepEqual(allDay([a, b, order([done]), ready], PREP), [
+    { name: 'Finger Combo', count: 3 },
     { name: 'Pick Burger', count: 1 },
-    { name: 'Новый ролл', count: 1 },
   ]);
-  assert.match(allDayStrip([a], PREP), /Всего в работе.*<strong>8<\/strong> Фингерсы/);
+  assert.match(allDayStrip([a], PREP), /Всего в работе.*<strong>2<\/strong> Finger Combo/);
   assert.match(allDayStrip([], PREP), /ничего/);
+});
+
+test('expanded combo from the back office stays one line under the combo, drink once', async () => {
+  const { allDay } = await import('../dist/kitchen-ticket.js');
+  const lineId = randomUUID();
+  const drink = mod('drink', 'Напиток на выбор', 'Sprite 0.5 л');
+  const part = (title, quantity, productId) =>
+    task(PREP, title, {
+      lineId,
+      productId,
+      parentTitle: 'Finger Combo',
+      quantity,
+      lineQuantity: 2,
+      weightG: 30,
+      modifiers: [drink],
+    });
+  const o = order([part('Фингерс 1 шт', 8, 'fingers'), part('Тост 1 шт', 2, 'toast')]);
+  const cook = render(o, PREP, at17, [
+    {
+      action: 'start_task',
+      expectedVersion: 3,
+      taskId: o.tasks[0].taskId,
+      expectedTaskVersion: 1,
+    },
+  ]);
+  assert.match(cook, /2×<\/span><div class="line-info"><h3>Finger Combo<\/h3>/);
+  assert.equal(cook.match(/<h3>/g).length, 1);
+  assert.doesNotMatch(cook, /30 г|Sprite/);
+  const asm = render(o, ASM, at17);
+  assert.equal(asm.match(/– Sprite 0.5 л/g).length, 1);
+  assert.deepEqual(allDay([o], PREP), [{ name: 'Finger Combo', count: 2 }]);
 });
 
 test('new orders: no ring on first load or right after opening a screen, then once per order', async () => {
@@ -188,79 +238,4 @@ test('new orders: no ring on first load or right after opening a screen, then on
   assert.equal(n.isNew('kitchen:p', 'c', 6000 + NEW_TICKET_MS), false);
   assert.equal(n.isNew('kitchen:p', 'a', 6000), false);
   assert.equal(n.update('kitchen:p', ['b', 'c'], 7000), false);
-});
-
-test('dish changes are shouted: red for a removal, orange otherwise', () => {
-  const html = render(
-    order([
-      task(PREP, 'Pick Burger', {
-        modifiers: [mod('x1', 'Изменения', 'Без лука'), mod('taste', 'Вкус', 'Острый')],
-      }),
-    ]),
-    PREP,
-  );
-  assert.match(html, /<span class="change change-minus">Без лука<\/span>/);
-  assert.match(html, /<span class="change">Острый<\/span>/);
-});
-
-test('expanded combo from the back office: parts under the combo, grams, drink once', async () => {
-  const { groupTasks, allDay } = await import('../dist/kitchen-ticket.js');
-  const lineId = randomUUID();
-  const drink = mod('drink', 'Напиток на выбор', 'Coca-Cola 0.5 л');
-  const part = (title, productId, quantity, extra = {}) =>
-    task(PREP, title, {
-      lineId,
-      productId,
-      parentTitle: 'Finger Combo',
-      quantity,
-      modifiers: [drink, mod('taste', 'Вкус', 'Острый')],
-      ...extra,
-    });
-  const parts = [
-    part('Фингерс 1 шт', 'fingers', 8, { weightG: 30, lineQuantity: 2 }),
-    part('Картофельные дольки', 'wedges', 2, { weightG: 150, lineQuantity: 2 }),
-    part('Тост 1 шт', 'toast', 2, { lineQuantity: 2 }),
-  ];
-  const groups = groupTasks(parts);
-  assert.equal(groups.length, 1);
-  assert.equal(groups[0].quantity, 2);
-  const o = order(parts);
-  const cook = render(o, PREP);
-  assert.match(cook, /2×<\/span><div class="line-info"><h3>Finger Combo<\/h3>/);
-  assert.match(cook, /<li><strong>8<\/strong> Фингерсы<small class="grams">30 г<\/small><\/li>/);
-  assert.match(cook, /<li><strong>2<\/strong> Фри<small class="grams">150 г<\/small><\/li>/);
-  assert.match(cook, /<li><strong>2<\/strong> Тост<\/li>/);
-  assert.equal(cook.match(/Острый/g).length, 1);
-  assert.doesNotMatch(cook, /Coca-Cola|Фингерс 1 шт/);
-  const asm = render(o, ASM);
-  assert.equal(asm.match(/Coca-Cola/g).length, 1);
-  assert.match(asm, /2×<\/span><div class="line-info"><h3>Coca-Cola 0.5 л/);
-  assert.deepEqual(allDay([o], PREP).slice(0, 3), [
-    { name: 'Фингерсы', count: 8 },
-    { name: 'Фри', count: 2 },
-    { name: 'Тост', count: 2 },
-  ]);
-  // An older edge sends no lineQuantity: the common factor of the parts.
-  const old = parts.map((t) => ({ ...t, details: { ...t.details, lineQuantity: undefined } }));
-  assert.equal(groupTasks(old)[0].quantity, 2);
-});
-
-test('a dish with a linked addition stays one line, the addition with «+», drink once', () => {
-  const lineId = randomUUID();
-  const drink = mod('drink', 'Напиток на выбор', 'Sprite');
-  const burger = task(PREP, 'Pick Burger', { lineId, quantity: 2, modifiers: [drink] });
-  const extra = task(PREP, 'Фингерс 1 шт', {
-    lineId,
-    productId: 'fingers',
-    parentTitle: 'Pick Burger',
-    quantity: 4,
-    modifiers: [drink],
-  });
-  const o = order([burger, extra]);
-  const cook = render(o, PREP);
-  assert.equal(cook.match(/<h3>Pick Burger<\/h3>/g).length, 1);
-  assert.match(cook, /<li><strong>4<\/strong> \+ Фингерсы<\/li>/);
-  const asm = render(o, ASM);
-  assert.equal(asm.match(/Sprite/g).length, 1);
-  assert.match(asm, /2×<\/span><div class="line-info"><h3>Sprite/);
 });
