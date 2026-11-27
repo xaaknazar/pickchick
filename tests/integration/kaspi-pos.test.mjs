@@ -8,6 +8,7 @@ import {
   createQuote,
   createTerminalPayment,
   listOpenTerminalPayments,
+  pollTerminalPayments,
   provisionStaff,
   readPosConfig,
   readTerminalPayment,
@@ -442,6 +443,53 @@ test('stale attempts of a stopped edge: created was never sent, sending becomes 
     await pool.query('ALTER TABLE kaspi_pos_attempts ENABLE TRIGGER kaspi_pos_attempt_guard');
     assert.equal((await poll(ctx, port, id)).state, 'lost');
     assert.equal(port.calls.length, 0);
+  });
+});
+
+test('the point server finishes a payment by itself while the POS window is closed (P0-4)', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const started = await pay(ctx, port, { quote_id: q.quote_id, amount_minor: q.total_minor });
+    assert.equal(started.state, 'wait');
+    // The POS closes here: nobody polls. The background pass asks the terminal itself.
+    assert.equal(await pollTerminalPayments(pool, ctx.branch, port), 1);
+    assert.equal(port.calls.at(-1).method, 'status');
+    port.script.status.push(success('SYN-TXN-BG', 'qr'));
+    assert.equal(await pollTerminalPayments(pool, ctx.branch, port), 1);
+    const row = (
+      await pool.query('SELECT state,transaction_id FROM kaspi_pos_attempts WHERE id=$1', [
+        started.attempt_id,
+      ])
+    ).rows[0];
+    assert.deepEqual(row, { state: 'success', transaction_id: 'SYN-TXN-BG' });
+    // A finished attempt is not asked again and never paid twice.
+    const calls = port.calls.length;
+    assert.equal(await pollTerminalPayments(pool, ctx.branch, port), 0);
+    assert.equal(port.calls.length, calls);
+    assert.equal(port.calls.filter((c) => c.method === 'payment').length, 1);
+    // After the restart the desk sees the paid attempt and finishes the sale with it.
+    const open = await listOpenTerminalPayments(pool, ctx.branch, staffAuth(ctx.cashier));
+    assert.deepEqual(
+      open.items.map((i) => [i.attempt_id, i.state]),
+      [[started.attempt_id, 'success']],
+    );
+    const sold = await sell(ctx, q, [
+      { method: 'kaspi_terminal', amount_minor: q.total_minor, attempt_id: started.attempt_id },
+    ]);
+    assert.equal(sold.order.state, 'paid');
+    // An unreachable terminal leaves the attempt as it was for the next pass.
+    const q2 = await quote(ctx);
+    const second = await pay(ctx, port, { quote_id: q2.quote_id, amount_minor: q2.total_minor });
+    port.script.status.push({ kind: 'unreachable', reason: 'CONNECT' });
+    assert.equal(await pollTerminalPayments(pool, ctx.branch, port), 1);
+    assert.equal(
+      (await pool.query('SELECT state FROM kaspi_pos_attempts WHERE id=$1', [second.attempt_id]))
+        .rows[0].state,
+      'wait',
+    );
   });
 });
 

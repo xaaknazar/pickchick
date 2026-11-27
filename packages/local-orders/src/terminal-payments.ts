@@ -87,7 +87,7 @@ const link = (device: DeviceRow): KaspiLink => ({
 });
 
 /** Whether schema029 is installed and readable by this role (the runtime's grants). */
-export async function kaspiPosInstalled(client: DatabaseClient) {
+export async function kaspiPosInstalled(client: DatabaseClient | DatabasePool) {
   return (
     await client.query<{ ready: boolean }>(
       `SELECT to_regclass('kaspi_pos_attempts') IS NOT NULL
@@ -473,6 +473,35 @@ async function advance(pool: DatabasePool, branchId: string, row: AttemptRow, po
   })().finally(() => inflight.delete(row.id));
   inflight.set(row.id, work);
   return work;
+}
+
+/** Attempts the point server looks at per pass of the background poll. */
+export const TERMINAL_POLL_LIMIT = 20;
+
+/**
+ * P0-4 (audit 26.11): the point server finishes unfinished attempts of the branch itself, also
+ * while no cash desk window polls (POS closed or restarted during a payment). Each attempt is asked
+ * once per pass, through the same forward-only transitions as the POS poll; it never pays again.
+ * A paid attempt stays in pos/terminal-payments/open until the cashier finishes the sale.
+ * Returns how many attempts were looked at.
+ */
+export async function pollTerminalPayments(
+  pool: DatabasePool,
+  branchId: string,
+  port: KaspiPosPort = kaspiPort,
+): Promise<number> {
+  if (!(await kaspiPosInstalled(pool))) return 0;
+  const rows = (
+    await pool.query<AttemptRow>(
+      `SELECT ${ATTEMPT_COLUMNS} FROM kaspi_pos_attempts
+       WHERE branch_id=$1 AND state IN ('created','sending','wait','unknown')
+         AND created_at > clock_timestamp() - interval '24 hours'
+       ORDER BY created_at LIMIT $2`,
+      [branchId, TERMINAL_POLL_LIMIT],
+    )
+  ).rows;
+  for (const row of rows) await advance(pool, branchId, row, port);
+  return rows.length;
 }
 
 /** GET pos/terminal-payments/{id}: the attempt of this desk, after asking the terminal once. */

@@ -17,6 +17,7 @@ import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
 import { KdsController } from './kds-controller.js';
 import { RestoreFenceGuard, RestoreFenceOnStart } from './restore-fence.js';
+import { KaspiTerminalLoop } from './kaspi-terminal-loop.js';
 import { RemoteStopsLoop } from './remote-stops-loop.js';
 import { WebkassaLoop } from './webkassa-loop.js';
 
@@ -92,6 +93,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       RestoreFenceGuard,
       RemoteStopsLoop,
       WebkassaLoop,
+      KaspiTerminalLoop,
     ],
   })
   class EdgeModule {}
