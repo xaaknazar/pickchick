@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionModal, MotionPressable } from './Motion';
 import { CloseButton, Body, Button, Caption, Heading, Icon, Row } from './UI';
-import { colors } from '../theme';
+import { colors, themed, tc } from '../theme';
 
 export function OrderActions({
   visible,
@@ -52,7 +52,7 @@ export function OrderActions({
               </Heading>
             </Row>
             <View style={s.symbol}>
-              <Icon name="chatbubbles-outline" color={colors.accent} size={30} />
+              <Icon name="chatbubbles-outline" color={colors.accentIcon} size={30} />
             </View>
             <Body>{t('Нужна помощь с заказом?')}</Body>
             <Caption>
@@ -75,28 +75,30 @@ export function OrderActions({
     </MotionModal>
   );
 }
-const s = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: '#00000099',
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-  },
-  content: { padding: 20, gap: 16 },
-  symbol: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: tc('#00000099'),
+    },
+    dialog: {
+      width: '100%',
+      maxWidth: 400,
+      maxHeight: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+    },
+    content: { padding: 20, gap: 16 },
+    symbol: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  }),
+);

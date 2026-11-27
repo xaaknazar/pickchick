@@ -28,11 +28,11 @@
 
 /* Surface themes from supplied mockup, v0.2. */
 :root {
-  --mobile-background: #04143a;
-  --mobile-surface: #0a2050;
-  --mobile-surface-raised: #123068;
+  --mobile-background: #0a1020;
+  --mobile-surface: #141b2b;
+  --mobile-surface-raised: #1c2538;
   --mobile-text: #f2f6ff;
-  --mobile-muted: #93a6c9;
+  --mobile-muted: #98a2b3;
   --mobile-action: #2e6fe8;
   --mobile-accent: #ff6900;
   --mobile-accent-text: #ff8a3d;

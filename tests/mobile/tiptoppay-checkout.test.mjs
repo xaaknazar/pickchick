@@ -5,6 +5,7 @@ import {
   CARD_PROBLEM_TEXT,
   cardInput,
   cardProblem,
+  confirmConnectedMethod,
   connectedTipTopPayMethods,
   createConnectedMethodsStore,
   formatCardNumber,
@@ -102,6 +103,100 @@ test('the connected-methods store notifies only on a change', () => {
   assert.equal(calls, 2);
 });
 
+test('the first /config answer of a run is news even with the same list (audit 23.11 #3)', async () => {
+  // Restored from the last run, then the same list from the server: subscribers must still
+  // render, because `fresh` changes what the handle may show (launchPaymentMethod).
+  const storage = {
+    getItem: async () => JSON.stringify({ methods: ['card'], environment: 'live' }),
+    setItem: async () => {},
+  };
+  const store = createConnectedMethodsStore(storage);
+  await store.restore();
+  let calls = 0;
+  store.subscribe(() => calls++);
+  const restoredVersion = store.version();
+  assert.equal(store.fresh(), false);
+  store.set(['card'], 'live');
+  assert.equal(store.fresh(), true);
+  assert.equal(calls, 1);
+  assert.ok(store.version() > restoredVersion);
+  // Later answers with the same list stay quiet.
+  store.set(['card'], 'live');
+  assert.equal(calls, 1);
+  // The same for an empty list that was never saved.
+  const empty = createConnectedMethodsStore();
+  let emptyCalls = 0;
+  empty.subscribe(() => emptyCalls++);
+  empty.set([], null);
+  empty.set([], null);
+  assert.equal(emptyCalls, 1);
+});
+
+test('a TipTopPay press before the first /config answer asks the server first (audit 23.11 #3)', async () => {
+  // The handle showed Apple Pay on the phone's word; the restored list is empty.
+  const store = createConnectedMethodsStore();
+  let reads = 0;
+  assert.equal(
+    await confirmConnectedMethod(store, 'apple_pay', async () => {
+      reads += 1;
+      store.set(['apple_pay', 'card'], 'live');
+    }),
+    true,
+  );
+  assert.equal(reads, 1);
+  // With a fresh answer the list decides at once: no second read.
+  assert.equal(
+    await confirmConnectedMethod(store, 'google_pay', async () => assert.fail('read again')),
+    false,
+  );
+  assert.equal(await confirmConnectedMethod(store, 'card', async () => assert.fail('read')), true);
+  // The server does not offer the method: refused after the answer, not before it.
+  const refused = createConnectedMethodsStore();
+  assert.equal(
+    await confirmConnectedMethod(refused, 'apple_pay', async () => refused.set(['card'], 'live')),
+    false,
+  );
+  // No answer: the last known list decides, as before.
+  const offline = createConnectedMethodsStore({
+    getItem: async () => JSON.stringify({ methods: ['card'], environment: 'live' }),
+    setItem: async () => {},
+  });
+  await offline.restore();
+  const fail = async () => {
+    throw new Error('NETWORK_UNAVAILABLE');
+  };
+  assert.equal(await confirmConnectedMethod(offline, 'card', fail), true);
+  assert.equal(await confirmConnectedMethod(offline, 'apple_pay', fail), false);
+  assert.equal(offline.fresh(), false);
+
+  // The cart: the check only reads /config; the press itself is still tipTopPay.start, and
+  // nothing starts if the customer left or chose another method meanwhile.
+  const screen = readFileSync(
+    new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const submit = screen.slice(screen.indexOf('const submit = async () => {'));
+  const guard = submit.slice(
+    submit.indexOf("if (payment.method !== 'kaspi') {"),
+    submit.indexOf('setMethodStop(false);\n    lock.current'),
+  );
+  const check = guard.slice(guard.indexOf('await confirmConnectedMethod('));
+  assert.ok(guard.indexOf('if (connectedMethodsStore.fresh()) {') < guard.indexOf(check));
+  assert.match(check, /request\('\/config', 'GET', undefined, controller\.signal\)/);
+  assert.match(check, /noteConnectedMethods\(setup\);/);
+  // After the read (it can take long): the cart must still have lines, and the card sheet gets
+  // the total shown now, not the one of the render of the press (review 23.11).
+  assert.match(
+    check,
+    /if \(controller\.signal\.aborted \|\| methodRef\.current !== method \|\| !cart\.current\.length\)\s*return;/,
+  );
+  assert.match(check, /tipTopPay\.start\(method, shownTotal\.current\);/);
+  assert.doesNotMatch(check, /tipTopPay\.start\(method, quote\?\.totalMinor/);
+  assert.match(screen, /shownTotal\.current = quote\?\.totalMinor \?\? localTotal;/);
+  for (const sent of ["'/orders'", "'/quotes'", "'POST'", 'randomUUID', 'props.authorizeLegal('])
+    assert.ok(!guard.includes(sent), sent);
+});
+
 test('wallet amounts come from integer minor units, never floats', () => {
   assert.equal(walletAmount('125000'), '1250.00');
   assert.equal(walletAmount('5'), '0.05');
@@ -184,4 +279,40 @@ test('every new TipTopPay phrase has Kazakh and English text', () => {
   for (const text of Object.values(CARD_PROBLEM_TEXT)) phrases.add(text);
   assert.ok(phrases.size > 20);
   for (const phrase of phrases) assert.ok(known.has(phrase), phrase);
+});
+
+test('success notice: centred icon and it closes itself (owner 23.11.2026)', () => {
+  const sheet = readFileSync(
+    new URL('../../apps/mobile/src/components/TipTopPaySheets.tsx', import.meta.url),
+    'utf8',
+  );
+  // The card stretches its children, so the icon needs its own centred row.
+  assert.match(sheet, /<View style=\{s\.iconRow\} testID="tiptoppay-result-icon">/);
+  assert.match(sheet, /iconRow: \{ alignSelf: 'stretch', alignItems: 'center'/);
+  // Only a success closes by itself; a failure or a pending check keeps its buttons.
+  assert.match(sheet, /TIPTOPPAY_SUCCESS_AUTO_CLOSE_MS = 2500/);
+  assert.match(sheet, /if \(!success\) return;/);
+  assert.match(sheet, /clearTimeout\(timer\)/);
+});
+
+test('a lost live charge answer keeps the same order and never says «Деньги не списаны» (audit 26.11 P0-5)', () => {
+  const hook = readFileSync(
+    new URL('../../apps/mobile/src/useTipTopPayCheckout.tsx', import.meta.url),
+    'utf8',
+  );
+  const catchBlock = hook.slice(hook.indexOf('} catch (e) {'), hook.indexOf('} finally {'));
+  // The order is marked before the charge request leaves the phone …
+  assert.ok(
+    hook.indexOf('chargedOrder = order.orderId;') <
+      hook.indexOf('`/orders/${order.orderId}/tiptoppay`'),
+  );
+  // … and a network error after that shows «Проверяем оплату» for that order and keeps it for
+  // the retry, before the generic failed sheet.
+  const keep = catchBlock.indexOf('retryOrder.current = chargedOrder;');
+  assert.ok(keep > 0);
+  assert.ok(catchBlock.indexOf("setResult({ state: 'pending', orderId: chargedOrder })") > keep);
+  assert.ok(keep < catchBlock.indexOf("state: 'failed'"));
+  // A retry that could not read its order keeps it as well.
+  assert.ok(catchBlock.includes('if (!chargedOrder && again) chargedOrder = again;'));
+  assert.equal(tipTopPayResultCopy({ state: 'pending' }, false).title, 'Проверяем оплату');
 });

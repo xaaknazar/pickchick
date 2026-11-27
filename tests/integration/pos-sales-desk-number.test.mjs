@@ -709,9 +709,13 @@ test('GET pos/config: desk_number of the session terminal as the last key, every
             ...off,
             server_time: undefined,
             desk_number: undefined,
+            kaspi_terminal_link: false,
           },
         );
-        assert.equal(text, legacy(body).slice(0, -1) + ',"desk_number":null}');
+        assert.equal(
+          text,
+          legacy(body).slice(0, -1) + ',"desk_number":null,"kaspi_terminal_link":false}',
+        );
       }
       await setDeskNumber(pool, ctx.branch, {
         terminal_id: desks.two.terminal_id,
@@ -727,7 +731,10 @@ test('GET pos/config: desk_number of the session terminal as the last key, every
         const text = await raw(credential);
         const body = JSON.parse(text);
         assert.equal(body.desk_number, number);
-        assert.equal(text, legacy(body).slice(0, -1) + `,"desk_number":${number}}`);
+        assert.equal(
+          text,
+          legacy(body).slice(0, -1) + `,"desk_number":${number},"kaspi_terminal_link":false}`,
+        );
         assert.deepEqual(
           { ...body, server_time: undefined, desk_number: undefined },
           {
@@ -735,6 +742,7 @@ test('GET pos/config: desk_number of the session terminal as the last key, every
             ...off,
             server_time: undefined,
             desk_number: undefined,
+            kaspi_terminal_link: false,
           },
         );
       }

@@ -35,7 +35,9 @@ import {
   customerCheckoutOptions,
   comboProgramOptions,
   pollAvailability,
+  TipTopPayCheckout,
   TipTopPayTestCheckout,
+  tipTopPayCheckoutOptions,
   tipTopPayTestOptions,
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
@@ -47,6 +49,8 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
   private readonly checkout: CustomerCheckout;
   /** TipTopPay TEST checkout (card / Apple Pay / Google Pay sandbox); null-safe when off. */
   private readonly testPayments: TipTopPayTestCheckout;
+  /** TipTopPay LIVE checkout (TIPTOPPAY_CHECKOUT_ENABLED): pays the real order; off by default. */
+  private readonly livePayments: TipTopPayCheckout;
   private unpaidSweep: ReturnType<typeof setInterval> | undefined;
   private sweeping = false;
   private readonly pool: Resources['pool'];
@@ -112,6 +116,10 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     this.testPayments = new TipTopPayTestCheckout(
       resources.pool,
       tipTopPayTestOptions(process.env),
+    );
+    this.livePayments = new TipTopPayCheckout(
+      resources.pool,
+      tipTopPayCheckoutOptions(process.env),
     );
     this.checkout = new CustomerCheckout(
       resources.pool,
@@ -281,6 +289,7 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     return this.execute(auth, async (id) => {
       const config = await this.checkout.config(id);
       const test = this.testPayments.methods;
+      const live = this.livePayments.methods;
       // Builds with the wallets profile learn which methods pay and in which environment.
       return checkoutRepresentation(
         test
@@ -290,7 +299,14 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
               paymentEnvironment: 'test',
               tipTopPayPublicId: this.testPayments.publicConfig!.publicId,
             }
-          : { ...config, paymentMethods: ['kaspi'], paymentEnvironment: 'live' },
+          : live
+            ? {
+                ...config,
+                paymentMethods: ['kaspi', ...live],
+                paymentEnvironment: 'live',
+                tipTopPayPublicId: this.livePayments.publicId!,
+              }
+            : { ...config, paymentMethods: ['kaspi'], paymentEnvironment: 'live' },
         accept,
       );
     });
@@ -363,6 +379,46 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     return this.execute(
       auth,
       async (id) => checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
+      accept,
+      true,
+    );
+  }
+  /** Public key and wallet gateway of the LIVE terminal for the native card / Google Pay request. */
+  @Get('payments-setup') paymentSetup(
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, () => this.livePayments.setup(), accept);
+  }
+  /**
+   * LIVE TipTopPay payment of a created order (card cryptogram, Apple Pay or Google Pay token).
+   * The bank is called once per attempt; the answer is the order view (the app follows it to the
+   * kitchen statuses) plus the 3-D Secure link or the bank's decline words. The packet is opaque
+   * to us and never stored.
+   */
+  @Post('orders/:orderId/tiptoppay') @HttpCode(200) payTipTopPay(
+    @Param('orderId') orderId: string,
+    @Body() body: unknown,
+    @Ip() ip: string,
+    @Res({ passthrough: true }) response: ServerResponse,
+    @Headers('authorization') auth?: string,
+    @Headers('accept') accept?: string,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(
+      auth,
+      async (id) => {
+        const account = this.livePayments.accountId;
+        if (!account) throw new CommerceError('NOT_READY');
+        const attempt = await this.checkout.startTipTopPayAttempt(id, orderId, account);
+        const hint = attempt ? await this.livePayments.charge(attempt, body, ip) : {};
+        return {
+          ...checkoutRepresentation(await this.checkout.read(id, orderId), accept),
+          ...hint,
+        };
+      },
       accept,
       true,
     );

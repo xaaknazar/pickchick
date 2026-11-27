@@ -4,6 +4,11 @@ import { CustomerComboRewardsSchema } from '@pickchick/contracts';
 import { useAccount } from '../useAccount';
 import { commerceRequest, kaspiCheckoutEnabled } from '../commerce-checkout';
 import type { ComboProgressState } from './combo-progress';
+import { keepIfSame } from '../stable-values';
+
+// One object per state without data: the app model above compares it by identity.
+const SIGNED_OUT: ComboProgressState = { status: 'signed_out', data: null };
+const LOADING: ComboProgressState = { status: 'loading', data: null };
 
 /** One account-bound source shared by profile, events and cart; never stored as a balance. */
 export function useComboRewards() {
@@ -37,15 +42,18 @@ export function useComboRewards() {
           ),
         );
         if (!stopped && !controller.signal.aborted)
-          setSnapshot({
-            customerId,
-            state: data.enabled
-              ? { status: 'ready', data: null, commercial: data }
-              : { status: 'unavailable', data: null },
-          });
+          // Same answer every 15 s: keep the object, the whole app is below this state.
+          setSnapshot(
+            keepIfSame({
+              customerId,
+              state: data.enabled
+                ? ({ status: 'ready', data: null, commercial: data } as const)
+                : ({ status: 'unavailable', data: null } as const),
+            }),
+          );
       } catch {
         if (!stopped && !controller.signal.aborted)
-          setSnapshot({ customerId, state: { status: 'error', data: null } });
+          setSnapshot(keepIfSame({ customerId, state: { status: 'error', data: null } as const }));
       } finally {
         if (request === controller) request = null;
       }
@@ -71,10 +79,10 @@ export function useComboRewards() {
     };
   }, [customerId, access]);
   const progress: ComboProgressState = !customerId
-    ? { status: 'signed_out', data: null }
+    ? SIGNED_OUT
     : snapshot && snapshot.customerId === customerId
       ? snapshot.state
-      : { status: 'loading', data: null };
+      : LOADING;
   return {
     progress,
     refresh,

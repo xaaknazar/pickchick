@@ -102,6 +102,7 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
   assert.deepEqual(backofficeOptions({}), {
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
+    tipTopPayRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
     rolesEnabled: false,
     stockV2Enabled: false,
@@ -111,6 +112,7 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'false' }), {
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
+    tipTopPayRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
     rolesEnabled: false,
     stockV2Enabled: false,
@@ -120,6 +122,7 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'true' }), {
     remoteStopsEnabled: true,
     manualRefundsEnabled: false,
+    tipTopPayRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
     rolesEnabled: false,
     stockV2Enabled: false,
@@ -128,6 +131,10 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
   });
   assert.equal(
     backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: 'true' }).manualRefundsEnabled,
+    true,
+  );
+  assert.equal(
+    backofficeOptions({ BACKOFFICE_TIPTOPPAY_REFUNDS_ENABLED: 'true' }).tipTopPayRefundsEnabled,
     true,
   );
   // Stage 2: station plan delivery to the cashier edge, default off as well.

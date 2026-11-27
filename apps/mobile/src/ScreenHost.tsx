@@ -1,3 +1,4 @@
+import { tc } from './theme';
 import { Text } from './components/LocalizedText';
 import { t, useLocale } from './i18n';
 import { OrderSheet } from './components/OrderSheet';
@@ -14,6 +15,7 @@ import { tabContentInset } from './tab-bar-metrics';
 import { useHasPaymentResume } from './components/PaymentRecovery';
 import { MobileScreen } from './screens/MobileScreen';
 import { storeHidesScreen } from './store-build';
+import { useStableCallback } from './stable-values';
 
 const tabRoutes = {
   M06: '/(tabs)/menu',
@@ -48,7 +50,9 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu')),
     [router],
   );
-  const navigate = (next: ScreenId) => {
+  // Stable identity: memoised menu cards and lines receive callbacks built on it and must not
+  // render again each time this host does (every model update).
+  const navigate = useStableCallback((next: ScreenId) => {
     if (!preview && (next === 'M02' || (!account.account && requiresAccount(next, false)))) {
       router.push({ pathname: '/auth', params: { returnTo: next === 'M02' ? 'M30' : next } });
       return;
@@ -119,7 +123,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           ...(!preview && returnTo && ['M02', 'M03', 'M04'].includes(next) ? { returnTo } : {}),
         },
       });
-  };
+  });
   if (!preview && ['M01', 'M02', 'M03'].includes(id))
     return (
       <Redirect
@@ -164,7 +168,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       </>
     );
   return (
-    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
+    <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: tc('#0A1020') }}>
       {screen()}
       {preview ? (
         <Pressable
@@ -179,10 +183,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
             paddingVertical: 10,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0A2050',
+            backgroundColor: tc('#0A2050'),
           }}
         >
-          <Text style={{ color: '#C0CDE6', fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
+          <Text style={{ color: tc('#C0CDE6'), fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
             {t('Вернуться в меню')}
           </Text>
         </Pressable>

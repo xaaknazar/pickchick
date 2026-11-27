@@ -14,6 +14,51 @@ export const portalMode =
       )[location.pathname];
 export const apiPrefix = portalMode ? '/kitchen-live/' + portalMode : '';
 export const assetPrefix = demoMode ? '/kitchen-demo' : portalMode ? '/kitchen-live/assets' : '';
+/** Pause before config.json is read again: 1, 2, 4, 8 and then 15 seconds. */
+export const configRetryDelayMs = (failures: number) =>
+  Math.min(15000, 1000 * 2 ** Math.min(Math.max(failures, 1) - 1, 4));
+export interface ConfigIo {
+  fetch?: typeof fetch;
+  wait?: (milliseconds: number) => Promise<void>;
+  /** Called after every failed read, before the pause (the screen shows that it is waiting). */
+  onFailure?: (failures: number) => void;
+}
+/**
+ * The workplace settings (config.json), read until they are known. They decide the mode: the
+ * cloud portal answers `cloudKitchen: true` with the terminal, a local gateway its own fields.
+ * - 200 with a JSON object: the settings;
+ * - 404: this install has no such file - the local default `{}`, as before;
+ * - anything else (5xx, a slow or unreachable gateway, a body that is not a JSON object) says
+ *   nothing about the mode, so it is never taken for the local default: the read is repeated
+ *   with a growing pause until it answers.
+ */
+export async function loadConfig(io: ConfigIo = {}): Promise<Record<string, unknown>> {
+  const wait =
+    io.wait ?? ((milliseconds) => new Promise<void>((done) => setTimeout(done, milliseconds)));
+  for (let failures = 1; ; failures++) {
+    try {
+      const response = await (io.fetch ?? fetch)(apiPrefix + '/config.json', {
+        credentials: 'same-origin',
+        redirect: 'error',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (response.status === 404) {
+        await response.body?.cancel();
+        return {};
+      }
+      if (response.ok) {
+        const config: unknown = await response.json();
+        if (config && typeof config === 'object' && !Array.isArray(config))
+          return config as Record<string, unknown>;
+      } else await response.body?.cancel();
+    } catch {
+      /* Repeated below. */
+    }
+    io.onFailure?.(failures);
+    await wait(configRetryDelayMs(failures));
+  }
+}
 export class ApiError extends Error {
   constructor(
     public code: string,

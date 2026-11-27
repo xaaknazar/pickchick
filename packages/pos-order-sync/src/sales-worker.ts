@@ -35,11 +35,14 @@ import type { PosSaleBatch, PosSaleBatchResult, PosSaleEvent } from './sales-mod
  *   retryPosSalesDelivery after the cause is repaired. Later events are never sent past it.
  * The worker role writes only acknowledged_at, attempts and last_error of the outbox and the
  * pos_sale_sync_state row (infra/windows/pos-sales-grants.mjs WORKER_PRIVILEGES). On an edge
- * without schema026 or without these grants the loop only rechecks every 10 minutes.
+ * without schema026 or without these grants the loop only rechecks every 10 minutes, and while
+ * the POS sync binding is inactive every 2 minutes.
  */
 export const POS_SALES_UNSUPPORTED_RETRY_MS = 600_000;
 export const POS_SALES_PROBE_INTERVAL_MS = 600_000;
 export const POS_SALES_NOT_INSTALLED_RETRY_MS = 600_000;
+/** An inactive POS sync binding is looked at again after this pause (the owner may enable it). */
+export const POS_SALES_DISABLED_RECHECK_MS = 120_000;
 /** A parked stream is looked at again after this pause (the owner may have released it). */
 export const POS_SALES_PARKED_RECHECK_MS = 60_000;
 export const POS_SALES_REQUEST_TIMEOUT_MS = 15_000;
@@ -309,7 +312,11 @@ async function deliver(
     schedule.nextAttemptAt = now() + POS_SALES_NOT_INSTALLED_RETRY_MS;
     return { state: 'not_installed', retryAt: schedule.nextAttemptAt };
   }
-  if (pending.state === 'disabled') return pending;
+  if (pending.state === 'disabled') {
+    // Without this the privilege check and the binding query would run on every pass.
+    schedule.nextAttemptAt = now() + POS_SALES_DISABLED_RECHECK_MS;
+    return pending;
+  }
   if (pending.state === 'parked') {
     schedule.nextAttemptAt = now() + POS_SALES_PARKED_RECHECK_MS;
     return pending;

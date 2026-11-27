@@ -11,7 +11,7 @@ on:
       - 'docs/operations/edge-restore.md'
       - '.github/workflows/queue-recovery-operator.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
     paths:
       - 'scripts/build-queue-recovery-operator.py'
       - 'tests/operations/test_queue_recovery_operator_bundle.py'

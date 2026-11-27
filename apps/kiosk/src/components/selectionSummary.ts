@@ -1,5 +1,9 @@
 import type { KioskCartLine } from '../model';
 export function selectionSummary(line: KioskCartLine): string {
+  return selectionLines(line).join(' · ');
+}
+/** The chosen options one per entry (payment page lists them under the line, one per row). */
+export function selectionLines(line: KioskCartLine): string[] {
   return line.selections
     .map((selection) => {
       const option = line.product.modifier_groups
@@ -9,6 +13,5 @@ export function selectionSummary(line: KioskCartLine): string {
         ? `${option.label}${selection.quantity > 1 ? ` × ${selection.quantity}` : ''}`
         : '';
     })
-    .filter(Boolean)
-    .join(' · ');
+    .filter(Boolean);
 }

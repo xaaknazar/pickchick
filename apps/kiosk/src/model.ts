@@ -177,6 +177,11 @@ export interface KioskState {
   terminalPayment?: TerminalPaymentView | null;
   /** The order was paid on the terminal while the guest was changing it: the changes are not in it. */
   editDropped?: boolean;
+  /**
+   * The guest is changing the order while its old sum still waits on the Kaspi terminal (owner
+   * 23.11.2026): the API cannot cancel it, so the screen asks to press «Отмена» there.
+   */
+  terminalOpen?: boolean;
   /** New payments use the kiosk's Kaspi terminal instead of the QR on screen. */
   terminalPaymentAvailable?: boolean;
   /** Staff terminal setup; absent where the kiosk cannot reach a terminal. */

@@ -18,6 +18,7 @@ import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
 import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
 import { ActivityIndicator, View } from 'react-native';
 import { MobileProvider } from '../store';
+import { ThemeController, useThemeRestored } from '../theme-preference';
 import { AccountProvider } from '../useAccount';
 import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';
 
@@ -28,6 +29,7 @@ export default function Layout() {
   useLocale();
   return (
     <MotionProvider>
+      <ThemeController />
       <AppLayout />
     </MotionProvider>
   );
@@ -36,15 +38,17 @@ function AppLayout() {
   useLocale();
   const reduced = useReducedMotion();
   const [introDone, setIntroDone] = useState(false);
-  const [loaded, error] = useFonts({
+  const themeRestored = useThemeRestored();
+  const [fontsLoaded, error] = useFonts({
     Jost_600SemiBold,
     Jost_700Bold,
     Manrope_400Regular,
     Manrope_600SemiBold,
     Manrope_700Bold,
   });
+  const loaded = fontsLoaded && themeRestored;
   return (
-    <View style={{ flex: 1, backgroundColor: '#04143A' }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View
         style={{ flex: 1 }}
         pointerEvents={introDone ? 'auto' : 'none'}
@@ -62,7 +66,7 @@ function AppLayout() {
           <AccountProvider>
             <MobileProvider>
               <NotificationsProvider>
-                <StatusBar style="light" />
+                <StatusBar style={colors.scheme === 'light' ? 'dark' : 'light'} />
                 <PaymentRecovery />
                 <SheetStackProvider>
                   <Stack
@@ -70,7 +74,7 @@ function AppLayout() {
                       headerShown: false,
                       orientation: 'portrait',
                       animation: reduced ? 'none' : 'default',
-                      contentStyle: { backgroundColor: '#04143A' },
+                      contentStyle: { backgroundColor: colors.background },
                     }}
                   >
                     <Stack.Screen

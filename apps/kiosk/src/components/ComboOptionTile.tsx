@@ -2,9 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { KioskModifierGroup } from '../model';
 import { money } from '../cart';
-import { heinzColor, heinzInk, optionPhoto } from '../assets';
+import { heinzColor, heinzInk, linkedProductName, optionPhoto } from '../assets';
 import { copy, type Locale } from '../i18n';
-import { optionText } from '../product-presentation';
+import {
+  drinkOptionText,
+  isDrinkOptions,
+  isSauceOptions,
+  optionText,
+  sauceOptionText,
+} from '../product-presentation';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { PhotoImage } from './PhotoImage';
@@ -12,6 +18,16 @@ import { useEnter, usePopIn, usePress, usePulse, useShake, useTimingTo } from '.
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
+/**
+ * Owner 23.11.2026 («внутри комбо… чтобы все фотографии, все карточки были одного размера…
+ * уменьшим размер шрифта»): one tile height in every group and one text room under the photo
+ * (two name lines and a caption line, in a smaller font), so every photo is the same size.
+ */
+export const TILE_HEIGHT = 156;
+const NAME_SIZE = 13;
+const NAME_LINE = 16;
+const CAPTION_SIZE = 12;
+const CAPTION_LINE = 15;
 /** Design colours of the option tile (product-and-payment.md §1). */
 const SURCHARGE_FILL = '#FFE7D6';
 const SURCHARGE_INK = '#B84500';
@@ -109,7 +125,6 @@ export function ComboOptionTile({
   full,
   clearable,
   included,
-  tall = false,
   index = 0,
   locale,
   onChange,
@@ -135,9 +150,12 @@ export function ComboOptionTile({
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
-  const text = optionText(option.label);
-  if ((option.id === 'pick' || option.id === 'sauce') && !/\d/.test(text.caption))
-    text.caption = '60 ' + (locale === 'en' ? 'ml' : 'мл');
+  // Owner 23.11.2026: every drink shows its volume («0.5 л · банка») and every sauce «60 мл».
+  const text = isDrinkOptions(groupId)
+    ? drinkOptionText(option.label, linkedProductName(option.id), locale)
+    : isSauceOptions(groupId)
+      ? sauceOptionText(option.label, locale)
+      : optionText(option.label);
   const name = text.name || option.label;
   const photo = optionPhoto(option.id);
   // A photo shot on a light backdrop gives the tile that backdrop, so no box shows around it
@@ -172,6 +190,8 @@ export function ComboOptionTile({
     : surcharge
       ? '+' + money(option.price_delta_minor)
       : included;
+  // A sold-out single pick says so in its caption line: the photo keeps the size of its row.
+  const soldOutLine = !multi && !option.available;
   const body = (
     <>
       <View
@@ -183,34 +203,51 @@ export function ComboOptionTile({
         }}
       >
         {photo ? (
-          <PhotoImage imageId={option.id} variant="option" />
+          <PhotoImage
+            imageId={option.id}
+            variant="option"
+            // Owner 23.11.2026: bottles and cans stand at one height (each fitted by its own
+            // visible box); a published menu photo of another option is fitted the same way.
+            fit={isDrinkOptions(groupId) || typeof photo.source === 'object'}
+          />
         ) : (
           <OptionMark id={option.id} name={name} />
         )}
       </View>
-      <View
-        style={{ gap: px(2), marginTop: px(6), height: groupId === 'sauce' ? px(38) : undefined }}
-      >
+      <View style={{ gap: px(1), marginTop: px(4), height: px(NAME_LINE * 2 + CAPTION_LINE + 1) }}>
         <Text
           {...fixedText}
           numberOfLines={2}
           style={{
             fontFamily: fonts.heavy,
-            fontSize: px(15),
-            lineHeight: px(19),
+            fontSize: px(NAME_SIZE),
+            lineHeight: px(NAME_LINE),
             color: redesign.cardInk,
           }}
         >
           {glue(name)}
         </Text>
-        {text.caption ? (
+        {soldOutLine ? (
+          <Text
+            {...fixedText}
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.bold,
+              fontSize: px(CAPTION_SIZE),
+              lineHeight: px(CAPTION_LINE),
+              color: SOLD_OUT,
+            }}
+          >
+            {status}
+          </Text>
+        ) : text.caption ? (
           <Text
             {...fixedText}
             numberOfLines={1}
             style={{
               fontFamily: fonts.body,
-              fontSize: px(13),
-              lineHeight: px(17),
+              fontSize: px(CAPTION_SIZE),
+              lineHeight: px(CAPTION_LINE),
               color: redesign.cardMuted,
             }}
           >
@@ -218,14 +255,11 @@ export function ComboOptionTile({
           </Text>
         ) : null}
       </View>
-      {multi && option.available ? (
-        // Room for the stepper laid over the tile's bottom edge.
-        <View style={{ height: px(40), marginTop: px(8) }} />
-      ) : (
-        <View style={{ height: px(26), marginTop: px(6), justifyContent: 'center' }}>
-          {option.available && surcharge ? (
-            <Surcharge text={status} />
-          ) : !option.available ? (
+      {multi ? (
+        // Room for the stepper laid over the tile's bottom edge; a sold-out sauce says so there,
+        // so every cup in the row keeps one size.
+        <View style={{ height: px(40), marginTop: px(8), justifyContent: 'center' }}>
+          {option.available ? null : (
             <Text
               {...fixedText}
               numberOfLines={1}
@@ -238,19 +272,18 @@ export function ComboOptionTile({
             >
               {status}
             </Text>
-          ) : null}
-          {/* A free option carries no «Входит в комбо» line (owner 22.11): only a surcharge is news. */}
+          )}
         </View>
-      )}
+      ) : null}
     </>
   );
   const surface = {
     flex: 1,
     borderRadius: radius,
     backgroundColor: fill,
-    paddingTop: px(10),
+    paddingTop: px(8),
     paddingHorizontal: px(14),
-    paddingBottom: px(12),
+    paddingBottom: px(8),
     shadowColor: '#020A1F',
     shadowOpacity: 0.16,
     shadowRadius: px(9),
@@ -265,7 +298,7 @@ export function ComboOptionTile({
       style={{
         flex: 1,
         minWidth: 0,
-        height: px(tall ? 172 : 164),
+        height: px(TILE_HEIGHT),
         opacity: fade,
         transform: [
           { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
@@ -355,7 +388,10 @@ export function ComboOptionTile({
           <Icon name="checkmark" size="small" tone="inverse" />
         </Animated.View>
       )}
-      {multi && option.available && surcharge ? (
+      {/* Owner 23.11.2026 («фото по больше»): the surcharge sits in the top corner, so the
+          photo takes the row it used to keep. A free option carries no line (owner 22.11): only a
+          surcharge is news. */}
+      {option.available && surcharge ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: px(10), left: px(10) }}>
           <Surcharge text={status} />
         </View>

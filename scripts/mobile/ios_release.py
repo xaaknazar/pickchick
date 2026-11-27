@@ -46,10 +46,13 @@ DEFAULT_MOBILE_PROFILE = "storefront"
 STAGING_API_URL = "https://pickchick.185.129.51.103.nip.io"
 PRODUCTION_API_URL = "https://api.pickchick.kz"
 PRODUCTION_FLAGS = {**STOREFRONT_FLAGS, "EXPO_PUBLIC_PICKCHICK_ENV": "production"}
-# Owner 18-20.11.2026: TipTopPay TEST in TestFlight (card now; Apple Pay after the Merchant ID
-# and TipTopPay's certificate). Internal TestFlight only: never send this build to App Review.
+# Owner 18-20.11.2026: TipTopPay TEST in TestFlight. Internal TestFlight only: never send this
+# build to App Review. 23.11.2026: Merchant ID registered, both Apple Pay certificates uploaded
+# to TipTopPay, so the profile pins the Merchant ID (Apple Pay sheet and entitlement).
 TIPTOPPAY_TEST_PROFILE = "production-tiptoppay-test"
-TIPTOPPAY_TEST_FLAGS = {**PRODUCTION_FLAGS, "EXPO_PUBLIC_TIPTOPPAY_TEST": "1"}
+APPLE_PAY_MERCHANT_ID = "merchant.kz.pickchick.app"
+TIPTOPPAY_TEST_FLAGS = {**PRODUCTION_FLAGS, "EXPO_PUBLIC_TIPTOPPAY_TEST": "1",
+                        "EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID": APPLE_PAY_MERCHANT_ID}
 # Older names of the same flag set; archives recorded under an alias stay deliverable.
 PROFILE_ALIASES = {"catalog-pilot": "published-catalog"}
 MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE,

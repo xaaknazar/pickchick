@@ -38,6 +38,15 @@ import {
 import { unpaidTestOrdersEnabled } from './order-simulator';
 import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
+import {
+  keepIfSame,
+  sameContent,
+  useSharedItems,
+  useStableCallback,
+  useStableCallbacks,
+} from './stable-values';
+
+const productKey = (product: { id: string }) => product.id;
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
   parsePreferences,
@@ -64,6 +73,38 @@ import type {
 } from './model';
 
 const STORAGE_KEY = 'pickchick.mobile.preferences.v1';
+const DEFAULT_UPSELL = ['toast', 'sauce', 'cola'];
+const noop = () => {};
+/** The model's methods: one identity each for the life of the provider (useStableCallbacks). */
+type ModelActions = Required<
+  Pick<
+    MobileModel,
+    | 'refreshCatalog'
+    | 'dismissCatalogUpdate'
+    | 'setNickname'
+    | 'setOrderComment'
+    | 'setBranch'
+    | 'setCatalogMode'
+    | 'appendCartLines'
+    | 'addToCart'
+    | 'setQuantity'
+    | 'replaceCartLine'
+    | 'clearCart'
+    | 'refresh'
+    | 'resetLocalData'
+  >
+>;
+type PreviewActions = Pick<
+  ModelActions,
+  | 'setNickname'
+  | 'setOrderComment'
+  | 'appendCartLines'
+  | 'addToCart'
+  | 'setQuantity'
+  | 'replaceCartLine'
+  | 'clearCart'
+  | 'resetLocalData'
+>;
 const Context = createContext<{ live: MobileModel; preview: MobileModel } | null>(null);
 
 // Keep sequential cart commands atomic even when React batches their renders.
@@ -84,6 +125,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
   const [locale, updateLocale] = useState<Locale>('ru');
+  // The catalog reader below outlives a language switch: it reads the language of the moment.
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const setLocale = useCallback((next: Locale) => {
     setAppLocale(next);
     updateLocale(next);
@@ -198,14 +242,17 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         const changed = serverRelease.current !== null && serverRelease.current !== nextRelease;
         serverRelease.current = nextRelease;
         // Friendly names are presentation only; IDs and availability remain server-owned.
+        // A re-read with the same content keeps the previous objects (no app-wide render).
         setBranches(
-          result.branches.map((branch) => ({
-            ...branch,
-            name: restaurantLocation(branch.id)?.name ?? branch.name,
-          })),
+          keepIfSame(
+            result.branches.map((branch) => ({
+              ...branch,
+              name: restaurantLocation(branch.id)?.name ?? branch.name,
+            })),
+          ),
         );
-        setMenu(result.menu);
-        setPublication(result.publication);
+        setMenu(keepIfSame(result.menu));
+        setPublication(keepIfSame(result.publication));
         // Media is read after the menu; meanwhile the previous photos stay on screen.
         const nextMedia =
           mediaRef.current?.version === result.publication?.version
@@ -213,7 +260,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
             : interimMedia(mediaRef.current, result.media);
         mediaRef.current = nextMedia;
         setMedia(nextMedia);
-        setConnectedCatalog(testCatalog);
+        setConnectedCatalog(keepIfSame(testCatalog));
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
           const legacy = result.publication && !restoration.current.publication;
@@ -245,7 +292,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           restoration.current = null;
         }
         if (result.publication && modeRef.current === 'server') {
-          const currentProducts = publishedProducts(result.publication, locale, nextMedia);
+          // The current language, not the one of the moment this reader started: repriceCart
+          // replaces the product of every line, so the old one put the old names back each minute.
+          const currentProducts = publishedProducts(
+            result.publication,
+            localeRef.current,
+            nextMedia,
+          );
           setCart((previous) => {
             const repriced = repriceCart(previous, currentProducts);
             const changes = repriced.changes;
@@ -259,14 +312,15 @@ export function MobileProvider({ children }: { children: ReactNode }) {
                 newTotal: changes.newTotal,
               }));
             }
-            return repriced.cart;
+            // The same basket after a re-read keeps its array (no render of the cart).
+            return sameContent(previous, repriced.cart) ? previous : repriced.cart;
           });
         } else if (changed && modeRef.current === 'server') setCart([]);
-        setConnection({
-          status: 'online',
-          checkedAt: new Date().toISOString(),
-          message: null,
-        });
+        setConnection((previous) =>
+          previous.status === 'online' && previous.message === null
+            ? previous
+            : { status: 'online', checkedAt: new Date().toISOString(), message: null },
+        );
       },
       onFailure: (_error, background) => {
         // A failed background re-read keeps the loaded menu; activation and retries still report.
@@ -331,9 +385,14 @@ export function MobileProvider({ children }: { children: ReactNode }) {
             : serverProducts(menu, locale),
     [catalogMode, menu, locale, connectedCatalog, publication, media],
   );
-  const products = useMemo(
-    () => withAvailability(baseProducts, catalogMode === 'server' ? availability.data : null),
-    [baseProducts, availability, catalogMode],
+  const availabilityData = catalogMode === 'server' ? availability.data : null;
+  // Unchanged dishes keep their objects across re-reads, so memoised cards skip the render.
+  const products = useSharedItems(
+    useMemo(
+      () => withAvailability(baseProducts, availabilityData),
+      [baseProducts, availabilityData],
+    ),
+    productKey,
   );
   const branch =
     branches.find((candidate) => candidate.id === requestedBranchId) ?? branches[0] ?? null;
@@ -458,50 +517,95 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     !combo.progress.commercial.reconciliationRequired
       ? cart[giftItemIndex]!.product.priceMinor
       : '0';
-  const model: MobileModel = {
-    comboRewards: combo.enabled
-      ? {
-          progress: combo.progress,
-          selected: giftSelected,
-          giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
-          discountMinor: giftDiscount,
-          refresh: combo.refresh,
-          select(value) {
-            if (!value) {
-              setGiftChoice(null);
-              return;
-            }
-            if (
-              !combo.customerId ||
-              combo.progress.status !== 'ready' ||
-              !combo.progress.commercial?.availableGifts ||
-              combo.progress.commercial.reconciliationRequired
-            )
-              return;
-            const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
-            if (!product) return;
-            if (!cart.some((line) => line.product.id === 'pick-combo')) {
-              const next = mergeCartLines(
-                cart,
-                [{ product, quantity: 1, selections: defaultSelections(product) }],
-                products,
-              );
-              if (!next) return;
-              setCart(next);
-              noteAdded([product.id], next);
-            }
-            setGiftChoice(combo.customerId);
-          },
-        }
-      : undefined,
-    catalogUpdateNotice,
-    catalogUpdatePending,
-    catalogPending:
-      catalogMode === 'server' &&
-      (publication
-        ? mediaReadVersion !== publication.version
-        : !menu && !connectedCatalog && connection.status === 'loading'),
-    cartChanges: cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null,
+  const modelCart = useSharedItems(
+    useMemo(
+      () =>
+        cart.map((line) => ({
+          ...line,
+          product: publication
+            ? withAvailability([line.product], availability.data)[0]!
+            : (products.find((p) => p.id === line.product.id) ?? line.product),
+        })),
+      [cart, publication, availability.data, products],
+    ),
+    cartLineKey,
+  );
+  // Smoothness (audit 23.11 #2): the model and its methods keep their identity while their data
+  // is the same, so a provider render that changes nothing for a screen (a poll answer, a photo
+  // read, the other model's state) does not render every screen and every memoised card again.
+  const selectGift = useStableCallback((value: boolean) => {
+    if (!value) {
+      setGiftChoice(null);
+      return;
+    }
+    if (
+      !combo.customerId ||
+      combo.progress.status !== 'ready' ||
+      !combo.progress.commercial?.availableGifts ||
+      combo.progress.commercial.reconciliationRequired
+    )
+      return;
+    const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
+    if (!product) return;
+    if (!cart.some((line) => line.product.id === 'pick-combo')) {
+      const next = mergeCartLines(
+        cart,
+        [{ product, quantity: 1, selections: defaultSelections(product) }],
+        products,
+      );
+      if (!next) return;
+      setCart(next);
+      noteAdded([product.id], next);
+    }
+    setGiftChoice(combo.customerId);
+  });
+  const shownGiftIndex = giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined;
+  const comboRewards = useMemo<MobileModel['comboRewards']>(
+    () =>
+      combo.enabled
+        ? {
+            progress: combo.progress,
+            selected: giftSelected,
+            giftItemIndex: shownGiftIndex,
+            discountMinor: giftDiscount,
+            refresh: combo.refresh,
+            select: selectGift,
+          }
+        : undefined,
+    [
+      combo.enabled,
+      combo.progress,
+      combo.refresh,
+      giftSelected,
+      shownGiftIndex,
+      giftDiscount,
+      selectGift,
+    ],
+  );
+  const catalogPending =
+    catalogMode === 'server' &&
+    (publication
+      ? mediaReadVersion !== publication.version
+      : !menu && !connectedCatalog && connection.status === 'loading');
+  const shownCartChanges = useMemo(
+    () => (cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null),
+    [cartChanges, cart],
+  );
+  const upsellProductIds =
+    publication && catalogMode === 'server'
+      ? publication.payload.upsell_product_ids
+      : connectedCatalog && 'upsell_product_ids' in connectedCatalog
+        ? connectedCatalog.upsell_product_ids
+        : DEFAULT_UPSELL;
+  const shownAvailability = useMemo(
+    () => catalogAvailability(availability, catalogMode === 'server'),
+    [availability, catalogMode],
+  );
+  const selectedProduct =
+    selectedId === null
+      ? (products[0] ?? null)
+      : (products.find((product) => product.id === selectedId) ?? null);
+  const actions = useStableCallbacks<ModelActions>({
     refreshCatalog: () => catalogRecovery.current?.refresh() ?? Promise.resolve(false),
     dismissCatalogUpdate: () => {
       setCatalogUpdateNotice(null);
@@ -510,42 +614,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         previous.map((line) => ({ ...line, previousUnitPriceMinor: undefined })),
       );
     },
-    products,
-    upsellProductIds:
-      publication && catalogMode === 'server'
-        ? publication.payload.upsell_product_ids
-        : connectedCatalog && 'upsell_product_ids' in connectedCatalog
-          ? connectedCatalog.upsell_product_ids
-          : ['toast', 'sauce', 'cola'],
-    recentCartProductIds: recentProducts,
-    cart: cart.map((line) => ({
-      ...line,
-      product: publication
-        ? withAvailability([line.product], availability.data)[0]!
-        : (products.find((p) => p.id === line.product.id) ?? line.product),
-    })),
-    ...catalogAvailability(availability, catalogMode === 'server'),
-    catalogMode,
-    diningMode,
-    paymentMethod,
-    locale,
-    branches,
-    branch,
-    connection,
-    selectedProduct:
-      selectedId === null
-        ? (products[0] ?? null)
-        : (products.find((product) => product.id === selectedId) ?? null),
-    nickname,
-    orderComment,
-    testFlow,
-    practiceScore,
-    setPracticeScore,
     setNickname: (value) => setNickname(value.slice(0, 32)),
     setOrderComment: (value) => setOrderComment(value.slice(0, 60)),
-    setLocale,
-    setDiningMode,
-    setPaymentMethod,
     setBranch: (id) => {
       if (!branches.some((candidate) => candidate.id === id)) return;
       if (branch?.id === id) return;
@@ -554,6 +624,12 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setRecentProducts([]);
       setOrderComment('');
       setMenu(null);
+      // The published menu, its photos and the cart's publication belong to the old restaurant:
+      // until the new one is read nothing of it may be shown or added to the (now empty) cart.
+      setPublication(null);
+      setMedia(null);
+      setMediaReadVersion(null);
+      cartPublication.current = null;
       setConnectedCatalog(null);
       setRequestedBranchId(id);
     },
@@ -566,7 +642,6 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setSelectedId(null);
       setMode(mode);
     },
-    selectProduct: setSelectedId,
     appendCartLines: (lines) => {
       restoration.current = null;
       const result: { next: CartLine[] | null } = { next: null };
@@ -628,14 +703,68 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
     refresh: () => setRefreshIndex((previous) => previous + 1),
     resetLocalData,
-  };
-  const previewModel: MobileModel = {
-    ...model,
-    availabilityFresh: undefined,
-    availabilityStatus: undefined,
-    availabilityHours: undefined,
-    availabilityKnown: undefined,
-    testFlow: {
+  });
+  const model = useMemo<MobileModel>(
+    () => ({
+      comboRewards,
+      catalogUpdateNotice,
+      catalogUpdatePending,
+      catalogPending,
+      cartChanges: shownCartChanges,
+      products,
+      upsellProductIds,
+      recentCartProductIds: recentProducts,
+      cart: modelCart,
+      ...shownAvailability,
+      catalogMode,
+      diningMode,
+      paymentMethod,
+      locale,
+      branches,
+      branch,
+      connection,
+      selectedProduct,
+      nickname,
+      orderComment,
+      testFlow,
+      practiceScore,
+      setPracticeScore,
+      setLocale,
+      setDiningMode,
+      setPaymentMethod,
+      selectProduct: setSelectedId,
+      ...actions,
+    }),
+    // Every value the model shows. Its methods (actions, state setters) never change.
+    [
+      comboRewards,
+      catalogUpdateNotice,
+      catalogUpdatePending,
+      catalogPending,
+      shownCartChanges,
+      products,
+      upsellProductIds,
+      recentProducts,
+      modelCart,
+      shownAvailability,
+      catalogMode,
+      diningMode,
+      paymentMethod,
+      locale,
+      branches,
+      branch,
+      connection,
+      selectedProduct,
+      nickname,
+      orderComment,
+      testFlow,
+      practiceScore,
+      setLocale,
+      actions,
+    ],
+  );
+  const previewTestFlow = useMemo<MobileModel['testFlow']>(
+    () => ({
       ...testFlow,
       available: false,
       restored: true,
@@ -646,37 +775,17 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       continueSession: async () => false,
       current: null,
       orders: [],
-      select: () => {},
-      refresh: () => {},
+      select: noop,
+      refresh: noop,
       submit: async () => null,
       pay: async () => null,
       cancel: async () => null,
-    },
-    products: designProducts,
-    upsellProductIds: ['toast', 'sauce', 'cola'],
-    cart: previewCart,
-    // Design previews keep the cart order (no add history).
-    recentCartProductIds: undefined,
-    catalogMode: 'design',
-    selectedProduct:
-      designProducts.find((product) => product.id === previewSelectedId) ??
-      designProducts[0] ??
-      null,
-    diningMode: previewDiningMode,
-    paymentMethod: previewPaymentMethod,
-    setPaymentMethod: setPreviewPaymentMethod,
-    setDiningMode: setPreviewDiningMode,
-    nickname: previewNickname,
-    orderComment: previewOrderComment,
+    }),
+    [testFlow],
+  );
+  const previewActions = useStableCallbacks<PreviewActions>({
     setNickname: (value) => setPreviewNickname(value.slice(0, 32)),
     setOrderComment: (value) => setPreviewOrderComment(value.slice(0, 60)),
-    practiceScore: previewPracticeScore,
-    setPracticeScore: setPreviewPracticeScore,
-    locale: previewLocale,
-    setLocale: setPreviewLocale,
-    setCatalogMode: () => {},
-    setBranch: () => {},
-    selectProduct: setPreviewSelectedId,
     appendCartLines: (lines) => {
       let accepted = false;
       setPreviewCart((previous) => {
@@ -713,10 +822,56 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       setPreviewNickname('');
       setPreviewPaymentMethod('kaspi');
     },
-  };
-  return (
-    <Context.Provider value={{ live: model, preview: previewModel }}>{children}</Context.Provider>
+  });
+  const previewModel = useMemo<MobileModel>(
+    () => ({
+      ...model,
+      availabilityFresh: undefined,
+      availabilityStatus: undefined,
+      availabilityHours: undefined,
+      availabilityKnown: undefined,
+      testFlow: previewTestFlow,
+      products: designProducts,
+      upsellProductIds: DEFAULT_UPSELL,
+      cart: previewCart,
+      // Design previews keep the cart order (no add history).
+      recentCartProductIds: undefined,
+      catalogMode: 'design',
+      selectedProduct:
+        designProducts.find((product) => product.id === previewSelectedId) ??
+        designProducts[0] ??
+        null,
+      diningMode: previewDiningMode,
+      paymentMethod: previewPaymentMethod,
+      setPaymentMethod: setPreviewPaymentMethod,
+      setDiningMode: setPreviewDiningMode,
+      nickname: previewNickname,
+      orderComment: previewOrderComment,
+      practiceScore: previewPracticeScore,
+      setPracticeScore: setPreviewPracticeScore,
+      locale: previewLocale,
+      setLocale: setPreviewLocale,
+      setCatalogMode: noop,
+      setBranch: noop,
+      selectProduct: setPreviewSelectedId,
+      ...previewActions,
+    }),
+    [
+      model,
+      previewTestFlow,
+      previewCart,
+      previewSelectedId,
+      previewDiningMode,
+      previewPaymentMethod,
+      previewNickname,
+      previewOrderComment,
+      previewPracticeScore,
+      previewLocale,
+      previewActions,
+    ],
   );
+  const value = useMemo(() => ({ live: model, preview: previewModel }), [model, previewModel]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
 export function useMobile(preview = false): MobileModel {

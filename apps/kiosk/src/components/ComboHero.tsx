@@ -5,13 +5,14 @@ import type { KioskProduct, KioskSelection } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { productCopy } from '../productCopy';
 import { fitTitle } from '../menu-presentation';
-import { compositionPills, productBadge, servingLine } from '../product-presentation';
+import { compositionPills, hasNutrition, productBadge, servingLine } from '../product-presentation';
 import {
   cardBackgroundRatio,
   cardBackgrounds,
   heroPhoto,
   productArtworkId,
   productPhoto,
+  shownPhotoBounds,
 } from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
@@ -22,8 +23,10 @@ import { fixedText } from './Body';
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
   [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
-/** Share of the hero given to the photo (design: photo left, text from x 533 of 1024). */
-const PHOTO = 0.5;
+/** Share of the hero given to the photo (design: text from x 533 of 1024; 0.54 since owner 23.11). */
+const PHOTO = 0.54;
+/** Hero height in design points (design 380). */
+const HERO_HEIGHT = 424;
 /**
  * Product card hero (kiosk redesign 2026-10-13, product-and-payment.md §1): a cream #FEF8F0
  * card (radius 32, shadow 0 14 30 navy .25, at least 380 high) on the bg1 illustration. The
@@ -55,6 +58,7 @@ export function ComboHero({
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
+  const fitted = !!shownPhotoBounds(imageId, largePick ? 'hero' : 'card');
   const badge = productBadge(product.id);
   const pills = compositionPills(product.ingredients || product.description);
   const [column, setColumn] = useState(0);
@@ -64,7 +68,9 @@ export function ComboHero({
     <Animated.View
       testID="kiosk-product-hero"
       style={{
-        minHeight: px(380),
+        // Owner 23.11.2026 «комбо увеличивай»: taller than the design's 380 for a bigger dish,
+        // still on one screen with the drinks and sauces.
+        minHeight: px(HERO_HEIGHT),
         borderRadius: px(32),
         backgroundColor: redesign.cream,
         shadowColor: '#020A1F',
@@ -103,9 +109,11 @@ export function ComboHero({
         <View
           style={{
             width: `${PHOTO * 100}%`,
-            paddingVertical: px(largePick ? 0 : 24),
-            paddingLeft: px(largePick ? 8 : 28),
-            paddingRight: px(largePick ? 8 : 12),
+            // Owner 23.11.2026: «фото по больше на странице комбо» - the dish takes the whole
+            // left half, scaled past the photo's own white (or clear 5 %) margin.
+            paddingVertical: px(largePick ? 0 : 6),
+            paddingLeft: px(largePick ? 8 : 10),
+            paddingRight: px(largePick ? 8 : 0),
             // A direct layer of the clip, so its multiply sees the cream and the illustration
             // (every web view is its own stacking context).
             zIndex: 1,
@@ -114,13 +122,20 @@ export function ComboHero({
           <View
             style={{
               flex: 1,
-              minHeight: px(300),
+              minHeight: px(HERO_HEIGHT - 80),
               borderRadius: blend ? 0 : px(24),
               overflow: 'hidden',
               backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),
             }}
           >
-            <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
+            <View
+              style={{
+                flex: 1,
+                transform: [{ scale: fitted || largePick ? 1 : shot?.cutout ? 1 / 0.9 : 1.12 }],
+              }}
+            >
+              <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} fit={fitted} />
+            </View>
           </View>
         </View>
         <View
@@ -226,40 +241,44 @@ export function ComboHero({
             >
               {servingLine(product, t.kcal)}
             </Text>
-            <Animated.View style={{ transform: [{ scale: details.scale }] }}>
-              <Pressable
-                testID="kiosk-product-details-open"
-                accessibilityRole="button"
-                accessibilityLabel={tp.nutritionButton}
-                onPress={onDetails}
-                onPressIn={details.onPressIn}
-                onPressOut={details.onPressOut}
-                hitSlop={px(8)}
-                style={{
-                  height: px(36),
-                  paddingHorizontal: px(14),
-                  borderRadius: 999,
-                  borderWidth: Math.max(1, px(1.5)),
-                  borderColor: 'rgba(21,33,58,.18)',
-                  backgroundColor: 'rgba(255,255,255,.7)',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  {...fixedText}
-                  numberOfLines={1}
+            {/* Owner 23.11.2026: no KBJU button while KBJU is zeros; the ingredients alone
+                still open the sheet under «Состав». */}
+            {hasNutrition(product) || product.ingredients?.trim() ? (
+              <Animated.View style={{ transform: [{ scale: details.scale }] }}>
+                <Pressable
+                  testID="kiosk-product-details-open"
+                  accessibilityRole="button"
+                  accessibilityLabel={hasNutrition(product) ? tp.nutritionButton : t.ingredients}
+                  onPress={onDetails}
+                  onPressIn={details.onPressIn}
+                  onPressOut={details.onPressOut}
+                  hitSlop={px(8)}
                   style={{
-                    fontFamily: fonts.heavy,
-                    fontSize: px(14),
-                    lineHeight: px(18),
-                    color: redesign.cardInk,
+                    height: px(36),
+                    paddingHorizontal: px(14),
+                    borderRadius: 999,
+                    borderWidth: Math.max(1, px(1.5)),
+                    borderColor: 'rgba(21,33,58,.18)',
+                    backgroundColor: 'rgba(255,255,255,.7)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
                   }}
                 >
-                  {tp.nutritionButton + ' ›'}
-                </Text>
-              </Pressable>
-            </Animated.View>
+                  <Text
+                    {...fixedText}
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: fonts.heavy,
+                      fontSize: px(14),
+                      lineHeight: px(18),
+                      color: redesign.cardInk,
+                    }}
+                  >
+                    {(hasNutrition(product) ? tp.nutritionButton : t.ingredients) + ' ›'}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
           </View>
         </View>
       </View>

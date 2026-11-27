@@ -6,7 +6,7 @@ import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, type Locale } from '../i18n';
 import { assets, productArtworkId, productPhoto } from '../assets';
-import { fitTitle } from '../menu-presentation';
+import { cardName, fitTitle } from '../menu-presentation';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
 import { PhotoImage } from './PhotoImage';
@@ -66,7 +66,11 @@ export function Billboard({
   // breaking a word or ending in an ellipsis.
   const [width, setWidth] = useState(0);
   const column = width * (1 - PHOTO + 0.02) - px(28);
-  const title = fitTitle(product.name, width ? column : 0, px(46), px(30));
+  // The hit keeps its size in the heading («Фирменный лимонад 0.5 л»); the bracketed detail
+  // rides on the price line, so the billboard keeps its height.
+  const name = cardName(product.name);
+  const heading = [name.title, name.size].filter(Boolean).join(' ');
+  const title = fitTitle(heading, width ? column : 0, px(46), px(30));
   return (
     <View
       testID={testID}
@@ -176,7 +180,7 @@ export function Billboard({
               color: redesign.cardInk,
             }}
           >
-            {product.name}
+            {heading}
           </Text>
           <View pointerEvents="box-none" style={{ alignItems: 'flex-start', gap: px(12) }}>
             <View
@@ -203,6 +207,21 @@ export function Billboard({
               >
                 ₸
               </Text>
+              {name.detail ? (
+                <Text
+                  {...fixedText}
+                  numberOfLines={1}
+                  style={{
+                    flexShrink: 1,
+                    marginLeft: px(8),
+                    fontFamily: fonts.medium,
+                    fontSize: px(20),
+                    color: redesign.cardMuted,
+                  }}
+                >
+                  {name.detail}
+                </Text>
+              ) : null}
             </View>
             <Animated.View style={{ transform: [{ scale: choose.scale }] }}>
               <Pressable

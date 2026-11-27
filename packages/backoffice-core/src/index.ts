@@ -1047,10 +1047,20 @@ export class Backoffice {
       }
       const captures = (
         await db.query(
-          'SELECT id,amount_minor::text,occurred_at FROM commerce_captures WHERE order_id=$1 ORDER BY occurred_at',
+          // Flag off: the former query exactly (no provider account read). A capture is never
+          // hidden by a missing account row (LEFT JOIN).
+          this.options.tipTopPayRefundsEnabled === true
+            ? `SELECT c.id,c.amount_minor::text,c.occurred_at,
+               COALESCE(a.provider='tiptoppay',false) refund_adapter
+               FROM commerce_captures c LEFT JOIN commerce_provider_accounts a ON a.id=c.account_id
+               WHERE c.order_id=$1 ORDER BY c.occurred_at`
+            : 'SELECT id,amount_minor::text,occurred_at FROM commerce_captures WHERE order_id=$1 ORDER BY occurred_at',
           [id],
         )
-      ).rows;
+      ).rows.map(({ refund_adapter, ...capture }) =>
+        // Present only for a TipTopPay payment with its refunds on (older readers unchanged).
+        refund_adapter ? { ...capture, refund_adapter: true } : capture,
+      );
       // A manual refund keeps its Kaspi Pay reference as the effect's operation id (manual:...).
       const refunds = (
         await db.query(
@@ -1095,6 +1105,23 @@ export class Backoffice {
         },
       };
     });
+  }
+  /** The capture or refund belongs to a TipTopPay account (its refunds go to the bank). */
+  private async tipTopPayRefund(
+    db: DatabaseClient | DatabasePool,
+    table: 'commerce_captures' | 'commerce_refunds',
+    id: unknown,
+  ): Promise<boolean> {
+    if (typeof id !== 'string') return false;
+    return Boolean(
+      (
+        await db.query(
+          `SELECT 1 FROM ${table} x JOIN commerce_provider_accounts a ON a.id=x.account_id
+           WHERE x.id=$1::uuid AND a.provider='tiptoppay'`,
+          [id],
+        )
+      ).rowCount,
+    );
   }
   /**
    * A P1 command (stock-p1.ts, `stock_reverse`): parsed by its own schema and only while its flag
@@ -1532,6 +1559,8 @@ export class Backoffice {
             // With an adapter a pending request may already be at the bank: never withdraw it.
             if (!this.options.manualRefundsEnabled || this.options.refundAdapterEnabled)
               throw new ErrorCode('NOT_READY', 'MANUAL_REFUNDS_DISABLED');
+            if (await this.tipTopPayRefund(db, 'commerce_refunds', c.refund_id))
+              throw new ErrorCode('NOT_READY', 'MANUAL_REFUNDS_DISABLED');
             result = await commerce.withdrawRefundRequest(
               scope,
               req.request_id,
@@ -1540,7 +1569,14 @@ export class Backoffice {
             );
           } else {
             // No adapter executes refund.submit_requested: such a refund would stay pending forever.
-            if (!this.options.refundAdapterEnabled)
+            // TipTopPay payments have one (tiptoppay-worker.ts) once its refunds are switched on.
+            if (
+              !this.options.refundAdapterEnabled &&
+              !(
+                this.options.tipTopPayRefundsEnabled === true &&
+                (await this.tipTopPayRefund(db, 'commerce_captures', c.capture_id))
+              )
+            )
               throw new ErrorCode('NOT_READY', 'REFUND_ADAPTER_NOT_CONFIGURED');
             result = await commerce.requestRefund(
               scope,

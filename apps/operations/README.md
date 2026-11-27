@@ -50,7 +50,9 @@ pnpm --filter @pickchick/operations dev
 будущие редакторы ведут к явно обозначенным макетам `/design/prototype/index.html`;
 это отдельный разрешённый статический subtree, не CRUD этого клиента.
 
-API зафиксирован в `src/client.ts`: `https://pickchick.185.129.51.103.nip.io/v1/test`.
+API по умолчанию задан в `src/client.ts`: `https://pickchick.185.129.51.103.nip.io/v1/test`.
+Другой адрес сборке передаёт переменная `VITE_OPERATIONS_API_BASE` (абсолютный http(s)-адрес,
+читается Vite при сборке); без неё или с неверным значением остаётся адрес по умолчанию.
 Контракты импортируются из чистого browser-safe entry point
 `@pickchick/test-order-flow/contracts`; ответы проверяются Zod-схемами.
 Деньги отображаются из целых минимальных единиц через BigInt; расчёт quote выполняет

@@ -18,14 +18,14 @@ import { usePaymentMethod } from '../usePaymentMethod';
 import { bannerAnnouncement } from '../payment-availability';
 import { MotionPressable } from './Motion';
 import { SheetModal } from './MotionSheets';
-import { PaymentMark } from './PaymentChoice';
+import { PaymentMark, markSpellsName } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
-import { colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 
 /**
- * Cart sheet, owner 27.10.2026 (Drinkit reference): red glass trash on the left, glass close
- * on the right, the restaurant point with a pin in the centre. No big «Корзина» title: the
- * sheet keeps its name for accessibility.
+ * Cart sheet, owner 27.10.2026 (Drinkit reference): the restaurant point with a pin in the
+ * centre. Owner 23.11.2026: the close X always on the left as on iOS, the red trash on the
+ * right. No big «Корзина» title: the sheet keeps its name for accessibility.
  */
 export function CartTopBar({
   restaurant,
@@ -42,6 +42,18 @@ export function CartTopBar({
   const name = localize(restaurant ?? 'Ресторан PickChick');
   return (
     <View style={s.topBar}>
+      <CloseButton label={t('Закрыть корзину')} onPress={onClose} testID="cart-close" />
+      <View
+        testID="cart-restaurant"
+        style={s.point}
+        accessible
+        accessibilityLabel={localize(t('Заказ в ресторане {p0}', { p0: name }))}
+      >
+        <Icon name="location-sharp" size={20} color={colors.accentIcon} />
+        <Text style={s.pointName} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+          {name}
+        </Text>
+      </View>
       <IconButton
         name="trash-outline"
         tone="danger"
@@ -50,18 +62,6 @@ export function CartTopBar({
         disabled={clearDisabled}
         onPress={onClear}
       />
-      <View
-        testID="cart-restaurant"
-        style={s.point}
-        accessible
-        accessibilityLabel={localize(t('Заказ в ресторане {p0}', { p0: name }))}
-      >
-        <Icon name="location-sharp" size={20} color={colors.accent} />
-        <Text style={s.pointName} numberOfLines={1} maxFontSizeMultiplier={1.4}>
-          {name}
-        </Text>
-      </View>
-      <CloseButton label={t('Закрыть корзину')} onPress={onClose} testID="cart-close" />
     </View>
   );
 }
@@ -237,15 +237,17 @@ export function PaymentMethodSelector() {
           {t('Способ оплаты')}
         </Caption>
         <View style={s.methodRow}>
-          <PaymentMark method={payment.method} size={24} />
-          <Text
-            testID="cart-payment-method-name"
-            style={s.methodName}
-            numberOfLines={1}
-            maxFontSizeMultiplier={1.4}
-          >
-            {name}
-          </Text>
+          <PaymentMark method={payment.method} size={markSpellsName(payment.method) ? 28 : 24} />
+          {markSpellsName(payment.method) ? null : (
+            <Text
+              testID="cart-payment-method-name"
+              style={s.methodName}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.4}
+            >
+              {name}
+            </Text>
+          )}
           <Icon name="chevron-down" size={18} color={colors.muted} />
         </View>
       </MotionPressable>
@@ -265,14 +267,14 @@ export function PaymentMethodSelector() {
         >
           <ScrollView contentContainerStyle={s.sheetContent} bounces={false}>
             <View style={s.sheetHeader}>
-              <Heading small style={s.sheetTitle}>
-                {t('Способ оплаты')}
-              </Heading>
               <CloseButton
                 label={t('Закрыть способы оплаты')}
                 testID="cart-payment-close"
                 onPress={close}
               />
+              <Heading small style={s.sheetTitle}>
+                {t('Способ оплаты')}
+              </Heading>
             </View>
             <View accessibilityRole="radiogroup" style={s.options}>
               {payment.methods.map((method) =>
@@ -296,7 +298,7 @@ export function PaymentMethodSelector() {
                     <PaymentMark method={method.id} size={36} />
                     <Body style={s.optionName}>{localize(t(method.label))}</Body>
                     {method.id === payment.method ? (
-                      <Icon name="checkmark-circle" size={24} color={colors.accent} />
+                      <Icon name="checkmark-circle" size={24} color={colors.accentIcon} />
                     ) : null}
                   </MotionPressable>
                 ) : (
@@ -312,7 +314,7 @@ export function PaymentMethodSelector() {
                     style={[s.option, s.optionDisabled]}
                   >
                     <View style={s.optionIcon}>
-                      <Icon name={methodIcon(method.id)} size={21} color="#899BBC" />
+                      <Icon name={methodIcon(method.id)} size={21} color={tc('#899BBC')} />
                     </View>
                     <Body style={[s.optionName, s.optionNameDisabled]}>
                       {localize(t(method.label))}
@@ -425,10 +427,12 @@ export function CartPaymentFooter({
           ) : null}
           {branded ? (
             <View style={s.payBrand}>
-              <PaymentMark method={method} size={30} />
-              <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
-                {name}
-              </Text>
+              <PaymentMark method={method} size={markSpellsName(method) ? 34 : 30} />
+              {markSpellsName(method) ? null : (
+                <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
+                  {name}
+                </Text>
+              )}
             </View>
           ) : null}
           {words.after ? (
@@ -442,219 +446,231 @@ export function CartPaymentFooter({
   );
 }
 
-const s = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-  },
-  point: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  pointName: {
-    flexShrink: 1,
-    fontFamily: font.medium,
-    fontSize: 17,
-    lineHeight: 23,
-    color: colors.white,
-  },
-  pill: {
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-    borderRadius: 26,
-    backgroundColor: '#020C24',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#FFFFFF14',
-  },
-  segment: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 48,
-    paddingVertical: 10,
-    borderRadius: 22,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: 'transparent',
-  },
-  segmentSelected: { backgroundColor: '#FFFFFF1F', borderColor: '#FFFFFF2E' },
-  segmentText: {
-    flexShrink: 1,
-    fontFamily: font.medium,
-    fontSize: 17,
-    lineHeight: 24,
-    textAlign: 'center',
-    color: colors.muted,
-  },
-  segmentTextSelected: { color: colors.white },
-  comment: {
-    gap: 8,
-    padding: 14,
-    marginTop: 6,
-    borderRadius: 22,
-    backgroundColor: '#0B2255',
-    borderWidth: 1,
-    borderColor: '#FFFFFF0F',
-  },
-  commentHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  commentLabel: { flex: 1, fontSize: 15, lineHeight: 21, color: colors.white },
-  commentInput: {
-    minHeight: 82,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FFFFFF33',
-    backgroundColor: colors.background,
-    color: colors.white,
-    fontFamily: font.body,
-    fontSize: 16,
-    lineHeight: 23,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  commentCount: { textAlign: 'right', fontSize: 12, lineHeight: 18, color: colors.muted },
-  summary: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  method: {
-    flexShrink: 1,
-    minWidth: 150,
-    minHeight: 60,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    justifyContent: 'center',
-    gap: 2,
-    backgroundColor: '#FFFFFF0F',
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: '#FFFFFF1A',
-  },
-  methodCaption: { fontSize: 12, lineHeight: 17, color: colors.muted },
-  methodRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  methodName: {
-    flexShrink: 1,
-    fontFamily: font.medium,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.white,
-  },
-  total: { marginLeft: 'auto', alignItems: 'flex-end' },
-  totalLabel: { fontSize: 14, lineHeight: 20, color: colors.muted },
-  totalAmount: {
-    fontFamily: font.heading,
-    fontSize: 30,
-    lineHeight: 40,
-    color: colors.white,
-    fontVariant: ['tabular-nums'],
-  },
-  pay: {
-    minHeight: 60,
-    borderRadius: 30,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    backgroundColor: colors.white,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    columnGap: 10,
-    rowGap: 4,
-  },
-  payDisabled: { opacity: 0.5 },
-  // Drinkit's «Пока не работаем»: a grey pill with grey text, clearly not a payment action.
-  payUnavailable: {
-    backgroundColor: '#FFFFFF24',
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: '#FFFFFF1F',
-  },
-  payUnavailableText: { color: '#FFFFFF8C', textAlign: 'center' },
-  unavailable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 48,
-    paddingVertical: 10,
-    paddingLeft: 20,
-    paddingRight: 14,
-    borderRadius: 24,
-    // Drinkit red, a shade deeper so white text keeps WCAG AA contrast (4.8:1).
-    backgroundColor: '#D92D20',
-  },
-  unavailableText: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: font.medium,
-    fontSize: 17,
-    lineHeight: 23,
-    color: colors.white,
-  },
-  payText: { fontFamily: font.heading, fontSize: 19, lineHeight: 26, color: colors.background },
-  payBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  payBrandText: { fontFamily: font.display },
-  sheetFrame: { maxWidth: 720, maxHeight: '90%' },
-  sheet: {
-    width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: colors.surface,
-  },
-  sheetContent: { padding: 18, gap: 14 },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sheetTitle: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
-  options: { gap: 10 },
-  option: {
-    minHeight: 64,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF14',
-    backgroundColor: '#0B2255',
-  },
-  optionSelected: { borderColor: colors.accent, backgroundColor: '#FF69001A' },
-  optionDisabled: { opacity: 0.85 },
-  optionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF0A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionName: { flex: 1, fontFamily: font.medium, fontSize: 16, lineHeight: 22 },
-  optionNameDisabled: { color: '#899BBC' },
-  soon: {
-    fontFamily: font.bold,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.muted,
-    backgroundColor: '#FFFFFF0F',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      width: '100%',
+      maxWidth: 760,
+      alignSelf: 'center',
+    },
+    point: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    pointName: {
+      flexShrink: 1,
+      fontFamily: font.medium,
+      fontSize: 17,
+      lineHeight: 23,
+      color: colors.white,
+    },
+    pill: {
+      flexDirection: 'row',
+      gap: 4,
+      padding: 4,
+      borderRadius: 26,
+      backgroundColor: tc('#020C24'),
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tc('#FFFFFF14'),
+    },
+    segment: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 48,
+      paddingVertical: 10,
+      borderRadius: 22,
+      paddingHorizontal: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: 'transparent',
+    },
+    // «Светлая»: a white pill on the pale track (the mapped ink veil read as switched off).
+    segmentSelected:
+      colors.scheme === 'light'
+        ? { backgroundColor: '#FFFFFF', borderColor: '#0F1B3D1F' }
+        : { backgroundColor: '#FFFFFF1F', borderColor: '#FFFFFF2E' },
+    segmentText: {
+      flexShrink: 1,
+      fontFamily: font.medium,
+      fontSize: 17,
+      lineHeight: 24,
+      textAlign: 'center',
+      color: colors.muted,
+    },
+    segmentTextSelected: { color: colors.white },
+    comment: {
+      gap: 8,
+      padding: 14,
+      marginTop: 6,
+      borderRadius: 22,
+      backgroundColor: tc('#141B2B'),
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF0F'),
+    },
+    commentHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    commentLabel: { flex: 1, fontSize: 15, lineHeight: 21, color: colors.white },
+    commentInput: {
+      minHeight: 82,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: tc('#FFFFFF33'),
+      backgroundColor: colors.background,
+      color: colors.white,
+      fontFamily: font.body,
+      fontSize: 16,
+      lineHeight: 23,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    commentCount: {
+      textAlign: 'right',
+      fontSize: 12,
+      lineHeight: 18,
+      color: colors.muted,
+      fontVariant: ['tabular-nums'],
+    },
+    summary: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    method: {
+      flexShrink: 1,
+      minWidth: 150,
+      minHeight: 60,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 18,
+      justifyContent: 'center',
+      gap: 2,
+      backgroundColor: tc('#FFFFFF0F'),
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: tc('#FFFFFF1A'),
+    },
+    methodCaption: { fontSize: 12, lineHeight: 17, color: colors.muted },
+    methodRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    methodName: {
+      flexShrink: 1,
+      fontFamily: font.medium,
+      fontSize: 16,
+      lineHeight: 22,
+      color: colors.white,
+    },
+    total: { marginLeft: 'auto', alignItems: 'flex-end' },
+    totalLabel: { fontSize: 14, lineHeight: 20, color: colors.muted },
+    totalAmount: {
+      fontFamily: font.heading,
+      fontSize: 30,
+      lineHeight: 40,
+      color: colors.white,
+      fontVariant: ['tabular-nums'],
+    },
+    pay: {
+      minHeight: 60,
+      borderRadius: 30,
+      paddingHorizontal: 22,
+      paddingVertical: 12,
+      backgroundColor: colors.white,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'center',
+      columnGap: 10,
+      rowGap: 4,
+    },
+    payDisabled: { opacity: 0.5 },
+    // Drinkit's «Пока не работаем»: a grey pill with grey text, clearly not a payment action.
+    payUnavailable: {
+      backgroundColor: tc('#FFFFFF24'),
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: tc('#FFFFFF1F'),
+    },
+    payUnavailableText: { color: tc('#FFFFFF8C'), textAlign: 'center' },
+    unavailable: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 48,
+      paddingVertical: 10,
+      paddingLeft: 20,
+      paddingRight: 14,
+      borderRadius: 24,
+      // Drinkit red, a shade deeper so white text keeps WCAG AA contrast (4.8:1).
+      backgroundColor: tc('#D92D20'),
+    },
+    unavailableText: {
+      flex: 1,
+      minWidth: 0,
+      fontFamily: font.medium,
+      fontSize: 17,
+      lineHeight: 23,
+      color: colors.white,
+    },
+    payText: { fontFamily: font.heading, fontSize: 19, lineHeight: 26, color: colors.background },
+    payBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    payBrandText: { fontFamily: font.display },
+    sheetFrame: { maxWidth: 720, maxHeight: '90%' },
+    sheet: {
+      width: '100%',
+      maxWidth: 720,
+      alignSelf: 'center',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: colors.surface,
+    },
+    sheetContent: { padding: 18, gap: 14 },
+    sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    sheetTitle: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
+    options: { gap: 10 },
+    option: {
+      minHeight: 64,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderWidth: 1.5,
+      borderColor: tc('#FFFFFF14'),
+      backgroundColor: tc('#141B2B'),
+    },
+    optionSelected: { borderColor: colors.accent, backgroundColor: tc('#FF69001A') },
+    optionDisabled: { opacity: 0.85 },
+    optionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: tc('#FFFFFF0A'),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    optionName: { flex: 1, fontFamily: font.medium, fontSize: 16, lineHeight: 22 },
+    optionNameDisabled: { color: tc('#899BBC') },
+    soon: {
+      fontFamily: font.bold,
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.muted,
+      backgroundColor: tc('#FFFFFF0F'),
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+  }),
+);

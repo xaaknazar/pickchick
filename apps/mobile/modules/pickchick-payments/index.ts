@@ -1,4 +1,6 @@
-import { requireOptionalNativeModule } from 'expo';
+import { requireNativeView, requireOptionalNativeModule } from 'expo';
+import type { ComponentType } from 'react';
+import { Platform, type ViewProps } from 'react-native';
 
 /**
  * Native half of the TipTopPay checkout (owner 18.11.2026, «Полностью нативно»):
@@ -48,4 +50,27 @@ export const PAYMENT_CANCELLED = 'CANCELLED';
 export function nativePaymentCode(error: unknown): string {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === 'string' ? code : 'NATIVE_ERROR';
+}
+
+/** Props of the native Apple Pay mark (PassKit's logo-only button, " Pay"). */
+export type ApplePayMarkProps = ViewProps & {
+  markStyle?: 'black' | 'white' | 'whiteOutline';
+  radius?: number;
+};
+let applePayMark: ComponentType<ApplePayMarkProps> | null | undefined;
+/**
+ * The official Apple Pay mark drawn by iOS, or null where it does not exist (Android, web, tests,
+ * builds made before 1.0.3 (44)); callers then fall back to their own glyph.
+ */
+export function nativeApplePayMark(): ComponentType<ApplePayMarkProps> | null {
+  if (applePayMark !== undefined) return applePayMark;
+  applePayMark = null;
+  if (Platform.OS === 'ios' && NativePayments?.canMakeApplePay) {
+    try {
+      applePayMark = requireNativeView<ApplePayMarkProps>('PickChickPayments');
+    } catch {
+      applePayMark = null;
+    }
+  }
+  return applePayMark;
 }

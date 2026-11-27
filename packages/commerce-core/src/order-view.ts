@@ -36,6 +36,9 @@ export async function readCheckoutOrder(
   const bank = invoice.rows[0],
     kitchen = projection.rows[0] ?? (cloud ? await cloudKitchenProjection(pool, orderId) : null);
   const paid = order.money.captured === order.totalMinor && order.money.refunded === '0';
+  // The latest attempt decides (attempts are ordered by creation): a declined TipTopPay card may
+  // be followed by a new attempt on the same order. A Kaspi order has one attempt at most.
+  const latest = order.attempts.at(-1);
   const phase =
     order.attentionRequired ||
     (BigInt(order.money.captured) > 0n && !paid) ||
@@ -52,7 +55,7 @@ export async function readCheckoutOrder(
               : 'paid'
         : bank?.state === 'unknown' || order.attempts.some((a) => a.state === 'unknown')
           ? 'checking'
-          : bank?.state === 'failed' || order.attempts.some((a) => a.state === 'failed')
+          : bank?.state === 'failed' || latest?.state === 'failed'
             ? 'failed'
             : bank?.state === 'issued' && bank.operation_id
               ? 'awaiting_payment'
@@ -62,7 +65,15 @@ export async function readCheckoutOrder(
                   ? 'ready_to_pay'
                   : 'awaiting_restaurant';
   const sale = order.fiscalDocuments.find((d) => d.kind === 'sale' && d.state === 'issued');
-  // Receipt URLs are intentionally omitted until a dedicated fiscal adapter exposes a verified receipt.
+  // The guest's receipt link: the verified https link the fiscal adapter recorded (Webkassa).
+  const receiptUrl = sale
+    ? ((
+        await pool.query<{ receipt_url: string }>(
+          'SELECT receipt_url FROM commerce_fiscal_effects WHERE document_id=$1 ORDER BY received_at,id LIMIT 1',
+          [sale.id],
+        )
+      ).rows[0]?.receipt_url ?? null)
+    : null;
   const body = {
     orderId,
     branchId: scope.branchId,
@@ -79,7 +90,7 @@ export async function readCheckoutOrder(
     phase,
     expiresAt: bank?.expires_at?.toISOString() ?? null,
     receipt: sale ? 'issued' : order.fiscalPolicy === 'deferred_pilot' ? 'deferred' : 'pending',
-    receiptUrl: null,
+    receiptUrl: receiptUrl?.startsWith('https://') ? receiptUrl : null,
     items: (
       order.snapshot.lines as {
         productId: string;

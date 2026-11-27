@@ -7,6 +7,10 @@ import { CommerceRepository, digest } from '@pickchick/commerce-core';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { fixture } from './fixture.mjs';
 
+// Written for the rule «the kitchen waits for the issued receipt» (COMMERCE_KITCHEN_BEFORE_RECEIPT=
+// false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
+
 const cloudUrl =
   process.env.EDGE_FULFILLMENT_CLOUD_TEST_DATABASE_URL ??
   'postgresql://pickchick_local:pickchick_local_only@127.0.0.1:55432/pickchick_cloud';

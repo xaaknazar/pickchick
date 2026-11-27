@@ -29,8 +29,14 @@ export function tipTopPayConfig(env: NodeJS.ProcessEnv): TipTopPayConfig | null 
     env.TIPTOPPAY_MODE !== 'live'
   )
     throw new TipTopPayError('INVALID');
-  // New payments stay disabled until the independent checkout/fiscal rollout.
-  return { publicId, apiSecret, accountId, acceptNewPayments: false };
+  // New payments are accepted only with the live checkout on (TIPTOPPAY_CHECKOUT_ENABLED,
+  // tiptoppay-checkout.ts); late successes of old attempts are always recorded.
+  return {
+    publicId,
+    apiSecret,
+    accountId,
+    acceptNewPayments: env.TIPTOPPAY_CHECKOUT_ENABLED === 'true',
+  };
 }
 
 export function verifyTipTopPayForm(raw: Buffer, signature: string | undefined, secret: string) {
@@ -106,7 +112,8 @@ export class TipTopPayReceiver {
     signature: string | undefined,
   ): Promise<{ code: number }> {
     if (!this.config) throw new TipTopPayError('DISABLED');
-    if (event !== 'check' && event !== 'pay') throw new TipTopPayError('INVALID');
+    if (event !== 'check' && event !== 'pay' && event !== 'fail')
+      throw new TipTopPayError('INVALID');
     const fields = verifyTipTopPayForm(raw, signature, this.config.apiSecret);
     const payment = parseTipTopPayPayment(fields, event);
     const { rows } = await this.pool.query<{
@@ -126,10 +133,13 @@ export class TipTopPayReceiver {
        JOIN commerce_orders o ON o.id=a.order_id
        JOIN commerce_provider_accounts p ON p.id=a.account_id
         AND p.organization_id=o.organization_id AND p.branch_id=o.branch_id
-       JOIN commerce_provider_accounts f ON f.id=o.fiscal_account_id
+       LEFT JOIN commerce_provider_accounts f ON f.id=o.fiscal_account_id
         AND f.legal_entity_id=p.legal_entity_id AND f.kind='fiscal'
        WHERE a.id=$1 AND p.id=$2 AND p.provider='tiptoppay'
-        AND p.kind='payment' AND p.external_reference=$3`,
+        AND p.kind='payment' AND p.external_reference=$3
+        -- A mobile pilot order defers its receipt (no fiscal account yet, 23.11.2026); an order
+        -- with a fiscal account must name one of the same legal entity.
+        AND (o.fiscal_account_id IS NULL OR f.id IS NOT NULL)`,
       [payment.attemptId, this.config.accountId, this.config.publicId],
     );
     const row = rows[0];
@@ -150,6 +160,24 @@ export class TipTopPayReceiver {
             ? 0
             : 13,
       };
+    }
+    if (event === 'fail') {
+      // A decline of this attempt's operation. A later success of another operation still wins
+      // (observePayment never downgrades a succeeded attempt).
+      await new CommerceRepository(this.pool).observePayment(
+        {
+          organizationId: row.organization_id,
+          branchId: row.branch_id,
+          accountId: this.config.accountId,
+        },
+        {
+          eventId: payment.eventId,
+          attemptId: payment.attemptId,
+          outcome: 'failed',
+          occurredAt: payment.occurredAt,
+        },
+      );
+      return { code: 0 };
     }
     // Old/disabled accounts can still deliver late successful payments. The existing
     // transactional provider inbox deduplicates them and schedules reconciliation.

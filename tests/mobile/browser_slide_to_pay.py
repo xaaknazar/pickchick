@@ -41,7 +41,7 @@ with local fixtures only: no bank, no real customer, no VPS request.
      press or a slide stops with a visible message and sends nothing; «Выбрать Kaspi.kz» is only
      a choice, and the next explicit press pays once with Kaspi
   O  owner 28.10 (TestFlight 25): the server keeps answering «sending» after a slide: the glass X
-     is there at once at the top right; after 20 s «Kaspi отвечает дольше обычного» with
+     is there at once at the top left; after 20 s «Kaspi отвечает дольше обычного» with
      «Проверить ещё раз» (one read, nothing sent) and «Вернуться в корзину»; closing asks first,
      returns to the cart with its lines and keeps the intent without its automatic invoice; a
      changed cart paid again reopens the same order (no new quote, order or payment command) and
@@ -369,8 +369,8 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
-    # Owner 16.11.2026, Drinkit's bar: at most 270 pt wide (390, then 330 before), centred.
-    assert abs(bar['width'] - min(width - 32, 270)) <= 0.5 and bar['x'] >= 15, bar
+    # Owner 23.11.2026: at most 320 pt wide (270, 330, 390 before), centred.
+    assert abs(bar['width'] - min(width - 32, 320)) <= 0.5 and bar['x'] >= 15, bar
     assert abs(bar['x'] + bar['width'] / 2 - width / 2) <= 1, bar
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
@@ -951,13 +951,14 @@ def posts(state):
 
 
 def close_box_ok(page, width, height):
-    # The glass X of a payment screen: top right, a 44 pt target, the top element at its centre.
+    # The glass X of a payment screen: top left as on iOS (owner 23.11, baf4598b), a 44 pt target,
+    # the top element at its centre.
     close = page.get_by_test_id('kaspi-state-close')
     expect(close).to_be_visible()
     box = close.bounding_box()
     sheet = page.get_by_test_id('order-sheet').bounding_box()
     assert box['width'] >= 44 and box['height'] >= 44, box
-    assert width - 16 - box['width'] - 2 <= box['x'] and box['x'] + box['width'] <= width - 14, (box, width)
+    assert 14 <= box['x'] <= 18, (box, width)
     assert sheet['y'] <= box['y'] <= sheet['y'] + 24, (box, sheet)
     hit = page.evaluate('([x, y]) => !!document.elementFromPoint(x, y)?.closest("[data-testid=kaspi-state-close]")',
                         [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2])
@@ -985,7 +986,7 @@ def scenario_stuck_sending(browser, width, height):
             break
         page.wait_for_timeout(100)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # The X is there at once, top right; the bottom «Закрыть» still waits as before (90 s).
+    # The X is there at once, top left; the bottom «Закрыть» still waits as before (90 s).
     close = close_box_ok(page, width, height)
     expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
     expect(page.get_by_test_id('kaspi-stuck-recheck')).to_have_count(0)
@@ -1314,7 +1315,8 @@ def scenario_haptics(browser, width, height):
     expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
     page.wait_for_timeout(300)
     box, _, travel = geometry(page)
-    assert cues(page) == []
+    # Adding the dish taps once (the cart bar bump, 23.11); the handle has not vibrated yet.
+    assert cues(page) in ([], ['added']), 'only the add-to-cart tap so far'
     # A tap only shows the hint.
     page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
@@ -1406,7 +1408,7 @@ def scenario_location(browser):
                 page.go_back()
                 branch = page.get_by_test_id('cart-shortcut-location').filter(visible=True)
                 if len(mode) > 10:
-                    # «Мейрамханада» fills the 270 pt bar (owner 16.11.2026): the restaurant is
+                    # «Мейрамханада» fills the 320 pt bar (owner 23.11.2026): the restaurant is
                     # left out rather than shown as «A…»; it stays in the button's name below.
                     page.wait_for_timeout(300)
                     if branch.count():

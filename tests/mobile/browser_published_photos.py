@@ -179,7 +179,7 @@ with sync_playwright() as p:
         expect(burger).to_have_attribute('src', API + ENTRY['card'], timeout=15000)
         wait_loaded(burger)
         combo = card_image(page, 'pick-combo')
-        expect(combo).to_have_attribute('src', re.compile(r'menu-light/pick-combo'))
+        expect(combo).to_have_attribute('src', re.compile(r'menu-cutout/pick-combo'))
         assert 'media/catalog' not in combo.get_attribute('src')
         assert ('/v1/customer-checkout/catalog/media', 'version=6') in fixture.requests
         settle(page)

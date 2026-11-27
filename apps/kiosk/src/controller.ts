@@ -442,7 +442,8 @@ export class KioskController {
       this.assertEditable();
       if (!['takeaway', 'dine_in'].includes(mode)) throw new KioskError('INVALID_CART');
       await this.persist({ ...this.flow, mode, lastActivityAt: this.io.now() });
-      this.step = 'menu';
+      // Owner 23.11.2026: the payment page can change «В зале / С собой» in place.
+      if (!['upsell', 'cart', 'loyalty'].includes(this.step)) this.step = 'menu';
     });
   private navigate(step: KioskStep) {
     if (!this.ready || this.busy || this.unsafe() || this.flow.order) return;

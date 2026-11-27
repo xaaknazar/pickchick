@@ -14,7 +14,7 @@ const modes: KioskMode[] = ['dine_in', 'takeaway'];
  * Design `#eat` "В зале" glyph: the prototype's inline upright fork and knife
  * (24 grid, stroke 2.2), drawn as SVG so no extra icon font enters the bundle.
  */
-const utensils =
+export const utensils =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF"' +

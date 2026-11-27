@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet } from 'react-native';
 import { motion, easeIn, MotionReadyContext } from './motion';
-import { circleClose, circleOpen, LeavingContext, type RevealMode } from './reveal';
+import { circleClose, circleOpen, LeavingContext, menuVeil, type RevealMode } from './reveal';
 import { ModeReveal } from './ModeReveal';
 import { useMotionPreference } from './useMotionPreference';
 interface Layer {
@@ -47,13 +47,19 @@ export function ScreenTransition({
     key: string;
     mode: RevealMode;
     covered: boolean;
+    /** Native progress of the reveal; the menu's opacity follows it (`menuVeil`). */
+    progress: Animated.Value;
   } | null>(null);
   if (last.current.key !== screenKey) {
     const previous = last.current;
     const dining = previous.key === 'mode' && screenKey === 'menu' && !reduced ? diningMode : null;
     last.current = { key: screenKey, node: children, reveal };
     setLeaving(animate || dining ? previous : null);
-    setHandoff(dining ? { key: screenKey, mode: dining, covered: false } : null);
+    setHandoff(
+      dining
+        ? { key: screenKey, mode: dining, covered: false, progress: new Animated.Value(0) }
+        : null,
+    );
   } else last.current = { key: screenKey, node: children, reveal };
   useEffect(() => {
     if (!reduced) return;
@@ -91,6 +97,7 @@ export function ScreenTransition({
           id={layer.key}
           leaving={layer.key !== screenKey}
           concealed={layer.key === screenKey && !!dining && !dining.covered}
+          veil={layer.key === screenKey && dining ? dining.progress : undefined}
           exit={exit}
           onDone={done}
         >
@@ -101,7 +108,7 @@ export function ScreenTransition({
         <ModeReveal
           key={dining.key}
           mode={dining.mode}
-          uncover={dining.covered}
+          progress={dining.progress}
           onCovered={covered}
           onDone={revealed}
         />
@@ -114,6 +121,7 @@ function Stage({
   id,
   leaving,
   concealed,
+  veil,
   exit,
   onDone,
   children,
@@ -121,11 +129,14 @@ function Stage({
   id: string;
   leaving: boolean;
   concealed: boolean;
+  /** Dining reveal: the opacity follows the reveal natively instead of `concealed`. */
+  veil?: Animated.Value;
   exit: Exit;
   onDone: (key: string) => void;
   children: ReactNode;
 }) {
   const presence = useRef(new Animated.Value(1)).current;
+  const veiled = useMemo(() => (veil ? menuVeil(veil) : null), [veil]);
   const fade = leaving && exit === 'fade';
   useEffect(() => {
     presence.stopAnimation();
@@ -180,11 +191,12 @@ function Stage({
                   }
                 : null,
             ]
-          : { flex: 1, minHeight: 0, opacity: concealed ? 0 : 1 }
+          : { flex: 1, minHeight: 0, opacity: veiled ?? (concealed ? 0 : 1) }
       }
     >
       <LeavingContext.Provider value={leaving}>
-        <MotionReadyContext.Provider value={!leaving && !concealed}>
+        {/* A veiled menu plays its entrance under the colour, so it is in place when shown. */}
+        <MotionReadyContext.Provider value={!leaving && (!concealed || !!veil)}>
           {children}
         </MotionReadyContext.Provider>
       </LeavingContext.Provider>

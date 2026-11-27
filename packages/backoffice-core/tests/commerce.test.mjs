@@ -4,6 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
+
+// Written for the rule «the kitchen waits for the issued receipt» (COMMERCE_KITCHEN_BEFORE_RECEIPT=
+// false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
 async function boFixture(run, options = {}) {
   return fixture(async (f) => {
     const manager = await provisionCatalogManager(f.pool, {
@@ -535,4 +539,52 @@ test('an old pending refund request can be withdrawn or settled as a manual refu
       assert.equal((await f.commerce.readOrder(f.manager, v.orderId)).money.reserved, '0');
     },
     { manualRefundsEnabled: true },
+  ));
+
+test('TipTopPay refunds: a card / Apple Pay payment is refunded through the bank adapter, Kaspi stays manual', () =>
+  boFixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      const captured = await f.capture(v);
+      const capture = captured.captures[0].id;
+      const refund = () =>
+        f.command({ type: 'refund', id: v.orderId, capture_id: capture, amount_minor: '10000' });
+      // A non-TipTopPay payment (Kaspi) has no adapter: refused, nothing queued.
+      await assert.rejects(
+        f.bo.command(f.boManager.token, f.branch, refund()),
+        (e) => e.code === 'NOT_READY' && e.reason === 'REFUND_ADAPTER_NOT_CONFIGURED',
+      );
+      let detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+      assert.equal(detail.captures[0].refund_adapter, undefined);
+      // The synthetic account becomes a TipTopPay one (identity is immutable outside tests).
+      await f.pool.query('ALTER TABLE commerce_provider_accounts DISABLE TRIGGER USER');
+      await f.pool.query("UPDATE commerce_provider_accounts SET provider='tiptoppay' WHERE id=$1", [
+        f.payment,
+      ]);
+      await f.pool.query('ALTER TABLE commerce_provider_accounts ENABLE TRIGGER USER');
+      detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+      assert.equal(detail.captures[0].refund_adapter, true);
+      const result = await f.bo.command(f.boManager.token, f.branch, refund());
+      assert.equal(result.state, 'pending');
+      assert.equal(
+        (
+          await f.pool.query(
+            "SELECT count(*)::int count FROM commerce_outbox WHERE order_id=$1 AND event_type='refund.submit_requested'",
+            [v.orderId],
+          )
+        ).rows[0].count,
+        1,
+      );
+      // It may already be at the bank: never withdrawn.
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({ type: 'withdraw_refund', id: v.orderId, refund_id: result.refundId }),
+        ),
+        (e) => e.code === 'NOT_READY' && e.reason === 'MANUAL_REFUNDS_DISABLED',
+      );
+    },
+    { tipTopPayRefundsEnabled: true, manualRefundsEnabled: true },
   ));

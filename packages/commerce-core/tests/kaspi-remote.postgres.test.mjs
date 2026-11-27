@@ -1061,7 +1061,7 @@ test('explicit deferred pilot: trusted capture admits once, without a fictional 
     );
   }, true));
 
-test('ordinary Kaspi orders still wait for a real fiscal receipt before kitchen admission', () =>
+test('ordinary Kaspi orders queue their fiscal receipt and go to the kitchen without waiting (F-4)', () =>
   fixture(async (f) => {
     const { orderId, attempt } = await f.order();
     const worker = f.processor();
@@ -1072,7 +1072,8 @@ test('ordinary Kaspi orders still wait for a real fiscal receipt before kitchen 
     const paid = await f.view(orderId);
     assert.equal(paid.fiscalPolicy, 'required');
     assert.equal(paid.fiscalDocuments.length, 1);
-    assert.equal(paid.kitchenEffectId, null);
+    assert.equal(paid.fiscalDocuments[0].state, 'queued');
+    assert.ok(paid.kitchenEffectId, 'the receipt follows; the food does not wait (owner 27.11)');
   }));
 
 test('restricted bank worker records one capture and cannot rewrite money or customer sessions', () =>

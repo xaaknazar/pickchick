@@ -33,7 +33,7 @@ function metroModule(relative) {
       if (id === '@pickchick/test-order-flow/complete-catalog') return { testCompleteCatalog };
       if (id === './catalog-cutouts') return metroModule('apps/mobile/src/catalog-cutouts.ts');
       if (id === './drink-photos') return metroModule('apps/mobile/src/drink-photos.ts');
-      assert.match(id, /\.(jpg|png)$/);
+      assert.match(id, /\.(jpg|png|webp)$/);
       const path = resolve(dirname(filename), id);
       assert(readFileSync(path).length > 0, `Metro asset exists: ${id}`);
       return path;
@@ -180,7 +180,8 @@ test('real bundled photos follow remote, then key, then logo; a changed key beat
   );
   assert.equal(
     resolveWith(seeded, 'pick-combo', 'hero').source,
-    asset('catalog-hd/pick-combo.png'),
+    // Combos stand on warm white as cut-outs since build 55 (be4fd43a).
+    asset('hero-cutout/pick-combo.webp'),
   );
   assert.equal(resolveWith(seeded, 'cola', 'menu').source, asset('catalog-hd/cola.png'));
   assert.equal(resolveWith(seeded, 'fingers', 'hero').source, heroes.fingers);

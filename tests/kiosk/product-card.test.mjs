@@ -148,7 +148,7 @@ test('composition pills are capped and never repeat', () => {
 
 test('the drink grid shows nine drinks and «Ещё N» when more do not fit', () => {
   assert.equal(gridColumns(drinks), 5);
-  assert.equal(gridColumns(sauces), 4);
+  assert.equal(gridColumns(sauces), 5);
   const grid = optionGrid(drinks.options, ['cola-bottle'], 10);
   assert.equal(drinks.options.length, 14);
   assert.deepEqual(ids(grid.shown), ids(drinks.options.slice(0, 9)));

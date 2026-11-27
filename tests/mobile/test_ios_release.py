@@ -225,12 +225,15 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("only for the mobile app", result.stdout)
 
-    def test_tiptoppay_test_profile_is_production_plus_the_test_flag_only(self):
+    def test_tiptoppay_test_profile_is_production_plus_the_test_flags_only(self):
         # Owner 18-20.11.2026: TipTopPay TEST in TestFlight; a shell never adds it to other builds.
+        # 23.11.2026: the profile itself pins the Apple Pay Merchant ID (certificates uploaded).
         name = release.TIPTOPPAY_TEST_PROFILE
         self.assertIn(name, release.MOBILE_PROFILES)
         self.assertEqual(release.feature_profile_flags(name),
-                         release.PRODUCTION_FLAGS | {"EXPO_PUBLIC_TIPTOPPAY_TEST": "1"})
+                         release.PRODUCTION_FLAGS | {
+                             "EXPO_PUBLIC_TIPTOPPAY_TEST": "1",
+                             "EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID": "merchant.kz.pickchick.app"})
         self.assertEqual(release.profile_backend(name), ("production", "https://api.pickchick.kz"))
         shell = {"EXPO_PUBLIC_TIPTOPPAY_TEST": "1",
                  "EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID": "merchant.kz.pickchick.app"}
@@ -239,9 +242,10 @@ class ReleasePreflightTests(unittest.TestCase):
                 env = release.archive_environment(profile, shell)
                 self.assertNotIn("EXPO_PUBLIC_TIPTOPPAY_TEST", env)
                 self.assertNotIn("EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID", env)
-        env = release.archive_environment(name, shell)
+        env = release.archive_environment(name, {"EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID": "merchant.x"})
         self.assertEqual(env["EXPO_PUBLIC_TIPTOPPAY_TEST"], "1")
-        self.assertNotIn("EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID", env)
+        # The pinned value wins over any shell value.
+        self.assertEqual(env["EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID"], "merchant.kz.pickchick.app")
 
     def test_legacy_mobile_archive_refuses_a_shell_backend(self):
         # Review 20.10: a legacy archive inherits the shell, while release.json records staging.

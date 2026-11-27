@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { Animated } from 'react-native';
 import { measureRect, type FlyRect } from './motion';
 
 /** Dining choice whose tile grows into the menu (prototype `.zoomfill`). */
@@ -70,6 +71,28 @@ export function awaitReveal(mode: RevealMode | null | undefined, late: (rect: Fl
 /** Drop the armed reveal so a later menu mount does not replay it. */
 export function clearReveal() {
   pending = null;
+}
+
+/** Dining reveal: the fill grows, then fades; one native progress drives both (ModeReveal). */
+export const REVEAL_GROW_MS = 520;
+const REVEAL_FADE_MS = 280;
+export const REVEAL_MS = REVEAL_GROW_MS + REVEAL_FADE_MS;
+/** Share of the reveal at which the fill covers the screen. */
+export const REVEAL_COVERED = REVEAL_GROW_MS / REVEAL_MS;
+/** The fill starts to fade a few milliseconds after the menu is shown under it. */
+export const REVEAL_FADE_FROM = REVEAL_COVERED + 0.01;
+const SHOW_MENU = REVEAL_COVERED - 0.005;
+/**
+ * The menu's opacity during the dining reveal: hidden until the fill covers the dining screen,
+ * then shown in the same native frame (owner 23.11.2026: the blue must not stand still for a
+ * second while JavaScript catches up).
+ */
+export function menuVeil(progress: Animated.Value) {
+  return progress.interpolate({
+    inputRange: [0, SHOW_MENU, SHOW_MENU + 0.0001, 1],
+    outputRange: [0, 0, 1, 1],
+    extrapolate: 'clamp',
+  });
 }
 
 /** Prototype product page circle: opens in 620 ms, closes in 460 ms. */

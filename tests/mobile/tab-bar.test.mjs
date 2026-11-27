@@ -130,7 +130,7 @@ test('brand colours keep WCAG AA for labels on glass, opaque and the selection p
     (backdrop) => over(p.webVeil, dim(backdrop)),
   ];
   // Worst cases: glass over a white photo, the navy app background and the brand orange.
-  for (const backdrop of ['#FFFFFF', '#04143A', '#FF6900']) {
+  for (const backdrop of ['#FFFFFF', '#0A1020', '#FF6900']) {
     for (const body of bodies) {
       assert.ok(contrast(p.inactive, body(backdrop)) >= 4.5, `${body} over ${backdrop}`);
     }
@@ -140,7 +140,7 @@ test('brand colours keep WCAG AA for labels on glass, opaque and the selection p
   // app's navy it keeps AA for the orange label; over a white photo under the web veil, at least
   // the 3:1 of the icon it sits with.
   for (const body of bodies) {
-    assert.ok(contrast(p.active, over(p.pill, body('#04143A'))) >= 4.5, String(body));
+    assert.ok(contrast(p.active, over(p.pill, body('#0A1020'))) >= 4.5, String(body));
     assert.ok(contrast(p.active, over(p.pill, body('#FFFFFF'))) >= 3, String(body));
   }
   assert.ok(contrast(p.active, over(p.pill, p.solid)) >= 4.5);
@@ -196,7 +196,8 @@ test('the platter flows like iOS 26: a gel stretch mid-way, round at rest, the l
 test('tabs keep order, labels, gates and accessibility semantics', () => {
   const layout = read('app/(tabs)/_layout.tsx');
   assertHas(layout, 'tabBar={(props) => <FloatingTabBar {...props}');
-  assertHas(layout, 'onTabBarHeight={setTabBarHeight}');
+  assertHas(layout, 'onTabBarHeight={keepTabBarHeight}');
+  assertHas(layout, 'if (height > 0) setTabBarHeight(height);');
   assertHas(layout, 'onCartDockHeight={setCartDockHeight}');
   const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: (?:t\()?'([^']+)'/g)].map((m) => [
     m[1],

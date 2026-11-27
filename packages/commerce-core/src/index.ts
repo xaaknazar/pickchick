@@ -1,7 +1,12 @@
 export * from './model.js';
-export { CommerceRepository, reviewOrderInTransaction } from './repository.js';
+export {
+  CommerceRepository,
+  kitchenBeforeReceipt,
+  reviewOrderInTransaction,
+} from './repository.js';
 export * from './tiptoppay.js';
 export * from './tiptoppay-test-checkout.js';
+export * from './tiptoppay-checkout.js';
 export * from './kaspi-remote.js';
 
 export * from './customer-checkout.js';
@@ -23,3 +28,5 @@ export { MenuChangedError } from './menu-changed.js';
 export { comboProgramOptions, type ComboProgramOptions } from './combo-reward-ledger.js';
 export * from './kiosk-terminal.js';
 export * from './kiosk-branches.js';
+
+export * from './webkassa-cloud.js';

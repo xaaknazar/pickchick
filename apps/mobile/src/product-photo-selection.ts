@@ -70,12 +70,26 @@ export function setPhotoChoice(
   ];
 }
 
+/**
+ * How many replaceable slots a drink or sauce group shows on the combo page (owner 25.11.2026:
+ * the sauce is picked the same way as the drink). Included items give one slot each; an optional
+ * choice of up to four («Соус на выбор», min 0) gives a slot per allowed item. Larger groups
+ * (the finger sets' 8 sauces) stay counters.
+ */
+export function comboSlotCount(group: Pick<ModifierGroup, 'min' | 'max'>): number {
+  const count = group.min > 0 ? group.min : group.max;
+  return count >= 1 && count <= 4 ? count : 0;
+}
+
 /** Expand the saved quantities into individual replaceable combo slots. */
 export function comboSlots(group: ModifierGroup, selections: Selection[]): (string | null)[] {
   const selected = selections
     .filter((s) => s.group_id === group.id)
     .flatMap((s) => Array.from({ length: s.quantity }, () => s.option_id));
-  return Array.from({ length: group.min }, (_, index) => selected[index] ?? null);
+  return Array.from(
+    { length: comboSlotCount(group) || group.min },
+    (_, index) => selected[index] ?? null,
+  );
 }
 
 /** Replace one included item without losing the other drink/sauce or paid extras. */
@@ -86,7 +100,8 @@ export function replaceComboSlot(
   optionId: string,
 ): Selection[] {
   const option = group.options.find((o) => o.id === optionId);
-  if (!option || option.available === false || index < 0 || index >= group.min) return selections;
+  const slotCount = comboSlotCount(group) || group.min;
+  if (!option || option.available === false || index < 0 || index >= slotCount) return selections;
   const slots = comboSlots(group, selections);
   slots[index] = optionId;
   if (slots.filter((id) => id === optionId).length > (option.max_quantity ?? group.max))

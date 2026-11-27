@@ -3232,9 +3232,14 @@ export class OperationsView {
         const captures = data['captures'] as Data[];
         const refunds = data['refunds'] as Data[];
         const { adapter, manual } = refundActions(data);
+        // TipTopPay payments (card, Apple Pay, Google Pay) are refunded by the bank adapter.
+        const bankRefund = (capture: Data) => adapter || capture['refund_adapter'] === true;
+        const tipTopPayCaptures = new Set(
+          captures.filter((c) => c['refund_adapter'] === true).map((c) => String(c['id'])),
+        );
         for (const capture of captures) {
           const short = String(capture['id']).slice(0, 8);
-          if (adapter)
+          if (bankRefund(capture))
             d.append(
               button('Запросить возврат по оплате ' + short, () =>
                 this.refundDialog(id, o, capture, 'adapter'),
@@ -3247,7 +3252,7 @@ export class OperationsView {
               ),
             );
         }
-        if (captures.length && !adapter)
+        if (captures.some((c) => !bankRefund(c)))
           d.append(
             note(
               manual
@@ -3260,6 +3265,17 @@ export class OperationsView {
         )) {
           if (adapter || !manual) continue;
           const short = String(r['id']).slice(0, 8);
+          // A TipTopPay refund may already be at the bank: only an unclear one is confirmed by
+          // hand (after checking the TipTopPay cabinet), never withdrawn.
+          if (tipTopPayCaptures.has(String(r['capture_id']))) {
+            if (r['state'] === 'unknown')
+              d.append(
+                button('Подтвердить возврат TipTopPay по запросу ' + short, () =>
+                  this.refundDialog(id, o, { id: r['capture_id'] }, 'manual', r),
+                ),
+              );
+            continue;
+          }
           d.append(
             button('Подтвердить ручной возврат по запросу ' + short, () =>
               this.refundDialog(id, o, { id: r['capture_id'] }, 'manual', r),

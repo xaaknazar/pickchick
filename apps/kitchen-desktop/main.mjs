@@ -7,6 +7,7 @@ import { clearInterval, setInterval } from 'node:timers';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_URL, isAllowedRendererRequest, startGateway, validateConfig } from './security.mjs';
+import { watchRenderer } from './renderer-recovery.mjs';
 import { createUpdater, readFeed } from './updater.mjs';
 
 app.enableSandbox();
@@ -215,6 +216,8 @@ else {
       window.on('page-title-updated', (event) => event.preventDefault());
       const retitle = setInterval(() => window.setTitle(windowTitle()), 30000);
       window.on('closed', () => clearInterval(retitle));
+      // A crashed or hung page: the kitchen screen loads again by itself.
+      watchRenderer({ window, url: APP_URL });
       await window.loadURL(APP_URL);
       updater?.start();
     })

@@ -1,4 +1,5 @@
 import { Text } from '../../components/LocalizedText';
+import { GameBackButton } from '../GameBackButton';
 import { getLocale, localize, t, useLocale } from '../../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -399,17 +400,13 @@ export function MagicSortScreen() {
   return (
     <View testID="magic-sort-screen" style={[s.screen, { paddingTop: top, paddingBottom: bottom }]}>
       <View style={s.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Выйти из Magic Sort')}
+        <GameBackButton
+          label={t('Выйти из Magic Sort')}
           onPress={() => {
             model.pause();
             router.back();
           }}
-          style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-        >
-          <Icon name="arrow-back" color={c.ink} />
-        </Pressable>
+        />
         <View style={{ alignItems: 'center' }}>
           <Text style={s.title}>MAGIC SORT</Text>
           <View style={s.stats}>

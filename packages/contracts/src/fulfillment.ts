@@ -75,6 +75,10 @@ export const FulfillmentTaskSchema = z.strictObject({
     quantity: z.int().min(1).max(1_000_000),
     modifiers: z.array(FulfillmentModifierSchema).max(100),
     kds: FulfillmentTaskKdsSchema.optional(),
+    /** Grams of one portion (catalog weight_g), when the order carries it. */
+    weightG: z.int().min(1).max(100_000).optional(),
+    /** Quantity of the order line of an expanded combo component. */
+    lineQuantity: z.int().min(1).max(1_000_000).optional(),
   }),
 });
 export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({

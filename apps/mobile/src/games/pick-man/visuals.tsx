@@ -41,7 +41,7 @@ export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; siz
 // hem, big eyes). They are little spicy flames now; the scared one turns pale and wobbles.
 const rivalArt = (color: string, scared = false) =>
   svg(
-    `<path d="M24 3c3 6 13 11 13 23 0 9-6 16-13 16S11 35 11 26c0-6 3-10 6-13 1 4 3 6 5 6-1-6 0-11 2-16Z" fill="${color}" stroke="#FFE8D6" stroke-width="1.5" stroke-linejoin="round"/>${scared ? '' : '<path d="M24 19c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 3-6 4-9 1 2 2 3 3 3Z" fill="#FFD27A" opacity=".5"/>'}<ellipse cx="19.5" cy="28" rx="4" ry="5" fill="#FFF"/><ellipse cx="28.5" cy="28" rx="4" ry="5" fill="#FFF"/><circle cx="20.5" cy="29" r="2.2" fill="#04143A"/><circle cx="29.5" cy="29" r="2.2" fill="#04143A"/>${scared ? '<path d="m18 37 3-2 3 2 3-2 3 2" fill="none" stroke="#04143A" stroke-width="2"/>' : ''}`,
+    `<path d="M24 3c3 6 13 11 13 23 0 9-6 16-13 16S11 35 11 26c0-6 3-10 6-13 1 4 3 6 5 6-1-6 0-11 2-16Z" fill="${color}" stroke="#FFE8D6" stroke-width="1.5" stroke-linejoin="round"/>${scared ? '' : '<path d="M24 19c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 3-6 4-9 1 2 2 3 3 3Z" fill="#FFD27A" opacity=".5"/>'}<ellipse cx="19.5" cy="28" rx="4" ry="5" fill="#FFF"/><ellipse cx="28.5" cy="28" rx="4" ry="5" fill="#FFF"/><circle cx="20.5" cy="29" r="2.2" fill="#0A1020"/><circle cx="29.5" cy="29" r="2.2" fill="#0A1020"/>${scared ? '<path d="m18 37 3-2 3 2 3-2 3 2" fill="none" stroke="#0A1020" stroke-width="2"/>' : ''}`,
   );
 const rivals = ['#FF5A47', '#FF9F1C', '#F857A6'].map((color) => rivalArt(color));
 const scaredRival = rivalArt('#CBDDFA', true);
@@ -200,7 +200,7 @@ export function MazeArt({ size = 140 }: { size?: number }) {
         width: size,
         height: size,
         borderRadius: 22,
-        backgroundColor: '#04143A',
+        backgroundColor: '#0A1020',
         borderWidth: 2,
         borderColor: '#8BB6FF',
         transform: [{ rotate: '7deg' }],

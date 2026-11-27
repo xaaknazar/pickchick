@@ -28,6 +28,7 @@ import { CartTotal, positionsLabel } from '../components/CartTotal';
 import { EmptyCart } from '../components/EmptyCart';
 import { Notice } from '../components/Notice';
 import { CheckoutSummary } from '../components/CheckoutSummary';
+import { ReviewDining } from '../components/ReviewDining';
 import { PaymentMethodCard } from '../components/PaymentMethodCard';
 import { terminalCopy } from '../terminalCopy';
 import { ProductSheet } from '../components/ProductSheet';
@@ -327,6 +328,13 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
       />
       <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={14}>
+          {model.terminalOpen ? (
+            <Notice
+              testID="kiosk-terminal-open"
+              title={t.terminalOpenTitle}
+              body={t.terminalOpenBody}
+            />
+          ) : null}
           {!model.cart.length && !model.unavailableCartLines.length ? (
             <EmptyCart locale={context.locale} />
           ) : null}
@@ -429,13 +437,20 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
       <Header
         {...context}
         back={model.openUpsell}
-        title={t.payTitle}
+        title={t.review}
         subtitle={positionsLabel(count, context.locale)}
       />
       {/* Owner 22.11.2026 (one look on every step): the same step pills as «Допы» and «Оплата». */}
       <StepPills current="payment" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
-        <Wrapper paddingX={24} paddingY={22} gap={24}>
+        <Wrapper paddingX={24} paddingY={22} gap={28}>
+          {/* Owner 23.11.2026: «В зале / С собой» is always visible here and can be changed. */}
+          <ReviewDining
+            mode={model.mode}
+            locale={context.locale}
+            disabled={model.busy}
+            onChange={(mode) => (mode === model.mode ? true : model.setMode(mode))}
+          />
           <CheckoutSummary
             lines={model.cart}
             total={model.cartTotalMinor}

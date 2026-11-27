@@ -36,25 +36,31 @@ export function startKioskPolling(
   const schedule = () => {
     if (stopped) return;
     poll = setTimeout(async () => {
-      const before = controller.getSnapshot();
-      if (
-        isActive() &&
-        before.ready &&
-        !before.busy &&
-        (before.order ||
-          before.recoveryRequired ||
-          before.syncPending ||
-          !before.catalog ||
-          (before.step !== 'start' && Date.now() - catalogPollAt >= 60000))
-      ) {
-        const result = await controller.refresh();
-        // A failed background reload is retried with back-off, not after another minute.
-        const failed =
-          result === false || (result === undefined && !!controller.getSnapshot().error);
-        if (!failed && controller.getSnapshot().catalog) catalogPollAt = Date.now();
-        failures = failed ? failures + 1 : 0;
+      try {
+        const before = controller.getSnapshot();
+        if (
+          isActive() &&
+          before.ready &&
+          !before.busy &&
+          (before.order ||
+            before.recoveryRequired ||
+            before.syncPending ||
+            !before.catalog ||
+            (before.step !== 'start' && Date.now() - catalogPollAt >= 60000))
+        ) {
+          const result = await controller.refresh();
+          // A failed background reload is retried with back-off, not after another minute.
+          const failed =
+            result === false || (result === undefined && !!controller.getSnapshot().error);
+          if (!failed && controller.getSnapshot().catalog) catalogPollAt = Date.now();
+          failures = failed ? failures + 1 : 0;
+        }
+      } catch {
+        // A refresh that throws is a failed one: the loop backs off and asks again.
+        failures += 1;
+      } finally {
+        schedule();
       }
-      schedule();
     }, backoffMs(failures));
   };
   schedule();

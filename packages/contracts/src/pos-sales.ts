@@ -175,6 +175,12 @@ export const PosConfigSchema = z.strictObject({
    * the answer stays as before; a POS reads a 026 edge's answer without it as null.
    */
   desk_number: PosDeskNumberSchema.nullable(),
+  /**
+   * ADR-0017: the session's cash desk has an active Kaspi Smart POS (edge schema029
+   * kaspi_pos_devices), so the POS sends the amount to the terminal. The last key: a POS that
+   * does not know it reads it as false and marks the terminal payment by hand as in 026.
+   */
+  kaspi_terminal_link: z.boolean(),
 });
 
 /** One-time manager confirmation attached to a command (POST staff/approvals result). */
@@ -185,6 +191,11 @@ export const PosTenderInputSchema = z.strictObject({
   method: PosPaymentMethodSchema,
   amount_minor: positiveMoney,
   reference: typedNumber.optional(),
+  /**
+   * ADR-0017: the paid Kaspi Smart POS attempt of a kaspi_terminal part (edge schema029). The
+   * edge then writes the terminal's operation number as the reference, so none is typed.
+   */
+  attempt_id: uuid.optional(),
 });
 export const PosSaleRequestSchema = z.strictObject({
   quote_id: uuid,
@@ -392,6 +403,10 @@ export const PosErrorCodeSchema = z.enum([
   'REFUND_NOT_SUPPORTED',
   'DRAWER_INSUFFICIENT',
   'FISCAL_PENDING',
+  // ADR-0017 (Kaspi Smart POS adapter, edge schema029).
+  'TERMINAL_NOT_LINKED',
+  'TERMINAL_BUSY',
+  'TERMINAL_ATTEMPT_INVALID',
 ]);
 export type PosErrorCode = z.infer<typeof PosErrorCodeSchema>;
 const POS_ERROR_TEXTS_RU: Readonly<Record<PosErrorCode, string>> = Object.freeze({
@@ -411,6 +426,9 @@ const POS_ERROR_TEXTS_RU: Readonly<Record<PosErrorCode, string>> = Object.freeze
   REFUND_NOT_SUPPORTED: 'Возврат агрегатора оформляется в кабинете агрегатора',
   DRAWER_INSUFFICIENT: 'В кассе недостаточно наличных',
   FISCAL_PENDING: 'Есть неоформленные чеки Webkassa',
+  TERMINAL_NOT_LINKED: 'Терминал Kaspi не подключён к этой кассе',
+  TERMINAL_BUSY: 'Терминал Kaspi занят прошлой операцией - завершите её на терминале',
+  TERMINAL_ATTEMPT_INVALID: 'Оплата на терминале не подходит к этому заказу',
 });
 const POS_CHANNEL_PRICE_TEXTS_RU: Readonly<Record<AggregatorChannel, string>> = Object.freeze({
   yandex_eda: 'Нет в меню Яндекс Еды',
@@ -430,6 +448,49 @@ export function posErrorTextRu(code: PosErrorCode, subject?: AggregatorChannel |
     return 'Возврат ChocoFood оформляется в кабинете ChocoFood';
   return POS_ERROR_TEXTS_RU[code];
 }
+
+/** ADR-0017: one payment attempt on the Kaspi Smart POS of the cash desk (edge schema029). */
+export const KaspiAttemptStateSchema = z.enum([
+  'created',
+  'sending',
+  'send_failed',
+  'wait',
+  'success',
+  'fail',
+  'unknown',
+  'lost',
+]);
+export const KaspiPaymentMethodSchema = z.enum(['qr', 'card', 'alaqan']);
+/** POST pos/terminal-payments: send this whole-tenge amount of the quote to the terminal. */
+export const PosTerminalPaymentRequestSchema = z.strictObject({
+  quote_id: uuid,
+  amount_minor: positiveMoney,
+});
+export const PosTerminalPaymentSchema = z.strictObject({
+  attempt_id: uuid,
+  quote_id: uuid,
+  terminal_id: uuid,
+  amount_minor: positiveMoney,
+  state: KaspiAttemptStateSchema,
+  sub_status: z
+    .string()
+    .regex(/^[A-Za-z]{1,40}$/)
+    .nullable(),
+  transaction_id: z.string().min(1).max(40).nullable(),
+  payment_method: KaspiPaymentMethodSchema.nullable(),
+  message: z.string().min(1).max(300).nullable(),
+  order_id: uuid.nullable(),
+  created_at: datetime,
+  updated_at: datetime,
+});
+/** GET pos/terminal-payments/open: unfinished or paid-without-order attempts of this desk (24 h). */
+export const PosTerminalPaymentListSchema = z.strictObject({
+  items: z.array(PosTerminalPaymentSchema).max(50),
+});
+export type KaspiAttemptState = z.infer<typeof KaspiAttemptStateSchema>;
+export type PosTerminalPaymentRequest = z.infer<typeof PosTerminalPaymentRequestSchema>;
+export type PosTerminalPayment = z.infer<typeof PosTerminalPaymentSchema>;
+export type PosTerminalPaymentList = z.infer<typeof PosTerminalPaymentListSchema>;
 
 export type PosConfig = z.infer<typeof PosConfigSchema>;
 export type PosApprovalProof = z.infer<typeof PosApprovalProofSchema>;

@@ -845,13 +845,12 @@ export class ReferenceView {
         };
       }),
       dayFilters: [
+        // Only what the desk lists: GET orders has no app, kiosk or Wolt orders, so those chips
+        // always showed an empty day (20.11 review).
         ['all', 'Все'],
         ['pos', 'Касса'],
-        ['app', 'Приложение'],
-        ['kiosk', 'Киоск'],
         ['ya', 'Яндекс Еда'],
         ['glovo', 'Glovo'],
-        ['wolt', 'Wolt'],
       ].map((f) => ({
         label: f[1],
         bg: isOn(s.dayFilter === f[0]),

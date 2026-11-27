@@ -10,6 +10,7 @@ import {
   type ConnectionTrack,
 } from './availability-connection';
 import { parseCatalogVersionHeader } from './catalog-recovery';
+import { keepIfSame } from './stable-values';
 
 /** Long poll never mutates a basket, creates an order or sends a payment command. */
 export function useAvailability(
@@ -66,7 +67,9 @@ export function useAvailability(
       // A re-read keeps the last answer; before the first one the state is «checking» anyway.
       onChecking: () => {},
       onSuccess: (value) => {
-        setData(value);
+        // The long-poll answers every 20 s with the same data: keep the object, so the menu and
+        // the cart below do not render again for nothing (a hitch on the phone).
+        setData(keepIfSame(value));
         connection.succeeded();
       },
       // A failed cycle counts; a retried failure is shown only once it persists (a second failure

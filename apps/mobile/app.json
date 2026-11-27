@@ -2,16 +2,16 @@
   "expo": {
     "name": "PickChick",
     "slug": "pickchick",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "icon": "../../design/prototype/assets/mockup/logo.png",
     "orientation": "portrait",
     "scheme": "pickchick",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/app-icon.png",
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "40",
+      "buildNumber": "59",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

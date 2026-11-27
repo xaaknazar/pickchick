@@ -71,6 +71,7 @@ export function MenuScreen({
   // Stable handlers, so the sections kept under the open one are not drawn again on every
   // change of the screen (MenuGrid is memoised).
   const latest = useRef({ open, model });
+  const latestSelect = useRef<(key: Category, direction?: 0 | 1 | -1) => void>(() => {});
   latest.current = { open, model };
   const onOpen = useCallback((p: KioskProduct) => latest.current.open(p), []);
   const onTouch = useCallback(() => latest.current.model.touch(), []);
@@ -95,12 +96,26 @@ export function MenuScreen({
     announced.current = addSerial;
     memory.addSerial = addSerial;
   }, [addSerial, addedMessage, memory]);
-  const select = (key: Category) => {
+  // The way the last switch went: 1 / -1 for a pull to the next / previous section, 0 for a tap.
+  const [turn, setTurn] = useState<0 | 1 | -1>(0);
+  const select = (key: Category, direction: 0 | 1 | -1 = 0) => {
     model.touch();
     memory.category = key;
     memory.offsets[key] = 0;
+    setTurn(direction);
     setCategory(key);
     setRevision((v) => v + 1);
+  };
+  latestSelect.current = select;
+  // Owner 23.11.2026: a pull past the end of a section opens the next one, a pull down at its
+  // top the previous one, in the rail's order.
+  const onPage = useCallback((from: Category, direction: 1 | -1) => {
+    const to = categoryKeys[categoryKeys.indexOf(from) + direction];
+    if (to) latestSelect.current(to, direction);
+  }, []);
+  const sectionName = (key: Category, direction: 1 | -1) => {
+    const to = categoryKeys[categoryKeys.indexOf(key) + direction];
+    return to ? t[to] : undefined;
   };
   return (
     <ScreenSurface
@@ -126,7 +141,7 @@ export function MenuScreen({
           category={category}
           products={products}
           locale={context.locale}
-          onSelect={select}
+          onSelect={(key) => select(key)}
           footer={
             <PhotoEntry
               locale={context.locale}
@@ -135,7 +150,7 @@ export function MenuScreen({
             />
           }
         />
-        <MenuDeck category={category} revision={revision}>
+        <MenuDeck category={category} revision={revision} turn={turn}>
           {(key, active) => (
             <MenuGrid
               active={active}
@@ -149,6 +164,9 @@ export function MenuScreen({
               onInteraction={onTouch}
               onOpen={onOpen}
               onAdd={onAdd}
+              next={sectionName(key, 1)}
+              previous={sectionName(key, -1)}
+              onPage={onPage}
             />
           )}
         </MenuDeck>

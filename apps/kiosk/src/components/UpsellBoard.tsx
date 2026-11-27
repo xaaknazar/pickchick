@@ -16,9 +16,9 @@ export function UpsellBoard({ children }: { children?: ReactNode }) {
       style={{
         flexGrow: 1,
         paddingHorizontal: px(16),
-        paddingTop: px(24),
+        paddingTop: px(20),
         paddingBottom: px(26),
-        gap: px(18),
+        gap: px(14),
       }}
     >
       {children}

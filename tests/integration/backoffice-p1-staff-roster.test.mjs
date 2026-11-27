@@ -259,8 +259,14 @@ test('roster -> staff-roster-apply -> staff-pin-batch: plan, hash, roles never c
       assert.ok(said.some((l) => l.startsWith('Сотрудник: Синтетическая Алия (кассир).')));
       assert.ok(said.includes('Этот PIN не подходит. Введите другой.'));
       assert.ok(said.includes('PIN не совпал или не 4 цифр. Попробуйте ещё раз.'));
+      // A PIN is a standalone run of digits. Random staff UUIDs and temporary file names may hold
+      // the same digits by chance (Foundation run 43754144310), so they are not a PIN.
       for (const text of [...printed, ...said, ...prompts])
-        assert.doesNotMatch(text, /1234|5678|5679/, 'a PIN is never shown or logged');
+        assert.doesNotMatch(
+          text.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>'),
+          /(?<![0-9A-Za-z])(?:1234|5678|5679)(?![0-9A-Za-z])/,
+          'a PIN is never shown or logged',
+        );
       const session = await loginStaffPin(edge, c.branch, { pin: '1234', terminal_id: terminal });
       assert.equal(session.staff_id, edgeStaffId(A, 'cashier'));
       // Run again: both have a PIN and are skipped without a prompt.

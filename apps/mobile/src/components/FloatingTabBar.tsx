@@ -20,8 +20,8 @@ import { TabIcon } from './UI';
 import { TabCartDock } from './TabCartDock';
 import { useReducedMotion } from './Motion';
 import { TabBarGlass } from './GlassButton';
-import { colors, font } from '../theme';
-import { haptic } from '../haptics';
+import { colors, font, themed, tc } from '../theme';
+import { haptic, tabHaptic } from '../haptics';
 import {
   tabAt,
   tabBarMetrics,
@@ -86,12 +86,14 @@ function SelectionPlatter({
   height: number;
   testID: string;
 }) {
+  // Plain strings for the UI thread (the palette changes with the theme).
+  const { pill, lens: lensFill, lensRim } = palette;
   const style = useAnimatedStyle(() => {
     const scale = tabPlatterScale(position.value, lens.value);
     return {
       transform: [{ translateX: position.value * width }, { scaleX: scale.x }, { scaleY: scale.y }],
-      backgroundColor: interpolateColor(lens.value, [0, 1], [palette.pill, palette.lens]),
-      borderColor: interpolateColor(lens.value, [0, 1], ['rgba(255,255,255,0)', palette.lensRim]),
+      backgroundColor: interpolateColor(lens.value, [0, 1], [pill, lensFill]),
+      borderColor: interpolateColor(lens.value, [0, 1], ['rgba(255,255,255,0)', lensRim]),
     };
   });
   // The lens is glass while it is raised: a specular edge and the faint colour fringe of Liquid
@@ -153,12 +155,9 @@ function TabItem({
     const pop = bounceIndex.value === index ? tabIconBounce * bounce.value : 0;
     return { transform: [{ scale: swell + pop }] };
   });
+  const { inactive, active } = palette;
   const text = useAnimatedStyle(() => ({
-    color: interpolateColor(
-      tabSelection(position.value, index),
-      [0, 1],
-      [palette.inactive, palette.active],
-    ),
+    color: interpolateColor(tabSelection(position.value, index), [0, 1], [inactive, active]),
   }));
   return (
     <Pressable
@@ -276,7 +275,7 @@ export function FloatingTabBar({
   }, [state.index, moveTo, dragging]);
 
   const select = useCallback(
-    (index: number) => {
+    (index: number, dragged = false) => {
       committed.current = true;
       const route = state.routes[index];
       if (!route) return;
@@ -292,6 +291,8 @@ export function FloatingTabBar({
         return;
       }
       pop(index);
+      // A tap that changes the tab ticks (owner 25.11.2026); a drag already ticked per tab.
+      if (!focused && !dragged) tabHaptic();
       if (!focused) navigation.navigate(route.name, route.params);
     },
     [moveTo, navigation, pop, state.index, state.routes],
@@ -324,7 +325,7 @@ export function FloatingTabBar({
       lens.value = reduced ? 0 : withSpring(0, tabLensSpring);
       const index = success ? tabAt(event.x, itemWidth, count) : Math.round(position.value);
       runOnJS(moveTo)(index);
-      runOnJS(select)(index);
+      runOnJS(select)(index, true);
     });
 
   const activeRoute = state.routes[state.index];
@@ -356,7 +357,11 @@ export function FloatingTabBar({
             <GestureDetector gesture={pan}>
               <View
                 style={s.items}
-                onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
+                onLayout={(event) => {
+                  // Hidden under a full-screen page: keep the last width (no re-render).
+                  if (event.nativeEvent.layout.width > 0)
+                    setRowWidth(event.nativeEvent.layout.width);
+                }}
               >
                 {activeRoute && itemWidth > 0 ? (
                   <SelectionPlatter
@@ -425,72 +430,75 @@ export function FloatingTabBar({
   );
 }
 
-const s = StyleSheet.create({
-  // The tab layer: the docked cart bar, then the tab capsule, stacked from the bottom inset up.
-  host: { position: 'absolute', left: 0, right: 0, alignItems: 'stretch' },
-  barRow: { alignItems: 'center' },
-  bar: {
-    width: '100%',
-    flexDirection: 'row',
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    shadowColor: palette.shadow,
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 18,
-    elevation: 12,
-  },
-  clip: { overflow: 'hidden' },
-  items: { flex: 1, flexDirection: 'row' },
-  lensShine: {
-    borderRadius: 999,
-    boxShadow:
-      'inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 2px 0 2px rgba(120, 220, 255, 0.35), inset -2px 0 2px rgba(255, 150, 120, 0.35), inset 0 -1px 1px rgba(255, 255, 255, 0.2)',
-  },
-  platter: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-  },
-  item: {
-    flex: 1,
-    minWidth: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  label: {
-    fontFamily: font.medium,
-    fontSize: tabLabelSize,
-    lineHeight: 16,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-  // Active-order counter on «Заказы»: brand orange with dark ink, like primary buttons.
-  badge: {
-    position: 'absolute',
-    top: -6,
-    left: 13,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-  },
-  badgeText: {
-    fontFamily: font.bold,
-    fontSize: 11,
-    lineHeight: 14,
-    color: colors.orangeInk,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    // The tab layer: the docked cart bar, then the tab capsule, stacked from the bottom inset up.
+    host: { position: 'absolute', left: 0, right: 0, alignItems: 'stretch' },
+    barRow: { alignItems: 'center' },
+    bar: {
+      width: '100%',
+      flexDirection: 'row',
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.border,
+      shadowColor: palette.shadow,
+      shadowOpacity: 0.35,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    clip: { overflow: 'hidden' },
+    items: { flex: 1, flexDirection: 'row' },
+    lensShine: {
+      borderRadius: 999,
+      boxShadow: tc(
+        'inset 0 1px 1px rgba(255, 255, 255, 0.55), inset 2px 0 2px rgba(120, 220, 255, 0.35), inset -2px 0 2px rgba(255, 150, 120, 0.35), inset 0 -1px 1px rgba(255, 255, 255, 0.2)',
+      ),
+    },
+    platter: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+    },
+    item: {
+      flex: 1,
+      minWidth: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingHorizontal: 4,
+      paddingVertical: 6,
+      borderRadius: 999,
+    },
+    label: {
+      fontFamily: font.medium,
+      fontSize: tabLabelSize,
+      lineHeight: 16,
+      includeFontPadding: false,
+      textAlign: 'center',
+    },
+    // Active-order counter on «Заказы»: brand orange with dark ink, like primary buttons.
+    badge: {
+      position: 'absolute',
+      top: -6,
+      left: 13,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+    },
+    badgeText: {
+      fontFamily: font.bold,
+      fontSize: 11,
+      lineHeight: 14,
+      color: colors.orangeInk,
+      includeFontPadding: false,
+      textAlign: 'center',
+    },
+  }),
+);

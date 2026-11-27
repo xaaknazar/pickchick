@@ -124,7 +124,8 @@ with sync_playwright() as p:
     header = page.get_by_test_id('storefront-header').bounding_box()
     category = page.get_by_test_id('category-Комбо').bounding_box()
     assert category['y'] >= header['y'] + header['height'] - 1
-    expect(page.get_by_test_id('product-pick-combo').get_by_text('Выбрать', exact=True)).to_be_visible()
+    # Owner 22.11.2026 menu redesign: a round orange plus replaces the «Выбрать» label.
+    expect(page.get_by_test_id('product-plus-pick-combo')).to_be_visible()
     page.screenshot(path=str(output / 'catalog.png'))
     page.get_by_test_id('product-pick-combo').click()
     expect(page.get_by_test_id('photo-product-pick-combo')).to_be_visible()
@@ -173,7 +174,8 @@ with sync_playwright() as p:
         first, second = geometry['first'], geometry['second']
         assert chip['x'] >= 0 and chip['x'] + chip['width'] <= width + 1, chip
         assert section['y'] >= chip['y'] + chip['height'] - 1, (section, chip)
-        assert abs(first['width'] - first['height']) < 1, first
+        # Grid card photo window is 1.1:1 since the menu redesign (86877341).
+        assert abs(first['width'] / first['height'] - 1.1) < 0.01, first
         assert abs(first['y'] - second['y']) < 1 and second['x'] > first['x'], (first, second)
     assert errors == [], errors
     reduced = isolated_context(browser,viewport={'width': 390, 'height': 844}, reduced_motion='reduce')

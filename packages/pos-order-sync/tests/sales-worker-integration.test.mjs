@@ -403,6 +403,11 @@ test('a head that cannot be sent as stored is parked locally, never skipped; ina
     ctx.advance(60_000);
     assert.deepEqual(await ctx.step(), { state: 'disabled' });
     assert.equal(ctx.requests.length, 0);
+    // An inactive binding is looked at again in 2 minutes, not on every pass.
+    const retryAt = ctx.now() + 120_000;
+    assert.deepEqual(await ctx.step(), { state: 'waiting', retryAt });
+    ctx.advance(120_000);
+    assert.deepEqual(await ctx.step(), { state: 'disabled' });
   });
 });
 

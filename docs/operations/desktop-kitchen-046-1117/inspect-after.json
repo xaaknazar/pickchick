@@ -1,0 +1,22 @@
+{
+  "status": "inspected",
+  "expected_public_release": "/opt/pickchick-staging/public-https/releases/bf325a47fea53519906fe9bc86816698249796de",
+  "expected_api_release": "/opt/pickchick-staging/releases/bf325a47fea53519906fe9bc86816698249796de",
+  "expected_gateway_sha256": "61c284ca999b2f8d8826f214c83cd1d5fd6120b003363183bc6323bfd3f70d61",
+  "gateway_route_installed": true,
+  "feed_container": true,
+  "published_release": "kitchen-0.4.6-pos-0.5.3",
+  "published": { "kitchen": "0.4.6", "pos": "0.5.3" },
+  "releases_on_disk": [
+    "kitchen-0.4.0-pos-0.5.0",
+    "kitchen-0.4.3-pos-0.5.3",
+    "kitchen-0.4.4-pos-0.5.3",
+    "kitchen-0.4.5-pos-0.5.3",
+    "kitchen-0.4.6-pos-0.5.3"
+  ],
+  "feed_leftovers": [],
+  "feed_host_reaches_gateway": true,
+  "free_disk_mb": 125646,
+  "deployment_lock_present": false,
+  "deployment_lock_owner": null
+}
