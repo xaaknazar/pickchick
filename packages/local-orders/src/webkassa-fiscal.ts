@@ -409,7 +409,12 @@ export class WebkassaFiscalWorker {
    * cashbox under the cloud order id as ExternalCheckNumber). null while Webkassa has none.
    */
   async kioskPrint(orderId: string): Promise<WebkassaPrintable[] | null> {
-    const lines = await this.#serial(() => this.#client.printFormat(orderId));
+    // Kiosk receipts are issued by the cloud on their own cashbox (owner 27.11); a point without
+    // it configured reads its own cashbox, as before.
+    const cashbox = this.#client.kioskCashbox;
+    const lines = await this.#serial(() =>
+      cashbox ? this.#client.printFormat(orderId, cashbox) : this.#client.printFormat(orderId),
+    );
     if (!lines?.length) return null;
     return lines.map((line) =>
       line.type === 2 && line.value.length <= 600 ? { ...line, qr: qrMatrix(line.value) } : line,

@@ -31,3 +31,14 @@ test('refuses foreign hosts and bad cashboxes without echoing values', () => {
       /cashboxUniqueNumber/.test(error.message) && !error.message.includes('synthetic-secret'),
   );
 });
+
+test('two cashboxes of one account: --cashbox for the cloud file, --kiosk-cashbox for the point', () => {
+  const cloud = accountFromEnv(parseEnv(env), undefined, { cashbox: 'SWK00000002' });
+  assert.equal(cloud.account.cashboxUniqueNumber, 'SWK00000002');
+  assert.equal(cloud.used.cashboxUniqueNumber, '--cashbox');
+  const point = accountFromEnv(parseEnv(env), undefined, { kioskCashbox: 'SWK00000002' });
+  assert.equal(point.account.cashboxUniqueNumber, 'SWK00000001');
+  assert.equal(point.account.kioskCashboxUniqueNumber, 'SWK00000002');
+  assert.throws(() => accountFromEnv(parseEnv(env), undefined, { kioskCashbox: 'SWK00000001' }));
+  assert.throws(() => accountFromEnv(parseEnv(env), undefined, { cashbox: 'nope' }));
+});

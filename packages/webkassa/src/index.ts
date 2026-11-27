@@ -23,6 +23,11 @@ export interface WebkassaAccount {
   password: string;
   /** Заводской номер SWK… of the register the receipts go to. */
   cashboxUniqueNumber: string;
+  /**
+   * Point server only (owner 27.11): the separate cashbox of the app and kiosk receipts, which the
+   * cloud issues. The point never issues on it; it only reads kiosk receipt forms to print them.
+   */
+  kioskCashboxUniqueNumber?: string;
 }
 export interface WebkassaError {
   code: number;
@@ -311,6 +316,11 @@ export class WebkassaClient {
     this.#timeoutMs = options.timeoutMs ?? 20_000;
   }
 
+  /** The cashbox of the app and kiosk receipts this point prints (null: its own cashbox). */
+  get kioskCashbox(): string | null {
+    return this.#account.kioskCashboxUniqueNumber ?? null;
+  }
+
   get cashbox(): string {
     return this.#account.cashboxUniqueNumber;
   }
@@ -398,9 +408,12 @@ export class WebkassaClient {
   }
 
   /** Ticket/PrintFormat for 80 mm paper: the lines to print, QR as a line of type 2. */
-  async printFormat(externalNumber: string): Promise<WebkassaPrintLine[] | null> {
+  async printFormat(
+    externalNumber: string,
+    cashbox: string = this.#account.cashboxUniqueNumber,
+  ): Promise<WebkassaPrintLine[] | null> {
     const result = await this.call('api/v4/Ticket/PrintFormat', {
-      CashboxUniqueNumber: this.#account.cashboxUniqueNumber,
+      CashboxUniqueNumber: cashbox,
       ExternalCheckNumber: externalNumber,
       PaperKind: 0,
     });
@@ -436,7 +449,7 @@ export class WebkassaClient {
 
 /**
  * Reads the private account file (EDGE_WEBKASSA_ACCOUNT_FILE): JSON {baseUrl, apiKey, login,
- * password, cashboxUniqueNumber}. Absent path = Webkassa off (manual mode). The file never enters
+ * password, cashboxUniqueNumber, kioskCashboxUniqueNumber?}. Absent path = Webkassa off (manual mode). The file never enters
  * git, logs or the database.
  */
 export function readWebkassaAccount(
@@ -461,6 +474,12 @@ export function readWebkassaAccount(
     password: field('password', /^.{1,200}$/),
     cashboxUniqueNumber: field('cashboxUniqueNumber', /^SWK\d{8}$/),
   };
+  if (raw.kioskCashboxUniqueNumber !== undefined) {
+    const kiosk = field('kioskCashboxUniqueNumber', /^SWK\d{8}$/);
+    if (kiosk === account.cashboxUniqueNumber)
+      throw new Error('Webkassa account file: the kiosk cashbox must differ from the point one');
+    Object.assign(account, { kioskCashboxUniqueNumber: kiosk });
+  }
   // Audit 26.11 P0-2: a live point never runs on the test register by mistake.
   if (options.requireLive && webkassaEnvironment(account) !== 'live')
     throw new Error('Webkassa account file: the test host devkkm is refused, live is required');

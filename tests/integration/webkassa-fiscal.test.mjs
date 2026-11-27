@@ -694,5 +694,20 @@ test("the cashier desk lists today's paid kiosk orders and prints their Webkassa
       kioskReceiptPrint(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), worker, held),
       { code: 'NOT_FOUND' },
     );
+    assert.equal(asked.body.CashboxUniqueNumber, ACCOUNT.cashboxUniqueNumber);
+    // Owner 27.11: the cloud issues kiosk receipts on their own cashbox; the point reads them there.
+    const split = new WebkassaFiscalWorker(
+      ctx.edge.pool,
+      ctx.branch,
+      new WebkassaClient(
+        { ...ACCOUNT, kioskCashboxUniqueNumber: 'SWK00000002' },
+        { transport: sim },
+      ),
+      () => {},
+    );
+    await kioskReceiptPrint(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), split, kiosk);
+    const last = sim.calls.filter((c) => c.path === 'api/v4/Ticket/PrintFormat').at(-1);
+    assert.equal(last.body.CashboxUniqueNumber, 'SWK00000002');
+    assert.equal(last.body.ExternalCheckNumber, kiosk);
   });
 });

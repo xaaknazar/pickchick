@@ -203,10 +203,15 @@ test('account file: only Webkassa hosts, a SWK number and present fields; absent
     { baseUrl: 'http://devkkm.webkassa.kz' },
     { cashboxUniqueNumber: '36966' },
     { apiKey: '' },
+    // Owner 27.11: the kiosk cashbox is another cashbox of the account, never the point's own.
+    { kioskCashboxUniqueNumber: 'SWK00036966' },
+    { kioskCashboxUniqueNumber: '36967' },
   ]) {
     writeFileSync(file, JSON.stringify({ ...good, ...bad }));
     assert.throws(() => readWebkassaAccount(file));
   }
+  writeFileSync(file, JSON.stringify({ ...good, kioskCashboxUniqueNumber: 'SWK00036967' }));
+  assert.equal(readWebkassaAccount(file).kioskCashboxUniqueNumber, 'SWK00036967');
 });
 
 test('test or live register: devkkm is TEST, a live point refuses it (audit 26.11 P0-2)', () => {

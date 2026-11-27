@@ -21,10 +21,11 @@ import { UUIDSchema } from './model.js';
  * cloud order id is the ExternalCheckNumber (one sale receipt per order) (a repeat after a lost answer resolves to the same receipt,
  * Code 14), and the outcome goes through CommerceRepository.observeFiscal like any provider event.
  *
- * The owner chose one Webkassa cashbox for the POS, the app and the kiosk (25.11). The point server
- * and this worker may therefore meet on that cashbox: a refusal is never final here, the document
- * stays queued and is tried again after REFUSED_RETRY_MS, and the same external number can never
- * become a second receipt.
+ * The cloud has its own Webkassa cashbox (owner 27.11, audit F-3): the point server never issues
+ * on it, so one sender per cashbox keeps the vendor's one-request-at-a-time rule and each side
+ * closes only its own shift. A refusal is still never final here: the document stays queued and is
+ * tried again after REFUSED_RETRY_MS, and the same external number can never become a second
+ * receipt.
  *
  * Refund receipts (audit 26.11 P0-1): a refund document is queued only once its sale receipt is
  * issued. Its ReturnBasisDetails come from commerce_webkassa_receipts (cloud 083), which this

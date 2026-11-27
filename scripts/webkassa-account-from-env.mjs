@@ -3,6 +3,10 @@
 // EDGE_WEBKASSA_ACCOUNT_FILE / WEBKASSA_ACCOUNT_FILE expect (docs/integrations/webkassa-api.md).
 // Values are never printed: the output names only the host, the cashbox and which keys were used.
 // Usage: node scripts/webkassa-account-from-env.mjs --env <file> --out <new file> [--base-url URL]
+//   [--cashbox SWK…] [--kiosk-cashbox SWK…]
+// One Webkassa account, two cashboxes (owner 27.11): the point server's file names the point
+// cashbox and, as --kiosk-cashbox, the cashbox of the app and kiosk receipts it prints; the cloud's
+// file names that second cashbox as --cashbox.
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const NAMES = {
@@ -37,13 +41,14 @@ export function parseEnv(text) {
   return values;
 }
 
-export function accountFromEnv(values, baseUrlOverride) {
+export function accountFromEnv(values, baseUrlOverride, cashboxes = {}) {
   const account = {};
   const used = {};
   for (const [field, names] of Object.entries(NAMES)) {
     const name = names.find((candidate) => values.get(candidate));
     let value = name ? values.get(name) : undefined;
     if (field === 'baseUrl') value = baseUrlOverride ?? value ?? 'https://devkkm.webkassa.kz';
+    if (field === 'cashboxUniqueNumber' && cashboxes.cashbox) value = cashboxes.cashbox;
     if (typeof value !== 'string' || !PATTERNS[field].test(value))
       throw new Error(`Webkassa ${field} missing or invalid (looked for ${names.join(', ')})`);
     account[field] = value;
@@ -52,7 +57,18 @@ export function accountFromEnv(values, baseUrlOverride) {
         ? 'default'
         : baseUrlOverride && field === 'baseUrl'
           ? '--base-url'
-          : name;
+          : field === 'cashboxUniqueNumber' && cashboxes.cashbox
+            ? '--cashbox'
+            : name;
+  }
+  if (cashboxes.kioskCashbox !== undefined) {
+    if (
+      !PATTERNS.cashboxUniqueNumber.test(cashboxes.kioskCashbox) ||
+      cashboxes.kioskCashbox === account.cashboxUniqueNumber
+    )
+      throw new Error('Webkassa kiosk cashbox invalid or the same as the point cashbox');
+    account.kioskCashboxUniqueNumber = cashboxes.kioskCashbox;
+    used.kioskCashboxUniqueNumber = '--kiosk-cashbox';
   }
   return { account, used };
 }
@@ -65,12 +81,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const envFile = arg('--env');
   const out = arg('--out');
   if (!envFile || !out) {
-    console.error('Usage: --env <file> --out <new file> [--base-url URL]');
+    console.error(
+      'Usage: --env <file> --out <new file> [--base-url URL] [--cashbox SWK…] [--kiosk-cashbox SWK…]',
+    );
     process.exit(2);
   }
   const { account, used } = accountFromEnv(
     parseEnv(readFileSync(envFile, 'utf8')),
     arg('--base-url'),
+    {
+      ...(arg('--cashbox') ? { cashbox: arg('--cashbox') } : {}),
+      ...(arg('--kiosk-cashbox') ? { kioskCashbox: arg('--kiosk-cashbox') } : {}),
+    },
   );
   writeFileSync(out, `${JSON.stringify(account)}\n`, { mode: 0o600, flag: 'wx' });
   console.log(
@@ -78,6 +100,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       written: out,
       host: new URL(account.baseUrl).host,
       cashbox: account.cashboxUniqueNumber,
+      ...(account.kioskCashboxUniqueNumber
+        ? { kioskCashbox: account.kioskCashboxUniqueNumber }
+        : {}),
       keys: used,
     }),
   );
