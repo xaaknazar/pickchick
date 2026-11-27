@@ -73,8 +73,8 @@ export class DisplayAccess {
     main.className = 'board';
     const window = displayWindow(this.items, this.page);
     for (const [label, kind, items] of [
-      ['Готовим', 'preparing', window.preparing],
-      ['Готово', 'ready', window.ready],
+      ['Готовится', 'preparing', window.preparing],
+      ['Готов к выдаче', 'ready', window.ready],
     ] as const) {
       const section = document.createElement('section');
       section.className = kind;

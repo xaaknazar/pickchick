@@ -2052,6 +2052,14 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
   color: #ffb08a;
   min-width: 3ch;
 }
+#send-now {
+  min-height: 56px;
+  padding: 10px 18px;
+  font-size: 17px;
+  background: transparent;
+  border-color: #ffffff55;
+  color: #fff;
+}
 #undo {
   min-height: 56px;
   padding: 10px 24px;

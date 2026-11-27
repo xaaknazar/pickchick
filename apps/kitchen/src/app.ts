@@ -109,7 +109,7 @@ function undoHeld() {
 }
 const undoBar = () =>
   held
-    ? `<aside class="undo-bar" role="status"><span>${escape(actionLabel[held.body.action])} · заказ ${escape(held.number || '-')}</span><span id="undo-count">${Math.max(0, Math.ceil((held.until - Date.now()) / 1000))} с</span><button id="undo" type="button">↶ Вернуть</button></aside>`
+    ? `<aside class="undo-bar" role="status"><span>${escape(actionLabel[held.body.action])} · заказ ${escape(held.number || '-')}</span><span id="undo-count">${Math.max(0, Math.ceil((held.until - Date.now()) / 1000))} с</span><button id="undo" type="button">↶ Вернуть</button><button id="send-now" type="button">Отправить сейчас</button></aside>`
     : '';
 /** «Нет связи 20 сек», «Нет связи 2 мин». */
 const lostFor = (ms: number) => {
@@ -623,7 +623,7 @@ function render() {
             `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
         )
         .join('') || '<p>Новых заказов пока нет</p>'
-    }</div></section><section class="ready"><h2>✓ ГОТОВО</h2><div class="numbers">${
+    }</div></section><section class="ready"><h2>✓ ГОТОВ К ВЫДАЧЕ</h2><div class="numbers">${
       board.ready
         .map(
           (o) =>
@@ -665,6 +665,7 @@ function render() {
     t?.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = true));
   }
   document.getElementById('undo')?.addEventListener('click', undoHeld);
+  document.getElementById('send-now')?.addEventListener('click', sendHeld);
   document.getElementById('demo-add')?.addEventListener('click', () => {
     if (demo) {
       demoNotice = demo.add() ? 'Добавлен новый заказ' : 'Очередь заполнена. Сбросьте демо.';

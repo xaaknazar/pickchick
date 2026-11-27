@@ -171,7 +171,8 @@ with sync_playwright() as p:
     assert posts == [], posts
     expect(ticket).to_be_visible()
     activate(ticket.get_by_role('button',name='Подтвердить выдачу'))
-    expect(ticket).to_have_count(0, timeout=12000)
+    activate(page.locator('#send-now'))
+    expect(ticket).to_have_count(0)
     assert len(posts) == 1, posts
     page.evaluate("localStorage.setItem('pickchick.kitchen.undoMs','0')")
     # A transport outage leaves stale data explicit and does not invent success.
