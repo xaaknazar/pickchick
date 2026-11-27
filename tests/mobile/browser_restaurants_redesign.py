@@ -122,7 +122,7 @@ def check_layout(page, state):
     assert 130 < pin['y'] + 55 < 170, pin
     drop = page.get_by_test_id('branch-pin-drop-' + BRANCH).evaluate(
         'element => getComputedStyle(element).backgroundColor')
-    assert drop == ('rgb(255, 105, 0)' if state == 'open' else 'rgba(147, 166, 201, 0.7)'), drop
+    assert drop == ('rgb(255, 105, 0)' if state == 'open' else 'rgba(152, 162, 179, 0.7)'), drop  # muted #98A2B3 at B3
 
 
 with sync_playwright() as p:

@@ -197,6 +197,14 @@ export type TerminalAttempt = {
 /** Kaspi: /v2/status about once a second, /v2/actualize no more often than every 10 s. */
 export const TERMINAL_POLL_MS = 1000;
 export const TERMINAL_ACTUALIZE_MS = 10000;
+/**
+ * Audit 23.11 #1: how long a payment may stay in `wait` without a single status answer from
+ * the terminal (power or LAN lost, the link gone) before it becomes `unknown`: the phase the
+ * terminal itself leads to when it cannot tell, which keeps asking (/v2/actualize), lets staff
+ * reset the kiosk and goes to the manager's review. Never a result: nothing is paid, failed
+ * or sent to the kitchen by this time alone. Any status answer starts the time again.
+ */
+export const TERMINAL_SILENT_MS = 5 * 60000;
 /** The staff terminal setup stays open this long after the staff code. */
 export const TERMINAL_SETUP_MS = 10 * 60000;
 const TERMINAL_PHASES: TerminalPhase[] = [
@@ -756,6 +764,58 @@ const transient = (error: unknown) =>
   error.code === 'API_UNAVAILABLE' ||
   error.status >= 500;
 
+/** Structural equality of plain snapshot values; the same reference is equal at once. */
+const sameValue = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (!isObject(a) && !Array.isArray(a)) return false;
+  if (!isObject(b) && !Array.isArray(b)) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every((key) => key in right && sameValue(left[key], right[key]))
+  );
+};
+/** The catalog and the open product are replaced as a whole: their identity is what counts. */
+const SNAPSHOT_BY_IDENTITY = ['catalog', 'selectedProduct'];
+const sameSnapshot = (a: KioskState, b: KioskState) => {
+  const left = a as unknown as Record<string, unknown>;
+  const right = b as unknown as Record<string, unknown>;
+  const keys = Object.keys(right);
+  return (
+    keys.length === Object.keys(left).length &&
+    SNAPSHOT_BY_IDENTITY.every((key) => left[key] === right[key]) &&
+    keys.every((key) => SNAPSHOT_BY_IDENTITY.includes(key) || sameValue(left[key], right[key]))
+  );
+};
+
+/**
+ * Audit 23.11 #2 (review): the controller that owns each storage. The app's error boundary
+ * mounts the app again and builds a new controller on the same storage while the old one may
+ * still be in the middle of a payment step. Building a controller on a storage retires the
+ * previous one: from then on it reads and writes nothing, starts no cloud request and no
+ * terminal call and tells no listener, so only one controller ever drives a stored payment.
+ * A request it had already sent may still finish; its answer is not saved, and the new
+ * controller restores the stored flow as after an app restart (a payment marked `sending` is
+ * never sent again). Keyed by the IO object: controllers on different storages are unrelated.
+ */
+const owners = new WeakMap<object, { retired: boolean }>();
+/** `io` with every asynchronous call refused once `retired`; `now` and `uuid` stay. */
+const fenced = <T extends object>(io: T, owner: { retired: boolean }): T =>
+  new Proxy(io, {
+    get(target, key) {
+      const value: unknown = Reflect.get(target, key);
+      if (typeof value !== 'function') return isObject(value) ? fenced(value, owner) : value;
+      const call = value as (...args: unknown[]) => unknown;
+      return (...args: unknown[]) =>
+        owner.retired && key !== 'now' && key !== 'uuid'
+          ? Promise.reject(new KioskError('QUIET'))
+          : call.apply(target, args);
+    },
+  });
+
 /** Commercial guest flow has separate storage and cannot invoke simulated payments. */
 export class CommercialKioskController {
   private current: Flow;
@@ -807,6 +867,8 @@ export class CommercialKioskController {
   private ending = false;
   /** When this kiosk first showed the QR of an order (memory only; a restart counts as long ago). */
   private qrSeen: { orderId: string; at: number } | null = null;
+  /** The QR (order, expiry, expired or not) the screen was last told about; see `tick`. */
+  private qrClock: string | null = null;
   private staffError: StaffPinError | null = null;
   private staffFailures = 0;
   private staffLockedUntil = 0;
@@ -820,6 +882,17 @@ export class CommercialKioskController {
   private terminalOffline = false;
   /** The terminal's latest subStatus while waiting (memory only). */
   private terminalSub: string | null = null;
+  /**
+   * The waiting process and when its unanswered status reads began (see TERMINAL_SILENT_MS).
+   * Memory only: after a restart the time starts again with the first unanswered read.
+   */
+  /**
+   * The cloud said another kiosk holds the linked terminal while a payment was open on it: the
+   * link stays only to read that payment's result (see `putTerminal`, `save`). Memory only:
+   * after a restart the cloud refuses a new attempt itself (KIOSK_TERMINAL_NOT_LINKED).
+   */
+  private terminalTaken = false;
+  private terminalSilent: { processId: string; since: number } | null = null;
   /**
    * Owner 22.11.2026: «Отменить или изменить заказ» opens the cart at once while the terminal
    * still holds the payment. Kaspi Smart POS has no cancel command (API v2: register, revoke,
@@ -842,7 +915,13 @@ export class CommercialKioskController {
   private listeners = new Set<() => void>();
   private view: KioskState;
   private io: CommercialKioskIO;
-  constructor(io: CommercialKioskIO) {
+  /** Set when a newer controller took over this one's storage (see `owners`). */
+  private owner = { retired: false };
+  constructor(source: CommercialKioskIO) {
+    const previous = owners.get(source);
+    if (previous) previous.retired = true;
+    owners.set(source, this.owner);
+    const io = fenced(source, this.owner);
     this.io = io;
     if (io.terminal) {
       this.terminalSession = new TerminalSession(
@@ -990,7 +1069,12 @@ export class CommercialKioskController {
         (this.current.resetPending && !this.pending()) ||
         // ADR-0018: a terminal payment that never started, or whose result only the terminal
         // and the manager can tell (lost, unknown): staff checks the terminal and resets.
-        ['request', 'send_failed', 'lost', 'unknown'].includes(this.current.terminal?.phase ?? ''))
+        ['request', 'send_failed', 'lost', 'unknown'].includes(
+          this.current.terminal?.phase ?? '',
+        ) ||
+        // Audit 23.11 #1: the terminal said `fail` (no money moved) and the cloud cannot be
+        // told (no WAN). The cloud moves its open attempt to review by itself after 15 minutes.
+        (this.current.terminal?.phase === 'fail' && !this.current.terminal.reported))
     );
   }
   private snapshot(): KioskState {
@@ -1093,7 +1177,10 @@ export class CommercialKioskController {
   private terminalActive() {
     const link = this.terminalSession?.current();
     return (
-      !!link && !!this.terminalConfig?.enabled && this.terminalConfig.terminalId === link.terminalId
+      !!link &&
+      !this.terminalTaken &&
+      !!this.terminalConfig?.enabled &&
+      this.terminalConfig.terminalId === link.terminalId
     );
   }
   private terminalView(): TerminalPaymentView | null {
@@ -1156,8 +1243,17 @@ export class CommercialKioskController {
       enabled: !!this.terminalConfig?.enabled,
     };
   }
-  private emit() {
-    this.view = this.snapshot();
+  /**
+   * Publishes the state to the screen. Audit 23.11 #6: the background loops (the 1 s idle tick,
+   * the 1 s terminal poll, every background reload) end here, so listeners are told only when
+   * the snapshot differs from the one they have; an unchanged one keeps its identity. `force`
+   * is for a change the snapshot does not carry (the clock passing a QR's expiry).
+   */
+  private emit(force = false) {
+    if (this.owner.retired) return;
+    const next = this.snapshot();
+    if (!force && sameSnapshot(this.view, next)) return;
+    this.view = next;
     for (const fn of this.listeners) fn();
   }
   private async save(next: Flow) {
@@ -1178,6 +1274,14 @@ export class CommercialKioskController {
     if (!next.terminal) delete stored.terminal;
     await this.io.writeFlow(JSON.stringify(stored));
     this.current = { ...next, abandoned };
+    // The payment that needed the taken terminal's link is over: the link goes now.
+    if (this.terminalTaken && !next.terminal)
+      try {
+        await this.terminalSession?.forget();
+        this.terminalTaken = false;
+      } catch {
+        // Kept as taken (no new payment goes to it); the next save tries again.
+      }
   }
   private setError(code: KioskErrorCode | null) {
     this.errorCode = code;
@@ -1220,6 +1324,7 @@ export class CommercialKioskController {
    * marks the kiosk busy, and a transient failure of it stays silent: the poll simply retries.
    */
   private async run(fn: () => Promise<void>, unready = false, background = false) {
+    if (this.owner.retired) return false;
     if (this.busy || (!this.ready && !unready) || (background && this.backgroundTask)) return false;
     if (!background) {
       this.busy = true;
@@ -1436,6 +1541,7 @@ export class CommercialKioskController {
    * A fresh body after a stale one gives checkout back at once (the last `/config` decides).
    */
   watchAvailability = async (): Promise<AvailabilityWatch> => {
+    if (this.owner.retired) return 'idle';
     if (!this.io.read) return 'unsupported';
     if (
       !this.ready ||
@@ -2245,10 +2351,23 @@ export class CommercialKioskController {
       // 101: the terminal no longer knows the process; only actualize and staff can tell.
       if (answer.kind === 'refused' && answer.statusCode === 101 && a.phase === 'wait')
         await this.saveTerminal({ ...a, phase: 'unknown', actualizedAt: 0 });
-      else if (actualize) await this.saveTerminal({ ...a, ...stamp });
+      else if (a.phase === 'wait') {
+        // Audit 23.11 #1: no status answer at all for too long (the terminal is off, out of
+        // the network, unlinked, or refuses every read). Only the terminal can tell the result,
+        // so the payment is `unknown` from here on: asked again with actualize, never decided.
+        const silent =
+          this.terminalSilent?.processId === a.processId
+            ? this.terminalSilent
+            : (this.terminalSilent = { processId: a.processId!, since: this.io.now() });
+        if (this.io.now() - silent.since >= TERMINAL_SILENT_MS) {
+          this.terminalSilent = null;
+          await this.saveTerminal({ ...a, phase: 'unknown', actualizedAt: 0 });
+        }
+      } else if (actualize) await this.saveTerminal({ ...a, ...stamp });
       return false;
     }
     this.terminalOffline = false;
+    this.terminalSilent = null;
     const data = answer.data;
     const subStatus =
       typeof data.subStatus === 'string' && /^[A-Za-z]{1,40}$/.test(data.subStatus)
@@ -2362,7 +2481,7 @@ export class CommercialKioskController {
   }
   /** One background step of the terminal payment; the screen calls it every second. */
   pollTerminal = async (): Promise<boolean> => {
-    if (!this.ready || this.busy || this.backgroundTask) return false;
+    if (this.owner.retired || !this.ready || this.busy || this.backgroundTask) return false;
     // The terminal is free again: the changed order goes to payment at once.
     if (this.afterEdit === 'pay' && !this.terminalEdit) return this.payChangedOrder();
     const a = this.current.terminal;
@@ -2743,7 +2862,11 @@ export class CommercialKioskController {
     } catch (error) {
       if (error instanceof KioskError && error.code === 'KIOSK_TERMINAL_TAKEN') {
         // One terminal, one kiosk: this iPad does not keep a terminal another kiosk holds.
-        await session.forget();
+        // Audit 23.11 #1: except under a payment (the terminal moved to a new address while it
+        // ran): its result can only be read through this link. No new payment goes to it
+        // meanwhile, and the link is dropped once that payment is over (`save`).
+        if (!this.current.terminal) await session.forget();
+        else this.terminalTaken = true;
         return 'taken';
       }
       return 'cloud';
@@ -2914,7 +3037,8 @@ export class CommercialKioskController {
    * abandoned guest's token: never a quote, an order read or a payment.
    */
   endAbandoned = async (): Promise<void> => {
-    if (!this.initialized || this.ending || !this.current.abandoned.length) return;
+    if (this.owner.retired || !this.initialized || this.ending || !this.current.abandoned.length)
+      return;
     this.ending = true;
     try {
       const now = this.io.now();
@@ -3022,12 +3146,25 @@ export class CommercialKioskController {
     this.emit();
   };
   tick = async () => {
+    if (this.owner.retired) return;
     // Abandoned guests are ended alongside, never awaited: the next guest does not wait.
     if (this.current.abandoned.length) void this.endAbandoned();
-    if (!this.ready || this.busy || this.step === 'start') return;
+    if (!this.ready || this.busy) return;
+    // Audit 23.11 #7: the staff terminal setup left open (also on the start screen, which has
+    // no idle reset) closes when its time is up, and the screen is told.
+    if (this.setupUntil && !this.setupOpen()) this.closeTerminalSetup();
+    if (this.step === 'start') return;
     const elapsed = this.io.now() - this.current.lastActivityAt;
     if (this.unsafe() || this.current.order) {
-      if (this.current.order?.payment?.kind === 'kaspi_qr') this.emit();
+      // The payment screen hides an expired QR by its own clock, so it is told once when the
+      // expiry passes; «Начать заново» turning to the staff code changes the snapshot itself.
+      const qr = this.current.order?.payment;
+      if (qr?.kind === 'kaspi_qr') {
+        const expired = !!qr.expiresAt && Date.parse(qr.expiresAt) <= this.io.now();
+        const key = `${this.current.order!.orderId}:${qr.expiresAt ?? ''}:${expired}`;
+        this.emit(key !== this.qrClock);
+        this.qrClock = key;
+      }
       if (elapsed >= KIOSK_IDLE_MS && this.phone) {
         this.phone = '';
         this.emit();

@@ -6,6 +6,9 @@ import {
   POS_CONFIG_MISSING_MS,
   POS_CONFIG_POLL_MS,
   PosController,
+  STOPS_STALE_FAILURES,
+  STOPS_STALE_MS,
+  connectionLabel,
   approvalQuoteSpare,
   closeSubject,
   fiscalSubject,
@@ -23,8 +26,17 @@ import {
   paidDayStats,
   printMessage,
   refundTicket,
+  WEBKASSA_WAIT_MS,
 } from '../../apps/pos/dist/v2/ops-view.js';
-import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
+import { RECEIPT_READS, parseBranchOrders } from '../../apps/pos/dist/model.js';
+import {
+  MAX_RANGE_DAYS,
+  monthGrid,
+  normalizeRange,
+  quickRanges,
+  rangeLabel,
+  stepRange,
+} from '../../apps/pos/dist/v2/day-range.js';
 import { ordersDay, receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   DESK_MODE_KEY,
@@ -385,6 +397,111 @@ test('late operations reads cannot overwrite a newer authoritative shift count',
   assert.equal(model.state.shift.order_count, 138);
 });
 
+test('a failed background stop poll never replaces the error of an action; a lost session signs out', async () => {
+  const f = fixture();
+  let stops = () => ({ stops: [{ variant_id: f.item.variant_id, stopped: true, version: 3 }] });
+  const api = async (...args) => (args[0] === 'availability/stops' ? stops() : f.api(...args));
+  const model = new PosController(api, memory(), memory(), randomUUID);
+  await model.login(JSON.stringify(f.credential));
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true);
+  // The poll fails while the cashier looks at the result of an action.
+  const action = new Error('ACTION_RESULT');
+  model.state.error = action;
+  const down = new ApiError('EDGE_UNREACHABLE', 0);
+  stops = () => {
+    throw down;
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.error, action, 'the poll keeps its failure to itself');
+  assert.equal(model.stopsError, down);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true, 'the last list is kept');
+  assert.ok(model.state.actor);
+  // The same failure of a read the cashier asked for is shown, as before.
+  await model.refreshStops();
+  assert.equal(model.state.error, down);
+  // A good poll clears the record.
+  stops = () => ({ stops: [] });
+  await model.refreshStops(true);
+  assert.equal(model.stopsError, null);
+  assert.equal(model.state.stops.size, 0);
+  // A lost session is never kept quiet.
+  stops = () => {
+    throw new ApiError('UNAUTHORIZED', 401);
+  };
+  await model.refreshStops(true);
+  assert.equal(model.state.actor, null);
+  assert.equal(model.state.error.code, 'UNAUTHORIZED');
+});
+
+test('a stop poll that keeps failing marks the stop-list as out of date in the header; a good read clears it', async () => {
+  const f = fixture();
+  let clock = 1_000_000,
+    stops = () => ({ stops: [{ variant_id: f.item.variant_id, stopped: true, version: 3 }] });
+  const api = async (...args) => (args[0] === 'availability/stops' ? stops() : f.api(...args));
+  const model = new PosController(
+    api,
+    memory(),
+    memory(),
+    randomUUID,
+    undefined,
+    undefined,
+    () => clock,
+  );
+  await model.login(JSON.stringify(f.credential));
+  await model.refreshOperations();
+  const header = () => connectionLabel({ ...model.state, stopsStale: model.stopsStale });
+  let draws = 0;
+  model.subscribe(() => (draws += 1));
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  assert.deepEqual(header(), { label: 'Локальная сеть', tone: 'ok' });
+  // Only the stop-list read fails; operations still answer.
+  stops = () => {
+    throw new ApiError('EDGE_TIMEOUT', 0);
+  };
+  for (let i = 1; i < STOPS_STALE_FAILURES; i++) {
+    clock += 3000;
+    draws = 0;
+    await model.refreshStops(true);
+    assert.equal(model.stopsStale, false, 'a short hiccup is not shown');
+    assert.equal(draws, 0);
+  }
+  clock += 3000;
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, true);
+  assert.equal(draws, 1, 'the header is redrawn once when it changes');
+  assert.deepEqual(header(), { label: 'Стоп-лист не обновляется', tone: 'warn' });
+  assert.equal(model.state.error, null);
+  assert.equal(model.state.stops.get(f.item.variant_id).stopped, true, 'the last list is kept');
+  await model.refreshStops(true);
+  assert.equal(draws, 1, 'no redraw per failed poll');
+  // The next good answer clears it.
+  stops = () => ({ stops: [] });
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  assert.deepEqual(header(), { label: 'Локальная сеть', tone: 'ok' });
+  // One slow failure long after the last good answer is enough.
+  stops = () => {
+    throw new ApiError('EDGE_TIMEOUT', 0);
+  };
+  clock += STOPS_STALE_MS - 1;
+  await model.refreshStops(true);
+  assert.equal(model.stopsStale, false);
+  clock += 1;
+  assert.equal(model.stopsStale, true);
+  // Time alone made it stale: the next failed poll redraws the header.
+  draws = 0;
+  await model.refreshStops(true);
+  assert.equal(draws, 1);
+  // No connection to the cashier server at all is still the red line.
+  assert.deepEqual(
+    connectionLabel({ ...model.state, operationsError: new Error('x'), stopsStale: true }),
+    { label: 'Нет связи с кассой', tone: 'down' },
+  );
+});
+
 test('oversized modifier drafts leave the last recoverable journal intact', async () => {
   const f = fixture(),
     sessions = memory(),
@@ -621,6 +738,10 @@ function saleEdge({
     closed: null,
     reportOverride: null,
     drawerTaken: 0n,
+    // Automatic Webkassa answers (receiptId, withPrint) => body; null: manual point (404).
+    webkassa: null,
+    // Kiosk receipts of the day ({list, forms}); null: manual point (404).
+    kiosk: null,
   };
   const quoteFor = (body) => {
     const unit = body.sales_channel ? channelPrice : state.price;
@@ -797,6 +918,23 @@ function saleEdge({
             }
         throw new ApiError('NOT_FOUND', 404);
       });
+    {
+      if (path === 'pos/kiosk-receipts') {
+        if (!state.kiosk) throw new ApiError('NOT_FOUND', 404);
+        return { receipts: state.kiosk.list };
+      }
+      const kiosk = path.match(/^pos\/kiosk-receipts\/([0-9a-f-]+)\/print$/);
+      if (kiosk) {
+        const form = state.kiosk?.forms[kiosk[1]];
+        if (!form) throw new ApiError('NOT_FOUND', 404);
+        return form;
+      }
+      const auto = path.match(/^pos\/fiscal-receipts\/([0-9a-f-]+)\/webkassa(\/print)?$/);
+      if (auto) {
+        if (!state.webkassa) throw new ApiError('NOT_FOUND', 404);
+        return state.webkassa(auto[1], Boolean(auto[2]));
+      }
+    }
     if (path.startsWith('pos/fiscal-receipts/pending')) {
       const shift = new URL(path, 'http://edge.invalid/').searchParams.get('shift_id');
       return { receipts: pendingReceipts(shift) };
@@ -3811,7 +3949,7 @@ function printerBridge(answers = {}) {
   };
 }
 /** SaleView and OpsView wired as in app.js: the sale hands its drawer and ticket to ops. */
-function wiredScreens(model, printer) {
+function wiredScreens(model, printer, extra = {}) {
   const said = [];
   const guard =
     (fn) =>
@@ -3830,7 +3968,7 @@ function wiredScreens(model, printer) {
       view.reset();
     },
     onSold: (paid) => ops.sold(paid),
-    printOrder: () => ops.printOrder(),
+    printOrder: () => ops.donePrint(),
   });
   ops = new OpsView(model, view, {
     onChange: () => {},
@@ -3844,6 +3982,7 @@ function wiredScreens(model, printer) {
     endSession: () => {},
     printer,
     terminalLabel: 'Тестовая точка',
+    ...extra,
   });
   return { view, ops, said };
 }
@@ -3852,6 +3991,204 @@ async function payOnScreen(view, method, cash) {
   await view.values().salePayConfirm();
   assert.equal(view.values().isSaleDone, true);
 }
+
+test('screens: automatic Webkassa prints the fiscal receipt with its QR once it is issued', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const qr = Array.from({ length: 21 }, (_, i) => (i % 2 ? '1' : '0').repeat(21));
+  const asked = [];
+  let tries = 0;
+  edge.edge.webkassa = (id, withPrint) => {
+    asked.push([id, withPrint]);
+    tries++;
+    const sale = [...edge.edge.sales.values()][0];
+    const receipt = sale.fiscal.find((f) => f.receipt_id === id);
+    if (tries < 3)
+      return {
+        receiptId: id,
+        state: 'pending',
+        receiptNumber: null,
+        error: tries === 2 ? { code: 13, text: 'Нет открытой смены' } : null,
+        attempts: tries,
+        print: null,
+      };
+    Object.assign(receipt, { state: 'recorded', receipt_number: '132524690', version: 2 });
+    return {
+      receiptId: id,
+      state: 'recorded',
+      receiptNumber: '132524690',
+      error: null,
+      attempts: 3,
+      print: withPrint
+        ? [
+            { order: 1, type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+            { order: 2, type: 1, value: 'logo', style: 0 },
+            { order: 3, type: 2, value: 'https://consumer.oofd.kz?i=1', style: 0, qr },
+            { order: 4, type: 0, value: 'ФП 132524690', style: 7 },
+          ]
+        : null,
+    };
+  };
+  const slept = [];
+  const { view, ops, said } = wiredScreens(model, printer, {
+    sleep: async (ms) => slept.push(ms),
+    clock: () => 0,
+  });
+  await reviewed(model, edge, 'takeaway');
+  await payOnScreen(view, 'cash', '10000');
+  await ops.autoFiscal;
+  const receiptId = [...edge.edge.sales.values()][0].fiscal[0].receipt_id;
+  assert.deepEqual(asked, [
+    [receiptId, false],
+    [receiptId, false],
+    [receiptId, false],
+    [receiptId, true],
+  ]);
+  assert.deepEqual(slept, [2000, 2000]);
+  assert.equal(said[0], 'Webkassa не приняла чек: Нет открытой смены. Точка повторит сама');
+  assert.equal(printer.calls.length, 2, 'drawer, then the fiscal receipt');
+  const ticket = printer.calls[1][1];
+  // The branded receipt (26.11): the order number and lines of this very sale ride along.
+  const { receipt, ...form } = ticket;
+  assert.equal(receipt.display_number, model.state.sale.display_number);
+  assert.deepEqual(
+    receipt.lines.map((l) => l.name),
+    model.state.order.snapshot.lines.map((l) => l.name.ru),
+  );
+  assert.equal(receipt.pickup_text, pickupText(model.state.sale));
+  assert.deepEqual(
+    { ...form, printed_at: 'x' },
+    {
+      kind: 'fiscal',
+      fiscal_lines: [
+        { type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+        { type: 2, value: 'https://consumer.oofd.kz?i=1', style: 0, qr },
+        { type: 0, value: 'ФП 132524690', style: 0 },
+      ],
+      printed_at: 'x',
+      terminal_label: 'Тестовая точка',
+    },
+  );
+  assert.deepEqual(parseTicket(ticket), { ...ticket, title: 'Фискальный чек' });
+  assert.equal(model.state.webkassaAuto, true);
+  assert.equal(model.state.sale.fiscal[0].state, 'recorded', 'the sale was read again');
+  assert.equal(view.orderValues(legacyValues).kkmLine, 'Чеки: Webkassa автоматически');
+  // «Печать чека» of the done screen repeats the branded fiscal receipt, no second short slip.
+  await view.values().saleDonePrint();
+  assert.equal(printer.calls.at(-1)[1].kind, 'fiscal');
+  assert.equal(printer.calls.at(-1)[1].receipt.display_number, model.state.sale.display_number);
+  // «Чек» of the order card prints the fiscal receipt again, not the order ticket.
+  await ops.printReceipt(model.state.sale.order_id);
+  assert.equal(printer.calls.at(-1)[1].kind, 'fiscal');
+});
+
+test('screens: a manual point (404) prints nothing by itself; a slow Webkassa gives up once', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, ops, said } = wiredScreens(model, printer);
+  await reviewed(model, edge, 'takeaway');
+  await payOnScreen(view, 'cash', '10000');
+  await ops.autoFiscal;
+  assert.deepEqual(printer.calls, [['drawer']]);
+  assert.deepEqual(said, []);
+  assert.equal(model.state.webkassaAuto, false);
+  assert.equal(view.orderValues(legacyValues).kkmLine, 'Чеки: вручную в Webkassa');
+
+  const slow = saleEdge();
+  const model2 = await saleCashier(slow);
+  let now = 0;
+  slow.edge.webkassa = (id) => ({
+    receiptId: id,
+    state: 'pending',
+    receiptNumber: null,
+    error: null,
+    attempts: 1,
+    print: null,
+  });
+  const printer2 = printerBridge();
+  const screens = wiredScreens(model2, printer2, {
+    sleep: async (ms) => {
+      now += ms;
+    },
+    clock: () => now,
+  });
+  await reviewed(model2, slow, 'takeaway');
+  await payOnScreen(screens.view, 'cash', '10000');
+  await screens.ops.autoFiscal;
+  assert.ok(now >= WEBKASSA_WAIT_MS);
+  assert.deepEqual(printer2.calls, [['drawer']]);
+  assert.deepEqual(screens.said, [
+    'Чек Webkassa ещё не готов: точка пришлёт его сама, печать из карточки заказа',
+  ]);
+});
+
+test('screens: kiosk receipts print once on this desk; a restarted desk skips the backlog', async () => {
+  const edge = saleEdge();
+  const storage = memory();
+  const model = await saleCashier(edge, storage);
+  const printer = printerBridge();
+  let now = Date.parse('2026-11-25T10:00:00Z');
+  const { ops, said } = wiredScreens(model, printer, { clock: () => now });
+  // A manual point: one 404, then quiet for 5 minutes.
+  await ops.kioskTick();
+  await ops.kioskTick();
+  assert.equal(edge.calls.filter((c) => c.path === 'pos/kiosk-receipts').length, 1);
+  const qr = Array.from({ length: 21 }, () => '0'.repeat(21));
+  const old = randomUUID(),
+    fresh = randomUUID(),
+    later = randomUUID();
+  const at = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
+  edge.edge.kiosk = {
+    list: [
+      { order_id: fresh, display_number: '31', created_at: at(1) },
+      { order_id: old, display_number: '12', created_at: at(60) },
+    ],
+    forms: {
+      [fresh]: {
+        order_id: fresh,
+        display_number: '31',
+        print: [
+          { order: 1, type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+          { order: 2, type: 2, value: 'https://consumer.oofd.kz?i=2', style: 0, qr },
+        ],
+      },
+    },
+  };
+  now += 6 * 60_000;
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 1, 'only the fresh order; the hour-old one is backlog');
+  assert.deepEqual(printer.calls[0][1].receipt, {
+    display_number: '31',
+    lines: [],
+    pickup_text: 'Заказ из киоска',
+  });
+  assert.deepEqual(printer.calls[0][1].fiscal_lines, [
+    { type: 0, value: 'PICK CHICK ALA AP', style: 1 },
+    { type: 2, value: 'https://consumer.oofd.kz?i=2', style: 0, qr },
+  ]);
+  assert.equal(said.at(-1), 'Отправлено на печать');
+  // Printed once: the next pass prints nothing; a form not ready yet waits for the next pass.
+  edge.edge.kiosk.list.unshift({ order_id: later, display_number: '32', created_at: at(0) });
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 1);
+  edge.edge.kiosk.forms[later] = {
+    ...edge.edge.kiosk.forms[fresh],
+    order_id: later,
+    display_number: '32',
+  };
+  await ops.kioskTick();
+  assert.equal(printer.calls.length, 2);
+  assert.equal(printer.calls[1][1].receipt.display_number, '32');
+  // A restarted desk takes what is older than a few minutes as handled.
+  for (const r of edge.edge.kiosk.list) r.created_at = at(5);
+  const again = await saleCashier(edge, storage);
+  const other = printerBridge();
+  const screens = wiredScreens(again, other, { clock: () => now });
+  await screens.ops.kioskTick();
+  assert.deepEqual(other.calls, []);
+});
 
 test('screens: a cash sale opens the drawer once; the done screen prints the order ticket', async () => {
   const edge = saleEdge();
@@ -4634,4 +4971,440 @@ test('web POS publishes the app version for the lock screen only when it is give
       await new Promise((resolve) => pos.close(resolve));
     }
   }
+});
+
+// ADR-0017: the amount goes to the Kaspi Smart POS of this desk; its success makes the sale.
+function terminalEdge() {
+  const base = saleEdge({ config: { ...posConfigFor(), kaspi_terminal_link: true } });
+  const terminal = { attempts: new Map(), next: [], posts: [] };
+  const api = async (path, auth, options = {}) => {
+    if (path === 'pos/terminal-payments' && options.method === 'POST') {
+      base.calls.push({ path, ...globalThis.structuredClone(options) });
+      terminal.posts.push(globalThis.structuredClone(options));
+      assert.ok(options.key, 'sent with an Idempotency-Key');
+      const attempt = {
+        attempt_id: randomUUID(),
+        quote_id: options.body.quote_id,
+        terminal_id: randomUUID(),
+        amount_minor: options.body.amount_minor,
+        state: 'wait',
+        sub_status: null,
+        transaction_id: null,
+        payment_method: null,
+        message: null,
+        order_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      terminal.attempts.set(attempt.attempt_id, attempt);
+      return attempt;
+    }
+    if (path === 'pos/terminal-payments/open') return { items: terminal.open ?? [] };
+    if (path.startsWith('pos/terminal-payments/')) {
+      base.calls.push({ path, ...globalThis.structuredClone(options) });
+      const attempt = terminal.attempts.get(path.split('/')[2]);
+      if (!attempt) throw new ApiError('NOT_FOUND', 404);
+      const step = terminal.next.shift();
+      if (step) Object.assign(attempt, step);
+      return attempt;
+    }
+    if (path === 'pos/sales' && options.method === 'POST') {
+      for (const t of options.body.tenders)
+        if (t.attempt_id) {
+          const attempt = terminal.attempts.get(t.attempt_id);
+          assert.equal(attempt.state, 'success', 'only a paid attempt is sold');
+          assert.equal(attempt.quote_id, options.body.quote_id);
+        }
+    }
+    return base.api(path, auth, options);
+  };
+  return { ...base, api, terminal };
+}
+
+test('Kaspi terminal linked: send the amount, poll, success sells without a tap', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const model = await saleCashier(edge, storage);
+  assert.equal(model.state.posConfig.kaspi_terminal_link, true);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.deepEqual(
+    edge.terminal.posts.map((p) => p.body),
+    [{ quote_id: quote.quote_id, amount_minor: quote.total_minor }],
+  );
+  assert.equal(model.state.terminal.state, 'wait');
+  assert.equal(model.terminalHold, true);
+  // While the terminal decides the cart stays as it is and no second amount is sent.
+  model.quantity(edge.item.variant_id, 2);
+  assert.equal(model.state.error.message, 'TERMINAL_IN_PROGRESS');
+  await model.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 1);
+  assert.equal(edge.edge.posts.length, 0);
+  // Still waiting: nothing is sold.
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 0);
+  edge.terminal.next.push({ state: 'success', transaction_id: '1234567890', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  assert.deepEqual(posted(edge), [
+    {
+      quote_id: quote.quote_id,
+      service_mode_confirmed: true,
+      order_repeated: true,
+      tenders: [
+        {
+          method: 'kaspi_terminal',
+          amount_minor: quote.total_minor,
+          attempt_id: attempt.attempt_id,
+        },
+      ],
+    },
+  ]);
+  assert.equal(model.state.pending, null);
+  assert.ok(model.state.sale, 'the sale is made, so the kitchen gets the order');
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.terminalHold, false);
+});
+
+test('Kaspi terminal linked: a declined or undelivered amount is sent again only by the cashier', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'dine_in');
+  await model.sendToTerminal();
+  edge.terminal.next.push({ state: 'fail', message: 'Операция отклонена' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal.state, 'fail');
+  assert.equal(model.terminalHold, false);
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 0, 'a declined amount never sells');
+  assert.equal(
+    edge.calls.filter((c) => c.path.startsWith('pos/terminal-payments/')).length,
+    1,
+    'a finished attempt is not asked again',
+  );
+  await model.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 2);
+  // Lost answer: the screen falls back to the manual confirmation; nothing is resent.
+  edge.terminal.next.push({ state: 'lost' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal.state, 'lost');
+  assert.equal(edge.terminal.posts.length, 2);
+  // A stale or foreign attempt id is refused before anything is sent.
+  await model.sell({ method: 'kaspi_terminal', attempt_id: randomUUID() });
+  assert.equal(model.state.error.message, 'TERMINAL_ATTEMPT_INVALID');
+  assert.equal(edge.edge.posts.length, 0);
+  model.dismissTerminal();
+  assert.equal(model.state.terminal, null);
+});
+
+test('Kaspi terminal linked: a restart while the guest pays finds the amount and sells it (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const first = await saleCashier(edge, storage);
+  await reviewed(first, edge, 'takeaway');
+  const quote = first.state.quote;
+  await first.sendToTerminal();
+  assert.equal(first.terminalHold, true);
+  // The cashier cannot lock the desk while the amount is on the terminal.
+  first.logout();
+  assert.equal(first.state.error.message, 'TERMINAL_IN_PROGRESS');
+  assert.ok(first.state.actor);
+  // The window crashes: a new controller on the same journal, same desk and cashier.
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.error, null, String(second.state.error));
+  assert.equal(second.state.terminal?.state, 'wait');
+  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.reviewed, true);
+  assert.equal(second.terminalHold, true);
+  // Never a second amount for the same order.
+  await second.sendToTerminal();
+  assert.equal(edge.terminal.posts.length, 1);
+  edge.terminal.next.push({ state: 'success', transaction_id: '777', payment_method: 'qr' });
+  await second.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  assert.deepEqual(
+    posted(edge).map((b) => b.tenders),
+    [
+      [
+        {
+          method: 'kaspi_terminal',
+          amount_minor: quote.total_minor,
+          attempt_id: attempt.attempt_id,
+        },
+      ],
+    ],
+  );
+  assert.ok(second.state.sale, 'the guest who paid gets the order');
+  // The hold is gone with the sale: a third start finds nothing to resume.
+  const third = await saleCashier(edge, storage);
+  assert.equal(third.state.terminal, null);
+  assert.equal(third.state.quote, null);
+});
+
+test('Kaspi terminal linked: a declined amount found after a restart is dropped (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge(),
+    storage = memory();
+  const first = await saleCashier(edge, storage);
+  await reviewed(first, edge, 'dine_in');
+  await first.sendToTerminal();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  Object.assign(attempt, { state: 'fail', message: 'Операция отклонена' });
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.terminal, null);
+  assert.equal(second.terminalHold, false);
+  const third = await saleCashier(edge, storage);
+  assert.equal(
+    edge.calls.filter((c) => c.path === `pos/terminal-payments/${attempt.attempt_id}`).length,
+    1,
+    'the dropped hold is not asked about again',
+  );
+  assert.equal(third.state.terminal, null);
+});
+
+test('Kaspi terminal linked: another operation of the desk shows in the header and is polled (audit 26.11 P0-4)', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  const foreign = {
+    attempt_id: randomUUID(),
+    quote_id: randomUUID(),
+    terminal_id: randomUUID(),
+    amount_minor: '150000',
+    state: 'wait',
+    sub_status: null,
+    transaction_id: null,
+    payment_method: null,
+    message: null,
+    order_id: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  edge.terminal.attempts.set(foreign.attempt_id, foreign);
+  edge.terminal.open = [foreign];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalRecovery, 'Терминал Kaspi занят: идёт оплата другого заказа');
+  assert.equal(
+    connectionLabel({ ...model.state, terminalRecovery: model.terminalRecovery }).tone,
+    'down',
+  );
+  assert.ok(
+    edge.calls.some((c) => c.path === `pos/terminal-payments/${foreign.attempt_id}`),
+    'the edge is asked to check the terminal',
+  );
+  edge.terminal.open = [{ ...foreign, state: 'success', transaction_id: '9' }];
+  await model.refreshTerminalRecovery();
+  assert.match(model.terminalRecovery, /^Оплачено на терминале .* без заказа/);
+  edge.terminal.open = [];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalRecovery, null);
+});
+
+test('a point on the Webkassa TEST register says so in the header (audit 26.11 P0-2)', async () => {
+  const base = saleEdge();
+  let answer = { environment: 'test' };
+  const edge = {
+    ...base,
+    api: async (path, auth, options = {}) => {
+      if (path === 'pos/webkassa') {
+        if (answer === null) throw new ApiError('NOT_FOUND', 404);
+        return answer;
+      }
+      return base.api(path, auth, options);
+    },
+  };
+  const model = await saleCashier(edge);
+  await model.refreshWebkassaRegister();
+  assert.equal(model.state.webkassaEnvironment, 'test');
+  assert.deepEqual(connectionLabel(model.state), {
+    label: 'Webkassa: тестовая касса, чеки не уходят в ОФД',
+    tone: 'warn',
+  });
+  answer = { environment: 'live' };
+  await model.refreshWebkassaRegister();
+  assert.equal(connectionLabel(model.state).tone, 'ok');
+  // An older point server (404) or Webkassa off: no line.
+  answer = null;
+  await model.refreshWebkassaRegister();
+  assert.equal(model.state.webkassaEnvironment, null);
+});
+
+test('Kaspi terminal linked: the pay screen sends, waits and blocks going back', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  const said = [];
+  const view = new SaleView(model, { guard: (fn) => fn, say: (t) => said.push(t) });
+  await reviewed(model, edge, 'takeaway');
+  view.setState({ screen: 'pay', method: 'kaspi_terminal' });
+  let values = view.payValues();
+  assert.match(values.salePayLabel, /^Отправить .* на терминал$/);
+  assert.equal(values.saleTerminalDeclineLabel, 'Другой способ оплаты');
+  await values.salePayConfirm();
+  values = view.payValues();
+  assert.equal(values.salePayLabel, 'Ждём оплату на терминале…');
+  // 23.11: while the guest pays nothing on screen reads like the terminal's answer.
+  assert.equal(values.saleTerminalDeclineLabel, false);
+  assert.equal(values.salePayDisabled, 'true');
+  view.values().salePayBack();
+  assert.equal(view.state.screen, 'pay', 'the order stays on screen while the terminal decides');
+  assert.equal(said.pop(), saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+  edge.terminal.next.push({ state: 'success', transaction_id: '42', payment_method: 'card' });
+  await view.tick();
+  assert.equal(view.state.screen, 'done');
+  assert.ok(model.state.sale);
+  assert.equal(said.length, 0, said.join('; '));
+});
+
+// ---- 23.11 owner: «Заказы» lists every order of the branch for a day, a period or a month ----
+const branchOrder = (over = {}) => ({
+  order_id: randomUUID(),
+  number: '12',
+  created_at: '2026-11-23T05:00:00.000Z',
+  channel: 'mobile',
+  external_number: null,
+  service_mode: 'takeaway',
+  display_name: 'Аня',
+  total_minor: '349000',
+  state: 'ready',
+  paid: true,
+  desk: false,
+  lines: [{ title: 'Комбо', quantity: 2 }],
+  ...over,
+});
+
+test('days of ЗАКАЗЫ: never after today, a period up to 31 days, a month cut at today', () => {
+  const today = '2026-11-23';
+  assert.equal(normalizeRange({ mode: 'day', from: '2026-11-24', to: '2026-11-24' }, today), null);
+  assert.deepEqual(normalizeRange({ mode: 'range', from: '2026-11-25', to: '2026-11-20' }, today), {
+    mode: 'range',
+    from: '2026-11-20',
+    to: today,
+  });
+  assert.deepEqual(normalizeRange({ mode: 'range', from: '2026-11-05', to: '2026-11-05' }, today), {
+    mode: 'day',
+    from: '2026-11-05',
+    to: '2026-11-05',
+  });
+  assert.equal(MAX_RANGE_DAYS, 31);
+  assert.ok(normalizeRange({ mode: 'range', from: '2026-10-24', to: today }, today));
+  assert.equal(normalizeRange({ mode: 'range', from: '2026-10-23', to: today }, today), null);
+  assert.deepEqual(normalizeRange({ mode: 'month', from: '2026-11-01', to: '2026-11-30' }, today), {
+    mode: 'month',
+    from: '2026-11-01',
+    to: today,
+  });
+  // «›» on today stays; «‹» goes back a day, a month, a period of the same length.
+  const day = { mode: 'day', from: today, to: today };
+  assert.equal(stepRange(day, 1, today), null);
+  assert.deepEqual(stepRange(day, -1, today), {
+    mode: 'day',
+    from: '2026-11-22',
+    to: '2026-11-22',
+  });
+  const month = { mode: 'month', from: '2026-11-01', to: today };
+  assert.deepEqual(stepRange(month, -1, today), {
+    mode: 'month',
+    from: '2026-10-01',
+    to: '2026-10-31',
+  });
+  assert.equal(stepRange(month, 1, today), null);
+  assert.deepEqual(
+    stepRange({ mode: 'month', from: '2026-10-01', to: '2026-10-31' }, 1, today),
+    month,
+  );
+  const week = { mode: 'range', from: '2026-11-17', to: today };
+  assert.deepEqual(stepRange(week, -1, today), {
+    mode: 'range',
+    from: '2026-11-10',
+    to: '2026-11-16',
+  });
+  assert.equal(stepRange(week, 1, today), null);
+  assert.equal(rangeLabel(day), '23 ноября 2026');
+  assert.equal(rangeLabel(week), '17 – 23 ноября 2026');
+  assert.equal(rangeLabel(month), 'Ноябрь 2026');
+  assert.equal(
+    rangeLabel({ mode: 'range', from: '2026-10-28', to: '2026-11-03' }),
+    '28 октября – 3 ноября 2026',
+  );
+  assert.deepEqual(
+    quickRanges(today).map(([label, r]) => [label, r.from, r.to]),
+    [
+      ['Сегодня', today, today],
+      ['Вчера', '2026-11-22', '2026-11-22'],
+      ['7 дней', '2026-11-17', today],
+      ['Этот месяц', '2026-11-01', today],
+      ['Прошлый месяц', '2026-10-01', '2026-10-31'],
+    ],
+  );
+  // November 2026 starts on a Sunday: six empty cells before the 1st.
+  const weeks = monthGrid('2026-11');
+  assert.deepEqual(weeks[0], [null, null, null, null, null, null, '2026-11-01']);
+  assert.ok(weeks.every((w) => w.length === 7));
+  assert.equal(weeks.flat().filter(Boolean).length, 30);
+});
+
+test('GET pos/branch-orders is checked field by field', () => {
+  const ok = { from: '2026-11-01', to: '2026-11-23', truncated: false, orders: [branchOrder()] };
+  const parsed = parseBranchOrders(ok, '2026-11-01', '2026-11-23');
+  assert.equal(parsed.orders[0].channel, 'mobile');
+  assert.equal(parsed.orders[0].lines[0].title, 'Комбо');
+  assert.throws(() => parseBranchOrders(ok, '2026-11-02', '2026-11-23'), /INVALID_RESPONSE/);
+  for (const bad of [
+    { channel: 'wolt' },
+    { total_minor: '-1' },
+    { total_minor: 12 },
+    { created_at: 'вчера' },
+    { order_id: null },
+    { lines: null },
+  ])
+    assert.throws(
+      () => parseBranchOrders({ ...ok, orders: [branchOrder(bad)] }, ok.from, ok.to),
+      /INVALID_RESPONSE/,
+      JSON.stringify(bad),
+    );
+  // Unknown extra text is cut to null, not shown.
+  const long = parseBranchOrders(
+    { ...ok, orders: [branchOrder({ display_name: 'x'.repeat(41), number: null })] },
+    ok.from,
+    ok.to,
+  );
+  assert.equal(long.orders[0].display_name, null);
+  assert.equal(long.orders[0].number, null);
+});
+
+test('ЗАКАЗЫ reads the whole branch; an edge without the route keeps the desk list', async () => {
+  const edge = saleEdge();
+  const app = branchOrder();
+  let answer = 'ok';
+  const calls = [];
+  const branchEdge = {
+    ...edge,
+    api: async (path, auth, options) => {
+      if (!path.startsWith('pos/branch-orders')) return edge.api(path, auth, options);
+      calls.push(path);
+      if (answer === 'missing') throw new ApiError('NOT_FOUND', 404);
+      if (answer === 'down') throw new ApiError('UNAVAILABLE', 503);
+      return { from: '2026-11-01', to: '2026-11-23', truncated: false, orders: [app] };
+    },
+  };
+  const model = await saleCashier(branchEdge);
+  assert.equal(model.state.branchOrders, null);
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.deepEqual(calls, ['pos/branch-orders?from=2026-11-01&to=2026-11-23']);
+  assert.equal(model.state.branchOrders.orders[0].order_id, app.order_id);
+  // Not a day: nothing is asked.
+  await model.refreshBranchOrders('1 ноября', '2026-11-23');
+  assert.equal(calls.length, 1);
+  // A dropped connection keeps the last list and the error banner stays away.
+  answer = 'down';
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(model.state.branchOrders.orders.length, 1);
+  assert.equal(model.state.error, null);
+  // A cashier server still without the route: the desk list, and no more asks.
+  answer = 'missing';
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(model.state.branchOrdersMissing, true);
+  await model.refreshBranchOrders('2026-11-01', '2026-11-23');
+  assert.equal(calls.length, 3);
+  assert.equal(model.state.error, null);
 });

@@ -22,6 +22,16 @@ export const SALE_ROUTES = Object.freeze({
     'pos/fiscal-receipts/pending',
     `cash-shifts/${UUID}/x-report`,
     `cash-shifts/${UUID}/z-report`,
+    // ADR-0017: Kaspi Smart POS attempts of this desk.
+    'pos/terminal-payments/open',
+    `pos/terminal-payments/${UUID}`,
+    // 23.11: «Заказы» lists every order of the branch between two days.
+    'pos/branch-orders',
+    // 25.11: automatic Webkassa receipt state and its print form with the QR.
+    `pos/fiscal-receipts/${UUID}/webkassa`,
+    `pos/fiscal-receipts/${UUID}/webkassa/print`,
+    'pos/kiosk-receipts',
+    `pos/kiosk-receipts/${UUID}/print`,
   ]),
   write: Object.freeze([
     'staff/approvals',
@@ -29,10 +39,14 @@ export const SALE_ROUTES = Object.freeze({
     `pos/sales/${UUID}/void`,
     `pos/sales/${UUID}/refunds`,
     `pos/fiscal-receipts/${UUID}/record`,
+    'pos/terminal-payments',
   ]),
 });
 /** GET paths that may carry exactly one `?shift_id=<uuid>` filter (today's orders, receipts). */
 export const SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/pending']);
+/** GET pos/branch-orders carries exactly `?from=<day>&to=<day>` (Almaty days, YYYY-MM-DD). */
+export const DAY_RANGE_PATH = 'pos/branch-orders';
+export const DAY_RANGE_QUERY = '\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}';
 const readPath = new RegExp(
   `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_ROUTES.read.join('|')})$`,
   'i',
@@ -189,6 +203,10 @@ function localURL(value) {
       url.username ||
       url.password ||
       (url.search &&
+        !(
+          url.pathname === `/edge/v1/${DAY_RANGE_PATH}` &&
+          new RegExp(`^${DAY_RANGE_QUERY}$`).test(url.search)
+        ) &&
         (!SHIFT_FILTERED.some((path) => url.pathname === `/edge/v1/${path}`) ||
           !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash

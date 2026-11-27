@@ -1,0 +1,19 @@
+{
+  "action": "publish",
+  "feed_release": "kitchen-0.4.6-pos-0.5.3",
+  "previous_feed_release": "kitchen-0.4.5-pos-0.5.3",
+  "published": { "kitchen": "0.4.6", "pos": "0.5.3" },
+  "builds": {
+    "kitchen": {
+      "version": "0.4.6",
+      "sha256": "2cf3fe86fe337d0d85f2d64d7a50c7115d821ea8eb63edd94a1306fe35a18bbd"
+    },
+    "pos": {
+      "version": "0.5.3",
+      "sha256": "56ebe751915275e744b25ca2daf9ef4a1ead0ffa770c24c937c19d78682f0aa1"
+    }
+  },
+  "status": "deployed",
+  "phase": "verify",
+  "journal": "/opt/pickchick-staging/desktop-updates/deployments/publish-kitchen-0.4.6-pos-0.5.3-a62bf2e885554af3bb533ad6430733e7.json"
+}

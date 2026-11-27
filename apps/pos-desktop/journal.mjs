@@ -8,6 +8,22 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const fail = () => {
   throw new Error('STORAGE_UNAVAILABLE');
 };
+/**
+ * Pauses before each repeat of the journal replacement. On Windows an antivirus or the search
+ * indexer may hold the journal file for a moment: the rename then fails with EPERM, EBUSY or
+ * EACCES although nothing is wrong. Total wait 385 ms; the write is synchronous for the page.
+ */
+export const RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200];
+const RENAME_TRANSIENT = ['EPERM', 'EBUSY', 'EACCES'];
+const sleepSync = (ms) => {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    // A runtime that refuses to block this thread: wait the same short time by the clock.
+    const until = Date.now() + ms;
+    while (Date.now() < until);
+  }
+};
 function exact(value, keys) {
   if (
     !value ||
@@ -150,10 +166,15 @@ function saleBody(path, body) {
   if (body.service_mode_confirmed !== true || body.order_repeated !== true) fail();
   tenderCount(body.tenders);
   for (const tender of body.tenders) {
-    only(tender, ['method', 'amount_minor', 'reference'], ['method', 'amount_minor']);
+    only(tender, ['method', 'amount_minor', 'reference', 'attempt_id'], ['method', 'amount_minor']);
     if (!PAYMENT_METHODS.includes(tender.method)) fail();
     positive(tender.amount_minor);
     if (tender.reference !== undefined) text(tender.reference, 40);
+    // Paid on the linked Kaspi Smart POS (ADR-0017): the edge writes the operation number.
+    if (tender.attempt_id !== undefined) {
+      if (tender.method !== 'kaspi_terminal' || tender.reference !== undefined) fail();
+      id(tender.attempt_id);
+    }
   }
   if (body.external_order_ref !== undefined) {
     text(body.external_order_ref, 40);
@@ -166,6 +187,28 @@ function saleBody(path, body) {
     if (body.reason.trim().length < 3) fail();
   }
   if (body.approval !== undefined) proof(body.approval);
+}
+/**
+ * The amount on this desk's Kaspi terminal whose sale is not made yet (apps/pos model
+ * TerminalHold, audit 26.11 P0-4): the attempt, its quote as the edge answered it, and the sale
+ * draft. Nothing in it is sent anywhere by itself; the cashier reads it back after a restart.
+ */
+function terminalHold(value) {
+  const h = exact(value, ['attempt_id', 'quote', 'sale_draft']);
+  id(h.attempt_id);
+  const q = h.quote;
+  if (!q || typeof q !== 'object' || Array.isArray(q)) fail();
+  id(q.quote_id);
+  positive(q.total_minor);
+  const d = exact(h.sale_draft, ['channel', 'serviceModeChosen', 'externalOrderRef', 'reviewed']);
+  if (!['hall', 'yandex_eda', 'glovo'].includes(d.channel)) fail();
+  if (typeof d.serviceModeChosen !== 'boolean') fail();
+  if (typeof d.externalOrderRef !== 'string' || d.externalOrderRef.length > 40) fail();
+  if (d.reviewed !== null) {
+    exact(d.reviewed, ['quote_id', 'signature']);
+    id(d.reviewed.quote_id);
+    text(d.reviewed.signature, 20000);
+  }
 }
 export function validateJournal(key, raw, scope) {
   if (typeof scope !== 'string' || scope.split('.').length !== 3) fail();
@@ -184,7 +227,9 @@ export function validateJournal(key, raw, scope) {
     'known',
     'selected',
     ...(Object.hasOwn(JSON.parse(raw), 'held') ? ['held'] : []),
+    ...(Object.hasOwn(JSON.parse(raw), 'terminal') ? ['terminal'] : []),
   ]);
+  if (j.terminal !== undefined) terminalHold(j.terminal);
   if (j.version !== 1 || j.scope !== scope || !Array.isArray(j.known) || j.known.length > 100)
     fail();
   j.known.forEach(id);
@@ -374,9 +419,23 @@ export function createJournalStore({
   fsImpl = fs,
   platform = process.platform,
   now = Date.now,
+  sleep = sleepSync,
 }) {
   if (!isAbsolute(directory)) fail();
   let authority = null;
+  // The same atomic replacement, repeated only while the target is briefly held by another
+  // process. Each try either replaces the journal whole or leaves the previous one untouched.
+  function replace(temporary, path) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return fsImpl.renameSync(temporary, path);
+      } catch (error) {
+        if (!RENAME_TRANSIENT.includes(error?.code) || attempt >= RENAME_RETRY_DELAYS_MS.length)
+          throw error;
+        sleep(RENAME_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  }
   function ensureDirectory() {
     fsImpl.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const stat = fsImpl.lstatSync(directory);
@@ -445,7 +504,7 @@ export function createJournalStore({
         fsImpl.closeSync(fd);
         fd = undefined;
         // Same directory / volume. Never unlink the previous journal first.
-        fsImpl.renameSync(temporary, path);
+        replace(temporary, path);
         // Windows cannot portably open/fsync a directory through Node. The file
         // is flushed before replacement; physical power-loss is not certified.
         if (platform !== 'win32') {

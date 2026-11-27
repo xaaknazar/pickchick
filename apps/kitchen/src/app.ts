@@ -8,7 +8,7 @@ import { KitchenModel, allowedActions, displayWindow, ownerOf } from './model.js
 import type { Owner } from './model.js';
 import { streamIndicators, sourceBadge } from './components/StreamStatus.js';
 import { cloudPairing } from './components/CloudPairing.js';
-import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
+import { request, loadConfig, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
 import {
   allDayStrip,
@@ -37,6 +37,8 @@ let boardPage = 0;
 let terminalId: string | undefined;
 let loginName = '';
 let configLoaded = false;
+// config.json did not answer yet: the login screen says so while the read is repeated.
+let configUnavailable = false;
 /** Portal cloud stream: the page is a cloud screen first; a cook login adds the cashier stream. */
 let cloudMode = false;
 let cookLogin = false;
@@ -299,8 +301,10 @@ function render() {
     const ids = visibleOrders.filter((o) => 'orderId' in o).map((o) => o.orderId);
     if (newOrders.update(newScreen, ids, Date.now())) chime();
   }
+  // The 5-second background read does not lock the screen: a tap waits for it.
+  const busy = s.busy && !s.background;
   const blocked =
-    s.busy ||
+    busy ||
     !!s.pending ||
     !!s.cloudPending ||
     s.storageBlocked ||
@@ -309,7 +313,7 @@ function render() {
   // Each owner has its own journal: a stuck cashier command leaves cloud tickets workable.
   const blockedFor = (o: { fulfillmentOwner?: Owner }) =>
     s.cloud
-      ? s.busy ||
+      ? busy ||
         s.storageBlocked ||
         !!s.error ||
         (ownerOf(o) === 'cloud' ? !s.screenLease || !!s.cloudPending : !s.lease || !!s.pending) ||
@@ -354,7 +358,7 @@ function render() {
       `<main class="login"><section>
       <span class="login-eyebrow">РАБОЧИЙ ЭКРАН PICK CHICK</span><h2>Вход на кухню</h2><p>Войдите под своим логином. Вам будут доступны назначенные станции приготовления, сборки и выдачи.</p>
       ${s.error ? `<p class="error" role="alert">${escape(errors[s.error] ?? 'Не удалось подключиться. Проверьте доступ и локальный узел.')}</p>` : ''}
-      ${!configLoaded ? '<p class="setup-notice" role="status">Подключаем рабочее место...</p>' : !terminalId ? '<p class="setup-notice setup-blocked" role="status"><strong>Экран не подключён к серверу ресторана</strong><span>Поля входа выключены, пока этот моноблок не настроен. Сообщите управляющему.</span></p>' : ''}
+      ${!configLoaded ? (configUnavailable ? '<p class="setup-notice setup-blocked" role="status"><strong>Настройки рабочего места недоступны</strong><span>Сервер не отвечает. Повторяем подключение - экран откроется сам.</span></p>' : '<p class="setup-notice" role="status">Подключаем рабочее место...</p>') : !terminalId ? '<p class="setup-notice setup-blocked" role="status"><strong>Экран не подключён к серверу ресторана</strong><span>Поля входа выключены, пока этот моноблок не настроен. Сообщите управляющему.</span></p>' : ''}
       <form id="password-login" class="password-login${configLoaded && !terminalId ? ' password-login-off' : ''}">
         <label for="staff-login">Логин</label><input id="staff-login" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escape(loginName)}" placeholder="Ваш логин"${fieldsOff}>
         <label for="staff-password">Пароль</label><div class="password-field"><input id="staff-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="Введите пароль"${fieldsOff}><button type="button" id="password-toggle" aria-label="Показать пароль" aria-pressed="false"${fieldsOff}>Показать</button></div>
@@ -437,7 +441,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const notice =
     s.kdsNotice && !s.kds
       ? `<aside class="kds-notice" role="status">${escape(errors[s.kdsNotice]!)}</aside>`
@@ -453,8 +457,8 @@ function render() {
     const conflict = owner === 'cloud' ? s.cloudConflict : s.conflict;
     const reviewed = owner === 'cloud' ? s.cloudReviewed : s.reviewed;
     const suffix = owner === 'cloud' ? '-cloud' : '';
-    const busy = s.busy || (s.cloud && s.streams[owner] === 'offline');
-    return `<aside class="recovery" data-testid="recovery${suffix}"><h2>${conflict ? 'Требуется сверка' : 'Незавершённая команда'}${s.cloud ? ` · ${owner === 'cloud' ? 'сервер' : 'касса'}` : ''}</h2><p>${escape(actionLabel[pending.body.action])} · заказ ${escape(reviewed?.displayNumber ?? pending.orderId)}. Новые действия${s.cloud ? (owner === 'cloud' ? ' по заказам сервера' : ' по заказам кассы') : ''} заблокированы.</p>${conflict ? `<p>Состояние на узле: <strong>${escape(reviewed ? (labels[reviewed.state] ?? reviewed.state) : 'не получено')}</strong>${reviewed ? ` · версия ${reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', `id="review${suffix}"`, busy)} ${button('Сверил состояние - продолжить', `id="acknowledge${suffix}"`, busy || !reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', `id="retry${suffix}"`, busy || s.storageBlocked)}`}</aside>`;
+    const locked = busy || (s.cloud && s.streams[owner] === 'offline');
+    return `<aside class="recovery" data-testid="recovery${suffix}"><h2>${conflict ? 'Требуется сверка' : 'Незавершённая команда'}${s.cloud ? ` · ${owner === 'cloud' ? 'сервер' : 'касса'}` : ''}</h2><p>${escape(actionLabel[pending.body.action])} · заказ ${escape(reviewed?.displayNumber ?? pending.orderId)}. Новые действия${s.cloud ? (owner === 'cloud' ? ' по заказам сервера' : ' по заказам кассы') : ''} заблокированы.</p>${conflict ? `<p>Состояние на узле: <strong>${escape(reviewed ? (labels[reviewed.state] ?? reviewed.state) : 'не получено')}</strong>${reviewed ? ` · версия ${reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', `id="review${suffix}"`, locked)} ${button('Сверил состояние - продолжить', `id="acknowledge${suffix}"`, locked || !reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', `id="retry${suffix}"`, locked || s.storageBlocked)}`}</aside>`;
   };
   const recovery = recoveryPanel('edge') + (s.cloud ? recoveryPanel('cloud') : '');
   const board = displayWindow(s.display, boardPage);
@@ -677,13 +681,15 @@ function updateLoginWait() {
 render();
 installScreenKeyboard();
 if (!demo) {
+  // A missing file (404) is the local default; a failing or slow gateway is waited for, so a
+  // cloud screen never starts in the local mode without its terminal.
+  const config = await loadConfig({
+    onFailure: () => {
+      configUnavailable = true;
+      render();
+    },
+  });
   try {
-    const response = await fetch(apiPrefix + '/config.json', {
-      credentials: 'same-origin',
-      redirect: 'error',
-      signal: AbortSignal.timeout(10000),
-    });
-    const config = (await response.json()) as Record<string, unknown>;
     terminalAccess.configure(config);
     // Portal flag only; keys and the API address never reach the browser.
     if (config.cloudKitchen === true) {
@@ -701,6 +707,7 @@ if (!demo) {
   }
 }
 configLoaded = true;
+configUnavailable = false;
 if (terminalAccess.enabled && terminalAccess.paired) await terminalAccess.check();
 render();
 const deviceDisplay = () =>

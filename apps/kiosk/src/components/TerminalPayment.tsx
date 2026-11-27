@@ -100,7 +100,9 @@ export function TerminalPayment({
     view.phase === 'failed' || view.phase === 'cancelled' || view.phase === 'not_started';
   // Owner 22.11.2026: no «Сотруднику» button for guests. While the result is unknown (money may
   // have moved) staff open their dialog by holding the icon above the title for five seconds.
-  const staff = view.phase === 'lost' || view.phase === 'checking';
+  // Audit 23.11 #1: also after a failure the cloud could not be told (no internet): `onStaff`
+  // is given only while the controller offers the service reset.
+  const staff = view.phase === 'lost' || view.phase === 'checking' || retry;
   // Owner 22.11.2026: a way out while the terminal waits: the cart opens at once (`onEditNow`).
   // Without it (no such command) the button tells how to cancel on the terminal; once the
   // terminal reports the cancellation, «Изменить заказ» returns to the cart.

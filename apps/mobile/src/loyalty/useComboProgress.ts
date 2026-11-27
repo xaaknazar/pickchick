@@ -3,6 +3,10 @@ import { AppState } from 'react-native';
 import type { TestCustomerClient } from '../test-client';
 import type { ComboProgressState } from './combo-progress';
 
+// One object per state without data: the app model above compares it by identity.
+const SIGNED_OUT: ComboProgressState = { status: 'signed_out', data: null };
+const LOADING: ComboProgressState = { status: 'loading', data: null };
+
 // One shared request per app model, never one per visible promotion card.
 // No local persistence: account switches must not expose another customer's progress.
 export function useComboProgress(
@@ -56,6 +60,6 @@ export function useComboProgress(
       subscription.remove();
     };
   }, [client, enabled, orderRevision]);
-  if (!enabled) return { status: 'signed_out', data: null };
-  return snapshot?.client === client ? snapshot.state : { status: 'loading', data: null };
+  if (!enabled) return SIGNED_OUT;
+  return snapshot?.client === client ? snapshot.state : LOADING;
 }

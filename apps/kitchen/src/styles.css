@@ -1897,6 +1897,12 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
   color: var(--blue);
   margin-right: 2px;
 }
+.composition li .grams {
+  margin-left: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5b6475;
+}
 /* «Всего в работе» on the cook screen: one batch for the fryer, counts first (owner 23.11). */
 .all-day {
   display: flex;

@@ -21,7 +21,8 @@ import {
   type CardFields,
   type CardProblem,
 } from '../tiptoppay-checkout';
-import { colors, font } from '../theme';
+import { usePaidFeedback } from '../feedback';
+import { colors, font, themed, tc } from '../theme';
 import { MotionModal } from './Motion';
 import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 import { Body, Button, Caption, CloseButton, Heading, Icon } from './UI';
@@ -84,14 +85,14 @@ export function CardPaymentSheet({
             keyboardShouldPersistTaps="handled"
           >
             <View style={s.header}>
-              <Heading small style={s.title}>
-                {t('Оплата картой')}
-              </Heading>
               <CloseButton
                 label={t('Закрыть оплату картой')}
                 testID="card-payment-close"
                 onPress={onClose}
               />
+              <Heading small style={s.title}>
+                {t('Оплата картой')}
+              </Heading>
             </View>
             {test ? (
               <View style={s.testBadge} testID="card-payment-test">
@@ -109,7 +110,7 @@ export function CardPaymentSheet({
                   if (number.replace(/\D/g, '').length === 16) expiryRef.current?.focus();
                 }}
                 placeholder="0000 0000 0000 0000"
-                placeholderTextColor="#6F82A8"
+                placeholderTextColor={tc('#6F82A8')}
                 keyboardType="number-pad"
                 textContentType="creditCardNumber"
                 autoComplete="cc-number"
@@ -131,7 +132,7 @@ export function CardPaymentSheet({
                     if (expiry.length === 5) cvvRef.current?.focus();
                   }}
                   placeholder={t('ММ/ГГ')}
-                  placeholderTextColor="#6F82A8"
+                  placeholderTextColor={tc('#6F82A8')}
                   keyboardType="number-pad"
                   autoComplete="cc-exp"
                   maxLength={5}
@@ -148,7 +149,7 @@ export function CardPaymentSheet({
                     setCard((c) => ({ ...c, cvv: value.replace(/\D/g, '').slice(0, 4) }))
                   }
                   placeholder="•••"
-                  placeholderTextColor="#6F82A8"
+                  placeholderTextColor={tc('#6F82A8')}
                   keyboardType="number-pad"
                   autoComplete="cc-csc"
                   secureTextEntry
@@ -214,7 +215,8 @@ export function TipTopPayResultSheet({
   onKaspi,
   onRefresh,
 }: {
-  payment: (Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string }) | null;
+  payment:
+    (Pick<CustomerTestPayment, 'state' | 'message'> & { id?: string; orderId?: string }) | null;
   test: boolean;
   onClose(): void;
   onRetry(): void;
@@ -232,6 +234,8 @@ export function TipTopPayResultSheet({
         : { name: 'time-outline' as const, color: colors.warning };
   // Owner 23.11.2026: a successful payment closes its notice by itself after a short look.
   const success = copy?.tone === 'success';
+  // Owner 25.11.2026: a successful payment answers with the success haptic and a soft chime.
+  usePaidFeedback(success, payment?.orderId ?? payment?.id);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
@@ -303,72 +307,74 @@ export function TipTopPayResultSheet({
   );
 }
 
-const s = StyleSheet.create({
-  modal: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000088' },
-  sheet: {
-    width: '100%',
-    maxWidth: 720,
-    maxHeight: '92%',
-    alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: colors.surface,
-  },
-  content: { padding: 18, gap: 14 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
-  testBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.warningSurface,
-  },
-  testText: { color: colors.warning },
-  row: { flexDirection: 'row', gap: 12 },
-  half: { flex: 1 },
-  field: { gap: 6 },
-  label: { color: colors.muted },
-  inputBox: {
-    minHeight: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF1F',
-    backgroundColor: colors.raised,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  inputError: { borderColor: colors.danger },
-  input: {
-    color: colors.white,
-    fontFamily: font.medium,
-    fontSize: 18,
-    letterSpacing: 1,
-    paddingVertical: 12,
-  },
-  problem: { color: colors.danger },
-  secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  secureText: { color: colors.muted, textAlign: 'center', flexShrink: 1 },
-  backdrop: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: '#000000A6',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    alignItems: 'stretch',
-    gap: 14,
-    padding: 22,
-    borderRadius: 26,
-    backgroundColor: colors.surface,
-  },
-  center: { textAlign: 'center', alignSelf: 'center' },
-  // The card stretches its children; the result icon sits in the middle (owner 23.11.2026).
-  iconRow: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    modal: { flex: 1, justifyContent: 'flex-end', backgroundColor: tc('#00000088') },
+    sheet: {
+      width: '100%',
+      maxWidth: 720,
+      maxHeight: '92%',
+      alignSelf: 'center',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      backgroundColor: colors.surface,
+    },
+    content: { padding: 18, gap: 14 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    title: { flex: 1, fontFamily: font.heading, fontSize: 22, lineHeight: 30 },
+    testBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: colors.warningSurface,
+    },
+    testText: { color: colors.warning },
+    row: { flexDirection: 'row', gap: 12 },
+    half: { flex: 1 },
+    field: { gap: 6 },
+    label: { color: colors.muted },
+    inputBox: {
+      minHeight: 56,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: tc('#FFFFFF1F'),
+      backgroundColor: colors.raised,
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+    },
+    inputError: { borderColor: colors.danger },
+    input: {
+      color: colors.white,
+      fontFamily: font.medium,
+      fontSize: 18,
+      letterSpacing: 1,
+      paddingVertical: 12,
+    },
+    problem: { color: colors.danger },
+    secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    secureText: { color: colors.muted, textAlign: 'center', flexShrink: 1 },
+    backdrop: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: tc('#000000A6'),
+    },
+    card: {
+      width: '100%',
+      maxWidth: 440,
+      alignSelf: 'center',
+      alignItems: 'stretch',
+      gap: 14,
+      padding: 22,
+      borderRadius: 26,
+      backgroundColor: colors.surface,
+    },
+    center: { textAlign: 'center', alignSelf: 'center' },
+    // The card stretches its children; the result icon sits in the middle (owner 23.11.2026).
+    iconRow: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  }),
+);

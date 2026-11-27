@@ -23,6 +23,7 @@ import {
   type CustomerRequestChannel,
 } from './customer-session';
 import { createCustomerRequest } from './customer-http';
+import { keepIfSame } from './stable-values';
 
 export const SERVER_CUSTOMER_AUTH = process.env.EXPO_PUBLIC_CUSTOMER_AUTH === 'server';
 type Account = Omit<DemoAccount, 'kind'> & {
@@ -125,51 +126,59 @@ function ServerAccountProvider({ children }: { children: ReactNode }) {
   const locked = useRef(true);
   const snapshot = useCallback(() => {
     const customer = core.customer;
+    // Every authenticated request ends here (withOrderAccess): the 15 s rewards poll, each order
+    // watch answer. The same customer keeps the same objects, so nothing below renders again.
     setAccount(
-      customer
-        ? {
-            version: 2,
-            kind: 'server_customer',
-            customerId: customer.id,
-            phone: customer.phone,
-            createdAt: Date.parse(customer.created_at),
-            profile: {
-              nickname: customer.nickname,
-              birthDate: customer.birth_date,
-              gender: customer.gender,
-              completedAt:
-                customer.profile_completed_at === null
-                  ? null
-                  : Date.parse(customer.profile_completed_at),
-            },
-          }
-        : null,
+      keepIfSame<Account | null>(
+        customer
+          ? {
+              version: 2,
+              kind: 'server_customer',
+              customerId: customer.id,
+              phone: customer.phone,
+              createdAt: Date.parse(customer.created_at),
+              profile: {
+                nickname: customer.nickname,
+                birthDate: customer.birth_date,
+                gender: customer.gender,
+                completedAt:
+                  customer.profile_completed_at === null
+                    ? null
+                    : Date.parse(customer.profile_completed_at),
+              },
+            }
+          : null,
+      ),
     );
     setChallenge(
-      core.challenge
-        ? {
-            phone: core.challenge.phone,
-            codeLength: core.challenge.code_length,
-            expiresAt: Date.parse(core.challenge.expires_at),
-            resendAt: Date.parse(core.challenge.resend_at),
-            attemptsLeft: 5,
-          }
-        : null,
+      keepIfSame<DemoChallenge | null>(
+        core.challenge
+          ? {
+              phone: core.challenge.phone,
+              codeLength: core.challenge.code_length,
+              expiresAt: Date.parse(core.challenge.expires_at),
+              resendAt: Date.parse(core.challenge.resend_at),
+              attemptsLeft: 5,
+            }
+          : null,
+      ),
     );
     setDeliveryUnknown(core.challenge?.delivery_status === 'unknown');
     setPendingVerify(core.pendingVerify);
     setPendingOtp(core.pendingOtp);
-    setChannels(core.config.channels);
+    setChannels(keepIfSame(core.config.channels));
     setActiveChannel(core.pendingChannel ?? core.challenge?.channel ?? null);
     setPendingRequestChannel(core.pendingRequestChannel);
     setLegal(
-      core.config.consent_version && core.config.terms_url && core.config.privacy_url
-        ? {
-            version: core.config.consent_version,
-            termsUrl: core.config.terms_url,
-            privacyUrl: core.config.privacy_url,
-          }
-        : null,
+      keepIfSame<AccountContextValue['legal']>(
+        core.config.consent_version && core.config.terms_url && core.config.privacy_url
+          ? {
+              version: core.config.consent_version,
+              termsUrl: core.config.terms_url,
+              privacyUrl: core.config.privacy_url,
+            }
+          : null,
+      ),
     );
     setReady(core.ready);
   }, [core]);

@@ -28,7 +28,7 @@ import { dirname, join, win32 } from 'node:path';
  *
  * One run: exclusive run lock, the shared native maintenance lease, the destination must be
  * reachable, a REPEATABLE READ snapshot as the dedicated read-only backup role (cluster identity,
- * reviewed migration ledger 020-028, the one configured branch, row counts), pg_dump of exactly
+ * reviewed migration ledger 020-029, the one configured branch, row counts), pg_dump of exactly
  * that snapshot into the protected local staging folder, `pg_restore --list` must contain the
  * data of every table, then AES-256-GCM encryption straight into a temporary file at the
  * destination, fsync, rename, a full read-back that authenticates and re-hashes every byte, and
@@ -52,6 +52,8 @@ export const EDGE_BACKUP_SCHEMAS = Object.freeze({
   // Cutover 19.11 (lane pos, CR pos-7): local_terminals.desk_number, its audit subject and guard,
   // reviewed by the exact 028 bytes.
   schema028: 28,
+  // ADR-0017: the Kaspi Smart POS link and attempts, reviewed by the exact 029 bytes.
+  schema029: 29,
 });
 export const EDGE_BACKUP_ERRORS = Object.freeze([
   'CONFIG_INVALID',

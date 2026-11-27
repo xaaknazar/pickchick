@@ -10,8 +10,11 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { motion, spring, useReducedMotion } from './Motion';
-import { colors } from '../theme';
+import { curve, motion, project, spring, useReducedMotion } from './Motion';
+import { colors, themed, tc } from '../theme';
+
+/** Emil Kowalski's strong ease-out; Reanimated's Easing.out(quad) is too weak to read as a response. */
+const EASE_OUT = Easing.bezier(...curve.out);
 
 /** Apple's rubber band: past the edge the content follows the finger less and less. */
 export function rubberBand(offset: number, dimension: number) {
@@ -44,7 +47,7 @@ export function SheetModal({
   onClose,
   onDismiss,
   closeLabel,
-  dim = '#00000088',
+  dim = tc('#00000088'),
   style,
   children,
 }: {
@@ -74,9 +77,9 @@ export function SheetModal({
       }
       if (y.value > height) y.value = height;
       y.value = withSpring(0, spring.smooth);
-      shade.value = withTiming(1, { duration: motion.dimIn, easing: Easing.out(Easing.quad) });
+      shade.value = withTiming(1, { duration: motion.dimIn, easing: EASE_OUT });
     } else {
-      shade.value = withTiming(0, { duration: motion.dimOut, easing: Easing.out(Easing.quad) });
+      shade.value = withTiming(0, { duration: motion.dimOut, easing: EASE_OUT });
       const done = (finished?: boolean) => {
         'worklet';
         if (finished) runOnJS(unmount)();
@@ -98,12 +101,15 @@ export function SheetModal({
       shade.value = Math.max(0, 1 - Math.max(0, next) / Math.max(1, height));
     })
     .onEnd((e) => {
-      if (y.value > height * 0.3 || e.velocityY > 900) {
+      // Where the flick was going decides, not only where the finger let go: a quick short flick
+      // closes the sheet, a slow long drag that stops short does not (Apple's projection).
+      if (y.value + project(e.velocityY, 0.99) > height * 0.3 && e.velocityY > -200) {
         y.value = withSpring(height, { ...spring.exit, velocity: e.velocityY });
         runOnJS(onClose)();
       } else {
-        y.value = withSpring(0, { ...spring.smooth, velocity: e.velocityY });
-        shade.value = withTiming(1, { duration: motion.dimIn });
+        // The finger gave it momentum, so the snap home may overshoot a touch (spring.release).
+        y.value = withSpring(0, { ...spring.release, velocity: e.velocityY });
+        shade.value = withTiming(1, { duration: motion.dimIn, easing: EASE_OUT });
       }
     });
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
@@ -168,13 +174,13 @@ export function DialogModal({
     if (visible) {
       opacity.value = withTiming(1, {
         duration: reduced ? 120 : 200,
-        easing: Easing.out(Easing.quad),
+        easing: EASE_OUT,
       });
       scale.value = reduced ? 1 : withSpring(1, spring.snappy);
     } else {
       opacity.value = withTiming(
         0,
-        { duration: motion.dialogOut, easing: Easing.out(Easing.quad) },
+        { duration: motion.dialogOut, easing: EASE_OUT },
         (finished) => {
           if (finished) runOnJS(unmount)();
         },
@@ -233,23 +239,25 @@ export function RollingText({
   return <Animated.View style={[style, animated]}>{children}</Animated.View>;
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    width: '100%',
-    alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
-  grabberArea: {
-    position: 'absolute',
-    top: 0,
-    left: 72,
-    right: 72,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.6 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, justifyContent: 'flex-end' },
+    sheet: {
+      width: '100%',
+      alignSelf: 'center',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      overflow: 'hidden',
+    },
+    grabberArea: {
+      position: 'absolute',
+      top: 0,
+      left: 72,
+      right: 72,
+      height: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    grabber: { width: 36, height: 5, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.6 },
+  }),
+);

@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionPressable, ScreenTransition } from '../components/Motion';
 import { Body, Button, Heading, Icon, IconButton, Row } from '../components/UI';
-import { colors, font } from '../theme';
+import { colors, font, themed } from '../theme';
 import { upcomingFeaturesShown } from '../store-build';
 
 // Inbox transport is not enabled yet. Do not invent messages or unread counts.
@@ -101,7 +101,7 @@ export default function Notifications() {
               <Icon
                 name={orders ? 'notifications-outline' : 'gift-outline'}
                 size={36}
-                color={colors.accent}
+                color={colors.accentIcon}
               />
             </View>
             <Heading small style={s.center}>
@@ -129,55 +129,61 @@ export default function Notifications() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: 18, paddingBottom: 20, gap: 12 },
-  title: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderRadius: 16,
-    padding: 4,
-    gap: 4,
-    backgroundColor: colors.raised,
-  },
-  tab: {
-    flex: 1,
-    minHeight: 48,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-  },
-  selectedTab: { backgroundColor: colors.action },
-  tabText: { fontFamily: font.bold, color: colors.muted },
-  selectedText: { color: colors.white },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    gap: 18,
-    maxWidth: 380,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  icon: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  center: { textAlign: 'center' },
-  action: { alignSelf: 'stretch', marginTop: 12 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
+    header: { paddingHorizontal: 18, paddingBottom: 20, gap: 12 },
+    title: { flex: 1 },
+    content: {
+      flexGrow: 1,
+      width: '100%',
+      maxWidth: 600,
+      alignSelf: 'center',
+      paddingHorizontal: 20,
+    },
+    tabs: {
+      flexDirection: 'row',
+      borderRadius: 16,
+      padding: 4,
+      gap: 4,
+      backgroundColor: colors.raised,
+    },
+    tab: {
+      flex: 1,
+      minHeight: 48,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+    },
+    // Neutral, like the cart's «В зале / С собой»: orange stays the only accent (review 25.11.2026).
+    selectedTab:
+      colors.scheme === 'light'
+        ? { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0F1B3D1F' }
+        : { backgroundColor: '#FFFFFF1F', borderWidth: 1, borderColor: '#FFFFFF2E' },
+    tabText: { fontFamily: font.bold, color: colors.muted },
+    selectedText: { color: colors.white },
+    empty: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      gap: 18,
+      maxWidth: 380,
+      alignSelf: 'center',
+      width: '100%',
+    },
+    icon: {
+      width: 88,
+      height: 88,
+      borderRadius: 28,
+      backgroundColor: colors.raised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    center: { textAlign: 'center' },
+    action: { alignSelf: 'stretch', marginTop: 12 },
+  }),
+);

@@ -21,6 +21,7 @@ import type {
   Item,
   Selection,
   EdgeCloudLink,
+  TerminalPayment,
 } from './types.js';
 import {
   ApiError,
@@ -64,7 +65,7 @@ export type MixableMethod = (typeof parse.MIXABLE_METHODS)[number];
 /** What the cashier chose on the payment screen; saleRequest turns it into POST pos/sales. */
 export type SalePayment =
   | { method: 'cash'; tendered_minor: string }
-  | { method: 'kaspi_terminal'; reference?: string }
+  | { method: 'kaspi_terminal'; reference?: string; attempt_id?: string }
   | { method: 'kaspi_manual'; reference?: string }
   | {
       method: 'mixed';
@@ -175,6 +176,7 @@ const SALE_REJECTIONS = new Set([
   'APPROVAL_REQUIRED',
   'APPROVAL_INVALID',
   'KITCHEN_UNAVAILABLE',
+  'TERMINAL_ATTEMPT_INVALID',
 ]);
 /**
  * Definite answers to a void or refund (contracts section 5.1): the edge refused inside its
@@ -339,10 +341,14 @@ export function saleRequest(input: {
     case 'kaspi_manual': {
       need(payment.method);
       if (payment.method === 'kaspi_terminal') whole(total);
+      // Paid on the linked Kaspi Smart POS (ADR-0017): the edge writes the operation number.
+      const attempt = payment.method === 'kaspi_terminal' ? payment.attempt_id : undefined;
       tenders.push({
         method: payment.method,
         amount_minor: quote.total_minor,
-        ...reference(payment.reference),
+        ...(attempt === undefined
+          ? reference(payment.reference)
+          : { attempt_id: parse.uuid(attempt) }),
       });
       break;
     }
@@ -437,6 +443,12 @@ export function saleContext(body: Record<string, unknown> | undefined): SaleErro
     ...(typeof first === 'string' ? { method: first } : {}),
   };
 }
+/**
+ * An amount sent to this desk's Kaspi Smart POS whose sale is not made yet (audit 26.11 P0-4).
+ * Kept in the journal so a restart, a crashed window or a power cut finds it again: the same
+ * quote and sale draft are restored and the sale is made as soon as the terminal says success.
+ */
+type TerminalHold = { attempt_id: string; quote: Quote; sale_draft: SaleDraft };
 type Journal = {
   version: 1;
   scope: string;
@@ -445,7 +457,33 @@ type Journal = {
   known: string[];
   selected: string | null;
   held?: Cart[];
+  terminal?: TerminalHold;
 };
+function parseTerminalHold(value: unknown): TerminalHold {
+  const h = parse.record(value),
+    d = parse.record(h.sale_draft);
+  const reviewed = d.reviewed === null ? null : parse.record(d.reviewed);
+  if (
+    !(parse.SALES_CHANNELS as readonly unknown[]).includes(d.channel) ||
+    typeof d.serviceModeChosen !== 'boolean' ||
+    typeof d.externalOrderRef !== 'string' ||
+    d.externalOrderRef.length > 40
+  )
+    throw new Error('STORAGE_DAMAGED');
+  return {
+    attempt_id: parse.uuid(h.attempt_id),
+    quote: parse.quote(h.quote),
+    sale_draft: {
+      channel: d.channel as SaleDraft['channel'],
+      serviceModeChosen: d.serviceModeChosen,
+      externalOrderRef: d.externalOrderRef,
+      reviewed: reviewed && {
+        quote_id: parse.uuid(reviewed.quote_id),
+        signature: parse.text(reviewed.signature, 20000),
+      },
+    },
+  };
+}
 export type State = {
   actor: StaffSession | null;
   menu: MenuSnapshot | null;
@@ -489,7 +527,87 @@ export type State = {
    * "ЗАКАЗЫ" rows say оформлен / не оформлен / не нужен as the X report counts receipts.
    */
   saleReceipts: Record<string, SaleFiscal['state']>;
+  /** Automatic Webkassa answered on this point (true), or 404: receipts by hand (false). */
+  webkassaAuto: boolean | null;
+  /** GET pos/webkassa: the point's register is Webkassa's TEST or live one; null unknown/off. */
+  webkassaEnvironment: 'test' | 'live' | null;
+  /** The amount this desk sent to its Kaspi Smart POS for the quote on screen (ADR-0017). */
+  terminal: TerminalPayment | null;
+  /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
+  terminalOpen: TerminalPayment[];
+  /**
+   * 23.11: every order of the branch (desk, app, kiosk, aggregators) for the days chosen in
+   * «Заказы»; null until read, and while the edge has no such route (branchOrdersMissing).
+   */
+  branchOrders: BranchOrders | null;
+  branchOrdersMissing: boolean;
 };
+export type BranchOrder = {
+  order_id: string;
+  number: string | null;
+  created_at: string;
+  channel: 'pos' | 'mobile' | 'kiosk' | 'yandex_eda' | 'glovo';
+  external_number: string | null;
+  service_mode: 'takeaway' | 'dine_in';
+  display_name: string | null;
+  total_minor: string;
+  state: string;
+  paid: boolean;
+  desk: boolean;
+  lines: { title: string; quantity: number }[];
+};
+export type BranchOrders = {
+  from: string;
+  to: string;
+  truncated: boolean;
+  orders: BranchOrder[];
+};
+const DAY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+const BRANCH_CHANNELS = ['pos', 'mobile', 'kiosk', 'yandex_eda', 'glovo'];
+/** GET pos/branch-orders, checked field by field: nothing unexpected reaches the screen. */
+export function parseBranchOrders(value: unknown, from: string, to: string): BranchOrders {
+  const v = value as Record<string, unknown>;
+  if (!v || v.from !== from || v.to !== to || !Array.isArray(v.orders) || v.orders.length > 2000)
+    throw new Error('INVALID_RESPONSE');
+  const text = (x: unknown, max = 200) => (typeof x === 'string' && x.length <= max ? x : null);
+  const orders = v.orders.map((raw) => {
+    const o = raw as Record<string, unknown>;
+    const id = text(o.order_id, 36),
+      at = text(o.created_at, 40),
+      total = text(o.total_minor, 17);
+    if (
+      !id ||
+      !at ||
+      !Number.isFinite(Date.parse(at)) ||
+      !total ||
+      !/^(0|[1-9][0-9]*)$/.test(total) ||
+      !BRANCH_CHANNELS.includes(o.channel as string) ||
+      !Array.isArray(o.lines)
+    )
+      throw new Error('INVALID_RESPONSE');
+    return {
+      order_id: id,
+      number: text(o.number, 20),
+      created_at: at,
+      channel: o.channel as BranchOrder['channel'],
+      external_number: text(o.external_number, 40),
+      service_mode: o.service_mode === 'dine_in' ? 'dine_in' : 'takeaway',
+      display_name: text(o.display_name, 40),
+      total_minor: total,
+      state: text(o.state, 30) ?? '',
+      paid: o.paid === true,
+      desk: o.desk === true,
+      lines: (o.lines as Record<string, unknown>[]).slice(0, 100).map((l) => ({
+        title: text(l?.title, 200) ?? '',
+        quantity: Number.isInteger(l?.quantity) ? (l.quantity as number) : 1,
+      })),
+    } satisfies BranchOrder;
+  });
+  return { from, to, truncated: v.truncated === true, orders };
+}
+/** The terminal still decides: the cart stays as it is and nothing else is sent to it. */
+export const terminalActive = (t: TerminalPayment | null) =>
+  Boolean(t && ['created', 'sending', 'wait', 'unknown'].includes(t.state));
 export type FiscalPending = {
   scope: 'shift' | 'all';
   shift_id: string | null;
@@ -502,6 +620,12 @@ const blankOperations = () => ({
   shiftReport: null,
   zReport: null,
   saleReceipts: {},
+  webkassaAuto: null,
+  webkassaEnvironment: null as 'test' | 'live' | null,
+  terminal: null as TerminalPayment | null,
+  terminalOpen: [] as TerminalPayment[],
+  branchOrders: null as BranchOrders | null,
+  branchOrdersMissing: false,
 });
 /** GET pos/sales/{id} reads for the receipt state of the "ЗАКАЗЫ" rows, at most per call. */
 export const RECEIPT_READS = 10;
@@ -513,16 +637,31 @@ const CLOUD_LINK_MISSING_MS = 10 * 60000;
 export const POS_CONFIG_POLL_MS = 30000;
 /** An edge that predates GET edge/v1/pos/config (404) is asked again only after this pause. */
 export const POS_CONFIG_MISSING_MS = 10 * 60000;
+/** The stop-list counts as out of date after this many failed reads in a row ... */
+export const STOPS_STALE_FAILURES = 3;
+/** ... or when a read fails this long after the last good answer. */
+export const STOPS_STALE_MS = 30000;
 /**
  * Header connection line (offline stand finding, stage 2): staff tell "no connection to the
  * cashier server" (LAN, red) from "no internet" (WAN, yellow: selling and the kitchen go on).
  */
 export function connectionLabel(
-  s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'>,
+  s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'> & {
+    /** State.webkassaEnvironment: 'test' is the vendor's TEST register (no OFD). */
+    webkassaEnvironment?: 'test' | 'live' | null;
+    /** PosController.stopsStale: the stop-list on screen may be out of date. */
+    stopsStale?: boolean;
+    /** PosController.terminalRecovery: an operation of this desk's terminal nobody finishes. */
+    terminalRecovery?: string | null;
+  },
 ): { label: string; tone: 'ok' | 'warn' | 'down' } {
   const local = s.operationsAvailable && !s.operationsError;
   if (!s.actor) return { label: 'Вход по личному PIN', tone: local ? 'ok' : 'down' };
   if (!local) return { label: 'Нет связи с кассой', tone: 'down' };
+  if (s.terminalRecovery) return { label: s.terminalRecovery, tone: 'down' };
+  if (s.stopsStale) return { label: 'Стоп-лист не обновляется', tone: 'warn' };
+  if (s.webkassaEnvironment === 'test')
+    return { label: 'Webkassa: тестовая касса, чеки не уходят в ОФД', tone: 'warn' };
   if (s.cloudLink?.state === 'offline')
     return { label: 'Нет интернета · касса работает', tone: 'warn' };
   return { label: 'Локальная сеть', tone: 'ok' };
@@ -539,6 +678,8 @@ const AUTH_KEY = 'pickchick.pos.staff-session.v1';
 export const scopeFor = (actor: StaffSession) =>
   `${actor.branch_id}.${actor.staff_id}.${actor.terminal_id}`;
 const journalKey = (scope: string) => `pickchick.pos.journal.v1.${scope}`;
+/** Kiosk orders older than this at the first read of a session are not printed by this desk. */
+export const KIOSK_BACKLOG_MS = 3 * 60_000;
 const unchanged = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 /** The edge's tenders are exactly the requested ones (method and amount, in any order). */
 function sameTenders(actual: PosSale['tenders'], requested: unknown) {
@@ -708,6 +849,7 @@ export class PosController {
                 return j.held.map(parse.cart);
               })(),
             }),
+        ...(j.terminal === undefined ? {} : { terminal: parseTerminalHold(j.terminal) }),
         draft: j.draft === null ? null : parse.cart(j.draft),
         pending,
         known: j.known.map(parse.uuid),
@@ -853,12 +995,18 @@ export class PosController {
     for (const value of body.tenders) {
       const t = parse.record(value);
       if (
-        Object.keys(t).some((k) => !['method', 'amount_minor', 'reference'].includes(k)) ||
+        Object.keys(t).some(
+          (k) => !['method', 'amount_minor', 'reference', 'attempt_id'].includes(k),
+        ) ||
         !(parse.PAYMENT_METHODS as readonly unknown[]).includes(t.method) ||
         parse.minor(t.amount_minor) === '0'
       )
         throw new Error();
       if (t.reference !== undefined) parse.text(t.reference, 40);
+      if (t.attempt_id !== undefined) {
+        if (t.method !== 'kaspi_terminal' || t.reference !== undefined) throw new Error();
+        parse.uuid(t.attempt_id);
+      }
     }
     if (
       body.external_order_ref !== undefined &&
@@ -985,9 +1133,94 @@ export class PosController {
     // Asked after every request of today's cashier, which stay as they were. The paid mode is
     // decided by the edge; a 404 or any failure keeps today's unpaid cashier.
     await this.refreshPosConfig(true);
+    await this.restoreTerminalHold();
+  }
+  /**
+   * After a restart: the amount this cashier sent to the terminal comes back with its quote and
+   * sale draft, so the screen shows it and the 1 s poll makes the sale once the guest has paid.
+   * A hold the edge no longer knows, already sold, or declined is dropped.
+   */
+  private async restoreTerminalHold() {
+    const hold = this.journal?.terminal,
+      epoch = this.generation;
+    if (!hold || !this.state.posConfig?.kaspi_terminal_link) return;
+    let t: TerminalPayment;
+    try {
+      t = parse.terminalPayment(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'NOT_FOUND') this.dropTerminalHold();
+      // Unreachable now: the recovery read of open payments shows it until the edge answers.
+      return;
+    }
+    if (epoch !== this.generation) return;
+    if (t.attempt_id !== hold.attempt_id || t.quote_id !== hold.quote.quote_id) return;
+    if (t.order_id || t.state === 'fail' || t.state === 'send_failed') {
+      this.dropTerminalHold();
+      return;
+    }
+    this.state.quote = hold.quote;
+    this.state.saleDraft = hold.sale_draft;
+    this.state.terminal = t;
+    this.emit();
+  }
+  /** Writes (or clears) the journal hold for the amount now on the terminal. */
+  private keepTerminalHold(t: TerminalPayment | null) {
+    const j = this.journal;
+    if (!j) return;
+    const keep =
+      t &&
+      !t.order_id &&
+      (terminalActive(t) || t.state === 'success' || t.state === 'lost') &&
+      this.state.quote?.quote_id === t.quote_id;
+    if (keep) {
+      if (j.terminal?.attempt_id === t.attempt_id) return;
+      this.save({
+        ...j,
+        terminal: {
+          attempt_id: t.attempt_id,
+          quote: this.state.quote!,
+          sale_draft: this.state.saleDraft,
+        },
+      });
+    } else if (j.terminal) this.dropTerminalHold();
+  }
+  private dropTerminalHold() {
+    const j = this.journal;
+    if (!j?.terminal) return;
+    const { terminal: _dropped, ...rest } = j;
+    void _dropped;
+    try {
+      this.save(rest);
+    } catch {
+      // Storage refused: the hold is dropped again at the next chance; nothing is charged by it.
+    }
+  }
+  /**
+   * Paid mode with a linked terminal: the open operations of this desk (GET
+   * pos/terminal-payments/open), and one status question to the terminal for each one still
+   * deciding that this screen does not poll itself, so a payment never stays stuck after a restart
+   * or a cashier change (audit 26.11 P0-4). The list is shown above the order screen.
+   */
+  async refreshTerminalRecovery() {
+    if (!this.saleMode || !this.state.posConfig?.kaspi_terminal_link) return;
+    await this.readOpenTerminalPayments();
+    const own = this.state.terminal?.attempt_id;
+    for (const t of this.state.terminalOpen.slice(0, 5)) {
+      if (t.attempt_id === own || !terminalActive(t)) continue;
+      try {
+        await this.request(`pos/terminal-payments/${t.attempt_id}`);
+      } catch {
+        // Asked again at the next refresh.
+      }
+    }
   }
   logout() {
     if (this.state.busy) return;
+    // The amount on the terminal belongs to this cashier's quote: locking now would hide it.
+    if (this.terminalHold) {
+      this.fail(new Error('TERMINAL_IN_PROGRESS'));
+      return;
+    }
     const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
@@ -1109,6 +1342,8 @@ export class PosController {
     const epoch = this.generation,
       current = this.state.menu;
     if (!this.state.actor || !current || this.state.busy || this.journal?.pending) return null;
+    // The amount on the terminal is for this quote: a new menu waits until the sale is made.
+    if (this.terminalHold) return null;
     let latest: parse.MenuVersion;
     try {
       latest = parse.menuVersion(await this.request('menu/version'));
@@ -1123,7 +1358,8 @@ export class PosController {
       latest.release_id === current.release_id ||
       this.state.menu !== current ||
       this.state.busy ||
-      this.journal?.pending
+      this.journal?.pending ||
+      this.terminalHold
     )
       return null;
     const requote = Boolean(this.state.quote && !this.state.order);
@@ -1195,6 +1431,8 @@ export class PosController {
     this.operationsSaleAt = now;
     await this.refreshFiscal();
     await this.refreshShiftReport();
+    await this.refreshTerminalRecovery().catch(() => {});
+    await this.refreshWebkassaRegister().catch(() => {});
   }
   /**
    * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
@@ -1244,6 +1482,8 @@ export class PosController {
       }
       this.emit();
     }
+    // Unfinished terminal operations are read with the config (only with a linked terminal).
+    if (this.saleMode) await this.readOpenTerminalPayments().catch(() => {});
   }
   /** Asked at most every CLOUD_LINK_POLL_MS; never blocks the operations view or selling. */
   async refreshCloudLink() {
@@ -1266,7 +1506,29 @@ export class PosController {
       this.emit();
     }
   }
-  async refreshStops() {
+  /** The last failure of the background stop-list poll; null after a successful read. */
+  stopsError: unknown = null;
+  private stopsFailures = 0;
+  private stopsStaleDrawn = false;
+  /** The last good stop-list answer, or the first failure when there was none yet. */
+  private stopsFreshAt: number | null = null;
+  /**
+   * The stop-list on screen may be out of date: its reads keep failing (3 in a row, or one more
+   * than 30 s after the last good answer). The header says so; the next good read clears it.
+   */
+  get stopsStale() {
+    return (
+      this.stopsError !== null &&
+      (this.stopsFailures >= STOPS_STALE_FAILURES ||
+        this.now() - (this.stopsFreshAt ?? 0) >= STOPS_STALE_MS)
+    );
+  }
+  /**
+   * `background` is the 3 s poll: its failure is kept in `stopsError` and never replaces
+   * `state.error`, which belongs to the action the cashier started (the connection line comes
+   * from the operations read of the same cycle). A lost session still signs the desk out.
+   */
+  async refreshStops(background = false) {
     const epoch = this.generation;
     try {
       const value = parse.record(await this.request('availability/stops'));
@@ -1274,10 +1536,24 @@ export class PosController {
         throw new Error('INVALID_RESPONSE');
       const stops = value.stops.map(parse.stop);
       if (epoch !== this.generation) return;
+      this.stopsError = null;
+      this.stopsFailures = 0;
+      this.stopsFreshAt = this.now();
+      this.stopsStaleDrawn = false;
       this.state.stops = new Map(stops.map((s) => [s.variant_id, s]));
       this.emit();
     } catch (error) {
-      if (epoch === this.generation) this.fail(error);
+      if (epoch !== this.generation) return;
+      this.stopsError = error;
+      this.stopsFailures += 1;
+      this.stopsFreshAt ??= this.now();
+      if (!background || (error instanceof ApiError && error.code === 'UNAUTHORIZED'))
+        this.fail(error);
+      // The quiet poll draws nothing by itself: redraw when the header line has to change.
+      else if (this.stopsStale !== this.stopsStaleDrawn) {
+        this.stopsStaleDrawn = this.stopsStale;
+        this.emit();
+      }
     }
   }
   async loadStops(ids: string[]) {
@@ -1311,6 +1587,10 @@ export class PosController {
       return false;
     if (this.journal.pending) {
       this.fail(new Error('PENDING'));
+      return false;
+    }
+    if (terminalActive(this.state.terminal)) {
+      this.fail(new Error('TERMINAL_IN_PROGRESS'));
       return false;
     }
     return true;
@@ -1652,8 +1932,10 @@ export class PosController {
       )
         throw new Error('INVALID_RESPONSE');
       const id = result.order.order_id;
+      const { terminal: _paidHold, ...rest } = j;
+      void _paidHold;
       this.save({
-        ...j,
+        ...rest,
         pending: null,
         selected: id,
         known: [id, ...j.known.filter((v) => v !== id)].slice(0, 100),
@@ -1664,6 +1946,7 @@ export class PosController {
       this.state.quote = null;
       this.state.approval = null;
       this.state.saleDraft = blankSaleDraft();
+      this.state.terminal = null;
       // The POST replays its historical result; GET is the authoritative current sale.
       await this.refreshSale(id);
       await this.readOperations();
@@ -2072,7 +2355,21 @@ export class PosController {
       const config = this.state.posConfig;
       if (!config) throw new Error('POS_CONFIG_UNAVAILABLE');
       if (!this.state.quote) throw new Error('ORDER_REVIEW_REQUIRED');
-      const quote = await this.freshQuote();
+      // Paid on the terminal: exactly the quote the amount was sent for, never re-quoted (the
+      // edge accepts it after expiry because the money is already taken).
+      const attempt = payment.method === 'kaspi_terminal' ? payment.attempt_id : undefined;
+      if (attempt !== undefined) {
+        const t = this.state.terminal;
+        if (
+          !t ||
+          t.attempt_id !== attempt ||
+          t.state !== 'success' ||
+          t.quote_id !== this.state.quote.quote_id ||
+          t.amount_minor !== this.state.quote.total_minor
+        )
+          throw new Error('TERMINAL_ATTEMPT_INVALID');
+      }
+      const quote = attempt === undefined ? await this.freshQuote() : this.state.quote;
       const body = saleRequest({
         quote,
         config,
@@ -2083,6 +2380,157 @@ export class PosController {
       });
       await this.begin('sale', 'pos/sales', body);
     });
+  }
+  /**
+   * "Отправить на терминал" (ADR-0017): the whole order total goes to this desk's Kaspi Smart POS.
+   * Not journaled: the edge keeps the attempt, and a lost answer is found again in
+   * GET pos/terminal-payments/open. The sale itself is the journaled POST pos/sales made by
+   * checkTerminalPayment once the terminal says success.
+   */
+  async sendToTerminal() {
+    if (!this.editable()) return;
+    await this.run(async () => {
+      if (!this.state.operationsAvailable || this.state.operationsError)
+        throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
+      if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
+      const config = this.state.posConfig;
+      if (!config) throw new Error('POS_CONFIG_UNAVAILABLE');
+      if (!config.kaspi_terminal_link) throw new Error('TERMINAL_NOT_LINKED');
+      if (!this.state.quote) throw new Error('ORDER_REVIEW_REQUIRED');
+      const quote = await this.freshQuote();
+      // Every rule of the sale itself first, so nothing is charged for a sale that cannot be made.
+      saleRequest({
+        quote,
+        config,
+        draft: this.state.saleDraft,
+        payment: { method: 'kaspi_terminal' },
+        approval: this.state.approval,
+        now: this.now(),
+      });
+      this.state.terminal = null;
+      let value: unknown;
+      try {
+        value = await this.request('pos/terminal-payments', {
+          method: 'POST',
+          key: this.newKey(),
+          body: { quote_id: quote.quote_id, amount_minor: quote.total_minor },
+        });
+      } catch (error) {
+        // The amount may have reached the terminal: what the edge recorded is shown instead.
+        await this.readOpenTerminalPayments().catch(() => {});
+        const open = this.state.terminalOpen.find((t) => t.quote_id === quote.quote_id);
+        if (open) {
+          this.state.terminal = open;
+          this.keepTerminalHold(open);
+        }
+        throw error;
+      }
+      const t = parse.terminalPayment(value);
+      if (t.quote_id !== quote.quote_id || t.amount_minor !== quote.total_minor)
+        throw new Error('INVALID_RESPONSE');
+      this.state.terminal = t;
+      this.keepTerminalHold(t);
+    });
+  }
+  /**
+   * GET pos/webkassa (audit 26.11 P0-2): a point on Webkassa's TEST register says so in the
+   * header. 404 (Webkassa off, or an older point server) leaves the line as it was.
+   */
+  async refreshWebkassaRegister() {
+    const epoch = this.generation;
+    let environment: 'test' | 'live' | null;
+    try {
+      const v = parse.record(await this.request('pos/webkassa'));
+      environment = v.environment === 'live' ? 'live' : v.environment === 'test' ? 'test' : null;
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 404)) return;
+      environment = null;
+    }
+    if (epoch !== this.generation || environment === this.state.webkassaEnvironment) return;
+    this.state.webkassaEnvironment = environment;
+    this.emit();
+  }
+  /**
+   * The header line for an operation of this desk's Kaspi terminal that is not the one on this
+   * screen (another cashier's, or one whose answer was lost before a restart), or null. Paid
+   * without an order comes first: the guest has paid and has no order (audit 26.11 P0-4).
+   */
+  get terminalRecovery(): string | null {
+    const own = this.state.terminal?.attempt_id;
+    const other = this.state.terminalOpen.filter((t) => t.attempt_id !== own);
+    const paid = other.find((t) => t.state === 'success' && !t.order_id);
+    if (paid)
+      return `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
+    if (other.some((t) => t.state === 'lost'))
+      return 'Терминал Kaspi: проверьте последнюю операцию на его экране';
+    if (other.some((t) => terminalActive(t)))
+      return 'Терминал Kaspi занят: идёт оплата другого заказа';
+    return null;
+  }
+  /** Sent to the terminal and still deciding, or paid there without its sale yet. */
+  get terminalHold() {
+    const t = this.state.terminal;
+    return terminalActive(t) || Boolean(t?.state === 'success' && !t.order_id);
+  }
+  /**
+   * One poll of the amount on the terminal (the screen asks about once a second). Success makes
+   * the sale at once: POST pos/sales with the attempt, which sends the order to the kitchen.
+   */
+  async checkTerminalPayment() {
+    const current = this.state.terminal,
+      epoch = this.generation;
+    if (!current || this.state.busy || current.order_id) return;
+    if (current.state !== 'success') {
+      if (!terminalActive(current)) return;
+      let next: TerminalPayment;
+      try {
+        next = parse.terminalPayment(
+          await this.request(`pos/terminal-payments/${current.attempt_id}`),
+        );
+      } catch (error) {
+        if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+          this.fail(error);
+        // Another poll follows; a short link drop changes nothing on the terminal.
+        return;
+      }
+      if (epoch !== this.generation || this.state.terminal?.attempt_id !== current.attempt_id)
+        return;
+      if (next.attempt_id !== current.attempt_id || next.quote_id !== current.quote_id) {
+        this.fail(new Error('INVALID_RESPONSE'));
+        return;
+      }
+      this.state.terminal = next;
+      this.keepTerminalHold(next);
+      this.emit();
+      if (next.state !== 'success' || next.order_id) return;
+    }
+    const paid = this.state.terminal!;
+    if (this.state.quote?.quote_id !== paid.quote_id) return;
+    await this.sell({ method: 'kaspi_terminal', attempt_id: paid.attempt_id });
+  }
+  /** The terminal said no (or never got the amount): the cashier may send again or pay another way. */
+  dismissTerminal() {
+    if (terminalActive(this.state.terminal) || this.state.terminal?.state === 'success') return;
+    this.state.terminal = null;
+    this.dropTerminalHold();
+    this.emit();
+  }
+  /** GET pos/terminal-payments/open: operations of this desk a person must finish. */
+  async readOpenTerminalPayments() {
+    const epoch = this.generation;
+    if (!this.state.posConfig?.kaspi_terminal_link) {
+      if (this.state.terminalOpen.length) {
+        this.state.terminalOpen = [];
+        this.emit();
+      }
+      return;
+    }
+    const open = parse.terminalPayments(await this.request('pos/terminal-payments/open'));
+    if (epoch !== this.generation) return;
+    if (!unchanged(open, this.state.terminalOpen)) {
+      this.state.terminalOpen = open;
+      this.emit();
+    }
   }
   /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
   async recordReceipt(receiptNumber: string) {
@@ -2151,6 +2599,31 @@ export class PosController {
     if (this.state.saleReceipts[sale.order_id] === receipt.state) return false;
     this.state.saleReceipts = { ...this.state.saleReceipts, [sale.order_id]: receipt.state };
     return true;
+  }
+  private branchReading = false;
+  /**
+   * «Заказы» (23.11): every order of the branch from `from` to `to` (Almaty days). An edge
+   * without the route (404) keeps the desk's own list (branchOrdersMissing).
+   */
+  async refreshBranchOrders(from: string, to: string) {
+    if (!this.credential || this.branchReading || this.state.branchOrdersMissing) return;
+    if (!DAY_TEXT.test(from) || !DAY_TEXT.test(to)) return;
+    this.branchReading = true;
+    const epoch = this.generation;
+    try {
+      const value = await this.request(`pos/branch-orders?from=${from}&to=${to}`);
+      if (epoch !== this.generation) return;
+      this.state.branchOrders = parseBranchOrders(value, from, to);
+      this.emit();
+    } catch (error) {
+      if (epoch !== this.generation) return;
+      if (error instanceof ApiError && error.status === 404) {
+        this.state.branchOrdersMissing = true;
+        this.emit();
+      } else if (error instanceof ApiError && error.code === 'UNAUTHORIZED') this.fail(error);
+    } finally {
+      this.branchReading = false;
+    }
   }
   /**
    * "ЗАКАЗЫ" in the paid mode (CR client-5): the Webkassa state of the sale receipt of each
@@ -2372,6 +2845,75 @@ export class PosController {
       this.state.saleReceipts = next;
     }
     return receipts;
+  }
+  /**
+   * Automatic Webkassa (point server webkassa-fiscal.ts): the state of one receipt and, with
+   * `withPrint` once issued, its print form with the QR. null: the point issues receipts by
+   * hand (no Webkassa account, 404), so the cashier punches it as before. Read-only.
+   */
+  async webkassaReceipt(receiptId: string, withPrint = false) {
+    try {
+      const status = parse.webkassaReceipt(
+        await this.request(
+          `pos/fiscal-receipts/${parse.uuid(receiptId)}/webkassa${withPrint ? '/print' : ''}`,
+        ),
+      );
+      this.state.webkassaAuto = true;
+      return status;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        this.state.webkassaAuto = false;
+        return null;
+      }
+      throw error;
+    }
+  }
+  /**
+   * Kiosk receipts this desk still has to print (owner 25.11: the kiosk prints on the cashier
+   * printer). null: the point has no Webkassa account (404). The desk keeps the printed ones in
+   * memory (pos-desktop storage holds only the journal): the first read of a session takes orders
+   * older than KIOSK_BACKLOG_MS as handled, so a restarted desk does not print the day again.
+   */
+  async kioskReceiptsToPrint() {
+    let list: parse.KioskReceipt[];
+    try {
+      list = parse.kioskReceipts(await this.request('pos/kiosk-receipts'));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+    if (!this.kioskPrinted) {
+      this.kioskPrinted = new Set(
+        list
+          .filter((r) => this.now() - Date.parse(r.created_at) > KIOSK_BACKLOG_MS)
+          .map((r) => r.order_id),
+      );
+    }
+    const printed = this.kioskPrinted;
+    return list.filter((r) => !printed.has(r.order_id)).reverse();
+  }
+  async kioskReceiptPrint(orderId: string) {
+    return parse.kioskReceiptPrint(
+      await this.request(`pos/kiosk-receipts/${parse.uuid(orderId)}/print`),
+    );
+  }
+  /** Marks one kiosk receipt as handled by this desk (sent to the printer). */
+  markKioskPrinted(orderId: string) {
+    if (!this.kioskPrinted) return;
+    this.kioskPrinted.add(orderId);
+    if (this.kioskPrinted.size > 300)
+      this.kioskPrinted.delete(this.kioskPrinted.values().next().value!);
+  }
+  private kioskPrinted: Set<string> | null = null;
+  /** After an automatic receipt: the sale on screen and the receipt badge read it again. */
+  async noteWebkassaIssued(orderId: string) {
+    const epoch = this.generation;
+    try {
+      await this.readSale(parse.uuid(orderId));
+      if (epoch === this.generation) this.emit();
+    } catch {
+      // Best effort: the 3 s refresh and the next card read show it as well.
+    }
   }
   /** Best effort for the badge and the tab; a failed read keeps the last list. */
   async refreshFiscal(scope: FiscalPending['scope'] = this.state.fiscal?.scope ?? 'shift') {

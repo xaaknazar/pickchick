@@ -319,6 +319,9 @@ with sync_playwright() as pw:
         assert page.evaluate("() => localStorage.getItem('pickchick.pos.desk-mode.v1')") is None
         assert external==[],external
         assert errors==[],errors
+        # 23.11: «Заказы» reads the whole branch on every desk, paid or not; it is not a paid route.
+        branch_reads=[c for c in paid_calls if re.fullmatch(r'GET pos/branch-orders\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}',c)]
+        paid_calls=[c for c in paid_calls if c not in branch_reads]
         assert paid_calls and set(paid_calls)=={'GET pos/config'}, paid_calls
         assert pos_config and set(pos_config) <= {(404, None), (200, 'unpaid_service')}, pos_config
     except Exception:

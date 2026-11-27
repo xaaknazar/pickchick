@@ -49,3 +49,43 @@ export function haptic(cue: HapticCue): void {
       : Haptics.impactAsync(IMPACT_STYLE[cue] as Haptics.ImpactFeedbackStyle);
   feedback.catch(() => undefined);
 }
+
+/**
+ * One light tap when a dish lands in the cart, on the same frame as the cart bar's «added» bump
+ * (Emil Kowalski, animate-expo §8: a drag commits / something snaps home = Light impact; one per
+ * event, never the only feedback). Silent on the web and when System Haptics are off.
+ */
+export function addedHaptic(): void {
+  if (Platform.OS === 'web') {
+    const log = (globalThis as { __pickchickHaptics?: unknown }).__pickchickHaptics;
+    if (Array.isArray(log)) log.push('added');
+    return;
+  }
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+}
+
+function logWebCue(cue: string): boolean {
+  if (Platform.OS !== 'web') return false;
+  const log = (globalThis as { __pickchickHaptics?: unknown }).__pickchickHaptics;
+  if (Array.isArray(log)) log.push(cue);
+  return true;
+}
+
+/**
+ * The tab bar answers a tap that changes the tab with the system selection tick (owner 25.11.2026:
+ * «когда мы переходим между таббар ... вибрацию, чтобы было понятно»), the same feel as iOS pickers.
+ * A drag along the bar already ticks per tab (`haptic('tick')`), so the release does not tick again.
+ */
+export function tabHaptic(): void {
+  if (logWebCue('tab')) return;
+  Haptics.selectionAsync().catch(() => undefined);
+}
+
+/**
+ * A payment went through (owner 25.11.2026: «успешно оплатил ... звук»): the system success
+ * notification pattern, played once per order together with the paid chime (feedback.ts).
+ */
+export function paidHaptic(): void {
+  if (logWebCue('paid')) return;
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+}

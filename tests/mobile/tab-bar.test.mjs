@@ -130,7 +130,7 @@ test('brand colours keep WCAG AA for labels on glass, opaque and the selection p
     (backdrop) => over(p.webVeil, dim(backdrop)),
   ];
   // Worst cases: glass over a white photo, the navy app background and the brand orange.
-  for (const backdrop of ['#FFFFFF', '#04143A', '#FF6900']) {
+  for (const backdrop of ['#FFFFFF', '#0A1020', '#FF6900']) {
     for (const body of bodies) {
       assert.ok(contrast(p.inactive, body(backdrop)) >= 4.5, `${body} over ${backdrop}`);
     }
@@ -140,7 +140,7 @@ test('brand colours keep WCAG AA for labels on glass, opaque and the selection p
   // app's navy it keeps AA for the orange label; over a white photo under the web veil, at least
   // the 3:1 of the icon it sits with.
   for (const body of bodies) {
-    assert.ok(contrast(p.active, over(p.pill, body('#04143A'))) >= 4.5, String(body));
+    assert.ok(contrast(p.active, over(p.pill, body('#0A1020'))) >= 4.5, String(body));
     assert.ok(contrast(p.active, over(p.pill, body('#FFFFFF'))) >= 3, String(body));
   }
   assert.ok(contrast(p.active, over(p.pill, p.solid)) >= 4.5);

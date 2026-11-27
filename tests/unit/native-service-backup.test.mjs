@@ -49,14 +49,14 @@ test('backup rejects foreign branch, different service mode and changed migratio
   assert.throws(() => verifyServiceSnapshot(branch, changed, branchId, ledger));
 });
 
-test('pinned ledger is exactly the reviewed edge migrations 001-028 of this repository', async () => {
+test('pinned ledger is exactly the reviewed edge migrations 001-029 of this repository', async () => {
   const dir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-  // A later migration (029+) needs its own reviewed allowlist entry; it is not accepted here.
+  // A later migration (030+) needs its own reviewed allowlist entry; it is not accepted here.
   const names = (await readdir(dir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .slice(0, 28);
-  assert.equal(names.length, 28);
+    .slice(0, 29);
+  assert.equal(names.length, 29);
   assert.deepEqual(
     pinned,
     await Promise.all(
@@ -110,9 +110,15 @@ test('pinned ledger is exactly the reviewed edge migrations 001-028 of this repo
     pinned[27].checksum,
     '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf',
   );
+  // ADR-0017: the Kaspi Smart POS link and attempts, after a schema028 copy.
+  assert.equal(pinned[28].version, '029_edge_kaspi_pos.sql');
+  assert.equal(
+    pinned[28].checksum,
+    'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
+  );
 });
 
-test('each reviewed schema014-028 accepts only its own exact ledger', () => {
+test('each reviewed schema014-029 accepts only its own exact ledger', () => {
   assert.deepEqual(Object.keys(SERVICE_BACKUP_SCHEMAS), [
     'schema014',
     'schema015',
@@ -129,6 +135,7 @@ test('each reviewed schema014-028 accepts only its own exact ledger', () => {
     'schema026',
     'schema027',
     'schema028',
+    'schema029',
   ]);
   for (const [mode, length] of Object.entries(SERVICE_BACKUP_SCHEMAS)) {
     const expected = expectedServiceLedger(pinned, mode);

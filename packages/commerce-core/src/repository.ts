@@ -234,6 +234,16 @@ async function fiscalDocument(
  * feed retries (admitPendingPaid). If the branch left mode 'cloud' before payment completed,
  * the order is put up for review instead (no kitchen owns it).
  */
+/**
+ * F-4 (audit 26.11; owner 27.11 «Да, чек догонит»): a fully paid order with fiscal policy
+ * `required` goes to the kitchen once its sale receipt is queued, and the Webkassa queue issues the
+ * receipt after it. COMMERCE_KITCHEN_BEFORE_RECEIPT=false restores the earlier rule (the kitchen
+ * waits for the issued receipt). Read on every call, so a restart is enough to switch.
+ */
+export function kitchenBeforeReceipt(env: NodeJS.ProcessEnv = process.env) {
+  return env.COMMERCE_KITCHEN_BEFORE_RECEIPT?.trim() !== 'false';
+}
+
 async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
   const port = cloudKitchenAdmission();
   if (!port) return;
@@ -332,6 +342,7 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     ])
   ).rows;
   const saleIssued = documents.some((d) => d.kind === 'sale' && d.state === 'issued');
+  const saleQueued = kitchenBeforeReceipt() ? documents.some((d) => d.kind === 'sale') : saleIssued;
   for (const document of documents) {
     if (
       document.state === 'queued' &&
@@ -348,7 +359,8 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
   }
   if (
     captured === total &&
-    (saleIssued || row.fiscal_policy === 'deferred_pilot') &&
+    // F-4: see kitchenBeforeReceipt().
+    (saleQueued || row.fiscal_policy === 'deferred_pilot') &&
     row.admission_reservation_id &&
     !row.attention_required &&
     BigInt(money.refunded) === 0n &&

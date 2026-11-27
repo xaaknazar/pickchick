@@ -258,12 +258,12 @@ def cart_page(browser, width, height):
     expect(sheet).to_be_visible()
     pay = page.get_by_test_id('cart-pay')
     expect(pay).to_be_enabled(timeout=15000)
-    # Top bar: trash left, pin + point centred, close right; no «Корзина» title.
+    # Top bar: close left, pin + point centred, trash right (owner 23.11, baf4598b); no title.
     clear, point, shut = (page.get_by_test_id(i) for i in ('cart-clear', 'cart-restaurant', 'cart-close'))
     expect(point).to_contain_text('ТЦ Abay Plaza')
     expect(sheet.get_by_role('heading', name='Корзина', exact=True)).to_have_count(0)
     a, b, c, s = clear.bounding_box(), point.bounding_box(), shut.bounding_box(), sheet.bounding_box()
-    assert a['x'] + a['width'] <= b['x'] and b['x'] + b['width'] <= c['x'], (a, b, c)
+    assert c['x'] + c['width'] <= b['x'] and b['x'] + b['width'] <= a['x'], (c, b, a)
     assert abs((b['x'] + b['width'] / 2) - (s['x'] + s['width'] / 2)) <= 2, (b, s)
     assert abs((a['y'] + a['height'] / 2) - (c['y'] + c['height'] / 2)) <= 1, (a, c)
     for box in (a, c):
@@ -277,7 +277,7 @@ def cart_page(browser, width, height):
         assert not has_blur(minus) and minus.bounding_box()['height'] >= 44
     stepper_bg = page.get_by_test_id('cart-minus-pick-combo').evaluate(
         '(e) => getComputedStyle(e.parentElement).backgroundColor')
-    assert stepper_bg == 'rgb(20, 48, 107)', stepper_bg
+    assert stepper_bg == 'rgb(28, 37, 56)', stepper_bg  # dark theme raised #1C2538 (navy: #14306B)
 
     # Text remains readable and keeps the same size after selection/layout changes.
     for mode in ('dine_in', 'takeaway', 'dine_in', 'takeaway'):
@@ -335,7 +335,7 @@ def cart_page(browser, width, height):
     # the App Store build shows no card and no empty «Акции» heading (owner 29.10.2026).
     expect(page.get_by_test_id('cart-combo-reward')).to_have_count(0)
     expect(sheet.get_by_text('Акции', exact=True)).to_have_count(0)
-    expect(sheet.get_by_text('Отметки пока у кассира', exact=False)).to_have_count(0)
+    expect(sheet.get_by_text('Отметка за каждое комбо', exact=False)).to_have_count(0)
     # Footer: payment method left, «Итого» right, white pay button below. The floating cart bar
     # under the sheet has its own cart-total, so the footer one is read inside the cart screen.
     method = page.get_by_test_id('cart-payment-method')

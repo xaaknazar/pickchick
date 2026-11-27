@@ -5,7 +5,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Animated as NativeAnimated,
   AppState,
-  Easing,
   Platform,
   StyleSheet,
   View,
@@ -19,7 +18,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { MotionPressable as Pressable, animatedSpring, useReducedMotion } from './Motion';
+import { MotionPressable as Pressable, animatedSpring, easing, useReducedMotion } from './Motion';
+import { addedHaptic } from '../haptics';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
@@ -42,7 +42,7 @@ import { usePaymentMethod } from '../usePaymentMethod';
 import { usePaymentAvailability } from '../usePaymentAvailability';
 import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
-import { brandColors, colors, font } from '../theme';
+import { colors, font, themed, tc } from '../theme';
 import { tabCartGap } from '../tab-bar-metrics';
 import { BottomActions, Icon, MinorMoney } from './UI';
 
@@ -203,19 +203,22 @@ export function CartShortcut({
         feedback.setValue(0);
       };
       reset();
+      if (added && AppState.currentState === 'active') addedHaptic();
       if (added && !reduced && AppState.currentState === 'active') {
         NativeAnimated.sequence([
           NativeAnimated.timing(feedback, {
             toValue: 1,
             duration: 140,
-            easing: Easing.out(Easing.cubic),
+            easing: easing.out,
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
-          // «Added»: the bar and the new photo settle back with Apple's bouncy spring.
+          // «Added»: the bar and the new photo settle back with a light bounce (damping 0.75, was
+          // 0.5: a visible wobble on something seen many times a day; Emil Kowalski keeps
+          // bounce subtle, 0.1-0.3).
           NativeAnimated.spring(feedback, {
             toValue: 0,
-            ...animatedSpring(0.5, 0.5),
+            ...animatedSpring(0.45, 0.75),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
@@ -321,7 +324,7 @@ export function CartShortcut({
               style={[s.bag, pillRim, { width: layout.handleWidth }]}
             >
               <GlassFill radius={ROW / 2} />
-              <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
+              <Icon name="bag-handle-outline" size={24} color={colors.accentIcon} />
             </View>
           ) : null}
           {handle ? (
@@ -477,129 +480,132 @@ export function CartShortcut({
     </BottomActions>
   );
 }
-const s = StyleSheet.create({
-  dock: {
-    paddingTop: 10,
-    paddingHorizontal: 16,
-    borderTopWidth: 0,
-    backgroundColor: 'transparent',
-  },
-  floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
-  aboveTabBar: { paddingBottom: tabCartGap },
-  // Owner 16.11.2026: as short as Drinkit's bar (390, then 330, then 270). Owner 23.11.2026:
-  // «чуть-чуть длиннее», still shorter than the tab bar (361 pt on a 393 pt iPhone): 310, then
-  // 320 after trying it on the phone.
-  root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
-  // The cart button fills the capsule's full height (a larger target, and the dock keeps its
-  // distance to the tab bar); the handle and the photos sit inside with the same inset.
-  capsule: {
-    minHeight: ROW + PAD * 2,
-    borderRadius: 999,
-    paddingHorizontal: PAD,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 18,
-    elevation: 12,
-  },
-  // No handle while paying is not possible: the capsule hugs its content, centred in the dock.
-  capsuleClosed: { alignSelf: 'center', maxWidth: '100%' },
-  open: {
-    minWidth: 0,
-    minHeight: ROW + PAD * 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 999,
-  },
-  fill: { flex: 1 },
-  // The total and the photos only (Drinkit): a little air before the total, none after the photos.
-  openClosed: { flexShrink: 1, gap: 16, paddingLeft: 22 },
-  // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon, where the
-  // handle sits.
-  bag: {
-    position: 'absolute',
-    left: PAD,
-    top: PAD,
-    height: ROW,
-    borderRadius: ROW / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
-    backgroundColor: glass.pillBase,
-  },
-  middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
-  middleClosed: { flexShrink: 1 },
-  totalBox: { width: '100%', alignItems: 'center' },
-  dining: {
-    maxWidth: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  diningText: {
-    fontFamily: font.medium,
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#A9B4C8',
-    flexShrink: 1,
-    includeFontPadding: false,
-  },
-  // The closed capsule hugs its content: on a narrow phone the location gives way with an
-  // ellipsis (the full name stays in VoiceOver) so a long Kazakh dining label still fits.
-  diningNarrowClosed: { maxWidth: 140 },
-  diningMode: { flexShrink: 0 },
-  locationText: { minWidth: 0, flexShrink: 1 },
-  total: {
-    fontFamily: font.display,
-    color: colors.white,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-    includeFontPadding: false,
-  },
-  photos: { height: ROW, flexShrink: 0, justifyContent: 'center' },
-  photoSlot: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
-  photo: {
-    overflow: 'hidden',
-    backgroundColor: '#FFF8EE',
-    // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
-    borderWidth: 3,
-    borderColor: glass.pillBase,
-  },
-  placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.raised,
-  },
-  hintBox: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hint: {
-    fontFamily: font.heading,
-    fontSize: 18,
-    lineHeight: 24,
-    color: colors.white,
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-  // The bundled Jost lacks Kazakh glyphs. Use one native face for the entire phrase,
-  // rather than mixing Jost letters with per-character system fallbacks.
-  hintKazakh: {
-    // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt, where
-    // the 320 pt bar (owner 23.11.2026) leaves about 194 pt beside the handle.
-    fontSize: 16,
-    fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'system-ui' }),
-    fontWeight: '600',
-  },
-  // The touch and VoiceOver frame spans the capsule height, level with the cart button.
-  handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },
-});
+const s = themed(() =>
+  StyleSheet.create({
+    dock: {
+      paddingTop: 10,
+      paddingHorizontal: 16,
+      borderTopWidth: 0,
+      backgroundColor: 'transparent',
+    },
+    floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+    // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
+    aboveTabBar: { paddingBottom: tabCartGap },
+    // Owner 16.11.2026: as short as Drinkit's bar (390, then 330, then 270). Owner 23.11.2026:
+    // «чуть-чуть длиннее», still shorter than the tab bar (361 pt on a 393 pt iPhone): 310, then
+    // 320 after trying it on the phone.
+    root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
+    // The cart button fills the capsule's full height (a larger target, and the dock keeps its
+    // distance to the tab bar); the handle and the photos sit inside with the same inset.
+    capsule: {
+      minHeight: ROW + PAD * 2,
+      borderRadius: 999,
+      paddingHorizontal: PAD,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
+      // A soft navy lift on the light look, like the tab bar; the night capsule keeps black.
+      shadowColor: colors.scheme === 'light' ? '#10285A' : '#000000',
+      shadowOpacity: colors.scheme === 'light' ? 0.18 : 0.5,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    // No handle while paying is not possible: the capsule hugs its content, centred in the dock.
+    capsuleClosed: { alignSelf: 'center', maxWidth: '100%' },
+    open: {
+      minWidth: 0,
+      minHeight: ROW + PAD * 2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderRadius: 999,
+    },
+    fill: { flex: 1 },
+    // The total and the photos only (Drinkit): a little air before the total, none after the photos.
+    openClosed: { flexShrink: 1, gap: 16, paddingLeft: 22 },
+    // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon, where the
+    // handle sits.
+    bag: {
+      position: 'absolute',
+      left: PAD,
+      top: PAD,
+      height: ROW,
+      borderRadius: ROW / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
+      backgroundColor: glass.pillBase,
+    },
+    middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+    middleClosed: { flexShrink: 1 },
+    totalBox: { width: '100%', alignItems: 'center' },
+    dining: {
+      maxWidth: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+    },
+    diningText: {
+      fontFamily: font.medium,
+      fontSize: 12,
+      lineHeight: 17,
+      color: tc('#A9B4C8'),
+      flexShrink: 1,
+      includeFontPadding: false,
+    },
+    // The closed capsule hugs its content: on a narrow phone the location gives way with an
+    // ellipsis (the full name stays in VoiceOver) so a long Kazakh dining label still fits.
+    diningNarrowClosed: { maxWidth: 140 },
+    diningMode: { flexShrink: 0 },
+    locationText: { minWidth: 0, flexShrink: 1 },
+    total: {
+      fontFamily: font.display,
+      color: colors.white,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+      includeFontPadding: false,
+    },
+    photos: { height: ROW, flexShrink: 0, justifyContent: 'center' },
+    photoSlot: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
+    photo: {
+      overflow: 'hidden',
+      backgroundColor: '#EEF2F8',
+      // The photo sits on a dark circle, as at Drinkit (owner 16.11.2026, «Ночной»).
+      borderWidth: 3,
+      borderColor: colors.scheme === 'light' ? '#FFFFFF' : glass.pillBase,
+    },
+    placeholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.raised,
+    },
+    hintBox: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hint: {
+      fontFamily: font.heading,
+      fontSize: 18,
+      lineHeight: 24,
+      color: colors.white,
+      textAlign: 'center',
+      includeFontPadding: false,
+    },
+    // The bundled Jost lacks Kazakh glyphs. Use one native face for the entire phrase,
+    // rather than mixing Jost letters with per-character system fallbacks.
+    hintKazakh: {
+      // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt, where
+      // the 320 pt bar (owner 23.11.2026) leaves about 194 pt beside the handle.
+      fontSize: 16,
+      fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'system-ui' }),
+      fontWeight: '600',
+    },
+    // The touch and VoiceOver frame spans the capsule height, level with the cart button.
+    handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },
+  }),
+);

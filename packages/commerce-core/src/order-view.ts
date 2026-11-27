@@ -65,7 +65,15 @@ export async function readCheckoutOrder(
                   ? 'ready_to_pay'
                   : 'awaiting_restaurant';
   const sale = order.fiscalDocuments.find((d) => d.kind === 'sale' && d.state === 'issued');
-  // Receipt URLs are intentionally omitted until a dedicated fiscal adapter exposes a verified receipt.
+  // The guest's receipt link: the verified https link the fiscal adapter recorded (Webkassa).
+  const receiptUrl = sale
+    ? ((
+        await pool.query<{ receipt_url: string }>(
+          'SELECT receipt_url FROM commerce_fiscal_effects WHERE document_id=$1 ORDER BY received_at,id LIMIT 1',
+          [sale.id],
+        )
+      ).rows[0]?.receipt_url ?? null)
+    : null;
   const body = {
     orderId,
     branchId: scope.branchId,
@@ -82,7 +90,7 @@ export async function readCheckoutOrder(
     phase,
     expiresAt: bank?.expires_at?.toISOString() ?? null,
     receipt: sale ? 'issued' : order.fiscalPolicy === 'deferred_pilot' ? 'deferred' : 'pending',
-    receiptUrl: null,
+    receiptUrl: receiptUrl?.startsWith('https://') ? receiptUrl : null,
     items: (
       order.snapshot.lines as {
         productId: string;

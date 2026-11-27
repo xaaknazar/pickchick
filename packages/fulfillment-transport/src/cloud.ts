@@ -4,7 +4,7 @@ import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateDevice } from '@pickchick/menu-sync';
 import type { DeviceAuth } from '@pickchick/menu-sync';
-import { CommerceRepository } from '@pickchick/commerce-core';
+import { CommerceRepository, kitchenBeforeReceipt } from '@pickchick/commerce-core';
 import { digest } from '@pickchick/edge-fulfillment';
 import {
   parse,
@@ -326,7 +326,7 @@ export async function pullFulfillment(
          AND e.payload->>'reservationId'=o.admission_reservation_id::text
          AND NOT EXISTS(SELECT 1 FROM commerce_refunds r WHERE r.order_id=o.id AND r.state<>'failed')
          AND COALESCE((SELECT SUM(amount_minor) FROM commerce_captures c WHERE c.order_id=o.id),0)=o.total_minor
-         AND (o.fiscal_policy='deferred_pilot' OR EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND f.state='issued'))
+         AND (o.fiscal_policy='deferred_pilot' OR EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND (f.state='issued' OR $8::boolean)))
        ))
        ORDER BY (e.event_type='edge.admission_requested'),e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
        UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,lease_until=clock_timestamp()+$6*interval '1 second',attempts=attempts+1
@@ -339,6 +339,7 @@ export async function pullFulfillment(
         token,
         request.leaseSeconds,
         request.protocolVersion ?? 1,
+        kitchenBeforeReceipt(),
       ],
     );
     const row = result.rows[0];

@@ -19,6 +19,12 @@ import { kioskHealthLines, type KioskHealthFacts } from '../kiosk-health';
 import { guestErrorText } from '../guestError';
 import { paymentCopy } from '../paymentCopy';
 import { ScreenTransition } from '../components/ScreenTransition';
+import {
+  KioskErrorBoundary,
+  SCREEN_CRASH_REPEAT_MS,
+  SCREEN_RESTART_MS,
+  crashEndsGuest,
+} from '../errorBoundary';
 // Prototype flow order: moving to a later step slides in from the right, to an
 // earlier one from the left. A finished order starting over counts as forward.
 const flow: KioskStep[] = [
@@ -38,6 +44,11 @@ const directionOf = (from: KioskStep, to: KioskStep): 'forward' | 'back' =>
     : flow.indexOf(to) >= 0 && flow.indexOf(to) < flow.indexOf(from)
       ? 'back'
       : 'forward';
+/**
+ * Audit 23.11 #7: the staff dialog left open with nobody acting closes by itself. The start
+ * screen has no idle reset, so a forgotten dialog would otherwise stay over the attract screen.
+ */
+const STAFF_DIALOG_IDLE_MS = 2 * 60000;
 export function GuestScreen() {
   const liveModel = useKioskController();
   const [locale, setLocale] = useState<Locale>('ru');
@@ -147,6 +158,16 @@ export function GuestScreen() {
     closeTerminalSetup?.();
   };
   const terminalSetup = model.terminalSetup;
+  // Typing, an answer or a running staff action starts the wait again. The open terminal setup
+  // has its own, longer time in the controller; when that ends, this wait closes the dialog.
+  const closeStaffRef = useRef(closeStaff);
+  closeStaffRef.current = closeStaff;
+  const staffIdle = demoAsk && !model.busy && !terminalSetup?.open;
+  useEffect(() => {
+    if (!staffIdle) return;
+    const timer = setTimeout(() => closeStaffRef.current(), STAFF_DIALOG_IDLE_MS);
+    return () => clearTimeout(timer);
+  }, [staffIdle, pin, health, model.staffPinError]);
   const closeRestart = () => {
     setRestartAsk(false);
     setPin('');
@@ -191,6 +212,15 @@ export function GuestScreen() {
     }
     const success = model.order ? await model.cancelOrder() : await model.newGuest();
     if (success) setCancel(false);
+  };
+  // Audit 23.11 #2: a screen that failed to draw is drawn again. A plain draft that fails twice
+  // in a row is given up like an idle one; an order or a payment is never touched from here
+  // (the controller above keeps reading it while the notice is shown).
+  const lastCrash = useRef(-Infinity);
+  const restartScreens = () => {
+    const repeated = Date.now() - lastCrash.current < SCREEN_CRASH_REPEAT_MS;
+    lastCrash.current = Date.now();
+    if (crashEndsGuest(model, repeated)) void model.newGuest();
   };
   let screen;
   let screenKey: string = model.step;
@@ -271,13 +301,27 @@ export function GuestScreen() {
   return (
     <ScreenSurface onTouchStart={model.touch}>
       {/* The product page opens and closes as a circle over the menu. */}
-      <ScreenTransition
-        screenKey={screenKey}
-        reveal={screenKey.startsWith('product-')}
-        diningMode={model.mode}
+      <KioskErrorBoundary
+        restartMs={SCREEN_RESTART_MS}
+        onRestart={restartScreens}
+        fallback={(restart) => (
+          <BootState
+            loading={false}
+            title={t.crashTitle}
+            message={t.crashBody}
+            onRetry={restart}
+            retryLabel={t.tryAgain}
+          />
+        )}
       >
-        {screen}
-      </ScreenTransition>
+        <ScreenTransition
+          screenKey={screenKey}
+          reveal={screenKey.startsWith('product-')}
+          diningMode={model.mode}
+        >
+          {screen}
+        </ScreenTransition>
+      </KioskErrorBoundary>
       {model.ready && errorText && (model.catalog || model.order || model.recoveryRequired) ? (
         <Notice
           testID="kiosk-error"

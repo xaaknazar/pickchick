@@ -38,8 +38,8 @@
   {
     "file": "skyline.svg",
     "source": "assets/almaty-skyline.svg",
-    "sha256": "ccc198a79b5f3013644746a35f44acc20cd71326679a2ecada9f374ea54a5914",
-    "transform": "none"
+    "sha256": "0b28268746df082a4191a575fad438e311aa2c6fe24ec2e36f806a388534d41a",
+    "transform": "preserveAspectRatio=none (9b26aa90, owner 25.11)"
   },
   {
     "file": "pickrun-poster.png",

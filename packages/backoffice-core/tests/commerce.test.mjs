@@ -4,6 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
+
+// Written for the rule «the kitchen waits for the issued receipt» (COMMERCE_KITCHEN_BEFORE_RECEIPT=
+// false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
 async function boFixture(run, options = {}) {
   return fixture(async (f) => {
     const manager = await provisionCatalogManager(f.pool, {

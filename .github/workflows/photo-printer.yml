@@ -11,7 +11,7 @@ on:
         '.github/workflows/photo-printer.yml',
       ]
   pull_request:
-    branches: [main, 'codex/shared-development']
+    branches: [main, 'codex/**']
 permissions:
   contents: read
 jobs:

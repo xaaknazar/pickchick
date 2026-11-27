@@ -12,6 +12,10 @@ import {
 } from '../dist/cloud.js';
 import { fixture, code } from './cloud-fixture.mjs';
 
+// These cases check the transport gate under the rule «the kitchen waits for the issued receipt»
+// (COMMERCE_KITCHEN_BEFORE_RECEIPT=false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
+
 test('real device admission is atomic, durable and replay-safe; no payment means no kitchen command', () =>
   fixture(async (f) => {
     const v = await f.reserve();

@@ -7,6 +7,10 @@ import { syncFulfillmentOnce } from '../dist/index.js';
 import { createPool, transaction } from '@pickchick/database';
 import { fulfillmentWorkerGrants } from '../../../infra/windows/fulfillment-worker-grants.mjs';
 
+// These cases check the transport gate under the rule «the kitchen waits for the issued receipt»
+// (COMMERCE_KITCHEN_BEFORE_RECEIPT=false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
+
 async function restrictedWorker(f, run) {
   const role = 'transport_' + randomUUID().replaceAll('-', '');
   const schema = (await f.pool.query('SELECT current_schema() AS name')).rows[0].name;

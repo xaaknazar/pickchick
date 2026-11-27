@@ -9,6 +9,11 @@ import { fixtureMenu } from '@pickchick/test-fixtures';
 import { CommerceRepository, CustomerCheckout, digest } from '../dist/index.js';
 import { publishCatalog } from './catalog-fixture.mjs';
 
+// These ledger cases were written for the rule «the kitchen waits for the issued receipt» (still
+// selectable with COMMERCE_KITCHEN_BEFORE_RECEIPT=false); the F-4 default is covered in
+// webkassa-cloud.postgres.test.mjs and kaspi-remote.postgres.test.mjs.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
+
 // Only disposable schemas in explicitly local development PostgreSQL. Never
 // load a private .env or infer the live VPS connection from application config.
 const connection =

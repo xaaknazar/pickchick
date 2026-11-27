@@ -18,6 +18,8 @@ import {
   CustomerTestPaymentSetupSchema,
 } from './commerce-checkout';
 import { paymentReceived } from './commerce-presentation';
+// The poll delay: ends at once on abort and leaves no listener on the signal (audit 23.11 #10).
+import { wait as sleep } from './commerce-watch';
 import { CardPaymentSheet, TipTopPayResultSheet } from './components/TipTopPaySheets';
 import {
   APPLE_PAY_MERCHANT_ID,
@@ -93,14 +95,6 @@ const RETURN_URL = 'pickchick://tiptoppay-return';
 const randomKey = () => randomUUID();
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 45_000;
-const sleep = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
 
 /**
  * TipTopPay card / Apple Pay / Google Pay of the cart (owner 18.11.2026, «Полностью нативно»).
@@ -188,10 +182,16 @@ export function useTipTopPayCheckout({
       setLastMethod(method);
       onBusy(true);
       let applePayOpen = false;
+      /**
+       * The live order whose charge request has left the phone (audit 26.11 P0-5). Once it has,
+       * a network error is an unknown outcome, not a decline: the bank may have charged it.
+       */
+      let chargedOrder: string | null = null;
+      // A declined live order is paid again as it is; otherwise a fresh quote (and order).
+      let again: string | null = null;
       try {
         const isLive = live?.() === true;
-        // A declined live order is paid again as it is; otherwise a fresh quote (and order).
-        const again = isLive ? retryOrder.current : null;
+        again = isLive ? retryOrder.current : null;
         retryOrder.current = null;
         let order: CustomerCommerceOrder | null = null;
         let quote: { quoteId: string; totalMinor: string } | null = null;
@@ -260,6 +260,7 @@ export function useTipTopPayCheckout({
           cryptogram = await native.startGooglePay(input);
         }
         if (isLive && order) {
+          chargedOrder = order.orderId;
           const answer = liveChargeAnswer(
             await request(
               `/orders/${order.orderId}/tiptoppay`,
@@ -309,6 +310,17 @@ export function useTipTopPayCheckout({
         if (!signal.aborted) setResult(payment);
       } catch (e) {
         if (applePayOpen) await NativePayments?.completeApplePay?.(false).catch(() => undefined);
+        // A retry that could not even read its order keeps that order: a new one could be a
+        // second charge if the first one went through meanwhile.
+        if (!chargedOrder && again) chargedOrder = again;
+        if (chargedOrder) {
+          // The answer was lost after the charge was sent: never «Деньги не списаны» and never a
+          // new order. The sheet shows «Проверяем оплату»; «Обновить» reads this same order, and
+          // «Попробовать ещё раз» pays it again only once the server says it failed.
+          retryOrder.current = chargedOrder;
+          if (!signal.aborted) setResult({ state: 'pending', orderId: chargedOrder });
+          return;
+        }
         if (signal.aborted || nativePaymentCode(e) === PAYMENT_CANCELLED) return;
         setResult({
           state: 'failed',

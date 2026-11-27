@@ -174,6 +174,10 @@ const ru = {
   loading: 'Загружаем меню…',
   unavailable: 'Не удалось загрузить меню',
   tryAgain: 'Попробовать снова',
+  // Audit 23.11 #2: shown instead of a screen that failed to draw; it restarts by itself.
+  crashTitle: 'Экран перезапускается',
+  crashBody:
+    'Что-то пошло не так. Киоск продолжит работу через несколько секунд. Если экран не меняется - пригласите сотрудника.',
   restore: 'Проверяем ваш заказ',
   restoreBody: 'Сначала проверим последний запрос, чтобы не создать второй заказ.',
   step: 'Шаг',
@@ -206,8 +210,10 @@ const ru = {
   paymentConfirmed: 'Оплата подтверждена',
   paidNumberPending: 'Оплачено, номер появится на табло',
   awaitingRestaurant: 'Оплата подтверждена. Ожидаем ресторан.',
-  receiptIssued: 'Чек сформирован',
-  receiptMissing: 'Фискальный чек пока не сформирован. Обратитесь к сотруднику.',
+  receiptIssued: 'Чек можно забрать у кассира.',
+  receiptMissing: 'Чек напечатается у кассира, заберите его там.',
+  // Audit 26.11 P0-1: an order without a receipt (deferred pilot) promises none.
+  receiptDeferred: 'Номер заказа на экране: по нему вас позовут на выдачу.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Оплата по QR',
   hitTag: 'ХИТ',
@@ -495,6 +501,9 @@ const kk: Strings = {
   loading: 'Мәзір жүктелуде…',
   unavailable: 'Мәзірді жүктеу мүмкін болмады',
   tryAgain: 'Қайталау',
+  crashTitle: 'Экран қайта іске қосылуда',
+  crashBody:
+    'Бірдеңе дұрыс болмады. Киоск бірнеше секундтан кейін жұмысын жалғастырады. Экран өзгермесе - қызметкерді шақырыңыз.',
   restore: 'Тапсырысыңызды тексереміз',
   restoreBody: 'Екінші тапсырыс жасамау үшін соңғы сұрауды тексереміз.',
   step: 'Қадам',
@@ -527,8 +536,9 @@ const kk: Strings = {
   paymentConfirmed: 'Төлем расталды',
   paidNumberPending: 'Төленді, нөмір тақтада пайда болады',
   awaitingRestaurant: 'Төлем расталды. Мейрамхананы күтеміз.',
-  receiptIssued: 'Чек дайын',
-  receiptMissing: 'Фискалдық чек әлі жасалмады. Қызметкерге хабарласыңыз.',
+  receiptIssued: 'Чекті кассадан алыңыз.',
+  receiptMissing: 'Чек кассада басылады, оны сол жерден алыңыз.',
+  receiptDeferred: 'Тапсырыс нөмірі экранда: сізді осы нөмір бойынша шақырады.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'QR арқылы төлем',
   hitTag: 'ХИТ',
@@ -815,6 +825,9 @@ const en: Strings = {
   loading: 'Loading the menu…',
   unavailable: 'Could not load the menu',
   tryAgain: 'Try again',
+  crashTitle: 'The screen is restarting',
+  crashBody:
+    'Something went wrong. The kiosk will continue in a few seconds. If the screen does not change - call a team member.',
   restore: 'Checking your order',
   restoreBody: 'We are checking the last request first so that no second order is created.',
   step: 'Step',
@@ -848,8 +861,9 @@ const en: Strings = {
   paymentConfirmed: 'Payment confirmed',
   paidNumberPending: 'Paid, your number will appear on the board',
   awaitingRestaurant: 'Payment confirmed. Waiting for the restaurant.',
-  receiptIssued: 'Receipt issued',
-  receiptMissing: 'The fiscal receipt has not been issued yet. Please contact a team member.',
+  receiptIssued: 'Please collect your receipt from the cashier.',
+  receiptMissing: 'Your receipt will print at the cashier desk. Please collect it there.',
+  receiptDeferred: 'Your order number is on the screen: we will call it when the order is ready.',
   // Guest texts that components used to hard-code for ru/kk only
   payKaspiQR: 'Pay by QR',
   hitTag: 'HIT',

@@ -565,3 +565,77 @@ test('kitchen accepts explicit kiosk source and rejects unrecognized channels', 
   assert.equal(order({ ...original, channel: 'kiosk' }, original.branchId).channel, 'kiosk');
   assert.throws(() => order({ ...original, channel: 'other' }, original.branchId));
 });
+test('owner 23.11: one lost background read neither shows an error nor locks the screen', async () => {
+  const f = fixture();
+  let down = 0;
+  const transport = async (...args) => {
+    if (down > 0 && args[0].includes('/kitchen?')) {
+      down--;
+      throw new ApiError('CONNECTION_UNKNOWN');
+    }
+    return f.transport(...args);
+  };
+  const m = new KitchenModel(transport, f.session, f.durable, async () => () => {});
+  await login(f, m);
+  down = 2;
+  await m.refresh(true);
+  await m.refresh(true);
+  assert.equal(m.state.error, null, 'two lost reads are not shown');
+  assert.equal(m.state.orders.length, 1, 'last tickets stay');
+  await m.refresh(true);
+  assert.equal(m.state.error, null, 'answer came back');
+  down = 3;
+  for (let i = 0; i < 3; i++) await m.refresh(true);
+  assert.equal(m.state.error, 'CONNECTION_UNKNOWN', 'shown after three in a row');
+  await m.refresh(true);
+  assert.equal(m.state.error, null, 'the next answer clears it');
+});
+test('a tap during the background read waits for it instead of being dropped', async () => {
+  const f = fixture();
+  let release;
+  const gate = new Promise((r) => (release = r));
+  let hold = false;
+  const transport = async (...args) => {
+    if (hold && args[0].includes('/kitchen?')) {
+      hold = false;
+      await gate;
+    }
+    return f.transport(...args);
+  };
+  const m = new KitchenModel(transport, f.session, f.durable, async () => () => {});
+  await login(f, m);
+  hold = true;
+  const poll = m.refresh(true);
+  assert.equal(m.state.busy, true);
+  assert.equal(m.state.background, true, 'screen not locked by the poll');
+  const tap = m.command(m.state.orders[0], allowedActions(m.state.orders[0], f.station)[0]);
+  release();
+  await poll;
+  await tap;
+  assert.equal(f.posted, 1, 'the tap was sent after the read');
+  assert.equal(m.state.pending, null);
+  assert.equal(m.state.orders[0].version, 2);
+});
+test('a tap whose answer was lost is repeated by the next poll with the same key; not after a restart', async () => {
+  const f = fixture(),
+    m = f.make();
+  await login(f, m);
+  f.setFault(() => {
+    throw new ApiError('CONNECTION_UNKNOWN');
+  });
+  await m.command(m.state.orders[0], allowedActions(m.state.orders[0], f.station)[0]);
+  assert.ok(m.state.pending);
+  const first = f.calls.filter((c) => c.body).at(-1);
+  // A restarted page keeps the journal but leaves the decision to the cook.
+  const n = f.make();
+  await n.restore();
+  await n.refresh(true);
+  assert.equal(f.posted, 1, 'restart does not send');
+  f.setFault(null);
+  await m.refresh(true);
+  const again = f.calls.filter((c) => c.body).at(-1);
+  assert.deepEqual(again, first, 'same action, versions and key');
+  assert.equal(m.state.pending, null);
+  assert.equal(m.state.error, null);
+  assert.equal(m.state.orders[0].version, 2);
+});
