@@ -26,7 +26,7 @@ import {
   FulfillmentTaskKdsSchema,
   UuidSchema,
 } from '@pickchick/contracts';
-import { transaction } from '@pickchick/database';
+import { transaction, type DatabaseClient } from '@pickchick/database';
 import {
   EdgeFulfillment,
   FulfillmentError,
@@ -91,6 +91,40 @@ export function output<T>(schema: z.ZodType<T>, value: unknown): T {
 }
 type Summary = Awaited<ReturnType<EdgeFulfillment['act']>>;
 type Order = Awaited<ReturnType<EdgeFulfillment['readOrder']>>;
+/**
+ * Station norms of the applied back-office station plan (edge024, owner 27.11): plan station
+ * `edge_station_id` -> `target_seconds`, active stations only. Nothing when the plan tables are
+ * missing or this role may not read them, so the station list never fails because of the plan.
+ */
+export async function stationTargets(client: Pick<DatabaseClient, 'query'>, branch: string) {
+  const targets = new Map<string, number>();
+  const ok = (
+    await client.query<{ ok: boolean | null }>(
+      `SELECT bool_and(to_regclass(t) IS NOT NULL AND has_table_privilege(current_user, to_regclass(t), 'SELECT')) AS ok
+       FROM unnest(ARRAY['station_plan_active','station_plan_snapshots']) t`,
+    )
+  ).rows[0]?.ok;
+  if (!ok) return targets;
+  const rows = (
+    await client.query<{ id: string; target: number }>(
+      `SELECT s->>'edge_station_id' AS id,(s->>'target_seconds')::int AS target
+       FROM station_plan_active a JOIN station_plan_snapshots p ON p.plan_id=a.plan_id AND p.branch_id=a.branch_id
+       CROSS JOIN LATERAL jsonb_array_elements(p.payload->'stations') s
+       WHERE a.branch_id=$1 AND (s->>'active')::boolean AND s->>'edge_station_id' IS NOT NULL
+         AND jsonb_typeof(s->'target_seconds')='number'`,
+      [branch],
+    )
+  ).rows;
+  for (const row of rows)
+    if (
+      Number.isInteger(row.target) &&
+      row.target >= 1 &&
+      row.target <= 3600 &&
+      !targets.has(row.id)
+    )
+      targets.set(row.id, row.target);
+  return targets;
+}
 function summary(row: Summary) {
   return output(FulfillmentSummarySchema, {
     orderId: row.orderId,
@@ -287,7 +321,12 @@ export class FulfillmentController {
           this.branchId,
           rows.rows.map((row) => row.id),
         );
-        const listed = rows.rows.filter((row) => !hidden.has(row.id));
+        const targets = await stationTargets(client, this.branchId);
+        const listed = rows.rows
+          .filter((row) => !hidden.has(row.id))
+          .map((row) =>
+            targets.has(row.id) ? { ...row, targetSeconds: targets.get(row.id)! } : row,
+          );
         return {
           branchId: this.branchId,
           items: terminal ? listed.filter((row) => row.kind === terminal.mode) : listed,

@@ -22,9 +22,11 @@ import {
   Backoffice,
   grantBackoffice,
   pullStationPlan,
+  readKitchenSpeed,
   readStationPlanStatus,
   recordStationPlanReceipt,
 } from '../../packages/backoffice-core/dist/index.js';
+import { stationTargets } from '../../services/edge/dist/fulfillment-controller.js';
 import { backofficeGrants } from '../../infra/staging/backoffice-grants.mjs';
 import { stationPlanGrants } from '../../infra/staging/station-plan-grants.mjs';
 import { withSyncDatabases, running, authFor, headersFor, request } from '../helpers/sync.mjs';
@@ -169,6 +171,18 @@ test('a station publication reaches the edge over HTTP, applies atomically and t
         const active = await readActiveStationPlan(c.edge.pool, c.branch);
         assert.equal(active.version, 1);
         assert.equal(active.plan.stations[0].edge_station_id, c.prep);
+        // Owner 27.11: the kitchen timer follows the norm of its station («Норма, секунд»).
+        assert.deepEqual([...(await stationTargets(c.edge.pool, c.branch))], [[c.prep, 240]]);
+        // «Скорость кухни» reads the day without events and names the stations the edge reported.
+        const speed = await readKitchenSpeed(
+          c.cloud.pool,
+          c.branch,
+          { date: '2026-11-27' },
+          new Date(),
+        );
+        assert.equal(speed.orders.total, 0);
+        assert.deepEqual(speed.stations, []);
+        assert.equal(speed.sources.cloud_orders, true);
         // The receipt left the edge in the same cycle.
         assert.equal(await count(c.edge.pool, 'station_plan_receipts', 'reported_at IS NULL'), 0);
         status = await c.read();
@@ -659,6 +673,11 @@ test('old edges, older clouds and the disabled flag keep the previous behaviour'
     ),
   );
 });
+
+test('without an applied plan the kitchen gets no norms', () =>
+  setup(async (c) => {
+    assert.deepEqual([...(await stationTargets(c.edge.pool, c.branch))], []);
+  }));
 
 test('an empty branch has no plan to send', () =>
   setup(async (c) => {

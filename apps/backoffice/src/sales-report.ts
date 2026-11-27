@@ -355,3 +355,158 @@ export class SalesReportView {
     result.append(rules);
   }
 }
+
+/** «Скорость кухни» (owner 27.11): GET .../ops/kitchen-speed?date=, one Almaty day. */
+export type KitchenSpeed = {
+  date: string;
+  sources: { cloud_orders: boolean; cashier_orders: boolean };
+  orders: Record<string, number | null>;
+  stations: {
+    station_id: string;
+    name: string | null;
+    target_seconds: number | null;
+    tasks: number;
+    avg_seconds: number | null;
+    median_seconds: number | null;
+    avg_cook_seconds: number | null;
+    late_tasks: number;
+  }[];
+  default_target_seconds: number;
+  truncated: boolean;
+};
+/** 4:35, 12:03, 1:02:09; a dash without a value. */
+export const duration = (seconds: number | null | undefined) => {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '-';
+  const s = Math.max(0, Math.round(seconds)),
+    h = Math.floor(s / 3600),
+    m = Math.floor((s % 3600) / 60),
+    ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+};
+export class KitchenSpeedView {
+  private date = almatyDay();
+  private result: KitchenSpeed | null = null;
+  private error = '';
+  private busy = false;
+  render(load: (date: string) => Promise<KitchenSpeed>): HTMLElement {
+    const root = el('section', 'panel op-panel sales-report kitchen-speed');
+    root.dataset.testid = 'kitchen-speed';
+    const head = el('div', 'panel-head'),
+      title = el('div');
+    title.append(
+      el('h2', '', 'Скорость кухни'),
+      el(
+        'p',
+        'muted',
+        'Сколько в среднем готовит каждая станция и сколько заказов дольше нормы. Норма станции задаётся в «Станциях» («Норма, секунд»): после неё таймер на кухне жёлтый, после двух норм - красный. Без нормы - 5 и 10 минут. Время - Алматы.',
+      ),
+    );
+    head.append(title);
+    const result = el('div', 'sales-report-result');
+    const run = button(
+      'Показать',
+      () => {
+        if (this.busy) return;
+        this.busy = true;
+        run.disabled = true;
+        load(this.date)
+          .then((value) => {
+            this.result = value;
+            this.error = '';
+          })
+          .catch((error: unknown) => {
+            this.result = null;
+            this.error =
+              error instanceof Error && error.message === 'NOT_FOUND'
+                ? 'Отчёт появится после обновления сервера.'
+                : 'Отчёт не загрузился. Проверьте связь и повторите.';
+          })
+          .finally(() => {
+            this.busy = false;
+            run.disabled = false;
+            this.show(result);
+          });
+      },
+      'button primary',
+      'kitchen-speed-run',
+    );
+    const controls = el('div', 'inventory-filters sales-report-filters');
+    controls.append(
+      field(
+        'День',
+        this.date,
+        (v) => {
+          this.date = v;
+        },
+        { id: 'kitchen-speed-date', type: 'date' },
+      ),
+      run,
+    );
+    root.append(head, controls, result);
+    this.show(result);
+    return root;
+  }
+  private show(result: HTMLElement) {
+    result.replaceChildren();
+    if (this.error) {
+      const n = el('p', 'notice error', this.error);
+      n.setAttribute('role', 'alert');
+      result.append(n);
+      return;
+    }
+    const r = this.result;
+    if (!r) {
+      result.append(el('p', 'op-note', 'Выберите день и нажмите «Показать».'));
+      return;
+    }
+    const o = r.orders;
+    const coverage = el(
+      'p',
+      'notice compact',
+      r.sources.cashier_orders
+        ? 'Учтены заказы приложения, киоска и кассы, которые касса уже передала в облако.'
+        : 'Учтены заказы приложения и киоска. Заказы кассы появятся, когда касса начнёт передавать их в облако.',
+    );
+    coverage.setAttribute('role', 'status');
+    result.append(
+      coverage,
+      stats([
+        [
+          'Заказы',
+          String(o['total'] ?? 0),
+          `Приложение и киоск: ${o['from_app_and_kiosk'] ?? 0}, касса: ${o['from_cashier'] ?? 0}`,
+        ],
+        [
+          'До «Заказ собран»',
+          duration(o['avg_ready_seconds']),
+          `в среднем; медиана ${duration(o['median_ready_seconds'])}`,
+        ],
+        ['Дольше нормы', String(o['late'] ?? 0), 'заказов с красным таймером'],
+        ['Не собраны', String(o['not_ready'] ?? 0), 'ещё в работе или без отметки'],
+      ]),
+      el('h3', '', 'Станции'),
+      table(
+        ['Станция', 'Позиций', 'В среднем', 'Медиана', 'Готовка', 'Дольше нормы', 'Норма'],
+        r.stations.map((s) => [
+          s.name ?? 'Станция ' + s.station_id.slice(0, 8),
+          String(s.tasks),
+          duration(s.avg_seconds),
+          duration(s.median_seconds),
+          duration(s.avg_cook_seconds),
+          String(s.late_tasks),
+          duration(s.target_seconds ?? r.default_target_seconds) +
+            (s.target_seconds === null ? ' (по умолчанию)' : ''),
+        ]),
+        'За этот день кухня ничего не отметила',
+        'kitchen-speed-stations',
+      ),
+      el(
+        'p',
+        'op-note',
+        '«В среднем» - от приёма заказа до «Готово» на станции. «Готовка» - от «Начать» до «Готово», если повар нажимал «Начать».',
+      ),
+    );
+    if (r.truncated)
+      result.append(el('p', 'notice', 'За день слишком много событий: показана часть.'));
+  }
+}
