@@ -13,6 +13,10 @@ import {
 import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
 import { reconciliationGrants } from '../../../infra/staging/reconciliation-grants.mjs';
 
+// Written for the rule «the kitchen waits for the issued receipt» (COMMERCE_KITCHEN_BEFORE_RECEIPT=
+// false); the F-4 default is covered in commerce-core tests.
+process.env.COMMERCE_KITCHEN_BEFORE_RECEIPT = 'false';
+
 const D = '2026-10-21';
 const NEXT = '2026-10-22';
 // 11:00 Almaty on the next day: the day under review is over.
