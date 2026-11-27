@@ -474,3 +474,72 @@ export function readWebkassaAccount(
 export function webkassaEnvironment(account: Pick<WebkassaAccount, 'baseUrl'>): 'test' | 'live' {
   return /^https:\/\/kkm\.webkassa\.kz\/?$/.test(account.baseUrl) ? 'live' : 'test';
 }
+
+/** ReturnBasisDetails of a refund: the sale receipt it returns (FiscalCheck.returnBasis). */
+export type WebkassaReturnBasis = NonNullable<FiscalCheck['returnBasis']>;
+
+/**
+ * The data a refund must name, read from the sale receipt's own print form (Ticket/PrintFormat):
+ * «ФП: N» (the CheckNumber), «Время: dd.mm.yyyy hh:mm:ss», the РНМ (the line after «(РНМ):», or
+ * the `f` of the receipt QR) and «...в автономном режиме» for an offline receipt. Audit 26.11
+ * P0-1: a refund never guesses; null when any of them is missing or the ФП is another receipt.
+ */
+export function returnBasisFromPrintForm(
+  lines: readonly WebkassaPrintLine[] | null,
+  checkNumber: string,
+  saleTotalMinor: bigint,
+): WebkassaReturnBasis | null {
+  if (!lines?.length || !checkNumber) return null;
+  const text = lines.map((l) => (typeof l.value === 'string' ? l.value : ''));
+  const sign = text.map((t) => /(?:ФП|ФБ\/ФП)\s*:\s*(\d{1,20})/.exec(t)?.[1]).find(Boolean);
+  if (sign && sign !== checkNumber) return null;
+  const time = text
+    .map((t) => /(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2})/.exec(t)?.[1])
+    .find((v, i) => v && /Время|Уақыты/.test(text[i]!));
+  let registration: string | undefined;
+  const label = text.findIndex((t) => /\(РНМ\)/.test(t));
+  if (label >= 0)
+    registration =
+      /\(РНМ\)\s*:\s*(\d{6,20})/.exec(text[label]!)?.[1] ??
+      /^\s*(\d{6,20})\s*$/.exec(text[label + 1] ?? '')?.[1];
+  if (!registration)
+    for (const line of lines)
+      if (line.type === 2) {
+        try {
+          const f = new URL(line.value).searchParams.get('f');
+          if (f && /^\d{6,20}$/.test(f)) registration = f;
+        } catch {
+          // not a link
+        }
+      }
+  if (!time || !registration) return null;
+  return {
+    checkNumber,
+    dateTime: time,
+    total: saleTotalMinor,
+    registrationNumber: registration,
+    offline: text.some((t) => /автономн/i.test(t)),
+  };
+}
+
+/**
+ * Receipt lines whose sum is `amountMinor` (a partial refund): the lines of the sale, a discount
+ * taken off the largest lines first. Throws when the amount is above the lines or cannot fit.
+ */
+export function fitFiscalLines(lines: readonly FiscalLine[], amountMinor: bigint): FiscalLine[] {
+  const result = lines.map((l) => ({ ...l }));
+  const total = (l: FiscalLine) => l.unitPriceMinor * BigInt(l.quantity) - l.discountMinor;
+  const sum = result.reduce((s, l) => s + total(l), 0n);
+  if (!result.length || amountMinor <= 0n || sum < amountMinor)
+    throw new Error('Lines below amount');
+  let extra = sum - amountMinor;
+  for (const line of [...result].sort((a, b) => (total(a) > total(b) ? -1 : 1))) {
+    if (!extra) break;
+    const room = total(line) - 1n;
+    const take = room < extra ? room : extra;
+    line.discountMinor += take;
+    extra -= take;
+  }
+  if (extra) throw new Error('Lines cannot fit the amount');
+  return result;
+}

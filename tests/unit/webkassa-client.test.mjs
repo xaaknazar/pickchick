@@ -9,7 +9,9 @@ import {
   checkBody,
   fiscalLinesOf,
   fiscalPaymentsOf,
+  fitFiscalLines,
   readWebkassaAccount,
+  returnBasisFromPrintForm,
   readWebkassaAnswer,
   webkassaEnvironment,
 } from '@pickchick/local-orders';
@@ -227,4 +229,75 @@ test('test or live register: devkkm is TEST, a live point refuses it (audit 26.1
     readWebkassaAccount(file, { requireLive: true })?.baseUrl,
     'https://kkm.webkassa.kz',
   );
+});
+
+// The tail of the 26.11 devkkm sale form (receipt 132600001), as Ticket/PrintFormat returns it.
+const SALE_FORM = [
+  'Чек/Чек №132600001',
+  'ФБ/ФП: 132600001',
+  'Уақыты/Время: 26.11.2026 12:01:05',
+  'Чек автономды режимде құрастырылған/Чек',
+  'сформирован в автономном режиме',
+  'МКК БКМ коды (КТН)/Код ККМ КГД (РНМ):',
+  '057946199798',
+  'КЗН/ЗНМ: SWK00036966',
+].map((value, order) => ({ order, type: 0, value, style: 0 }));
+
+test('return basis comes from the sale print form: ФП, time, РНМ, offline mark', () => {
+  assert.deepEqual(returnBasisFromPrintForm(SALE_FORM, '132600001', 419000n), {
+    checkNumber: '132600001',
+    dateTime: '26.11.2026 12:01:05',
+    total: 419000n,
+    registrationNumber: '057946199798',
+    offline: true,
+  });
+  // A form of another receipt, no time, or no РНМ gives nothing to guess from.
+  assert.equal(returnBasisFromPrintForm(SALE_FORM, '132600002', 419000n), null);
+  assert.equal(
+    returnBasisFromPrintForm(
+      SALE_FORM.filter((l) => !/Время/.test(l.value)),
+      '132600001',
+      1n,
+    ),
+    null,
+  );
+  const noRnm = SALE_FORM.filter((l) => !/РНМ|^\d+$/.test(l.value));
+  assert.equal(returnBasisFromPrintForm(noRnm, '132600001', 1n), null);
+  assert.equal(returnBasisFromPrintForm(null, '132600001', 1n), null);
+  // The РНМ is also on the QR link (param f); an online form has no offline mark.
+  const online = [
+    ...noRnm.filter((l) => !/автономн/.test(l.value)),
+    {
+      order: 9,
+      type: 2,
+      value: 'http://ctest2.wofd.kz/consumer?i=132600001&f=057946199798&s=4190.00',
+      style: 0,
+    },
+  ];
+  const basis = returnBasisFromPrintForm(online, '132600001', 1n);
+  assert.equal(basis.registrationNumber, '057946199798');
+  assert.equal(basis.offline, false);
+});
+
+test('a partial refund fits the sale lines by discounting the largest first', () => {
+  const lines = [
+    { name: 'Комбо', quantity: 2, unitPriceMinor: 175000n, discountMinor: 0n },
+    { name: 'Морс', quantity: 1, unitPriceMinor: 69000n, discountMinor: 0n },
+  ];
+  const sum = (ls) =>
+    ls.reduce((s, l) => s + l.unitPriceMinor * BigInt(l.quantity) - l.discountMinor, 0n);
+  const half = fitFiscalLines(lines, 209500n);
+  assert.equal(sum(half), 209500n);
+  assert.equal(half[0].discountMinor, 209500n);
+  assert.equal(half[1].discountMinor, 0n);
+  assert.equal(lines[0].discountMinor, 0n, 'the input is not changed');
+  const tiny = fitFiscalLines(lines, 2n);
+  assert.deepEqual(
+    tiny.map((l) => l.unitPriceMinor * BigInt(l.quantity) - l.discountMinor),
+    [1n, 1n],
+  );
+  assert.deepEqual(fitFiscalLines(lines, 419000n), lines);
+  assert.throws(() => fitFiscalLines(lines, 1n));
+  assert.throws(() => fitFiscalLines(lines, 419001n));
+  assert.throws(() => fitFiscalLines([], 1n));
 });

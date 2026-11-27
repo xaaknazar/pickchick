@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { transaction } from '@pickchick/database';
-import { applyMenu, publishMenu } from '@pickchick/menu-sync';
+import { applyMenu, hashToken, publishMenu } from '@pickchick/menu-sync';
 import {
   WebkassaClient,
   WebkassaFiscalWorker,
+  approvalSubjectHash,
+  refundPosSale,
   closeCashShift,
   createPosSale,
   createQuote,
@@ -39,10 +41,12 @@ function webkassa() {
   const script = [];
   let busy = false;
   let number = 1000;
-  return {
+  const sim = {
     calls,
     checks,
     script,
+    /** true: PrintFormat answers with ФП, time and РНМ like the real form (refunds need them). */
+    fullForm: false,
     async post(baseUrl, path, apiKey, body) {
       assert.equal(busy, false, 'Webkassa requests for one register must not overlap');
       busy = true;
@@ -74,6 +78,31 @@ function webkassa() {
           checks.set(body.ExternalCheckNumber, { ...data, body });
           return { kind: 'ok', data, top: { Data: data } };
         }
+        const issued =
+          sim.fullForm &&
+          path === 'api/v4/Ticket/PrintFormat' &&
+          checks.get(body.ExternalCheckNumber);
+        if (issued)
+          // As on the 26.11 devkkm receipt: ФП, time, offline note, РНМ under its label, QR.
+          return {
+            kind: 'ok',
+            data: {
+              Lines: [
+                { Order: 1, Type: 0, Value: `ФБ/ФП: ${issued.CheckNumber}`, Style: 0 },
+                { Order: 2, Type: 0, Value: 'Уақыты/Время: 25.11.2026 14:34:29', Style: 0 },
+                { Order: 3, Type: 0, Value: 'сформирован в автономном режиме', Style: 0 },
+                { Order: 4, Type: 0, Value: 'МКК БКМ коды (КТН)/Код ККМ КГД (РНМ):', Style: 0 },
+                { Order: 5, Type: 0, Value: '000000000001', Style: 0 },
+                {
+                  Order: 6,
+                  Type: 2,
+                  Value: `http://ctest2.wofd.kz/consumer?i=${issued.CheckNumber}&f=000000000001`,
+                  Style: 0,
+                },
+              ],
+            },
+            top: {},
+          };
         if (path === 'api/v4/Ticket/PrintFormat')
           return {
             kind: 'ok',
@@ -92,6 +121,7 @@ function webkassa() {
       }
     },
   };
+  return sim;
 }
 
 async function prepare(ctx) {
@@ -479,6 +509,124 @@ test('a number typed by hand first wins; the Z-report closes Webkassa once the l
     await worker.tick();
     await worker.tick();
     assert.equal(sim.calls.filter((c) => c.path === 'api/v4/ZReport').length, 1);
+  });
+});
+
+/** A refund approval of the shift manager, as pos-sales.test.mjs grants it. */
+async function grantRefund(ctx, subject) {
+  const approval = { approval_id: randomUUID(), token: randomBytes(32).toString('hex') };
+  await ctx.edge.pool.query(
+    `INSERT INTO local_manager_approvals(id,branch_id,terminal_id,manager_staff_id,requested_by_staff_id,
+     action,subject,subject_hash,token_hash,expires_at)
+     VALUES($1,$2,$3,$4,$5,'refund',$6,$7,$8,clock_timestamp()+interval '120 seconds')`,
+    [
+      approval.approval_id,
+      ctx.branch,
+      ctx.cashier.terminal_id,
+      ctx.manager.staff_id,
+      ctx.cashier.staff_id,
+      subject,
+      approvalSubjectHash('refund', subject),
+      hashToken(approval.token),
+    ],
+  );
+  return approval;
+}
+
+test('a refund gets its Webkassa return receipt naming the sale from its print form (P0-1)', async () => {
+  await desk(async (ctx) => {
+    const sim = webkassa();
+    sim.fullForm = true;
+    const events = [];
+    const worker = new WebkassaFiscalWorker(
+      ctx.edge.pool,
+      ctx.branch,
+      new WebkassaClient(ACCOUNT, { transport: sim }),
+      (event) => events.push(event),
+    );
+    const { q, made } = await sale(ctx, (total) => [{ method: 'cash', amount_minor: total }]);
+    const orderId = made.order_id ?? made.sale?.order_id ?? made.order?.id;
+    const saleReceipt = await receiptOf(ctx, orderId);
+    // A refund made before the sale receipt is issued waits for it.
+    const amount = String(Number(q.total_minor) / 2);
+    const tender = (
+      await ctx.edge.pool.query('SELECT id FROM pos_sale_tenders WHERE order_id=$1', [orderId])
+    ).rows[0].id;
+    const approval = await grantRefund(ctx, { order_id: orderId, amount_minor: amount });
+    await refundPosSale(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), randomUUID(), orderId, {
+      refund_id: randomUUID(),
+      tenders: [{ tender_id: tender, amount_minor: amount }],
+      reason_code: 'quality',
+      reason: 'Синтетический возврат',
+      approval: { approval_id: approval.approval_id, token: approval.token },
+    });
+    assert.equal(await worker.tick(), 1, 'the sale first; its refund waits for the sale receipt');
+    assert.equal(await worker.tick(), 1, 'then the refund');
+    const checks = sim.calls.filter((c) => c.path === 'api/v4/check').map((c) => c.body);
+    assert.deepEqual(
+      checks.map((b) => b.OperationType),
+      [2, 3],
+    );
+    const back = checks[1];
+    const refundReceipt = (
+      await ctx.edge.pool.query(
+        "SELECT id,state,receipt_number,recorded_by_staff_id FROM pos_fiscal_receipts WHERE order_id=$1 AND kind='refund'",
+        [orderId],
+      )
+    ).rows[0];
+    assert.equal(back.ExternalCheckNumber, refundReceipt.id);
+    assert.deepEqual(back.Payments, [{ Sum: Number(amount) / 100, PaymentType: 0 }]);
+    const positions = back.Positions.reduce((s, p) => s + p.Price * p.Count - p.Discount, 0);
+    assert.equal(Math.round(positions * 100), Number(amount));
+    const saleNumber = sim.checks.get(saleReceipt.id).CheckNumber;
+    assert.deepEqual(back.ReturnBasisDetails, {
+      CheckNumber: saleNumber,
+      DateTime: '2026-11-25 14:34:29',
+      Total: Number(q.total_minor) / 100,
+      RegistrationNumber: '000000000001',
+      IsOffline: true,
+    });
+    assert.equal(refundReceipt.state, 'recorded');
+    assert.equal(refundReceipt.receipt_number, sim.checks.get(refundReceipt.id).CheckNumber);
+    assert.ok(events.some((e) => e.event === 'webkassa_receipt_issued' && e.kind === 'refund'));
+    assert.equal(await worker.tick(), 0);
+  });
+});
+
+test('a refund whose sale print form lacks the return data stays for the cashier', async () => {
+  await desk(async (ctx) => {
+    const sim = webkassa();
+    const events = [];
+    const worker = new WebkassaFiscalWorker(
+      ctx.edge.pool,
+      ctx.branch,
+      new WebkassaClient(ACCOUNT, { transport: sim }),
+      (event) => events.push(event),
+    );
+    const { q, made } = await sale(ctx, (total) => [{ method: 'cash', amount_minor: total }]);
+    const orderId = made.order_id ?? made.sale?.order_id ?? made.order?.id;
+    assert.equal(await worker.tick(), 1);
+    const tender = (
+      await ctx.edge.pool.query('SELECT id FROM pos_sale_tenders WHERE order_id=$1', [orderId])
+    ).rows[0].id;
+    const approval = await grantRefund(ctx, { order_id: orderId, amount_minor: q.total_minor });
+    await refundPosSale(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), randomUUID(), orderId, {
+      refund_id: randomUUID(),
+      tenders: [{ tender_id: tender, amount_minor: q.total_minor }],
+      reason_code: 'quality',
+      reason: 'Синтетический возврат',
+      approval: { approval_id: approval.approval_id, token: approval.token },
+    });
+    // sim.fullForm stays false: Webkassa answers with a form without ФП, time or РНМ.
+    assert.equal(await worker.tick(), 0);
+    assert.equal(sim.calls.filter((c) => c.path === 'api/v4/check').length, 1, 'no guessed return');
+    assert.ok(events.some((e) => e.event === 'webkassa_receipt_refused' && e.code === -1));
+    const pending = await listPendingFiscalReceipts(
+      ctx.edge.pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+    );
+    assert.equal(pending.receipts.length, 1, 'the refund receipt stays in «Чеки Webkassa»');
   });
 });
 

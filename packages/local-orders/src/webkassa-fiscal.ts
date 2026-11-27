@@ -7,7 +7,7 @@ import { OrderError } from './errors.js';
 import { posSalesInstalled } from './approvals.js';
 import { lockBranch } from './commands.js';
 import { FISCAL_RECEIPT_COLUMNS, appendFiscalEvent, fiscalReceipt } from './pos-outbox.js';
-import { WEBKASSA_CODE } from '@pickchick/webkassa';
+import { WEBKASSA_CODE, fitFiscalLines, returnBasisFromPrintForm } from '@pickchick/webkassa';
 import type {
   FiscalCheck,
   FiscalLine,
@@ -42,9 +42,14 @@ export const WEBKASSA_PAYMENT_TYPE: Partial<Record<PosPaymentMethod, WebkassaPay
  * `fiscal` posSales event goes to the cloud as before. No schema change: the receipt itself,
  * its print form and QR stay in Webkassa and are fetched by our id when the POS prints.
  *
- * Stage 1 limits, kept manual (the existing «Чеки Webkassa» list): refund receipts, because the
- * Webkassa return needs the sale's shift and time which schema026 does not keep; and a receipt
- * Webkassa refuses (the error is shown to the POS, the cashier can still type a number).
+ * Refund receipts (audit 26.11 P0-1): a pending refund or void receipt whose sale receipt is
+ * recorded is issued the same way under its own id, with the refund's tenders and the sale lines
+ * fitted to the refund amount. Its ReturnBasisDetails are read from the sale receipt's print form
+ * in Webkassa (number, time, РНМ, offline flag; schema026 keeps none of them), so no schema change.
+ * When that form lacks them the refund is refused here and stays manual.
+ *
+ * Kept manual (the existing «Чеки Webkassa» list): a receipt Webkassa refuses (the error is shown
+ * to the POS, the cashier can still type a number).
  *
  * All Webkassa calls of the branch go through one queue: the vendor requires requests for one
  * register strictly one after another.
@@ -60,10 +65,16 @@ export interface WebkassaFiscalStatus {
 
 interface PendingRow {
   id: string;
+  kind: 'sale' | 'refund';
+  refund_id: string | null;
   order_id: string;
   amount_minor: string;
   display_number: number | null;
+  /** Sale: the cashier of the sale; refund: the staff member who made the refund. */
   cashier_staff_id: string;
+  sale_receipt_id: string | null;
+  sale_receipt_number: string | null;
+  sale_amount_minor: string | null;
   snapshot: { lines?: Array<{ name?: unknown; quantity?: unknown; total_minor?: unknown }> };
 }
 
@@ -142,6 +153,9 @@ export interface WebkassaPrintable extends WebkassaPrintLine {
   qr?: string[];
 }
 
+const refund_kind = (kind: PendingRow['kind']) =>
+  kind === 'refund' ? 'pos_fiscal.webkassa_refund_issued' : 'pos_fiscal.webkassa_issued';
+
 export class WebkassaFiscalWorker {
   readonly #pool: DatabasePool;
   readonly #branchId: string;
@@ -190,14 +204,20 @@ export class WebkassaFiscalWorker {
   async #pending(): Promise<PendingRow[]> {
     return (
       await this.#pool.query(
-        `SELECT f.id,f.order_id,f.amount_minor::text AS amount_minor,s.cashier_staff_id,q.snapshot,
-         r.display_number::integer AS display_number
+        `SELECT f.id,f.kind,f.refund_id,f.order_id,f.amount_minor::text AS amount_minor,
+         COALESCE(x.staff_id,s.cashier_staff_id) AS cashier_staff_id,q.snapshot,
+         r.display_number::integer AS display_number,sf.id AS sale_receipt_id,
+         sf.receipt_number AS sale_receipt_number,sf.amount_minor::text AS sale_amount_minor
          FROM pos_fiscal_receipts f
          JOIN pos_sales s ON s.order_id=f.order_id AND s.branch_id=f.branch_id
          JOIN local_orders o ON o.id=f.order_id AND o.branch_id=f.branch_id
          JOIN checkout_quotes q ON q.id=o.quote_id AND q.branch_id=f.branch_id
          LEFT JOIN fulfillment_reservations r ON r.local_order_id=f.order_id AND r.branch_id=f.branch_id
-         WHERE f.branch_id=$1 AND f.state='pending' AND f.kind='sale'
+         LEFT JOIN pos_refunds x ON x.id=f.refund_id AND x.branch_id=f.branch_id
+         LEFT JOIN pos_fiscal_receipts sf ON sf.order_id=f.order_id AND sf.branch_id=f.branch_id
+           AND sf.kind='sale'
+         WHERE f.branch_id=$1 AND f.state='pending'
+           AND (f.kind='sale' OR (sf.state='recorded' AND x.id IS NOT NULL))
          ORDER BY f.created_at,f.id LIMIT $2`,
         [this.#branchId, MAX_BATCH],
       )
@@ -205,24 +225,49 @@ export class WebkassaFiscalWorker {
   }
 
   async #issue(row: PendingRow, now: number): Promise<boolean> {
+    const refund = row.kind === 'refund';
     const tenders = (
       await this.#pool.query(
-        `SELECT method,amount_minor::text AS amount_minor FROM pos_sale_tenders
-         WHERE order_id=$1 AND branch_id=$2 ORDER BY created_at,id`,
-        [row.order_id, this.#branchId],
+        refund
+          ? `SELECT method,amount_minor::text AS amount_minor FROM pos_refund_tenders
+             WHERE refund_id=$1 AND order_id=$2 AND branch_id=$3 ORDER BY created_at,tender_id`
+          : `SELECT method,amount_minor::text AS amount_minor FROM pos_sale_tenders
+             WHERE order_id=$1 AND branch_id=$2 ORDER BY created_at,id`,
+        refund ? [row.refund_id, row.order_id, this.#branchId] : [row.order_id, this.#branchId],
       )
     ).rows as Array<{ method: PosPaymentMethod; amount_minor: string }>;
     const payments = fiscalPaymentsOf(tenders);
     let check: FiscalCheck;
     try {
       if (!payments) throw new Error('Payment method without a Webkassa type');
-      check = {
-        operation: 'sale',
-        externalNumber: row.id,
-        ...(row.display_number ? { orderNumber: String(row.display_number) } : {}),
-        lines: fiscalLinesOf(row.snapshot, BigInt(row.amount_minor)),
-        payments,
-      };
+      const amount = BigInt(row.amount_minor);
+      if (refund) {
+        if (!row.sale_receipt_id || !row.sale_receipt_number || !row.sale_amount_minor)
+          throw new Error('Sale receipt is not issued');
+        const saleTotal = BigInt(row.sale_amount_minor);
+        // Called inside the tick's turn of the queue: the client directly, never #serial.
+        const basis = returnBasisFromPrintForm(
+          await this.#client.printFormat(row.sale_receipt_id),
+          row.sale_receipt_number,
+          saleTotal,
+        );
+        if (!basis) throw new Error('Sale receipt data for the return not found in Webkassa');
+        check = {
+          operation: 'refund',
+          externalNumber: row.id,
+          ...(row.display_number ? { orderNumber: String(row.display_number) } : {}),
+          lines: fitFiscalLines(fiscalLinesOf(row.snapshot, saleTotal), amount),
+          payments,
+          returnBasis: basis,
+        };
+      } else
+        check = {
+          operation: 'sale',
+          externalNumber: row.id,
+          ...(row.display_number ? { orderNumber: String(row.display_number) } : {}),
+          lines: fiscalLinesOf(row.snapshot, amount),
+          payments,
+        };
     } catch (error) {
       this.#refused(row.id, { code: -1, text: (error as Error).message }, now);
       return false;
@@ -250,6 +295,7 @@ export class WebkassaFiscalWorker {
       this.#log({
         event: 'webkassa_receipt_issued',
         receiptId: row.id,
+        kind: row.kind,
         checkNumber: result.receipt.checkNumber,
         offline: result.receipt.offline,
         duplicate: result.receipt.duplicate,
@@ -285,13 +331,7 @@ export class WebkassaFiscalWorker {
       if (!updated) return;
       const receipt = fiscalReceipt(updated);
       await appendFiscalEvent(client, this.#branchId, receipt);
-      await audit(
-        client,
-        this.#branchId,
-        row.cashier_staff_id,
-        'pos_fiscal.webkassa_issued',
-        row.id,
-      );
+      await audit(client, this.#branchId, row.cashier_staff_id, refund_kind(row.kind), row.id);
     });
   }
 
@@ -305,7 +345,9 @@ export class WebkassaFiscalWorker {
       await this.#pool.query(
         `SELECT (SELECT count(*) FROM local_cash_shifts WHERE branch_id=$1 AND state='open')::integer AS open,
          (SELECT max(closed_at) FROM local_cash_shifts WHERE branch_id=$1)::text AS last_close,
-         (SELECT count(*) FROM pos_fiscal_receipts WHERE branch_id=$1 AND state='pending' AND kind='sale')::integer AS pending`,
+         (SELECT count(*) FROM pos_fiscal_receipts f WHERE f.branch_id=$1 AND f.state='pending'
+           AND (f.kind='sale' OR EXISTS(SELECT 1 FROM pos_fiscal_receipts sf WHERE sf.order_id=f.order_id
+             AND sf.branch_id=f.branch_id AND sf.kind='sale' AND sf.state='recorded')))::integer AS pending`,
         [this.#branchId],
       )
     ).rows[0] as { open: number; last_close: string | null; pending: number };
