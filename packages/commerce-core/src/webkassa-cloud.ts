@@ -16,7 +16,7 @@ import { UUIDSchema } from './model.js';
  *
  * The cloud already queues a `commerce_fiscal_documents` sale and an outbox
  * `fiscal.submit_requested` once an order with fiscal policy `required` is paid in full; the
- * kitchen admission waits for that receipt. This worker is the Webkassa adapter of that queue: the
+ * the kitchen no longer waits for that receipt (kitchenBeforeReceipt). This worker is the Webkassa adapter of that queue: the
  * cloud order id is the ExternalCheckNumber (one sale receipt per order) (a repeat after a lost answer resolves to the same receipt,
  * Code 14), and the outcome goes through CommerceRepository.observeFiscal like any provider event.
  *

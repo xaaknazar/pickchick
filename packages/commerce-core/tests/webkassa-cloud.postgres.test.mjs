@@ -228,12 +228,12 @@ const burger = (quantity = 2) => ({
   taxCode: 'TEST',
 });
 
-test('a paid app order gets one Webkassa receipt, its link, and then reaches the kitchen', () =>
+test('a paid app order reaches the kitchen at once and its Webkassa receipt follows (F-4)', () =>
   fixture(async (f) => {
     const orderId = await f.paid([burger()]);
     let view = await f.repo.readOrder(f.scope, orderId);
     assert.equal(view.fiscalDocuments[0].state, 'queued');
-    assert.equal(view.kitchenEffectId, null, 'no kitchen before the receipt');
+    assert.ok(view.kitchenEffectId, 'the kitchen does not wait for the receipt (owner 27.11)');
     assert.deepEqual(await f.worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
     const check = f.wk.calls.find(([p]) => p === 'api/v4/check')[1];
     assert.equal(check.ExternalCheckNumber, orderId, 'the desk prints a kiosk receipt by it');
@@ -243,7 +243,7 @@ test('a paid app order gets one Webkassa receipt, its link, and then reaches the
     assert.equal(check.Positions[0].Price, 500);
     view = await f.repo.readOrder(f.scope, orderId);
     assert.equal(view.fiscalDocuments[0].state, 'issued');
-    assert.ok(view.kitchenEffectId, 'the kitchen gets the order once the receipt is issued');
+    assert.ok(view.kitchenEffectId);
     const shown = await readCheckoutOrder(f.pool, f.repo, f.scope, orderId);
     assert.equal(shown.receipt, 'issued');
     assert.equal(
