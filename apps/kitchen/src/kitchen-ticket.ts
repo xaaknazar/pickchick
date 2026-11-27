@@ -1,5 +1,10 @@
 /**
- * Kitchen and assembly tickets (22.11 redesign). Industry practice (Toast, Square KDS, Fresh KDS,
+ * Kitchen and assembly tickets (22.11 redesign, restaurant TZ 27.11 «Отображение заказов»):
+ * both screens keep number, order type, source, timer and status, and show each ordered item by
+ * name and quantity only - no marketing descriptions, no combo contents. The kitchen shows nothing
+ * else; assembly lists the chosen modifiers (drinks, sauces) one per line under the item, without
+ * the group titles («Напиток на выбор», «Соус на выбор»).
+ * Earlier notes (22.11): Industry practice (Toast, Square KDS, Fresh KDS,
  * fast-food lines): a prep screen shows only what that station cooks - order number, dish names,
  * quantities and cooking changes, with a running stopwatch. Drinks and sauces never reach the
  * cook; the assembly (expo) screen shows the whole order, drinks and sauces included, as a
@@ -37,46 +42,14 @@ export const cookModifiers = (t: Task) =>
   t.details.modifiers.filter((m) => modifierKind(m) === 'cook');
 
 /**
- * What goes into each combo and set, for the cook (owner 22.11: «состав комбо, но без напитков», «соус тоже не добавляй»).
- * From the manager menu sheet 22.11 (catalog-admin fixtures manager-menu-2026-11-22, ingredients),
- * drinks and sauces left out (both go on at assembly). Keyed by menu slug (app and kiosk orders) and by Russian name (cashier orders
- * carry hashed ids). A dish not listed shows no composition, never a guess.
- * Change together with the menu when a combo's contents change.
+ * Short kitchen names of single items, used only to name a part on its button when a combo is
+ * expanded into one task per component (back office «Компоненты»). Combo contents themselves are
+ * no longer shown (TZ 27.11: «расшифровку состава комбо убрать на обоих экранах»).
  */
 type Part = readonly [name: string, count: number];
-const FRIES: Part = ['Фри', 1];
-const WEDGES_DUO: Part = ['Фри', 1.5];
-const COMPOSITION: Readonly<Record<string, readonly [string, readonly Part[]]>> = {
-  'pick-combo': ['Finger Combo', [['Фингерсы', 4], FRIES, ['Тост', 1], ['Коулслоу', 1]]],
-  'master-combo': ['Master Combo', [['Фингерсы', 6], FRIES, ['Тост', 2], ['Коулслоу', 1]]],
-  'burger-combo': ['Pick Burger Combo', [['Pick Burger', 1], FRIES]],
-  'solo-combo': ['Solo Combo', [['Фингерсы', 3], FRIES, ['Тост', 1]]],
-  'pick-meal-combo': ['Pick Meal', [['Pick Burger', 1], ['Фингерсы', 2], FRIES]],
-  'chick-burger-combo': ['Chick Burger Combo', [['Chick Burger', 1], FRIES]],
-  'chick-n-roll-combo': ['Chick N Roll Combo', [['Ролл', 1], FRIES]],
-  'chick-n-roll-meal-combo': ['Chick N Roll Meal', [['Ролл', 1], ['Фингерсы', 2], FRIES]],
-  'chick-meal-combo': ['Chick Meal', [['Chick Burger', 1], ['Фингерсы', 2], FRIES]],
-  'finger-duo': ['Finger Duo', [['Фингерсы', 8], WEDGES_DUO, ['Тост', 2], ['Коулслоу', 2]]],
-  'burger-duo': ['Pick Burger Duo', [['Pick Burger', 2], WEDGES_DUO]],
-  'mix-duo': [
-    'Mix Duo c Pick Burger',
-    [['Pick Burger', 1], ['Фингерсы', 4], WEDGES_DUO, ['Тост', 1]],
-  ],
-  'chick-burger-duo': ['Chick Burger Duo', [['Chick Burger', 2], WEDGES_DUO]],
-  'mix-chick-duo': [
-    'Mix Duo c Chick Burger',
-    [['Chick Burger', 1], ['Фингерсы', 4], WEDGES_DUO, ['Тост', 1]],
-  ],
-  'mix-burger-duo': ['Mix Burger Duo', [['Pick Burger', 1], ['Chick Burger', 1], WEDGES_DUO]],
-  'fingers-25': ['25 фингерсов', [['Фингерсы', 25]]],
-  'fingers-50': ['50 фингерсов', [['Фингерсы', 50]]],
-  'fingers-75': ['75 фингерсов', [['Фингерсы', 75]]],
-  'fingers-100': ['100 фингерсов', [['Фингерсы', 100]]],
-};
-/** Single items a cook makes, for the «Всего в работе» strip (same names as in combos). */
 const SINGLES: Readonly<Record<string, readonly [string, Part]>> = {
   fingers: ['Фингерс 1 шт', ['Фингерсы', 1]],
-  wedges: ['Картофельные дольки', FRIES],
+  wedges: ['Картофельные дольки', ['Фри', 1]],
   coleslaw: ['Коул слоу', ['Коулслоу', 1]],
   toast: ['Тост 1 шт', ['Тост', 1]],
   burger: ['Pick Burger', ['Pick Burger', 1]],
@@ -84,10 +57,7 @@ const SINGLES: Readonly<Record<string, readonly [string, Part]>> = {
   'chick-burger': ['Chick Burger', ['Chick Burger', 1]],
 };
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
-const BY_NAME = new Map(Object.values(COMPOSITION).map(([name, parts]) => [norm(name), parts]));
 const SINGLE_BY_NAME = new Map(Object.values(SINGLES).map(([name, part]) => [norm(name), part]));
-/** Order of the strip: what the fryer needs first. */
-const STRIP_ORDER = ['Фингерсы', 'Фри', 'Тост', 'Коулслоу', 'Pick Burger', 'Chick Burger', 'Ролл'];
 /**
  * «Всего в работе»: everything this station still has to make across all open orders - combo
  * contents plus single items; anything unknown is counted under its own title. Like the «All Day»
@@ -98,28 +68,25 @@ export function allDay(orders: Order[], stationId: string): { name: string; coun
   const add = (name: string, n: number) => totals.set(name, (totals.get(name) ?? 0) + n);
   for (const o of orders) {
     if (o.state !== 'accepted' && o.state !== 'in_production') continue;
+    for (const g of groupTasks(o.tasks.filter((t) => t.stationId === stationId)))
+      if (
+        g.kind === 'combo' &&
+        !g.base &&
+        g.parts.some((t) => t.state === 'queued' || t.state === 'in_progress')
+      )
+        add(g.title, g.quantity);
     for (const t of o.tasks) {
       if (t.stationId !== stationId || (t.state !== 'queued' && t.state !== 'in_progress'))
         continue;
-      const parts = composition(t);
-      if (parts.length) for (const p of parts) add(p.name, p.count);
-      else {
-        const single =
-          SINGLES[t.details.productId]?.[1] ?? SINGLE_BY_NAME.get(norm(t.details.title));
-        if (single) add(single[0], single[1] * t.details.quantity);
-        else add(t.details.title, t.details.quantity);
-      }
+      // TZ 27.11: combo contents are not decoded; each item counts under its own name. An
+      // expanded combo (one task per component) counts once, under the combo.
+      if (isComponent(t)) continue;
+      add(t.details.title, t.details.quantity);
     }
   }
-  const rank = (name: string) => {
-    const i = STRIP_ORDER.indexOf(name);
-    return i < 0 ? STRIP_ORDER.length : i;
-  };
   return [...totals]
     .map(([name, count]) => ({ name, count }))
-    .sort(
-      (a, b) => rank(a.name) - rank(b.name) || b.count - a.count || a.name.localeCompare(b.name),
-    );
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 export function allDayStrip(orders: Order[], stationId: string) {
   const list = allDay(orders, stationId);
@@ -203,19 +170,8 @@ export function unlockAudioOnTouch(target: EventTarget) {
   target.addEventListener('pointerdown', unlock, { once: true });
 }
 
-/** Contents of one task for the cook, multiplied by its quantity; [] when unknown. */
-export function composition(t: Task): { name: string; count: number }[] {
-  const parts = COMPOSITION[t.details.productId]?.[1] ?? BY_NAME.get(norm(t.details.title)) ?? [];
-  return parts.map(([name, count]) => ({ name, count: count * t.details.quantity }));
-}
 const amount = (n: number) => (Number.isInteger(n) ? String(n) : String(n).replace('.', ','));
-type Piece = { name: string; count: number; grams?: number };
-const pieceList = (list: Piece[]) =>
-  list.length
-    ? `<ul class="composition">${list.map((p) => `<li><strong>${amount(p.count)}</strong> ${escape(p.name)}${p.grams ? `<small class="grams">${p.grams} г</small>` : ''}</li>`).join('')}</ul>`
-    : '';
-const compositionList = (t: Task) => pieceList(composition(t));
-
+type Piece = { name: string; count: number };
 /**
  * A component of an expanded combo (the back office «Компоненты» filled): the edge makes one task
  * per component with the combo as parentTitle and the same lineId. Its short kitchen name and
@@ -228,7 +184,6 @@ export function piece(t: Task): Piece {
   return {
     name: single ? single[0] : t.details.title,
     count: (single ? single[1] : 1) * t.details.quantity,
-    ...(t.details.weightG ? { grams: t.details.weightG } : {}),
   };
 }
 const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
@@ -319,24 +274,12 @@ const clock = (iso: string) => {
       });
 };
 const qty = (n: number) => `<span class="quantity${n > 1 ? ' many' : ''}">${n}×</span>`;
-/**
- * Changes to a dish (e.g. «Без лука», «Острый»): big capital chips, red for a removal, orange for
- * the rest, the way fast-food screens shout exceptions so a cook never makes the standard dish.
- */
-const cookChanges = (list: Modifier[]) =>
-  list.length
-    ? `<p class="changes">${list
-        .map(
-          (m) =>
-            `<span class="change${/^(без|не |no )/i.test(m.label.ru.trim()) ? ' change-minus' : ''}">${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}</span>`,
-        )
-        .join('')}</p>`
-    : '';
-const mods = (list: Modifier[]) =>
-  list.length
-    ? `<p class="modifiers">${list.map((m) => escape(m.label.ru) + (m.quantity > 1 ? ' ×' + m.quantity : '')).join(' · ')}</p>`
-    : '';
-
+/** «Киоск · В очереди»: source and order status under the type chip (TZ 27.11 п.1). */
+function origin(o: Order, stateLabel: (state: string) => string) {
+  const source = sourceLabel(o).replace(/<\/?p[^>]*>/g, '');
+  const status = escape(stateLabel(o.state));
+  return `<p class="channel"${o.channel && !o.delivery ? ` data-source="${escape(o.channel)}"` : ''}>${source ? source + ' · ' : ''}<span class="order-status">${status}</span></p>`;
+}
 export type TicketInput = {
   order: Order;
   stationId: string;
@@ -371,102 +314,68 @@ export function kitchenTicket(input: TicketInput) {
   const assembly = input.stationId === o.assemblyStationId;
   const ready = o.state === 'ready';
   const taskAction = (t: Task) => input.actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
-  const taskButton = (t: Task) => {
-    const a = taskAction(t);
-    return a
-      ? button(input.actionLabel[a.action], commandAttrs('task-' + t.taskId, o, a), input.blocked)
-      : '';
-  };
-  const parent = (t: Task) =>
-    t.details.parentTitle && t.details.parentTitle !== t.details.title
-      ? `<p class="parent">${escape(t.details.parentTitle)}</p>`
-      : '';
-
-  /** Expanded combo: its parts; a dish with linked additions: «+» before each addition. */
-  const comboInfo = (g: Extract<Group, { kind: 'combo' }>) =>
-    `<h3>${escape(g.title)}</h3>${pieceList(
-      g.parts.map((t) => {
-        const p = piece(t);
-        return g.base ? { ...p, name: '+ ' + p.name } : p;
-      }),
-    )}${cookChanges(cookModifiers(g.base ?? g.parts[0]!))}`;
-  const doneMark = (done: boolean) => (done ? '<p class="line-check">✓ Готово</p>' : '');
-  const allDone = (list: Task[]) => list.every((t) => t.state === 'done');
-  /** One dish line; an expanded combo shows its parts from the order, with grams when known. */
-  const dishInfo = (g: Group) =>
-    g.kind === 'task'
-      ? `<h3>${escape(g.task.details.title)}</h3>${parent(g.task)}${
-          composition(g.task).length
-            ? compositionList(g.task)
-            : g.task.details.weightG
-              ? pieceList([{ ...piece(g.task), count: g.task.details.quantity }])
-              : ''
-        }${cookChanges(cookModifiers(g.task))}`
-      : comboInfo(g);
   const groupTasksOf = (g: Group) =>
     g.kind === 'task' ? [g.task] : g.base ? [g.base, ...g.parts] : g.parts;
   const groupQty = (g: Group) => (g.kind === 'task' ? g.task.details.quantity : g.quantity);
+  /** TZ 27.11: the item by name only; an expanded combo stays one line under the combo name. */
+  const title = (g: Group) => (g.kind === 'task' ? g.task.details.title : g.title);
+  const allDone = (list: Task[]) => list.every((t) => t.state === 'done');
+  const doneMark = (done: boolean) => (done ? '<p class="line-check">✓ Готово</p>' : '');
+  /** Task buttons; several tasks of one line (expanded combo) name their part on the button. */
+  const lineButtons = (list: Task[]) =>
+    list
+      .map((t) => {
+        const a = taskAction(t);
+        if (!a) return '';
+        const label =
+          list.length > 1 && isComponent(t)
+            ? `${input.actionLabel[a.action]} · ${escape(piece(t).name)}`
+            : input.actionLabel[a.action];
+        return button(label, commandAttrs('task-' + t.taskId, o, a), input.blocked);
+      })
+      .join('');
+  /** Assembly: every chosen modifier on its own line under the item, no group title. */
+  const modifierLines = (g: Group) => {
+    const first = g.kind === 'task' ? g.task : (g.base ?? g.parts[0]!);
+    const list = first.details.modifiers;
+    return list.length
+      ? `<ul class="line-mods">${list
+          .map(
+            (m) =>
+              `<li class="mod-${modifierKind(m)}">– ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}</li>`,
+          )
+          .join('')}</ul>`
+      : '';
+  };
 
   let body: string;
   if (!assembly) {
-    // Cook: only this station's dishes, cooking changes only. No drinks, sauces, descriptions.
+    // Kitchen (TZ 27.11 п.2): only the dish name and quantity. No drinks, sauces or modifiers.
     const own = groupTasks(o.tasks.filter((t) => t.stationId === input.stationId));
     body = `<div class="lines cook-lines">${own
       .map((g) => {
         const list = groupTasksOf(g);
         const done = allDone(list);
-        return `<section class="line cook-line${done ? ' line-done' : ''}">${qty(groupQty(g))}<div class="line-info">${dishInfo(g)}${doneMark(done)}${list.map(taskButton).join('')}</div></section>`;
+        return `<section class="line cook-line${done ? ' line-done' : ''}">${qty(groupQty(g))}<div class="line-info"><h3>${escape(title(g))}</h3>${doneMark(done)}${lineButtons(list)}</div></section>`;
       })
       .join('')}</div>`;
   } else {
-    // Assembly: everything. Kitchen dishes with their readiness, then what to add here.
-    const kitchen = o.tasks.filter((t) => t.stationId !== input.stationId);
-    const here = o.tasks.filter((t) => t.stationId === input.stationId);
-    const kitchenDone = allDone(kitchen);
-    const dishes = groupTasks(kitchen)
+    // Assembly (TZ 27.11 п.3): every item of the order with its chosen modifiers under it, in
+    // the order of the order. Kitchen items show their readiness; items made here their button.
+    body = `<div class="lines pack-lines">${groupTasks(o.tasks)
       .map((g) => {
         const list = groupTasksOf(g);
         const done = allDone(list);
-        const state = done
-          ? '✓'
-          : escape(input.stateLabel(list.find((t) => t.state !== 'done')!.state));
-        const info =
-          g.kind === 'task'
-            ? `<h3>${escape(g.task.details.title)}</h3>${parent(g.task)}${cookChanges(cookModifiers(g.task))}`
-            : comboInfo(g);
-        return `<section class="line pack-line">${qty(groupQty(g))}<div class="line-info">${info}</div><span class="line-state${done ? ' done' : ''}">${state}</span></section>`;
+        const fromKitchen = list.some((t) => t.stationId !== input.stationId);
+        const state = !fromKitchen
+          ? ''
+          : `<span class="line-state${done ? ' done' : ''}">${
+              done ? '✓' : escape(input.stateLabel(list.find((t) => t.state !== 'done')!.state))
+            }</span>`;
+        const here = list.filter((t) => t.stationId === input.stationId);
+        return `<section class="line pack-line">${qty(groupQty(g))}<div class="line-info"><h3>${escape(title(g))}</h3>${modifierLines(g)}${lineButtons(here)}</div>${state}</section>`;
       })
-      .join('');
-    // Drinks and sauces chosen inside combos: one checklist line each, total quantity. An
-    // expanded combo repeats its choices on every component task: counted once per order line.
-    const extras = groupTasks(o.tasks).flatMap((g) => {
-      const first = g.kind === 'task' ? g.task : (g.base ?? g.parts[0]!);
-      return first.details.modifiers
-        .filter((m) => modifierKind(m) !== 'cook')
-        .map((m) => ({
-          kind: modifierKind(m),
-          title: m.label.ru,
-          quantity: m.quantity * groupQty(g),
-          of: g.kind === 'task' ? g.task.details.title : g.title,
-        }));
-    });
-    const addLines = [
-      ...here.map(
-        (t) =>
-          `<section class="line add-line">${qty(t.details.quantity)}<div class="line-info"><h3>${escape(t.details.title)}</h3>${parent(t)}${isComponent(t) ? '' : mods(t.details.modifiers)}${taskButton(t)}</div></section>`,
-      ),
-      ...extras
-        .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'drink' ? -1 : 1))
-        .map(
-          (x) =>
-            `<section class="line add-line add-${x.kind}">${qty(x.quantity)}<div class="line-info"><h3>${escape(x.title)}</h3><p class="parent">${x.kind === 'drink' ? 'Напиток' : 'Соус'} · к ${escape(x.of)}</p></div></section>`,
-        ),
-    ].join('');
-    body = `${
-      dishes
-        ? `<div class="pack-block"><h4>С кухни${kitchenDone ? ' <span class="done">✓ всё готово</span>' : ''}</h4><div class="lines">${dishes}</div></div>`
-        : ''
-    }${addLines ? `<div class="pack-block pack-add"><h4>Добавить на сборке: напитки, соусы</h4><div class="lines">${addLines}</div></div>` : ''}`;
+      .join('')}</div>`;
   }
 
   const buttons = input.actions
@@ -494,5 +403,5 @@ export function kitchenTicket(input: TicketInput) {
         ? `<p>${assembly ? 'Ждём кухню' : 'Ожидание следующей станции'}</p>`
         : '';
   const wait = ready ? '' : waitClass(o.createdAt, input.now);
-  return `<article class="ticket kitchen-ticket ${assembly ? 'ticket-assembly' : 'ticket-cook'}${o.state === 'cancel_requested' ? ' cancel' : ''}${ready ? ' is-ready' : ''}${input.isNew ? ' is-new' : ''}${input.offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${input.owner ? ` data-owner="${input.owner}"` : ''}><div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div class="ticket-origin">${modeChip(o)}${sourceLabel(o)}${input.badge ?? ''}</div><div class="age">${timer(o.createdAt, input.now, !ready)}<small>${ready ? 'Готов к выдаче' : o.state === 'cancel_requested' ? escape(input.stateLabel(o.state)) : 'принят ' + clock(o.createdAt)}</small></div></div>${input.review ?? ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}${body}<div class="ticket-actions">${buttons}${note}</div></article>`;
+  return `<article class="ticket kitchen-ticket ${assembly ? 'ticket-assembly' : 'ticket-cook'}${o.state === 'cancel_requested' ? ' cancel' : ''}${ready ? ' is-ready' : ''}${input.isNew ? ' is-new' : ''}${input.offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${input.owner ? ` data-owner="${input.owner}"` : ''}><div class="ticket-head${wait ? ' ' + wait : ''}"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div class="ticket-origin">${modeChip(o)}${origin(o, input.stateLabel)}${input.badge ?? ''}</div><div class="age">${timer(o.createdAt, input.now, !ready)}<small>принят ${clock(o.createdAt)}</small></div></div>${input.review ?? ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}${body}<div class="ticket-actions">${buttons}${note}</div></article>`;
 }
