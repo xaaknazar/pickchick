@@ -1872,36 +1872,20 @@ html.screen-keyboard-open dialog[open]:has(> .screen-keyboard) {
 .kitchen-ticket .age strong.timer {
   font-size: 30px;
 }
-/* Combo contents for the cook: count first, big enough to read from the fryer. */
-.composition {
+/* Assembly (TZ 27.11): each chosen drink or sauce on its own line under the item. */
+.line-mods {
   list-style: none;
-  margin: 10px 0 2px;
+  margin: 6px 0 2px;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 8px;
 }
-.composition li {
-  padding: 5px 10px;
-  border-radius: 10px;
-  background: #eef2f9;
+.line-mods li {
   font-size: 19px;
   font-weight: 600;
-  color: #0e1524;
+  line-height: 1.35;
+  color: #34418a;
 }
-.composition li strong {
-  font:
-    800 20px Montserrat,
-    Golos,
-    sans-serif;
-  color: var(--blue);
-  margin-right: 2px;
-}
-.composition li .grams {
-  margin-left: 6px;
-  font-size: 15px;
+.order-status {
   font-weight: 700;
-  color: #5b6475;
 }
 /* «Всего в работе» on the cook screen: one batch for the fryer, counts first (owner 23.11). */
 .all-day {
