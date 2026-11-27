@@ -76,20 +76,34 @@ export function sourceLabel(o: { channel?: string; delivery?: Delivery }) {
   return `<p class="channel" data-source="${channel}"><span class="source source-${channel}">${escape(channelName[channel])}</span></p>`;
 }
 /**
- * Minutes a ticket may wait: green until `warn`, amber until `late`, red after (owner 27.11:
- * 5 and 10 minutes). A point can set its own limits; setWaitLimits keeps them sane.
+ * Seconds a ticket may wait: green until `warn`, amber until `late`, red after (owner 27.11:
+ * 5 and 10 minutes). The back office sets a station norm («Норма, секунд»); the open station's
+ * norm makes amber and twice it red (stationLimits). setWaitLimits keeps the values sane.
  */
-export const waitLimits = { warn: 5, late: 10 };
+export const DEFAULT_WAIT = Object.freeze({ warn: 300, late: 600 });
+export const waitLimits: { warn: number; late: number } = { ...DEFAULT_WAIT };
 export function setWaitLimits(warn: unknown, late: unknown) {
   const ok = (n: unknown): n is number =>
-    Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 120;
+    Number.isInteger(n) && (n as number) >= 30 && (n as number) <= 7200;
   if (ok(warn) && ok(late) && warn < late) {
     waitLimits.warn = warn;
     waitLimits.late = late;
+    return true;
   }
+  return false;
 }
+/** The open station's norm, or 5 and 10 minutes without one. */
+export function stationLimits(targetSeconds: number | undefined) {
+  if (!setWaitLimits(targetSeconds, (targetSeconds ?? 0) * 2))
+    setWaitLimits(DEFAULT_WAIT.warn, DEFAULT_WAIT.late);
+}
+/** «10 МИН», «7,5 МИН» for the header counter. */
+export const lateLabel = () => {
+  const m = waitLimits.late / 60;
+  return (Number.isInteger(m) ? String(m) : m.toFixed(1).replace('.', ',')) + ' МИН';
+};
 export function waitClass(createdAt: string | undefined, now: number) {
-  const age = (now - Date.parse(createdAt ?? '')) / 60000;
+  const age = (now - Date.parse(createdAt ?? '')) / 1000;
   if (!Number.isFinite(age)) return '';
   return age >= waitLimits.late ? 'wait-late' : age >= waitLimits.warn ? 'wait-warn' : 'wait-ok';
 }

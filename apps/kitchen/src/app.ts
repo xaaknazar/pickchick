@@ -24,7 +24,7 @@ import {
 } from './kitchen-ticket.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
-import { kdsScreen, kdsVisible, waitClass, waitLimits } from './kds-view.js';
+import { kdsScreen, kdsVisible, lateLabel, stationLimits, waitClass } from './kds-view.js';
 import { openHandover, openIncident } from './courier.js';
 import { HANDOVER_MARKS, UUID, type Action, type Order } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -378,6 +378,8 @@ function render() {
     }
   }
   const s = model.state;
+  // Timer limits of the open station: its back-office norm, else 5 and 10 minutes (owner 27.11).
+  stationLimits(s.stations.find((t) => t.id === s.stationId)?.targetSeconds);
   // Cutover KDS: a station of the active edge layout gets its KDS screen (contracts 5.4).
   const kdsFn = !demo && !s.cloud && s.mode === 'kitchen' ? model.kdsFunction() : null;
   // Delivery orders first (owner 27.11), the rest in arrival order.
@@ -450,7 +452,7 @@ function render() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${waitLimits.late} МИН</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" title="${fullscreenLabel()}" aria-label="${fullscreenLabel()}" aria-pressed="${fullscreen}">⛶</button>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${lateLabel()}</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" title="${fullscreenLabel()}" aria-label="${fullscreenLabel()}" aria-pressed="${fullscreen}">⛶</button>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';

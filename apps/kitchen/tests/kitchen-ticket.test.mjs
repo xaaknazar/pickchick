@@ -10,7 +10,13 @@ import {
   modifierKind,
   stopwatch,
 } from '../dist/kitchen-ticket.js';
-import { setWaitLimits, waitClass, waitLimits } from '../dist/kds-view.js';
+import {
+  lateLabel,
+  setWaitLimits,
+  stationLimits,
+  waitClass,
+  waitLimits,
+} from '../dist/kds-view.js';
 
 const PREP = '00000000-0000-4000-8000-000000000001';
 const ASM = '00000000-0000-4000-8000-000000000002';
@@ -185,18 +191,27 @@ test('owner 27.11: guest board highlights a number that just turned ready', () =
   assert.equal(r.isFresh('3', 1000 + JUST_READY_MS), false);
 });
 
-test('owner 27.11: wait limits 5 and 10 minutes; a point may set its own sane ones', () => {
+test('owner 27.11: wait limits 5 and 10 minutes, or the station norm and twice it', () => {
   const now = Date.parse('2026-11-27T12:00:00Z');
   const at = (m) => new Date(now - m * 60000).toISOString();
   assert.equal(waitClass(at(4), now), 'wait-ok');
-  setWaitLimits(8, 15);
+  assert.equal(waitClass(at(5), now), 'wait-warn');
+  stationLimits(480);
   assert.equal(waitClass(at(7), now), 'wait-ok');
   assert.equal(waitClass(at(9), now), 'wait-warn');
-  assert.equal(waitClass(at(15), now), 'wait-late');
-  setWaitLimits(20, 10);
-  setWaitLimits('5', 10);
-  assert.deepEqual({ ...waitLimits }, { warn: 8, late: 15 }, 'bad limits are ignored');
-  setWaitLimits(5, 10);
+  assert.equal(waitClass(at(16), now), 'wait-late');
+  assert.equal(lateLabel(), '16 МИН');
+  stationLimits(270);
+  assert.equal(lateLabel(), '9 МИН');
+  stationLimits(225);
+  assert.equal(lateLabel(), '7,5 МИН');
+  assert.equal(setWaitLimits(1200, 600), false, 'amber after red is refused');
+  assert.equal(setWaitLimits('300', 600), false);
+  assert.deepEqual({ ...waitLimits }, { warn: 225, late: 450 });
+  stationLimits(undefined);
+  assert.deepEqual({ ...waitLimits }, { warn: 300, late: 600 });
+  stationLimits(5);
+  assert.deepEqual({ ...waitLimits }, { warn: 300, late: 600 }, 'a norm under 30 s is ignored');
 });
 
 test('TZ 27.11 assembly: dish, quantity, each modifier on its own line without group titles', () => {
@@ -307,4 +322,23 @@ test('new orders: no ring on first load or right after opening a screen, then on
   assert.equal(n.isNew('kitchen:p', 'c', 6000 + NEW_TICKET_MS), false);
   assert.equal(n.isNew('kitchen:p', 'a', 6000), false);
   assert.equal(n.update('kitchen:p', ['b', 'c'], 7000), false);
+});
+
+test('owner 27.11: the station list carries the back-office norm when the edge sends one', async () => {
+  const { stations } = await import('../dist/types.js');
+  const branch = '00000000-0000-4000-8000-0000000000b1';
+  const list = stations(
+    {
+      branchId: branch,
+      items: [
+        { id: PREP, kind: 'prep', name: 'Фритюр', targetSeconds: 240 },
+        { id: ASM, kind: 'assembly', name: 'Сборка' },
+        { id: '00000000-0000-4000-8000-000000000003', kind: 'prep', name: 'X', targetSeconds: 0 },
+      ],
+    },
+    branch,
+  );
+  assert.equal(list[0].targetSeconds, 240);
+  assert.equal('targetSeconds' in list[1], false);
+  assert.equal('targetSeconds' in list[2], false);
 });
