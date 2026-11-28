@@ -318,7 +318,8 @@ export class SaleView {
   }
   /** A Kaspi Smart POS is linked to this desk: the amount is sent to it (ADR-0017). */
   get linked() {
-    return Boolean(this.config?.kaspi_terminal_link);
+    // An amount already on the terminal keeps its screen even if the point left the paid mode.
+    return Boolean(this.config?.kaspi_terminal_link) || this.model.terminalHold;
   }
   /** The amount sent to the terminal for the quote on screen, or null. */
   terminal() {
@@ -604,7 +605,9 @@ export class SaleView {
       saleEntryOpen: false,
     };
     const doneShown = s.screen === 'done' && Boolean(sale);
-    if (!this.on && !doneShown) return { saleChannelBar: false, saleRefShown: false, ...screens };
+    // The guest's payment on the terminal stays on screen outside the paid mode too.
+    if (!this.on && !this.model.terminalHold && !doneShown)
+      return { saleChannelBar: false, saleRefShown: false, ...screens };
     const q = this.quote,
       g = this.guard;
     // A quote replaced under the payment screen (live menu, expiry) is repeated to the guest.
@@ -652,18 +655,21 @@ export class SaleView {
       config = this.config,
       d = this.draft,
       total = BigInt(q.total_minor);
-    const tiles = isAggregator(d.channel)
-      ? [
-          [
-            'aggregator',
-            'ОПЛАЧЕНО АГРЕГАТОРОМ',
-            d.channel === 'glovo' ? 'G' : 'Я',
-            d.channel === 'glovo' ? '#C79A00' : 'var(--ya)',
-          ],
-        ].filter(() => methodEnabled(config, aggregatorMethod(d.channel)))
-      : TILES.filter(([code]) =>
-          code === 'mixed' ? mixableMethods(config).length >= 2 : methodEnabled(config, code),
-        );
+    // No pos/config outside the paid mode: nothing else is offered next to a held payment.
+    const tiles = !config
+      ? []
+      : isAggregator(d.channel)
+        ? [
+            [
+              'aggregator',
+              'ОПЛАЧЕНО АГРЕГАТОРОМ',
+              d.channel === 'glovo' ? 'G' : 'Я',
+              d.channel === 'glovo' ? '#C79A00' : 'var(--ya)',
+            ],
+          ].filter(() => methodEnabled(config, aggregatorMethod(d.channel)))
+        : TILES.filter(([code]) =>
+            code === 'mixed' ? mixableMethods(config).length >= 2 : methodEnabled(config, code),
+          );
     const payment = this.payment();
     const values = {
       saleTiles: tiles.map(([code, label, icon, color]) => {
@@ -863,8 +869,8 @@ export class SaleView {
         saleTerminalSteps: [
           `Оплачено ${amount}, заказ не оформлен.`,
           paidRefusalReason(this.model.state.terminalRefusal?.code),
-          'Не отправляйте сумму на терминал снова. Менеджер может снять блюдо со стопа или открыть приём заказов, затем нажмите «Оформить ещё раз».',
-          'Если оформить не получается - возврат гостю делается на терминале вручную.',
+          'Не отправляйте сумму на терминал снова. Менеджер снимает блюдо со стопа или открывает приём заказов, затем нажмите «Оформить ещё раз».',
+          'Не возвращайте деньги на терминале, пока заказ не оформлен.',
         ],
         saleTerminalDeclineLabel: false,
         saleTerminalDecline: decline(''),

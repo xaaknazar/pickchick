@@ -1091,14 +1091,18 @@ export class PosController {
     });
   }
   private async establishSession(candidate: StaffCredential) {
+    // The guest's amount on the terminal belongs to the cashier who sent it: another person
+    // signing in over the session would wipe its quote. The same cashier may sign in again.
+    // The staff id is in the credential the edge already issued, so the check needs no further
+    // request; that issued session is revoked so it does not stay alive behind the refusal.
+    if (this.terminalHold && this.state.actor && this.state.actor.staff_id !== candidate.staff_id) {
+      void this.api('staff/logout', candidate, { method: 'POST' }).catch(() => {});
+      throw new Error('TERMINAL_HOLD_OTHER_STAFF');
+    }
     const actor = parse.session(await this.api('session', candidate));
     if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
       throw new Error('WRONG_BRANCH');
     if (actor.role === 'kitchen') throw new ApiError('FORBIDDEN', 403);
-    // The guest's amount on the terminal belongs to the cashier who sent it: another person
-    // signing in over the session would wipe its quote. The same cashier may sign in again.
-    if (this.terminalHold && this.state.actor && this.state.actor.staff_id !== actor.staff_id)
-      throw new Error('TERMINAL_HOLD_OTHER_STAFF');
     const saved = { ...actor, token: candidate.token };
     if (!this.releaseLease && this.lease)
       this.releaseLease = await this.lease(`${actor.branch_id}.${actor.terminal_id}`);
@@ -1188,8 +1192,6 @@ export class PosController {
     this.state.quote = hold.quote;
     this.state.saleDraft = hold.sale_draft;
     this.state.terminal = t;
-    // A paid amount without an order has the screen to itself: no other order stays open.
-    if (t.state === 'success') this.state.order = null;
     this.emit();
   }
   /** Writes (or clears) the journal hold for the amount now on the terminal. */
@@ -1338,7 +1340,7 @@ export class PosController {
     this.state.ordering = o;
     this.state.stops = new Map();
     // The quote of an amount the guest already paid stays: it is what the sale is made with.
-    if (this.state.quote && this.state.quote.release_id !== m.release_id && !this.paidUnsold)
+    if (this.state.quote && this.state.quote.release_id !== m.release_id && !this.terminalHold)
       this.state.quote = null;
     const removed = this.reconcileDrafts(previous, m);
     if ((previous && previous.release_id !== m.release_id) || removed.length)
@@ -1508,7 +1510,7 @@ export class PosController {
       if (wasSale && !this.saleMode) {
         // What the guest already paid on the terminal stays: its quote, its sale draft and the
         // attempt are what the sale is made with once the edge takes it.
-        const paid = this.paidUnsold
+        const paid = this.terminalHold
           ? { terminal: this.state.terminal, terminalRefusal: this.state.terminalRefusal }
           : null;
         if (!paid) this.state.saleDraft = blankSaleDraft();
@@ -1623,7 +1625,7 @@ export class PosController {
       !this.state.actor ||
       this.state.busy ||
       this.state.storageBlocked ||
-      this.state.order
+      (this.state.order && !paidSale)
     )
       return false;
     if (this.journal.pending) {
@@ -1887,7 +1889,23 @@ export class PosController {
   private async replay() {
     const j = this.journal,
       attempt = attemptOf(j?.pending);
-    if (attempt === undefined) return this.replayCommand();
+    if (attempt === undefined) {
+      // Any other command (another order's void, a stop, a shift) never costs the amount on the
+      // terminal its quote: it is what the guest's payment is sold with.
+      const held = this.terminalHold ? this.state.quote : null;
+      try {
+        await this.replayCommand();
+      } finally {
+        if (
+          held &&
+          this.terminalHold &&
+          !this.state.quote &&
+          this.state.terminal?.quote_id === held.quote_id
+        )
+          this.state.quote = held;
+      }
+      return;
+    }
     const heldQuote =
       j?.terminal?.attempt_id === attempt ? j.terminal.quote : (this.state.quote ?? null);
     try {
@@ -1911,7 +1929,11 @@ export class PosController {
     if (['TERMINAL_ATTEMPT_INVALID', 'CONFLICT'].includes(codeOf(error))) {
       try {
         const now = parse.terminalPayment(await this.request(`pos/terminal-payments/${attempt}`));
-        if (now.attempt_id === attempt && now.order_id && (await this.adoptPaidOrder(now.order_id)))
+        if (
+          now.attempt_id === attempt &&
+          now.order_id &&
+          (await this.adoptPaidOrder(now.order_id, t.quote_id))
+        )
           return true;
       } catch {
         // Unknown now: the attempt stays held and the cashier taps again.
@@ -1920,12 +1942,20 @@ export class PosController {
     this.state.terminalRefusal = { attempt_id: attempt, code: codeOf(error) };
     return false;
   }
-  /** The order a paid attempt became: shown instead of the hold. False if it cannot be read. */
-  private async adoptPaidOrder(orderId: string) {
+  /**
+   * The order a paid attempt became: shown instead of the hold, like adoptQuotedOrder shows an
+   * order. Only an order of the attempt's own quote counts. False if it is not that order or
+   * cannot be read; the hold then stays. A sale that cannot be read yet leaves the order on
+   * screen (refreshSale never throws; the order card reads it again).
+   */
+  private async adoptPaidOrder(orderId: string, quoteId: string) {
     const j = this.journal;
     if (!j) return false;
     try {
-      await this.readOrder(orderId);
+      const o = parse.order(await this.request(`orders/${parse.uuid(orderId)}`));
+      if (o.order_id !== orderId || o.branch_id !== this.state.actor?.branch_id) return false;
+      if (o.quote_id !== quoteId) return false;
+      this.state.order = o;
     } catch {
       return false;
     }
@@ -1942,7 +1972,7 @@ export class PosController {
     this.state.saleDraft = blankSaleDraft();
     this.state.terminal = null;
     this.state.terminalRefusal = null;
-    await this.refreshSale(orderId).catch(() => {});
+    await this.refreshSale(orderId);
     await this.readOperations();
     return true;
   }
@@ -2254,7 +2284,6 @@ export class PosController {
   async openOrder(id: string) {
     await this.run(async () => {
       if (!this.journal || this.journal.pending) throw new Error('PENDING');
-      if (this.paidUnsold) throw new Error('TERMINAL_PAID_UNSOLD');
       await this.readOrder(id);
       this.save({
         ...this.journal,
@@ -2267,7 +2296,17 @@ export class PosController {
     if (!this.journal || !this.state.menu || this.state.busy) return;
     try {
       if (this.journal.pending) throw new Error('PENDING');
-      if (this.paidUnsold) throw new Error('TERMINAL_PAID_UNSOLD');
+      if (this.paidUnsold) {
+        // The guest's payment has no order yet: this only closes an order opened beside it,
+        // back to the held payment. The cart, quote and sale draft are never reset.
+        if (!this.state.order) throw new Error('TERMINAL_PAID_UNSOLD');
+        this.save({ ...this.journal, selected: null });
+        this.state.order = null;
+        this.state.sale = null;
+        this.state.error = null;
+        this.emit();
+        return;
+      }
       this.save({
         ...this.journal,
         selected: null,
@@ -2631,13 +2670,19 @@ export class PosController {
       if (this.state.quote?.quote_id !== t.quote_id) this.state.quote = hold.quote;
       if (!unchanged(this.state.saleDraft, hold.sale_draft)) this.state.saleDraft = hold.sale_draft;
     }
-    const previous = this.state.terminalRefusal;
+    await this.sellPaid(t.attempt_id, this.state.terminalRefusal);
+  }
+  /**
+   * The sale of the paid attempt. If it is neither sold nor refused by the edge (a check before
+   * sending failed, e.g. no pos/config outside the paid mode), it waits for the cashier's tap
+   * like a refusal, so no poll repeats it every second.
+   */
+  private async sellPaid(attempt: string, previous: State['terminalRefusal']) {
     this.state.terminalRefusal = null;
-    await this.sell({ method: 'kaspi_terminal', attempt_id: t.attempt_id });
-    // Not sold and nothing refused it (a check before sending failed): still waits for a tap.
+    await this.sell({ method: 'kaspi_terminal', attempt_id: attempt });
     if (this.paidUnsold && !this.journal?.pending && !this.state.terminalRefusal)
       this.state.terminalRefusal = previous ?? {
-        attempt_id: t.attempt_id,
+        attempt_id: attempt,
         code: codeOf(this.state.error),
       };
     this.emit();
@@ -2678,7 +2723,7 @@ export class PosController {
     if (this.state.quote?.quote_id !== paid.quote_id) return;
     // Refused for good once: never again by itself (one tap of the cashier is one request).
     if (this.state.terminalRefusal?.attempt_id === paid.attempt_id) return;
-    await this.sell({ method: 'kaspi_terminal', attempt_id: paid.attempt_id });
+    await this.sellPaid(paid.attempt_id, null);
   }
   /** The terminal said no (or never got the amount): the cashier may send again or pay another way. */
   dismissTerminal() {
