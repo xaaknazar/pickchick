@@ -8152,6 +8152,19 @@
       "status": "active",
       "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
       "updatedAt": "2026-11-28T09:40:22.357Z"
+    },
+    {
+      "id": "p0-ttp-one-open-order",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-ttp-one-open-order",
+      "scopes": [
+        "packages/commerce-core/src/customer-checkout.ts",
+        "packages/commerce-core/tests/tiptoppay-one-open-order.postgres.test.mjs",
+        "packages/commerce-core/package.json"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T09:50:30.518Z"
     }
   ],
   "approvedScopeTransfers": [
