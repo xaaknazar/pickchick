@@ -8247,6 +8247,24 @@
       "status": "active",
       "head": "5925f11778aeb615df1d87ab1421bc39e01214c8",
       "updatedAt": "2026-11-28T12:30:43.706Z"
+    },
+    {
+      "id": "ecc-pickchick",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ecc-pickchick",
+      "scopes": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".claude",
+        ".agents",
+        "docs/collaboration/ecc.md",
+        "docs/collaboration/ecc-handoffs",
+        "scripts/ecc",
+        "tests/ecc"
+      ],
+      "status": "active",
+      "head": "f52744aad713b66787f210788219088df9bdbc8e",
+      "updatedAt": "2026-11-28T15:33:38.554Z"
     }
   ],
   "approvedScopeTransfers": [
