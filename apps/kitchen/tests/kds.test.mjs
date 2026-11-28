@@ -740,14 +740,14 @@ test('breading view, incident banner, plural and the phone guard of the refusal 
     assert.equal(looksLikePhone(text), false, text);
 });
 
-test('readability: waiting time turns amber at 7 and red at 12 minutes; chip colour by service', () => {
+test('readability: waiting time green, amber at 5 and red at 10 minutes; chip colour by service', () => {
   const now = Date.parse('2026-11-12T12:00:00Z');
   const at = (minutes) => new Date(now - minutes * 60000).toISOString();
-  assert.equal(waitClass(at(0), now), '');
-  assert.equal(waitClass(at(6.9), now), '');
-  assert.equal(waitClass(at(7), now), 'wait-warn');
-  assert.equal(waitClass(at(11.9), now), 'wait-warn');
-  assert.equal(waitClass(at(12), now), 'wait-late');
+  assert.equal(waitClass(at(0), now), 'wait-ok');
+  assert.equal(waitClass(at(4.9), now), 'wait-ok');
+  assert.equal(waitClass(at(5), now), 'wait-warn');
+  assert.equal(waitClass(at(9.9), now), 'wait-warn');
+  assert.equal(waitClass(at(10), now), 'wait-late');
   assert.equal(waitClass(undefined, now), '');
   assert.equal(waitClass('not a date', now), '');
   assert.equal(modeClass({ serviceMode: 'dine_in' }), 'mode mode-dine_in');
@@ -795,7 +795,9 @@ test('order source: Касса, Киоск or Приложение on every work
     for (const { order, label } of orders)
       assert.match(
         head(html, order.orderId),
-        new RegExp(`<p class="channel" data-source="${order.channel}">${label}</p>`),
+        new RegExp(
+          `<p class="channel" data-source="${order.channel}"><span class="source source-${order.channel}">${label}</span></p>`,
+        ),
         `${fn}: ${label}`,
       );
   }
@@ -841,7 +843,10 @@ test('order source: Касса, Киоск or Приложение on every work
   );
   const station6 = view('breading', stationIds.breading, [], { breading: parsed });
   assert.equal(station6.match(/class="channel"/g)?.length, 1);
-  assert.match(station6, /<p class="channel" data-source="kiosk">Киоск<\/p>/);
+  assert.match(
+    station6,
+    /<p class="channel" data-source="kiosk"><span class="source source-kiosk">Киоск<\/span><\/p>/,
+  );
   // The helper: no label without a known channel, or for a delivery order.
   assert.equal(sourceLabel({}), '');
   assert.equal(sourceLabel({ channel: 'toString' }), '');

@@ -8,7 +8,13 @@ export type Credential = {
   token: string;
   expires_at: string;
 };
-export type Station = { id: string; kind: 'prep' | 'assembly'; name: string };
+export type Station = {
+  id: string;
+  kind: 'prep' | 'assembly';
+  name: string;
+  /** Back-office norm of the station (edge with an applied station plan). */
+  targetSeconds?: number;
+};
 /** KDS station functions (contracts section 2.3); the station numbers of the kitchen rules. */
 export const KDS_FUNCTIONS = [
   'breading',
@@ -207,10 +213,14 @@ export function stations(v: unknown, branch: string): Station[] {
   if (uuid(o.branchId) !== branch) throw new Error('SCOPE_MISMATCH');
   const items = array(o.items, 100, (x) => {
     const s = record(x);
+    const target = s.targetSeconds;
     return {
       id: uuid(s.id),
       kind: choice(s.kind, ['prep', 'assembly']),
       name: str(s.name, 160, 1),
+      ...(Number.isInteger(target) && (target as number) >= 1 && (target as number) <= 3600
+        ? { targetSeconds: target as number }
+        : {}),
     };
   });
   unique(items.map((i) => i.id));

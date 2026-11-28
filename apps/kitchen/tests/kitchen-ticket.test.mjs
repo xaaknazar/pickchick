@@ -1,7 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { kitchenTicket, modifierKind, stopwatch } from '../dist/kitchen-ticket.js';
+import {
+  JUST_READY_MS,
+  LATE_REPEAT_MS,
+  LateAlarm,
+  ReadyNumbers,
+  kitchenTicket,
+  modifierKind,
+  stopwatch,
+} from '../dist/kitchen-ticket.js';
+import {
+  lateLabel,
+  setWaitLimits,
+  stationLimits,
+  waitClass,
+  waitLimits,
+} from '../dist/kds-view.js';
 
 const PREP = '00000000-0000-4000-8000-000000000001';
 const ASM = '00000000-0000-4000-8000-000000000002';
@@ -102,7 +117,10 @@ test('TZ 27.11 kitchen: number, type, source, status, timer; dish and quantity o
   const html = render(tzOrder(), PREP, at17);
   assert.match(html, /class="number">10</);
   assert.match(html, /В ЗАЛЕ/);
-  assert.match(html, /Киоск · <span class="order-status">accepted<\/span>/);
+  assert.match(
+    html,
+    /<span class="source source-kiosk">Киоск<\/span><span class="order-status">accepted<\/span>/,
+  );
   assert.match(html, /data-since="2026-11-22T10:00:00.000Z"[^>]*>17:00</);
   assert.match(html, /1×<\/span><div class="line-info"><h3>Chick N Roll Meal<\/h3>/);
   assert.match(html, /1×<\/span><div class="line-info"><h3>Finger Combo<\/h3>/);
@@ -120,24 +138,90 @@ test('TZ 27.11 kitchen: number, type, source, status, timer; dish and quantity o
     assert.doesNotMatch(html, new RegExp(hidden), hidden);
 });
 
-test('TZ 27.11 kitchen: other modifiers are not shown either', () => {
+test('owner 27.11: the cook sees «Без лука», «Острый» in one red line; never drinks or sauces', () => {
   const html = render(
     order([
       task(PREP, 'Pick Burger', {
-        modifiers: [mod('x1', 'Изменения', 'Без лука'), mod('taste', 'Вкус', 'Острый')],
+        modifiers: [
+          mod('x1', 'Изменения', 'Без лука'),
+          mod('taste', 'Вкус', 'Острый'),
+          mod('drink', 'Напиток на выбор', 'Sprite 0.5 л'),
+          mod('sauce', 'Соус на выбор', 'Heinz сырный'),
+        ],
       }),
     ]),
     PREP,
   );
-  assert.match(html, /Pick Burger/);
-  assert.doesNotMatch(html, /Без лука|Острый/);
+  assert.match(html, /<p class="cook-note">Без лука · Острый<\/p>/);
+  assert.doesNotMatch(html, /Sprite|Heinz/);
+});
+
+test('owner 27.11: an allergy comment is red and titled «Аллергия»', () => {
+  const html = render(
+    { ...order([task(PREP, 'Pick Burger')]), kitchenComment: 'Аллергия на орехи' },
+    PREP,
+  );
+  assert.match(html, /class="order-note allergy"><strong>Аллергия<\/strong><p>Аллергия на орехи/);
+  const plain = render(
+    { ...order([task(PREP, 'Pick Burger')]), kitchenComment: 'Без спешки' },
+    PREP,
+  );
+  assert.match(plain, /class="order-note"><strong>Комментарий/);
+});
+
+test('owner 27.11: late alarm rings once on crossing, repeats every 3 minutes, never on opening', () => {
+  const a = new LateAlarm();
+  assert.equal(a.update('s', ['o1'], 0), false, 'opening a screen with a late order is quiet');
+  assert.equal(a.update('s', ['o1'], 1000), false);
+  assert.equal(a.update('s', ['o1', 'o2'], 2000), true, 'o2 just turned late');
+  assert.equal(a.update('s', ['o1', 'o2'], 3000), false);
+  assert.equal(a.update('s', ['o1', 'o2'], 2000 + LATE_REPEAT_MS), true, 'reminder');
+  assert.equal(a.update('s', [], 2000 + 3 * LATE_REPEAT_MS), false, 'nothing late, no reminder');
+  a.enter('s');
+  assert.equal(a.update('s', ['o9'], 9e9), false);
+});
+
+test('owner 27.11: guest board highlights a number that just turned ready', () => {
+  const r = new ReadyNumbers();
+  assert.equal(r.update(['1', '2'], 0), false, 'first read is quiet');
+  assert.equal(r.update(['1', '2', '3'], 1000), true);
+  assert.equal(r.isFresh('3', 1000 + JUST_READY_MS - 1), true);
+  assert.equal(r.isFresh('1', 1000), false);
+  r.update(['1', '2', '3'], 1000 + JUST_READY_MS);
+  assert.equal(r.isFresh('3', 1000 + JUST_READY_MS), false);
+});
+
+test('owner 27.11: wait limits 5 and 10 minutes, or the station norm and twice it', () => {
+  const now = Date.parse('2026-11-27T12:00:00Z');
+  const at = (m) => new Date(now - m * 60000).toISOString();
+  assert.equal(waitClass(at(4), now), 'wait-ok');
+  assert.equal(waitClass(at(5), now), 'wait-warn');
+  stationLimits(480);
+  assert.equal(waitClass(at(7), now), 'wait-ok');
+  assert.equal(waitClass(at(9), now), 'wait-warn');
+  assert.equal(waitClass(at(16), now), 'wait-late');
+  assert.equal(lateLabel(), '16 МИН');
+  stationLimits(270);
+  assert.equal(lateLabel(), '9 МИН');
+  stationLimits(225);
+  assert.equal(lateLabel(), '7,5 МИН');
+  assert.equal(setWaitLimits(1200, 600), false, 'amber after red is refused');
+  assert.equal(setWaitLimits('300', 600), false);
+  assert.deepEqual({ ...waitLimits }, { warn: 225, late: 450 });
+  stationLimits(undefined);
+  assert.deepEqual({ ...waitLimits }, { warn: 300, late: 600 });
+  stationLimits(5);
+  assert.deepEqual({ ...waitLimits }, { warn: 300, late: 600 }, 'a norm under 30 s is ignored');
 });
 
 test('TZ 27.11 assembly: dish, quantity, each modifier on its own line without group titles', () => {
   const html = render(tzOrder(), ASM, at17);
   assert.match(html, /class="number">10</);
   assert.match(html, /В ЗАЛЕ/);
-  assert.match(html, /Киоск · <span class="order-status">accepted<\/span>/);
+  assert.match(
+    html,
+    /<span class="source source-kiosk">Киоск<\/span><span class="order-status">accepted<\/span>/,
+  );
   assert.match(
     html,
     /<h3>Chick N Roll Meal<\/h3><ul class="line-mods"><li class="mod-drink">– Sprite 0.5 л<\/li><li class="mod-sauce">– Heinz сырный<\/li><\/ul>/,
@@ -238,4 +322,23 @@ test('new orders: no ring on first load or right after opening a screen, then on
   assert.equal(n.isNew('kitchen:p', 'c', 6000 + NEW_TICKET_MS), false);
   assert.equal(n.isNew('kitchen:p', 'a', 6000), false);
   assert.equal(n.update('kitchen:p', ['b', 'c'], 7000), false);
+});
+
+test('owner 27.11: the station list carries the back-office norm when the edge sends one', async () => {
+  const { stations } = await import('../dist/types.js');
+  const branch = '00000000-0000-4000-8000-0000000000b1';
+  const list = stations(
+    {
+      branchId: branch,
+      items: [
+        { id: PREP, kind: 'prep', name: 'Фритюр', targetSeconds: 240 },
+        { id: ASM, kind: 'assembly', name: 'Сборка' },
+        { id: '00000000-0000-4000-8000-000000000003', kind: 'prep', name: 'X', targetSeconds: 0 },
+      ],
+    },
+    branch,
+  );
+  assert.equal(list[0].targetSeconds, 240);
+  assert.equal('targetSeconds' in list[1], false);
+  assert.equal('targetSeconds' in list[2], false);
 });

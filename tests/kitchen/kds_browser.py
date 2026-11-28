@@ -62,6 +62,7 @@ def ticket(page, key):
 with sync_playwright() as p:
     browser = p.chromium.launch()
     context = browser.new_context(viewport={'width': width, 'height': height}, has_touch=True)
+    context.add_init_script("localStorage.setItem('pickchick.kitchen.undoMs','0')")
     context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(url + '/') else route.abort())
     page = context.new_page()
     errors = []
