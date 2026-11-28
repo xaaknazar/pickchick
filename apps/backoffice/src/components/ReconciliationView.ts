@@ -371,7 +371,7 @@ export class ReconciliationView {
     if (d.tiptoppay_test?.payments)
       p.append(
         note(
-          `Тестовые платежи TipTopPay (песочница, денег нет): ${d.tiptoppay_test.payments} на ${tenge(d.tiptoppay_test.amount_minor)}. В сверке не участвуют.`,
+          `Платежи TipTopPay без движения денег: ${d.tiptoppay_test.payments} на ${tenge(d.tiptoppay_test.amount_minor)}. В сверке не участвуют.`,
         ),
       );
     return p;
