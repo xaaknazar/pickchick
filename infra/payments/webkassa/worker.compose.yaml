@@ -19,6 +19,10 @@ services:
     restart: unless-stopped
     environment:
       WEBKASSA_ACCOUNT_FILE: /run/pickchick/webkassa.json
+      # WEBKASSA_ENVIRONMENT (test or live, equal to the host of webkassa.json; owner 28.11.2026)
+      # is read from worker.env with the other WEBKASSA_* variables, never from here: a value set
+      # here would shadow worker.env. Without it the worker stays up, issues nothing and logs
+      # webkassa_cloud_mode_blocked.
     command:
       - node
       - --env-file=/run/pickchick/worker.env

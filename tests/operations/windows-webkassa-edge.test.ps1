@@ -15,6 +15,10 @@ $good=[ordered]@{baseUrl='https://devkkm.webkassa.kz';apiKey='synthetic-secret-k
 $r=Assert-WebkassaAccount (Bytes $good)
 Check ($r.host -ceq 'devkkm.webkassa.kz' -and $r.cashbox -ceq 'SWK00000001') 'Valid account summarised'
 Check (-not (($r|ConvertTo-Json) -match 'synthetic-secret')) 'Summary carries no secret'
+# Owner 28.11.2026: the explicit mode is derived from the account host: devkkm is test, kkm is live.
+Check ((Get-WebkassaMode 'devkkm.webkassa.kz') -ceq 'test') 'devkkm host means the test mode'
+Check ((Get-WebkassaMode 'kkm.webkassa.kz') -ceq 'live') 'kkm host means the live mode'
+Rejects {Get-WebkassaMode 'evil.example'} 'Foreign host has no mode'
 $prod=(Copy-Account);$prod.baseUrl='https://kkm.webkassa.kz/';Check ((Assert-WebkassaAccount (Bytes $prod)).host -ceq 'kkm.webkassa.kz') 'Production host accepted'
 foreach($field in @('baseUrl','apiKey','login','password','cashboxUniqueNumber')){
  $bad=(Copy-Account);$bad.Remove($field);Rejects {Assert-WebkassaAccount (Bytes $bad)} ('Missing '+$field)
@@ -45,6 +49,27 @@ try{
  Check ((Hash-File $path) -ceq (Get-WebkassaBytesHash $after)) 'Enabled bytes written'
  Rejects {Write-WebkassaEnvCas $path $before $after} 'Stale CAS'
  Write-WebkassaEnvCas $path $after $before;Check ((Hash-File $path) -ceq (Get-WebkassaBytesHash $before)) 'Rollback restores exact bytes'
+ $modeOn=Set-WebkassaEnvironmentBytes $after 'test'
+ Check ([Text.Encoding]::UTF8.GetString($modeOn) -ceq ([Text.Encoding]::UTF8.GetString($after)+"EDGE_WEBKASSA_ENVIRONMENT=test`r`n")) 'Mode key appended, prefix preserved'
+ Check ((Get-WebkassaEnvAssignment $modeOn 'EDGE_WEBKASSA_ENVIRONMENT') -ceq 'test') 'Mode value read back'
+ Check ($null -eq (Get-WebkassaEnvAssignment $after 'EDGE_WEBKASSA_ENVIRONMENT')) 'Absent mode key reads as null'
+ $again=Set-WebkassaEnvironmentBytes $modeOn 'test'
+ Check ((Get-WebkassaBytesHash $again) -ceq (Get-WebkassaBytesHash $modeOn)) 'A matching mode already in edge.env is kept as is'
+ Rejects {Set-WebkassaEnvironmentBytes $modeOn 'live'} 'A different explicit mode is a conflict, never overwritten'
+ $legacyLive=[Text.Encoding]::UTF8.GetBytes("EDGE_WEBKASSA_REQUIRE_LIVE=true`r`n")
+ Rejects {Set-WebkassaEnvironmentBytes $legacyLive 'test'} 'The old live flag contradicts a test file'
+ Check ([Text.Encoding]::UTF8.GetString((Set-WebkassaEnvironmentBytes $legacyLive 'live')) -match 'EDGE_WEBKASSA_ENVIRONMENT=live') 'The old live flag agrees with a live file'
+ # Already enabled point without a mode: only the mode line is added, the rest stays byte for byte.
+ $enabled=[Text.Encoding]::UTF8.GetBytes("UNCHANGED=one`r`nEDGE_WEBKASSA_ACCOUNT_FILE=$target`r`n# tail`n")
+ $added=Get-WebkassaEnableBytes $enabled $target 'test'
+ Check ([Text.Encoding]::UTF8.GetString($added) -ceq ([Text.Encoding]::UTF8.GetString($enabled)+"EDGE_WEBKASSA_ENVIRONMENT=test`n")) 'Enabled point gets only the mode line'
+ $rerun=Get-WebkassaEnableBytes $added $target 'test'
+ Check ((Get-WebkassaBytesHash $rerun) -ceq (Get-WebkassaBytesHash $added)) 'A second Enable changes nothing'
+ Check ((Get-WebkassaBytesHash (Get-WebkassaEnableBytes $enabled $target 'test')) -cne (Get-WebkassaBytesHash $enabled)) 'The missing mode is a change to apply'
+ Rejects {Get-WebkassaEnableBytes $enabled 'C:\other\webkassa.json' 'test'} 'A key pointing at another file is never overwritten'
+ $fresh=Get-WebkassaEnableBytes $before $target 'live'
+ Check ([Text.Encoding]::UTF8.GetString($fresh) -ceq ([Text.Encoding]::UTF8.GetString($before)+'EDGE_WEBKASSA_ACCOUNT_FILE='+$target+"`r`nEDGE_WEBKASSA_ENVIRONMENT=live`r`n")) 'A new point gets both keys'
+ Rejects {Get-WebkassaEnableBytes $added $target 'live'} 'Enabled test point is not silently switched to live'
  $off=Update-ReviewedEnvBytes $after 'EDGE_WEBKASSA_ACCOUNT_FILE' $target ''
  Check ([Text.Encoding]::UTF8.GetString($off) -match 'EDGE_WEBKASSA_ACCOUNT_FILE=\r\n$') 'Disable empties the key'
  Rejects {Update-ReviewedEnvBytes $before 'EDGE_WEBKASSA_ACCOUNT_FILE' $target ''} 'Disable needs the reviewed key'

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { transaction } from '@pickchick/database';
 import { applyMenu, hashToken, publishMenu } from '@pickchick/menu-sync';
 import {
@@ -20,6 +23,7 @@ import {
   kioskReceiptPrint,
 } from '@pickchick/local-orders';
 import { localUnpaidExecution, provisionFulfillment } from '@pickchick/edge-fulfillment';
+import { WebkassaLoop } from '../../services/edge/dist/webkassa-loop.js';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import { staffAuth } from '../helpers/orders.mjs';
 
@@ -709,5 +713,75 @@ test("the cashier desk lists today's paid kiosk orders and prints their Webkassa
     const last = sim.calls.filter((c) => c.path === 'api/v4/Ticket/PrintFormat').at(-1);
     assert.equal(last.body.CashboxUniqueNumber, 'SWK00000002');
     assert.equal(last.body.ExternalCheckNumber, kiosk);
+  });
+});
+
+// Owner 28.11.2026: without an explicit test/live mode equal to the account host the point sells,
+// but its receipts stay manual (pending) and Webkassa is never called.
+test('point mode not set or not equal to the account host: sale passes, receipt stays manual, one event', async () => {
+  await desk(async (ctx) => {
+    const dir = mkdtempSync(join(tmpdir(), 'wk-loop-'));
+    const file = (host) => {
+      const path = join(dir, `${host}.json`);
+      writeFileSync(path, JSON.stringify({ ...ACCOUNT, baseUrl: `https://${host}.webkassa.kz` }));
+      return path;
+    };
+    const loop = (host, webkassaEnvironment, webkassaModeInvalid) =>
+      new WebkassaLoop({
+        pool: ctx.edge.pool,
+        config: {
+          branchId: ctx.branch,
+          webkassaAccountFile: file(host),
+          ...(webkassaEnvironment ? { webkassaEnvironment } : {}),
+          ...(webkassaModeInvalid ? { webkassaModeInvalid } : {}),
+        },
+      });
+    const captured = [];
+    const original = console.error;
+    console.error = (line) => captured.push(JSON.parse(line));
+    let blocked;
+    try {
+      blocked = [
+        loop('devkkm', undefined),
+        loop('kkm', undefined),
+        loop('devkkm', 'live'),
+        loop('kkm', undefined, 'environment_invalid'),
+        loop('devkkm', undefined, 'environment_conflict'),
+      ];
+      for (const l of blocked) l.onApplicationBootstrap();
+    } finally {
+      console.error = original;
+    }
+    for (const l of blocked) {
+      assert.equal(l.worker, null);
+      assert.equal(l.environment, null, 'GET pos/webkassa answers 404, the desk shows manual mode');
+    }
+    assert.deepEqual(
+      captured.map((e) => [e.event, e.reason, e.declared, e.host, e.expected]),
+      [
+        ['webkassa_mode_blocked', 'environment_not_set', undefined, 'test', undefined],
+        ['webkassa_mode_blocked', 'environment_not_set', undefined, 'live', undefined],
+        ['webkassa_mode_blocked', 'environment_mismatch', 'live', 'test', undefined],
+        ['webkassa_mode_blocked', 'environment_invalid', undefined, undefined, 'live|test'],
+        ['webkassa_mode_blocked', 'environment_conflict', undefined, undefined, 'live|test'],
+      ],
+    );
+    assert.ok(!JSON.stringify(captured).includes(ACCOUNT.apiKey));
+    assert.ok(!JSON.stringify(captured).includes(dir));
+    // The sale goes through and its receipt waits for the cashier: pending, nobody called Webkassa.
+    const { made } = await sale(ctx, (total) => [{ method: 'cash', amount_minor: total }]);
+    const orderId = made.order_id ?? made.sale?.order_id ?? made.order?.id;
+    assert.equal((await receiptOf(ctx, orderId)).state, 'pending');
+    const pending = await listPendingFiscalReceipts(
+      ctx.edge.pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+    );
+    assert.equal(pending.receipts.length, 1);
+    // The declared mode equal to the host turns the automatic worker on, as before.
+    const live = loop('devkkm', 'test');
+    assert.ok(live.worker);
+    assert.equal(live.environment, 'test');
+    assert.equal(loop('kkm', 'live').environment, 'live');
   });
 });

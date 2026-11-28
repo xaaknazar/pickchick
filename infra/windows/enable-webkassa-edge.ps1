@@ -3,11 +3,14 @@
 <# Automatic Webkassa receipts on the point server (docs/integrations/webkassa-api.md, 25.11.2026).
 Default is inspection: it validates the staged private account file and prints the plan without
 its contents. -Apply places that file as Edge\config\webkassa.json (service-readable, protected),
-adds EDGE_WEBKASSA_ACCOUNT_FILE to edge.env under the expected-hash CAS and restarts only
+adds EDGE_WEBKASSA_ACCOUNT_FILE and EDGE_WEBKASSA_ENVIRONMENT (live for kkm.webkassa.kz, test for
+devkkm.webkassa.kz, derived from the account file host and shown in the plan; owner 28.11.2026: the
+point issues receipts only with an explicit mode equal to the host) to edge.env under the expected-hash CAS and restarts only
 KitchenLink, KitchenLAN, PosSync and Edge. An account file left by an
 earlier attempt is validated and reused (run without -AccountFile). Nothing in the database, identity, runtime, prices or other services
 changes. A failed activation restores the previous edge.env and restarts Edge again.
--Disable removes the key again (the account file stays for inspection; delete it by hand).
+-Mode Disable empties the account key (the account file stays for inspection; delete it by hand; EDGE_WEBKASSA_ENVIRONMENT stays in edge.env, it is harmless without the file).
+On a point that is already enabled, Enable is idempotent: it adds only the missing EDGE_WEBKASSA_ENVIRONMENT (one restart); with nothing to change it does nothing.
 Secrets are never printed, logged or copied anywhere else. #>
 [CmdletBinding()]
 param(
@@ -42,6 +45,36 @@ function Assert-WebkassaAccount([byte[]]$Bytes) {
  if($a.baseUrl -cnotmatch '^https://(devkkm|kkm)\.webkassa\.kz/?$'){throw 'Account baseUrl must be a Webkassa host.'}
  if($a.cashboxUniqueNumber -cnotmatch '^SWK\d{8}$'){throw 'Account cashbox must be SWK and 8 digits.'}
  return [ordered]@{host=([Uri]$a.baseUrl).Host;cashbox=$a.cashboxUniqueNumber}
+}
+function Get-WebkassaMode([string]$HostName) {
+ # The mode the point server must be told explicitly (EDGE_WEBKASSA_ENVIRONMENT): kkm is live, devkkm is test.
+ if($HostName -ceq 'kkm.webkassa.kz'){return 'live'}
+ if($HostName -ceq 'devkkm.webkassa.kz'){return 'test'}
+ throw 'Account host has no Webkassa mode.'
+}
+function Get-WebkassaEnvAssignment([byte[]]$Bytes,[string]$Key) {
+ $text=[Text.UTF8Encoding]::new($false,$true).GetString($Bytes)
+ $m=@([regex]::Matches($text,'(?m)^'+[regex]::Escape($Key)+'=(.*?)\r?$'))
+ if($m.Count -gt 1){throw 'Ambiguous environment assignment'}
+ if($m.Count -eq 0){return $null}
+ return $m[0].Groups[1].Value
+}
+function Set-WebkassaEnvironmentBytes([byte[]]$Bytes,[string]$Mode) {
+ # Never overwrites an explicit different value: that is an operator conflict to settle by hand.
+ $current=Get-WebkassaEnvAssignment $Bytes 'EDGE_WEBKASSA_ENVIRONMENT'
+ if($null -ne $current -and $current -ne '' -and $current -cne $Mode){throw 'EDGE_WEBKASSA_ENVIRONMENT differs from the account file host; settle it by hand.'}
+ if($Mode -ceq 'test' -and (Get-WebkassaEnvAssignment $Bytes 'EDGE_WEBKASSA_REQUIRE_LIVE') -ceq 'true'){throw 'EDGE_WEBKASSA_REQUIRE_LIVE=true contradicts a test account file.'}
+ if($current -ceq $Mode){return ,$Bytes}
+ return ,(Update-ReviewedEnvBytes $Bytes 'EDGE_WEBKASSA_ENVIRONMENT' '' $Mode -AllowAbsent)
+}
+function Get-WebkassaEnableBytes([byte[]]$Before,[string]$Target,[string]$Mode) {
+ # Idempotent Enable: a key already set to this very file is kept as is, so an already enabled
+ # point only gets the missing mode line; the rest of edge.env stays byte for byte.
+ $current=Get-WebkassaEnvAssignment $Before 'EDGE_WEBKASSA_ACCOUNT_FILE'
+ if($null -ne $current -and $current -ne '' -and $current -cne $Target){throw 'EDGE_WEBKASSA_ACCOUNT_FILE points elsewhere; settle it by hand.'}
+ $bytes=$Before
+ if($current -cne $Target){$bytes=Update-ReviewedEnvBytes $Before 'EDGE_WEBKASSA_ACCOUNT_FILE' '' $Target -AllowAbsent}
+ return ,(Set-WebkassaEnvironmentBytes $bytes $Mode)
 }
 function Wait-WebkassaEdgeReady([int]$Seconds=120) {
  $until=[DateTime]::UtcNow.AddSeconds($Seconds)
@@ -115,10 +148,12 @@ try{
    $bytes=[IO.File]::ReadAllBytes($AccountFile)
   }
   $account=Assert-WebkassaAccount $bytes;$account['reused_file']=$reuse
-  $after=Update-ReviewedEnvBytes $before 'EDGE_WEBKASSA_ACCOUNT_FILE' '' $target -AllowAbsent
+  $account['environment']=Get-WebkassaMode $account.host
+  $after=Get-WebkassaEnableBytes $before $target $account.environment
  }
- $plan=[ordered]@{format='pickchick-webkassa-edge-plan-v1';mode=$Mode;account=$account;target=$target;env_before_sha256=(Get-WebkassaBytesHash $before);env_after_sha256=(Get-WebkassaBytesHash $after);restart=@('PickChickPosSync','PickChickKitchenLAN','PickChickKitchenLink','PickChickEdge')}
+ $plan=[ordered]@{format='pickchick-webkassa-edge-plan-v1';mode=$Mode;account=$account;target=$target;env_before_sha256=(Get-WebkassaBytesHash $before);env_after_sha256=(Get-WebkassaBytesHash $after);changed=((Get-WebkassaBytesHash $after) -cne (Get-WebkassaBytesHash $before));restart=@('PickChickPosSync','PickChickKitchenLAN','PickChickKitchenLink','PickChickEdge')}
  if(-not $Apply){$plan|ConvertTo-Json -Depth 6 -Compress;return}
+ if($Mode -cne 'Disable' -and $reuse -and -not $plan.changed){$plan['completed']=$true;$plan|ConvertTo-Json -Depth 6 -Compress;return}
  $attempt=Join-Path $data ('EdgeTools\webkassa-'+[guid]::NewGuid().ToString('N'))
  Set-ProtectedAcl $attempt -Directory
  $saved=Join-Path $attempt 'before.env';$h=[IO.File]::Open($saved,'CreateNew','Write','None');try{$h.Write($before,0,$before.Length);$h.Flush($true)}finally{$h.Dispose()};Set-ProtectedAcl $saved
