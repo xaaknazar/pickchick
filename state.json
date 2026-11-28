@@ -8224,6 +8224,24 @@
       "status": "active",
       "head": "5925f11778aeb615df1d87ab1421bc39e01214c8",
       "updatedAt": "2026-11-28T12:13:01.457Z"
+    },
+    {
+      "id": "p0-paid-terminal-release",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-paid-terminal-release",
+      "scopes": [
+        "packages/local-orders/src/terminal-payments.ts",
+        "packages/local-orders/src/shifts.ts",
+        "packages/local-orders/src/shift-reports.ts",
+        "packages/local-orders/src/errors.ts",
+        "services/edge/src/pos-sales-controller.ts",
+        "packages/contracts/src/pos-sales.ts",
+        "packages/contracts/src/cutover-enums.ts",
+        "tests/integration/kaspi-pos-release.test.mjs"
+      ],
+      "status": "active",
+      "head": "9601f75b057add08d725325d3cfdb7883b6fc6d0",
+      "updatedAt": "2026-11-28T12:27:21.657Z"
     }
   ],
   "approvedScopeTransfers": [
