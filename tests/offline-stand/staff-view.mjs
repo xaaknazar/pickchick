@@ -4,7 +4,7 @@
  *    (cash-shifts/current) and the edge's cloud link (GET edge/v1/cloud-link, offline stand
  *    finding). An edge without that route answers 404 and the header shows no internet state.
  *  - Kitchen LAN screen (apps/kitchen/src/app.ts nav): the kitchen read succeeds ->
- *    "Связь с локальным узлом", otherwise "Нет актуального подтверждения связи".
+ *    "Касса на связи", otherwise "Нет связи с кассой" (with the seconds since the last answer).
  * The kitchen texts are pinned against the sources by stand.test.mjs.
  */
 import { connectionLabel } from '../../apps/pos/dist/model.js';
@@ -13,8 +13,8 @@ export const LABELS = {
   posLanOk: 'Локальная сеть',
   posLanDown: 'Нет связи с кассой',
   posWanDown: 'Нет интернета · касса работает',
-  kitchenLanOk: 'Связь с локальным узлом',
-  kitchenLanDown: 'Нет актуального подтверждения связи',
+  kitchenLanOk: 'Касса на связи',
+  kitchenLanDown: 'Нет связи с кассой',
 };
 
 async function answer(url, headers) {

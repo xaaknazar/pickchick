@@ -11,16 +11,20 @@ import { cloudPairing } from './components/CloudPairing.js';
 import { request, loadConfig, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
 import {
+  alarm,
   allDayStrip,
   chime,
   kitchenTicket,
+  LateAlarm,
   NewOrders,
+  ReadyNumbers,
+  readyChime,
   tickTimers,
   unlockAudioOnTouch,
 } from './kitchen-ticket.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
-import { kdsScreen, kdsVisible, waitClass, WAIT_LATE_MINUTES } from './kds-view.js';
+import { kdsScreen, kdsVisible, lateLabel, stationLimits, waitClass } from './kds-view.js';
 import { openHandover, openIncident } from './courier.js';
 import { HANDOVER_MARKS, UUID, type Action, type Order } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -31,6 +35,105 @@ let demoNotice = '';
 let renderedView = '';
 // New-order chime and highlight per kitchen screen (owner 23.11).
 const newOrders = new NewOrders();
+// Late orders ring and blink; the guest board highlights fresh ready numbers (owner 27.11).
+const lateAlarm = new LateAlarm();
+const readyNumbers = new ReadyNumbers();
+/** Orders of the open kitchen screen at the last render: the 1-second tick checks them. */
+let screenOrders: { orderId: string; createdAt: string; state: string }[] = [];
+/**
+ * Undo (owner 27.11): a tapped command waits 5 s with a «Вернуть» bar before it is sent, so a
+ * wrong tap costs nothing. Nothing is journaled during the wait; the point server sees the
+ * command only when it is sent. A second tap, a station switch or leaving sends the waiting one.
+ */
+/** A screen may switch the wait off (0) or change it (pickchick.kitchen.undoMs, at most 15 s). */
+function undoMs() {
+  try {
+    const v = localStorage.getItem('pickchick.kitchen.undoMs');
+    return v !== null && /^\d{1,5}$/.test(v) ? Math.min(Number(v), 15000) : 5000;
+  } catch {
+    return 5000;
+  }
+}
+type Held = {
+  orderId: string;
+  owner: string;
+  stationId: string;
+  body: Action;
+  number: string;
+  until: number;
+  timer: number;
+};
+let held: Held | null = null;
+const sameAction = (a: Action, b: Action) =>
+  a.action === b.action && ('taskId' in a ? a.taskId : '') === ('taskId' in b ? b.taskId : '');
+function hold(o: Order, body: Action) {
+  sendHeld();
+  const wait = undoMs();
+  if (!wait) {
+    void model.command(o, body);
+    return;
+  }
+  held = {
+    orderId: o.orderId,
+    owner: ownerOf(o),
+    stationId: model.state.stationId ?? '',
+    body,
+    number: o.displayNumber ?? '',
+    until: Date.now() + wait,
+    timer: window.setTimeout(sendHeld, wait),
+  };
+  render();
+}
+function sendHeld() {
+  const h = held;
+  if (!h) return;
+  held = null;
+  window.clearTimeout(h.timer);
+  whenIdle(() => {
+    const s = model.state;
+    const o = s.orders.find((x) => x.orderId === h.orderId && ownerOf(x) === h.owner);
+    // The order moved on meanwhile: send the same action with its current versions, if allowed.
+    const body =
+      o && s.stationId === h.stationId
+        ? allowedActions(o, h.stationId, s.wholeTicketActions).find((a) => sameAction(a, h.body))
+        : undefined;
+    if (o && body) void model.command(o, body);
+    else render();
+  });
+}
+function undoHeld() {
+  if (!held) return;
+  window.clearTimeout(held.timer);
+  held = null;
+  render();
+}
+const undoBar = () =>
+  held
+    ? `<aside class="undo-bar" role="status"><span>${escape(actionLabel[held.body.action])} · заказ ${escape(held.number || '-')}</span><span id="undo-count">${Math.max(0, Math.ceil((held.until - Date.now()) / 1000))} с</span><button id="undo" type="button">↶ Вернуть</button><button id="send-now" type="button">Отправить сейчас</button></aside>`
+    : '';
+/** «Нет связи 20 сек», «Нет связи 2 мин». */
+const lostFor = (ms: number) => {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  return sec < 60 ? `${sec} сек` : `${Math.floor(sec / 60)} мин`;
+};
+/** A read older than this (two missed 5-second polls) counts as a lost link. */
+const LINK_STALE_MS = 12000;
+/** Link to the point server (owner 27.11): a green dot, or red with the time since the last answer. */
+function linkView() {
+  const s = model.state;
+  const age = s.lastSync ? Date.now() - s.lastSync : null;
+  const lost = !demo && (!!s.error || (age !== null && age > LINK_STALE_MS));
+  const text = demo
+    ? 'Демо-заказы'
+    : !s.lastSync
+      ? s.error
+        ? 'Нет связи с кассой'
+        : 'Подключение'
+      : lost
+        ? 'Нет связи с кассой' + ` · ${lostFor(age!)}`
+        : 'Касса на связи';
+  return `<span id="link" class="connection link${lost ? ' offline' : ''}" role="status"><i class="link-dot" aria-hidden="true"></i>${text}</span>`;
+}
 unlockAudioOnTouch(document);
 let branch = demo ? 'Демонстрационная точка' : 'Локальная точка';
 let boardPage = 0;
@@ -275,16 +378,21 @@ function render() {
     }
   }
   const s = model.state;
+  // Timer limits of the open station: its back-office norm, else 5 and 10 minutes (owner 27.11).
+  stationLimits(s.stations.find((t) => t.id === s.stationId)?.targetSeconds);
   // Cutover KDS: a station of the active edge layout gets its KDS screen (contracts 5.4).
   const kdsFn = !demo && !s.cloud && s.mode === 'kitchen' ? model.kdsFunction() : null;
-  const legacyVisible = s.orders.filter((o) => {
-    if (!s.wholeTicketActions || o.state === 'cancel_requested') return true;
-    if (o.assemblyStationId === s.stationId)
-      return o.tasks.every((t) => t.stationId === s.stationId || t.state === 'done');
-    return o.tasks.some(
-      (t) => t.stationId === s.stationId && ['queued', 'in_progress'].includes(t.state),
-    );
-  });
+  // Delivery orders first (owner 27.11), the rest in arrival order.
+  const legacyVisible = [...s.orders]
+    .sort((a, b) => Number(!!b.delivery) - Number(!!a.delivery))
+    .filter((o) => {
+      if (!s.wholeTicketActions || o.state === 'cancel_requested') return true;
+      if (o.assemblyStationId === s.stationId)
+        return o.tasks.every((t) => t.stationId === s.stationId || t.state === 'done');
+      return o.tasks.some(
+        (t) => t.stationId === s.stationId && ['queued', 'in_progress'].includes(t.state),
+      );
+    });
   const visibleOrders = kdsFn
     ? kdsFn === 'breading'
       ? (s.breading?.orders ?? [])
@@ -294,12 +402,27 @@ function render() {
   const viewKey = `${s.mode}:${s.stationId ?? ''}`;
   const scroll =
     renderedView === viewKey ? (document.querySelector('.workspace')?.scrollTop ?? 0) : 0;
-  if (renderedView !== viewKey) newOrders.enter(viewKey, Date.now());
+  if (renderedView !== viewKey) {
+    newOrders.enter(viewKey, Date.now());
+    lateAlarm.enter(viewKey);
+  }
   renderedView = viewKey;
   const newScreen = viewKey;
   if (s.mode === 'kitchen' && s.stationId && s.lastSync && !kdsFn) {
     const ids = visibleOrders.filter((o) => 'orderId' in o).map((o) => o.orderId);
     if (newOrders.update(newScreen, ids, Date.now())) chime();
+  }
+  screenOrders =
+    s.mode === 'kitchen' && s.stationId && s.lastSync
+      ? visibleOrders.flatMap((o) =>
+          'createdAt' in o && 'tasks' in o
+            ? [{ orderId: o.orderId, createdAt: o.createdAt, state: o.state }]
+            : [],
+        )
+      : [];
+  if (s.mode === 'display') {
+    const ready = s.display.filter((i) => i.state === 'ready').map((i) => i.number);
+    if (readyNumbers.update(ready, Date.now())) readyChime();
   }
   // The 5-second background read does not lock the screen: a tap waits for it.
   const busy = s.busy && !s.background;
@@ -329,7 +452,7 @@ function render() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${WAIT_LATE_MINUTES} МИН</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" title="${fullscreenLabel()}" aria-label="${fullscreenLabel()}" aria-pressed="${fullscreen}">⛶</button>` : ''}<time id="clock">${clock}</time></header>`;
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА ЭКРАНЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat${late ? ' stat-late' : ''}"><span>ДОЛЬШЕ ${lateLabel()}</span><strong>${late}</strong></div>` : ''}${kitchenWindow ? `<button id="window-fullscreen" class="fullscreen-button" type="button" title="${fullscreenLabel()}" aria-label="${fullscreenLabel()}" aria-pressed="${fullscreen}">⛶</button>` : ''}<time id="clock">${clock}</time></header>`;
   if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
@@ -441,7 +564,7 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : linkView()}${button('Обновить', 'id="refresh"', busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const notice =
     s.kdsNotice && !s.kds
       ? `<aside class="kds-notice" role="status">${escape(errors[s.kdsNotice]!)}</aside>`
@@ -502,11 +625,11 @@ function render() {
             `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
         )
         .join('') || '<p>Новых заказов пока нет</p>'
-    }</div></section><section class="ready"><h2>✓ ГОТОВО</h2><div class="numbers">${
+    }</div></section><section class="ready"><h2>✓ ГОТОВ К ВЫДАЧЕ</h2><div class="numbers">${
       board.ready
         .map(
           (o) =>
-            `<article><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
+            `<article${readyNumbers.isFresh(o.number, Date.now()) ? ' class="just-ready"' : ''}><strong${o.number.length > 4 ? ' class="long-number"' : ''}>${escape(o.number)}</strong>${o.name ? `<span class="guest-display-name">${escape(o.name)}</span>` : ''}</article>`,
         )
         .join('') || '<p>Готовые заказы появятся здесь</p>'
     }</div><p class="take-hint">Подойдите к стойке выдачи и назовите номер заказа</p></section></main>`;
@@ -536,7 +659,15 @@ function render() {
   const demoControls = demo
     ? `<aside class="demo-controls" aria-label="Управление демо"><div><strong>ДЕМО · ПРОВЕРКА ДИЗАЙНА</strong><span>Вымышленные заказы. Касса не нужна. Обновление страницы начинает сценарий заново.</span></div>${button('+ Новый заказ', 'id="demo-add"', blocked)}${button(autoOrders ? 'Поток: каждые 25 с · пауза' : 'Продолжить поток заказов', 'id="demo-auto" aria-pressed="' + autoOrders + '"')}${button('Сбросить демо', 'id="demo-reset"', blocked)}<span role="status">${escape(demoNotice)}</span></aside>`
     : '';
-  root.innerHTML = header + demoControls + nav + notice + error + recovery + content + pagination;
+  root.innerHTML =
+    header + demoControls + nav + notice + error + recovery + content + pagination + undoBar();
+  if (held) {
+    const t = root.querySelector(`[data-order="${held.orderId}"]`);
+    t?.classList.add('is-held');
+    t?.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = true));
+  }
+  document.getElementById('undo')?.addEventListener('click', undoHeld);
+  document.getElementById('send-now')?.addEventListener('click', sendHeld);
   document.getElementById('demo-add')?.addEventListener('click', () => {
     if (demo) {
       demoNotice = demo.add() ? 'Добавлен новый заказ' : 'Очередь заполнена. Сбросьте демо.';
@@ -563,10 +694,10 @@ function render() {
   );
   document.querySelector('.workspace')?.scrollTo({ top: scroll });
   for (const [id, fn] of Object.entries({
-    'mode-kitchen': () => model.selectMode('kitchen'),
-    'mode-display': () => model.selectMode('display'),
+    'mode-kitchen': () => (sendHeld(), model.selectMode('kitchen')),
+    'mode-display': () => (sendHeld(), model.selectMode('display')),
     refresh: () => model.refresh(),
-    logout: () => model.logout(),
+    logout: () => (sendHeld(), model.logout()),
     retry: () => model.retry(),
     review: () => model.reviewConflict(),
     acknowledge: () => model.acknowledgeConflict(),
@@ -584,6 +715,7 @@ function render() {
     document.getElementById(id)?.addEventListener('click', fn);
   document.querySelectorAll<HTMLButtonElement>('[data-station]').forEach((b) =>
     b.addEventListener('click', () => {
+      sendHeld();
       if (b.dataset.station) void model.selectStation(b.dataset.station);
     }),
   );
@@ -603,7 +735,7 @@ function render() {
       const data = JSON.parse(b.dataset.command!) as { orderId: string; body: Action };
       const owner = b.closest<HTMLElement>('[data-owner]')?.dataset.owner ?? 'edge';
       const o = s.orders.find((x) => x.orderId === data.orderId && ownerOf(x) === owner);
-      if (o) void model.command(o, data.body);
+      if (o) hold(o, data.body);
     }),
   );
   // Courier counter (3): the three handover marks and the protocol refusal (Аг9).
@@ -728,7 +860,20 @@ window.setInterval(() => {
 }, 8000);
 window.setInterval(() => {
   updateLoginWait();
-  tickTimers(document, Date.now());
+  const now = Date.now();
+  tickTimers(document, now);
+  // Blink phase for late tickets and new ones; the link text counts the seconds without a reply.
+  document.body.classList.toggle('blink', Math.floor(now / 1000) % 2 === 0);
+  const link = document.getElementById('link');
+  if (link) link.outerHTML = linkView();
+  const count = document.getElementById('undo-count');
+  if (count && held) count.textContent = `${Math.max(0, Math.ceil((held.until - now) / 1000))} с`;
+  if (renderedView.startsWith('kitchen:')) {
+    const late = screenOrders
+      .filter((o) => o.state !== 'ready' && waitClass(o.createdAt, now) === 'wait-late')
+      .map((o) => o.orderId);
+    if (lateAlarm.update(renderedView, late, now)) alarm();
+  }
   const clock = document.getElementById('clock');
   if (clock)
     clock.textContent = new Intl.DateTimeFormat('ru-RU', {

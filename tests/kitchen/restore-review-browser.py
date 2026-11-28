@@ -3,7 +3,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 c=json.loads(Path(sys.argv[1]).read_text())
 with sync_playwright() as pw:
- browser=pw.chromium.launch(); page=browser.new_page(viewport={'width':1280,'height':800});page.set_default_timeout(15000)
+ browser=pw.chromium.launch(); page=browser.new_page(viewport={'width':1280,'height':800});page.add_init_script("localStorage.setItem('pickchick.kitchen.undoMs','0')");page.set_default_timeout(15000)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  def login(actor):
   page.locator('details.login-service').evaluate('(n)=>n.open=true')
