@@ -23,6 +23,9 @@ export const CUSTOMER_ASSETS = new Map([
     'golos-text-f8d71091110f.woff2',
     'montserrat-6438d7b8ea9c.woff2',
     'montserrat-0b00fbd6edcc.woff2',
+    // Cyrillic Extended: the Kazakh letters Ә Ғ Қ Ң Ө Ү Һ.
+    'golos-text-10aa879203c4.woff2',
+    'montserrat-744830a0e77d.woff2',
   ].map((n) => ['/v2/fonts/' + n, ['v2/fonts/' + n, 'font/woff2']]),
 ]);
 const HEADERS = {
