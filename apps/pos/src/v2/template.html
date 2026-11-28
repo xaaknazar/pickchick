@@ -3018,6 +3018,26 @@
                     >
                   </div>
                 </div>
+                <sc-if value="{{ termPayEntry }}" hint-placeholder-val="{{ false }}">
+                  <div
+                    onClick="{{ termPayEntryOpen }}"
+                    data-testid="term-pay-entry"
+                    style="
+                      height: 64px;
+                      border-radius: 14px;
+                      border: 2px solid var(--orange);
+                      color: var(--orange);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 18px;
+                      font-weight: 700;
+                      cursor: pointer;
+                    "
+                  >
+                    {{ termPayEntry }}
+                  </div>
+                </sc-if>
                 <div
                   onClick="{{ sayX }}"
                   style="
@@ -5909,6 +5929,103 @@
           >
             {{ opsCloseCta }}
           </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isTermPay }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card ops-report"
+        data-screen-label="S7 Оплаты без заказа"
+        role="dialog"
+        aria-label="{{ termPayTitle }}"
+      >
+        <div class="sale-head">
+          <div>
+            <div class="sale-title" data-testid="term-pay-title">{{ termPayTitle }}</div>
+            <div class="ops-muted">{{ termPaySub }}</div>
+          </div>
+          <sc-if value="{{ termPayList }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ termPayRefresh }}" class="sale-button">Обновить</div>
+          </sc-if>
+        </div>
+        <div class="ops-note" data-testid="term-pay-note" style="background:{{ termPayNoteBg }}">
+          {{ termPayNote }}
+        </div>
+        <sc-if value="{{ termPayList }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ termPayEmpty }}" hint-placeholder-val="{{ false }}">
+            <div class="ops-empty">Оплат без заказа нет</div>
+          </sc-if>
+          <div class="ops-list">
+            <sc-for list="{{ termPayRows }}" as="r" hint-placeholder-count="2">
+              <div class="ops-row" data-testid="term-pay-row">
+                <b class="ops-no">{{ r.amount }}</b>
+                <span>{{ r.time }}</span>
+                <span class="ops-grow">{{ r.info }}</span>
+                <sc-if value="{{ r.canSell }}" hint-placeholder-val="{{ true }}">
+                  <div
+                    onClick="{{ r.sell }}"
+                    class="sale-button sale-primary ops-row-action"
+                    data-testid="term-pay-sell"
+                  >
+                    Оформить
+                  </div>
+                </sc-if>
+                <sc-if value="{{ r.noSell }}" hint-placeholder-val="{{ false }}">
+                  <span class="ops-muted">{{ r.sellNote }}</span>
+                </sc-if>
+                <div
+                  onClick="{{ r.release }}"
+                  class="sale-button sale-secondary ops-row-action"
+                  data-testid="term-pay-release"
+                >
+                  Снять - возврат на терминале сделан
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ termPayForm }}" hint-placeholder-val="{{ false }}">
+          <div class="ops-column">
+            <div class="ops-step-title" data-testid="term-pay-form-title">
+              {{ termPayFormTitle }}
+            </div>
+            <div class="ops-note">
+              Деньги гостю уже возвращены на терминале Kaspi. Оплата снимается с кассы, заказ не
+              оформляется.
+            </div>
+            <div onClick="{{ termPayReasonPick }}" class="sale-field ops-field">
+              <span class="sale-field-label">Причина*</span>
+              <span class="sale-field-value">{{ termPayReasonValue }}</span>
+            </div>
+            <div
+              onClick="{{ termPayRefunded }}"
+              class="sale-chip"
+              aria-pressed="{{ termPayRefundedPressed }}"
+              data-testid="term-pay-refunded"
+              style="background:{{ termPayRefundedBg }};color:{{ termPayRefundedFg }}"
+            >
+              {{ termPayRefundedLabel }}
+            </div>
+          </div>
+        </sc-if>
+        <div class="sale-actions">
+          <sc-if value="{{ termPayForm }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ termPayBack }}" class="sale-button">Назад</div>
+            <div
+              onClick="{{ termPayConfirm }}"
+              class="sale-button sale-primary"
+              data-testid="term-pay-confirm"
+              style="background:{{ termPayConfirmBg }};color:{{ termPayConfirmFg }}"
+            >
+              {{ termPayConfirmLabel }}
+            </div>
+          </sc-if>
+          <sc-if value="{{ termPayList }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ termPayClose }}" class="sale-button sale-primary">Закрыть</div>
+          </sc-if>
         </div>
       </div>
     </div>

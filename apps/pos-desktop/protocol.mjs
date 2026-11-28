@@ -25,6 +25,8 @@ export const SALE_ROUTES = Object.freeze({
     // ADR-0017: Kaspi Smart POS attempts of this desk.
     'pos/terminal-payments/open',
     `pos/terminal-payments/${UUID}`,
+    // Stage 3 (CR pos-8): what was released at a shift, for its X and Z view.
+    `cash-shifts/${UUID}/terminal-releases`,
     // 23.11: «Заказы» lists every order of the branch between two days.
     'pos/branch-orders',
     // 25.11: automatic Webkassa receipt state and its print form with the QR.
@@ -40,12 +42,20 @@ export const SALE_ROUTES = Object.freeze({
     `pos/sales/${UUID}/refunds`,
     `pos/fiscal-receipts/${UUID}/record`,
     'pos/terminal-payments',
+    // Stage 3 (CR pos-8): release of a paid attempt without an order (shift manager approval).
+    `pos/terminal-payments/${UUID}/release`,
   ]),
 });
 /** GET paths that may carry exactly one `?shift_id=<uuid>` filter (today's orders, receipts). */
 export const SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/pending']);
 /** GET pos/branch-orders carries exactly `?from=<day>&to=<day>` (Almaty days, YYYY-MM-DD). */
 export const DAY_RANGE_PATH = 'pos/branch-orders';
+/**
+ * GET pos/terminal-payments/open carries at most `?scope=other_desks` (CR pos-8): a shift manager
+ * reads the paid attempts without an order of the other desks of the point.
+ */
+export const SCOPE_PATH = 'pos/terminal-payments/open';
+export const SCOPE_QUERY = '\\?scope=other_desks';
 export const DAY_RANGE_QUERY = '\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}';
 const readPath = new RegExp(
   `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_ROUTES.read.join('|')})$`,
@@ -207,6 +217,7 @@ function localURL(value) {
           url.pathname === `/edge/v1/${DAY_RANGE_PATH}` &&
           new RegExp(`^${DAY_RANGE_QUERY}$`).test(url.search)
         ) &&
+        !(url.pathname === `/edge/v1/${SCOPE_PATH}` && url.search === '?scope=other_desks') &&
         (!SHIFT_FILTERED.some((path) => url.pathname === `/edge/v1/${path}`) ||
           !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash

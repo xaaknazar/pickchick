@@ -3,6 +3,7 @@ import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
 import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
+import { TerminalPaymentsView } from './terminal-payments-view.js';
 import { almatyToday, openRangeDialog, rangeLabel, stepRange } from './day-range.js';
 import {
   PAID_TEXTS,
@@ -83,6 +84,8 @@ let lastRender = '',
   commentPurpose = 'order',
   errorShown = '',
   menuNoticeShown = 0,
+  // The last release of this desk's own hold the cashier was told about (model.state.terminalNotice).
+  terminalNoticeShown = 0,
   // Days of the «Заказы» screen (day-range.js); null is today and stays today after midnight.
   dayRange = null,
   // The days last asked of GET pos/branch-orders, so a render asks once per choice.
@@ -136,6 +139,8 @@ const sale = new SaleView(model, {
   onSold: (paid) => ops.sold(paid),
   printOrder: () => ops.donePrint(),
 });
+// «Оплаты без заказа» (CR pos-8): paid on the terminal, no order; sell it again or release it.
+const payments = new TerminalPaymentsView(model, sale, { onChange: schedule, guard: safe, say });
 // Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
 const ops = new OpsView(model, sale, {
   onChange: schedule,
@@ -148,6 +153,8 @@ const ops = new OpsView(model, sale, {
   endSession: () => lock(),
   printer: globalThis.pickchickPosPrinter,
   terminalLabel: config.branchLabel ?? 'Локальная точка',
+  // The close wizard stops at paid attempts without an order and offers their list.
+  openTerminalPayments: (note) => payments.open(note),
 });
 function details(change) {
   const d = model.state.draft;
@@ -271,14 +278,18 @@ async function enterPin(pin, close = false) {
         closeReason ?? closeReasonText(closing),
       );
       if (model.state.error) throw Error(errorMessage(model.state.error));
+      if (!model.logout()) throw Error(errorMessage(model.state.error));
       reference.setState({ closeOpen: false, screen: 'lock', pin: '', closePin: '' });
-      model.logout();
       say(shiftClosedText(closing));
     } else {
       await pinLogin(pin, config.terminalId);
       if (!model.state.draft && !model.state.pending) model.newDraft();
       if (!model.state.shift && model.state.actor?.role !== 'shift_manager') {
-        model.logout();
+        if (!model.logout()) {
+          // Signed in with a paid amount on the terminal: the cashier stays and sees why.
+          reference.setState({ pin: '', pinErr: '', screen: 'work' });
+          throw Error(errorMessage(model.state.error));
+        }
         throw Error('Смена не открыта - нужен PIN начальника смены');
       }
       reference.setState({
@@ -352,6 +363,7 @@ function nextOrder() {
   model.newDraft();
   sale.reset();
   ops.reset();
+  payments.reset();
   lastOrder = null;
   reference.setState({
     screen: 'work',
@@ -365,9 +377,13 @@ function nextOrder() {
 }
 function lock() {
   if (blocked()) return;
-  model.logout();
+  // The guest's payment on the terminal keeps this cashier signed in (the refusal is the reason
+  // shown): nothing is reset, the journal session stays, the screen does not change.
+  errorShown = '';
+  if (!model.logout()) return;
   sale.reset();
   ops.reset();
+  payments.reset();
   globalThis.pickchickPosJournal?.endSession();
   reference.setState({ screen: 'lock', pin: '', user: null });
 }
@@ -420,6 +436,12 @@ function draw() {
   // Before reading the view state: the notice replaces reference.state.
   const change = model.state.menuChange;
   if (change && change.id !== menuNoticeShown) menuChanged(change);
+  // This desk's paid amount was released by a shift manager: said once, the cart stays.
+  const released = model.state.terminalNotice;
+  if (released && released.id !== terminalNoticeShown) {
+    terminalNoticeShown = released.id;
+    say(released.text);
+  }
   const m = model.state,
     s = reference.state,
     labels = categoryLabels(m.menu, config.categories),
@@ -1088,6 +1110,9 @@ function draw() {
   v.stopCount = v.stopActive.length;
   // Paid mode: everything of part B, on top of the values above (navItems, shift tab).
   Object.assign(v, ops.templateValues(v, s.tab));
+  // «Оплаты без заказа»: the screen, its entry on the shift tab and the header line that opens it.
+  Object.assign(v, payments.templateValues());
+  if (payments.available && payments.count) v.toggleOffline = safe(() => payments.open());
   v.noStops = !v.stopCount;
   v.stopDurations = [
     ['shift', 'До конца смены'],
@@ -1159,7 +1184,7 @@ function draw() {
   }
   if (m.error && errorShown !== String(m.error)) {
     errorShown = String(m.error);
-    say(model.saleMode ? sale.errorText(m.error) : errorMessage(m.error));
+    say(model.saleMode || model.terminalHold ? sale.errorText(m.error) : errorMessage(m.error));
   } else if (!m.error) errorShown = '';
   if (m.busy || signing) {
     root.setAttribute('aria-busy', 'true');

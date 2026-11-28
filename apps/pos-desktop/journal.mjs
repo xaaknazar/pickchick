@@ -194,7 +194,19 @@ function saleBody(path, body) {
  * draft. Nothing in it is sent anywhere by itself; the cashier reads it back after a restart.
  */
 function terminalHold(value) {
-  const h = exact(value, ['attempt_id', 'quote', 'sale_draft']);
+  // `refusal`: the edge refused the sale of this paid attempt; the cashier sells it again by hand
+  // (a record without it, written before, reads as before).
+  const h = exact(value, [
+    'attempt_id',
+    'quote',
+    'sale_draft',
+    ...(value && typeof value === 'object' && Object.hasOwn(value, 'refusal') ? ['refusal'] : []),
+  ]);
+  if (
+    h.refusal !== undefined &&
+    !(typeof h.refusal === 'string' && /^[A-Z0-9_]{1,64}$/.test(h.refusal))
+  )
+    fail();
   id(h.attempt_id);
   const q = h.quote;
   if (!q || typeof q !== 'object' || Array.isArray(q)) fail();

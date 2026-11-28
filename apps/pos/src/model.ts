@@ -22,6 +22,7 @@ import type {
   Selection,
   EdgeCloudLink,
   TerminalPayment,
+  TerminalReleases,
 } from './types.js';
 import {
   ApiError,
@@ -78,7 +79,13 @@ export type SalePayment =
   | { method: 'marketing'; reason: string };
 /** Approval actions the cashier asks for (contracts section 2.1, P0 subset). */
 export type ApprovalAction =
-  'staff_meal' | 'marketing' | 'void' | 'refund' | 'fiscal_correct' | 'shift_close_pending_fiscal';
+  | 'staff_meal'
+  | 'marketing'
+  | 'void'
+  | 'refund'
+  | 'fiscal_correct'
+  | 'shift_close_pending_fiscal'
+  | 'terminal_release';
 /**
  * What one approval is for (POST staff/approvals `subject`). Built only by the helpers below, so
  * the key order is fixed and two subjects compare by their JSON.
@@ -116,6 +123,13 @@ export const closeSubject = (
   shift_id: shiftId,
   amount_minor: pending.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n).toString(),
 });
+/**
+ * terminal_release (CR pos-8): the quote and the amount of the paid attempt without an order that
+ * is released. The point compares this subject with the attempt it names.
+ */
+export const terminalReleaseSubject = (
+  t: Pick<TerminalPayment, 'quote_id' | 'amount_minor'>,
+): ApprovalSubject => ({ quote_id: t.quote_id, amount_minor: t.amount_minor });
 /** One-time shift manager approval for one subject; never written to the journal with a PIN. */
 export type HeldApproval = Approval & {
   action: ApprovalAction;
@@ -194,7 +208,21 @@ const OPERATION_REJECTIONS = new Set([
   'DRAWER_INSUFFICIENT',
 ]);
 /** Definite answers to closing a sales shift: pending receipts without a valid approval. */
-const CLOSE_REJECTIONS = new Set(['FISCAL_PENDING', 'APPROVAL_REQUIRED', 'APPROVAL_INVALID']);
+const CLOSE_REJECTIONS = new Set([
+  'FISCAL_PENDING',
+  'APPROVAL_REQUIRED',
+  'APPROVAL_INVALID',
+  // CR pos-8: the desk has paid attempts without an order; the cashier finishes or releases them.
+  'TERMINAL_UNSOLD_PAYMENTS',
+]);
+/** What the cashier reads when a paid attempt was released on the point (CR pos-8). */
+export const TERMINAL_RELEASED_NOTICE =
+  'Оплата на терминале снята начальником смены - возврат сделан на терминале';
+/** The cashier asks about a held paid attempt of its own this often (the point never polls it). */
+export const TERMINAL_RELEASE_POLL_MS = 5000;
+/** After a refusal or an old point's answer, other desks / shift releases are asked no sooner. */
+const OTHER_DESKS_PAUSE_MS = 5 * 60000;
+const SHIFT_RELEASES_PAUSE_MS = 10 * 60000;
 const VOID_KEYS = ['expected_version', 'reason_code', 'reason', 'fiscal_sale_issued', 'approval'];
 const REFUND_KEYS = ['refund_id', 'tenders', 'reason_code', 'reason', 'approval'];
 const CLOSE_KEYS = [
@@ -448,7 +476,13 @@ export function saleContext(body: Record<string, unknown> | undefined): SaleErro
  * Kept in the journal so a restart, a crashed window or a power cut finds it again: the same
  * quote and sale draft are restored and the sale is made as soon as the terminal says success.
  */
-type TerminalHold = { attempt_id: string; quote: Quote; sale_draft: SaleDraft };
+type TerminalHold = {
+  attempt_id: string;
+  quote: Quote;
+  sale_draft: SaleDraft;
+  /** The edge refused the sale of this paid attempt (its code): no automatic sale again. */
+  refusal?: string;
+};
 type Journal = {
   version: 1;
   scope: string;
@@ -459,6 +493,19 @@ type Journal = {
   held?: Cart[];
   terminal?: TerminalHold;
 };
+/** The code of an error, 'UNKNOWN' for anything that is not an Error. */
+const codeOf = (error: unknown) => (error instanceof Error ? error.message : 'UNKNOWN');
+/** The attempt a pending paid sale carries in its Kaspi terminal tender, if any. */
+function attemptOf(p: Pending | null | undefined): string | undefined {
+  if (p?.kind !== 'sale') return undefined;
+  const tenders: unknown = p.body.tenders;
+  if (!Array.isArray(tenders)) return undefined;
+  for (const t of tenders as unknown[]) {
+    const id = t && typeof t === 'object' ? (t as Record<string, unknown>).attempt_id : undefined;
+    if (typeof id === 'string') return id;
+  }
+  return undefined;
+}
 function parseTerminalHold(value: unknown): TerminalHold {
   const h = parse.record(value),
     d = parse.record(h.sale_draft);
@@ -470,7 +517,13 @@ function parseTerminalHold(value: unknown): TerminalHold {
     d.externalOrderRef.length > 40
   )
     throw new Error('STORAGE_DAMAGED');
+  if (
+    h.refusal !== undefined &&
+    !(typeof h.refusal === 'string' && /^[A-Z0-9_]{1,64}$/.test(h.refusal))
+  )
+    throw new Error('STORAGE_DAMAGED');
   return {
+    ...(typeof h.refusal === 'string' ? { refusal: h.refusal } : {}),
     attempt_id: parse.uuid(h.attempt_id),
     quote: parse.quote(h.quote),
     sale_draft: {
@@ -535,6 +588,24 @@ export type State = {
   terminal: TerminalPayment | null;
   /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
   terminalOpen: TerminalPayment[];
+  /**
+   * A shift manager only: paid attempts without an order of the OTHER desks of the point (GET
+   * pos/terminal-payments/open?scope=other_desks), so they can be released from here.
+   */
+  terminalOthers: TerminalPayment[];
+  /** The last release of this desk's own hold found on the point; `id` grows, shown once. */
+  terminalNotice: { id: number; text: string } | null;
+  /** GET cash-shifts/{id}/terminal-releases of the shift the X or Z report on screen is of. */
+  terminalReleases: TerminalReleases | null;
+  /**
+   * The edge refused the sale of an attempt this desk already has paid (no order): the guest has
+   * paid, so the attempt and its quote stay and the cashier sells again by hand (retryPaidSale).
+   * Within one session nothing retries by itself. It is NOT written to the journal (the desktop
+   * journal validator accepts exactly attempt_id, quote and sale_draft in a hold), so the first
+   * poll after every sign-in or restored window makes one automatic sale request; its refusal
+   * sets this again. `code` is the refusal shown on the pay screen.
+   */
+  terminalRefusal: { attempt_id: string; code: string } | null;
   /**
    * 23.11: every order of the branch (desk, app, kiosk, aggregators) for the days chosen in
    * «Заказы»; null until read, and while the edge has no such route (branchOrdersMissing).
@@ -624,6 +695,10 @@ const blankOperations = () => ({
   webkassaEnvironment: null as 'test' | 'live' | null,
   terminal: null as TerminalPayment | null,
   terminalOpen: [] as TerminalPayment[],
+  terminalOthers: [] as TerminalPayment[],
+  terminalNotice: null as { id: number; text: string } | null,
+  terminalReleases: null as TerminalReleases | null,
+  terminalRefusal: null as { attempt_id: string; code: string } | null,
   branchOrders: null as BranchOrders | null,
   branchOrdersMissing: false,
 });
@@ -737,6 +812,21 @@ export class PosController {
   private cloudLinkMissingUntil = -Infinity;
   private posConfigAt = -Infinity;
   private posConfigMissingUntil = -Infinity;
+  /** When this desk last asked the point whether its held paid attempt was released. */
+  private terminalReleaseAt = -Infinity;
+  /** The point has sent released_at on an attempt at least once in this session (schema 030). */
+  private releaseSchema = false;
+  /** Other desks are not asked before this time (a refusal, an old point that is no proof). */
+  private otherDesksAfter = -Infinity;
+  /** The shift releases are not asked before this time (the route is missing). */
+  private shiftReleasesAfter = -Infinity;
+  private noticeSeq = 0;
+  /**
+   * A release sent and not answered for sure, by attempt: its key and body stay until the answer
+   * is known, so a repeat is the same request (CR pos-8). In memory only: the journal of the
+   * desktop accepts nothing else, and a restart finds the result in GET of the attempt anyway.
+   */
+  private releases = new Map<string, { key: string; body: Record<string, unknown> }>();
   /** When each entry of state.saleReceipts was last read (or its read last failed). */
   private receiptReadAt = new Map<string, number>();
   /** The edge runs the paid mode (`pos_sale`); otherwise every screen is today's cashier. */
@@ -1068,6 +1158,14 @@ export class PosController {
     });
   }
   private async establishSession(candidate: StaffCredential) {
+    // The guest's amount on the terminal belongs to the cashier who sent it: another person
+    // signing in over the session would wipe its quote. The same cashier may sign in again.
+    // The staff id is in the credential the edge already issued, so the check needs no further
+    // request; that issued session is revoked so it does not stay alive behind the refusal.
+    if (this.terminalHold && this.state.actor && this.state.actor.staff_id !== candidate.staff_id) {
+      void this.api('staff/logout', candidate, { method: 'POST' }).catch(() => {});
+      throw new Error('TERMINAL_HOLD_OTHER_STAFF');
+    }
     const actor = parse.session(await this.api('session', candidate));
     if (actor.session_id !== candidate.session_id || scopeFor(actor) !== scopeFor(candidate))
       throw new Error('WRONG_BRANCH');
@@ -1126,6 +1224,10 @@ export class PosController {
     this.posConfigAt = -Infinity;
     this.operationsSaleAt = -Infinity;
     this.posConfigMissingUntil = -Infinity;
+    this.terminalReleaseAt = -Infinity;
+    this.releaseSchema = false;
+    this.otherDesksAfter = -Infinity;
+    this.shiftReleasesAfter = -Infinity;
     this.receiptReadAt.clear();
     await this.refreshData();
     await this.readOperations();
@@ -1146,7 +1248,7 @@ export class PosController {
     if (!hold || !this.state.posConfig?.kaspi_terminal_link) return;
     let t: TerminalPayment;
     try {
-      t = parse.terminalPayment(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
+      t = this.readAttempt(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
     } catch (error) {
       if (error instanceof ApiError && error.code === 'NOT_FOUND') this.dropTerminalHold();
       // Unreachable now: the recovery read of open payments shows it until the edge answers.
@@ -1154,6 +1256,11 @@ export class PosController {
     }
     if (epoch !== this.generation) return;
     if (t.attempt_id !== hold.attempt_id || t.quote_id !== hold.quote.quote_id) return;
+    // Released by a shift manager while this window was closed: the guest got the money back.
+    if (t.released_at) {
+      this.applyRelease(t);
+      return;
+    }
     if (t.order_id || t.state === 'fail' || t.state === 'send_failed') {
       this.dropTerminalHold();
       return;
@@ -1161,6 +1268,9 @@ export class PosController {
     this.state.quote = hold.quote;
     this.state.saleDraft = hold.sale_draft;
     this.state.terminal = t;
+    // Refused before the restart: it waits for the cashier's tap, nothing sells by itself.
+    if (hold.refusal && t.state === 'success')
+      this.state.terminalRefusal = { attempt_id: t.attempt_id, code: hold.refusal };
     this.emit();
   }
   /** Writes (or clears) the journal hold for the amount now on the terminal. */
@@ -1214,19 +1324,20 @@ export class PosController {
       }
     }
   }
-  logout() {
-    if (this.state.busy) return;
+  /** True when the cashier is signed out; false when it was refused (state.error says why). */
+  logout(): boolean {
+    if (this.state.busy) return false;
     // The amount on the terminal belongs to this cashier's quote: locking now would hide it.
     if (this.terminalHold) {
-      this.fail(new Error('TERMINAL_IN_PROGRESS'));
-      return;
+      this.fail(new Error(this.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'));
+      return false;
     }
     const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
     } catch {
       this.fail(new Error('STORAGE_UNAVAILABLE'));
-      return;
+      return false;
     }
     this.generation++;
     this.credential = null;
@@ -1265,6 +1376,7 @@ export class PosController {
       ...blankOperations(),
     };
     this.emit();
+    return true;
   }
   /** Moves unsent carts to the new release. Lines whose variant or chosen options are gone are
    *  dropped; kept lines are repriced by the next quote. Orders and pending commands are never
@@ -1308,7 +1420,9 @@ export class PosController {
     this.state.menu = m;
     this.state.ordering = o;
     this.state.stops = new Map();
-    if (this.state.quote && this.state.quote.release_id !== m.release_id) this.state.quote = null;
+    // The quote of an amount the guest already paid stays: it is what the sale is made with.
+    if (this.state.quote && this.state.quote.release_id !== m.release_id && !this.terminalHold)
+      this.state.quote = null;
     const removed = this.reconcileDrafts(previous, m);
     if ((previous && previous.release_id !== m.release_id) || removed.length)
       this.state.menuChange = {
@@ -1475,9 +1589,14 @@ export class PosController {
       this.state.posConfigMissing = missing;
       // Leaving the paid mode drops what only it shows; the cart itself stays.
       if (wasSale && !this.saleMode) {
-        this.state.saleDraft = blankSaleDraft();
+        // What the guest already paid on the terminal stays: its quote, its sale draft and the
+        // attempt are what the sale is made with once the edge takes it.
+        const paid = this.terminalHold
+          ? { terminal: this.state.terminal, terminalRefusal: this.state.terminalRefusal }
+          : null;
+        if (!paid) this.state.saleDraft = blankSaleDraft();
         this.state.approval = null;
-        Object.assign(this.state, blankOperations());
+        Object.assign(this.state, blankOperations(), paid ?? {});
         this.receiptReadAt.clear();
       }
       this.emit();
@@ -1576,13 +1695,18 @@ export class PosController {
       if (epoch === this.generation) this.fail(error);
     }
   }
-  private editable() {
+  /**
+   * `paidSale`: the call is the sale of the attempt this desk already has paid (sell with its
+   * attempt_id). Everything else - the cart, a new quote, another way to pay - is closed while the
+   * guest's payment on the terminal has no order, or the guest would pay twice.
+   */
+  private editable(paidSale = false) {
     if (
       !this.journal ||
       !this.state.actor ||
       this.state.busy ||
       this.state.storageBlocked ||
-      this.state.order
+      (this.state.order && !paidSale)
     )
       return false;
     if (this.journal.pending) {
@@ -1591,6 +1715,10 @@ export class PosController {
     }
     if (terminalActive(this.state.terminal)) {
       this.fail(new Error('TERMINAL_IN_PROGRESS'));
+      return false;
+    }
+    if (!paidSale && this.paidUnsold) {
+      this.fail(new Error('TERMINAL_PAID_UNSOLD'));
       return false;
     }
     return true;
@@ -1834,7 +1962,107 @@ export class PosController {
   async recover() {
     await this.run(() => this.replay());
   }
+  /**
+   * Sends the pending command. A sale of an attempt the guest already paid for, refused for
+   * good, keeps the paid attempt and its quote (the money is taken; only the cashier sells it
+   * again) and is remembered so that no poll repeats it.
+   */
   private async replay() {
+    const j = this.journal,
+      attempt = attemptOf(j?.pending);
+    if (attempt === undefined) {
+      // Any other command (another order's void, a stop, a shift) never costs the amount on the
+      // terminal its quote: it is what the guest's payment is sold with.
+      const held = this.terminalHold ? this.state.quote : null;
+      try {
+        await this.replayCommand();
+      } finally {
+        if (
+          held &&
+          this.terminalHold &&
+          !this.state.quote &&
+          this.state.terminal?.quote_id === held.quote_id
+        )
+          this.state.quote = held;
+      }
+      return;
+    }
+    const heldQuote =
+      j?.terminal?.attempt_id === attempt ? j.terminal.quote : (this.state.quote ?? null);
+    try {
+      await this.replayCommand();
+    } catch (error) {
+      // The attempt turned out to be an order already: that order is shown, nothing is refused.
+      if (await this.keepPaidAfterRefusal(attempt, heldQuote, error)) return;
+      throw error;
+    }
+  }
+  /** Returns true when the paid attempt already has an order and that order was adopted. */
+  private async keepPaidAfterRefusal(attempt: string, heldQuote: Quote | null, error: unknown) {
+    const t = this.state.terminal;
+    // Still undecided (lost answer), or sold: nothing is refused.
+    if (this.journal?.pending || this.state.order) return false;
+    if (!t || t.attempt_id !== attempt || t.state !== 'success' || t.order_id) return false;
+    if (this.state.quote?.quote_id !== t.quote_id && heldQuote?.quote_id === t.quote_id)
+      this.state.quote = heldQuote;
+    // The attempt was already used for an order (another request, or an older answer lost):
+    // that order is the sale, and holding the cart closed would be forever.
+    if (['TERMINAL_ATTEMPT_INVALID', 'CONFLICT'].includes(codeOf(error))) {
+      try {
+        const now = this.readAttempt(await this.request(`pos/terminal-payments/${attempt}`));
+        // Released by hand: it can never be sold. The hold, its quote and the pending sale go.
+        if (now.attempt_id === attempt && now.released_at) {
+          this.applyRelease(now);
+          return true;
+        }
+        if (
+          now.attempt_id === attempt &&
+          now.order_id &&
+          (await this.adoptPaidOrder(now.order_id, t.quote_id))
+        )
+          return true;
+      } catch {
+        // Unknown now: the attempt stays held and the cashier taps again.
+      }
+    }
+    this.markRefused(attempt, codeOf(error));
+    return false;
+  }
+  /**
+   * The order a paid attempt became: shown instead of the hold, like adoptQuotedOrder shows an
+   * order. Only an order of the attempt's own quote counts. False if it is not that order or
+   * cannot be read; the hold then stays. A sale that cannot be read yet leaves the order on
+   * screen (refreshSale never throws; the order card reads it again).
+   */
+  private async adoptPaidOrder(orderId: string, quoteId: string) {
+    const j = this.journal;
+    if (!j) return false;
+    try {
+      const o = parse.order(await this.request(`orders/${parse.uuid(orderId)}`));
+      if (o.order_id !== orderId || o.branch_id !== this.state.actor?.branch_id) return false;
+      if (o.quote_id !== quoteId) return false;
+      this.state.order = o;
+    } catch {
+      return false;
+    }
+    const { terminal: _hold, ...rest } = j;
+    void _hold;
+    this.save({
+      ...rest,
+      selected: orderId,
+      known: [orderId, ...j.known.filter((v) => v !== orderId)].slice(0, 100),
+      draft: null,
+    });
+    this.state.quote = null;
+    this.state.approval = null;
+    this.state.saleDraft = blankSaleDraft();
+    this.state.terminal = null;
+    this.state.terminalRefusal = null;
+    await this.refreshSale(orderId);
+    await this.readOperations();
+    return true;
+  }
+  private async replayCommand() {
     const j = this.journal,
       p = j?.pending;
     if (!j || !p) return;
@@ -1849,7 +2077,7 @@ export class PosController {
           ['SERVICE_MODE_DISABLED', 'KITCHEN_UNAVAILABLE'].includes(error.code)) ||
           (p.kind === 'cancel' && error.code === 'ORDER_IN_PRODUCTION'));
       if (admissionRejected) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
         if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
         await this.refreshData();
@@ -1865,7 +2093,7 @@ export class PosController {
         error.status < 500 &&
         (p.kind === 'sale' ? SALE_REJECTIONS.has(error.code) : approvalKey(error.code))
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         if (approvalKey(error.code)) this.state.approval = null;
         if (['CHANNEL_PRICE_UNAVAILABLE', 'SERVICE_MODE_DISABLED'].includes(error.code))
           this.state.quote = null;
@@ -1882,10 +2110,13 @@ export class PosController {
         (((p.kind === 'void' || p.kind === 'refund') && OPERATION_REJECTIONS.has(error.code)) ||
           (p.kind === 'shift_close' && CLOSE_REJECTIONS.has(error.code)))
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.approval = null;
-        if (p.kind === 'shift_close') await this.refreshFiscal();
-        else await this.reloadSaleOrder(p.path.split('/')[2]!);
+        if (p.kind === 'shift_close') {
+          await this.refreshFiscal();
+          if (error.code === 'TERMINAL_UNSOLD_PAYMENTS')
+            await this.readOpenTerminalPayments().catch(() => {});
+        } else await this.reloadSaleOrder(p.path.split('/')[2]!);
         if (error.code === 'SERVICE_MODE_DISABLED') await this.refreshPosConfig(true);
         throw error;
       }
@@ -1894,13 +2125,19 @@ export class PosController {
         // replay returns that result. A 409 CONFLICT for this key is therefore a final
         // rejection (stale version, consumed quote, changed shift) that a retry repeats forever.
         // Persist resolution before reading the new state; uncertain responses remain pending.
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
         // A create is rejected when its quote is already an order (made on this terminal with
         // another key): show that order instead of leaving the same cart to be sold twice.
         if ((p.kind === 'create' || p.kind === 'sale') && (await this.adoptQuotedOrder(p))) {
           if (p.kind === 'sale' && this.state.order)
             await this.refreshSale(this.state.order.order_id);
+          if (attemptOf(p) !== undefined && this.state.terminal?.attempt_id === attemptOf(p)) {
+            this.state.terminal = null;
+            this.state.terminalRefusal = null;
+            this.state.saleDraft = blankSaleDraft();
+            this.dropTerminalHold();
+          }
           return;
         }
         await this.reconcileRejected(p);
@@ -1918,7 +2155,7 @@ export class PosController {
           'CASH_SHIFT_REQUIRED',
         ].includes(error.code)
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
       }
       throw error;
@@ -1947,6 +2184,7 @@ export class PosController {
       this.state.approval = null;
       this.state.saleDraft = blankSaleDraft();
       this.state.terminal = null;
+      this.state.terminalRefusal = null;
       // The POST replays its historical result; GET is the authoritative current sale.
       await this.refreshSale(id);
       await this.readOperations();
@@ -1960,7 +2198,7 @@ export class PosController {
         (r.receipt_number !== undefined && r.receipt_number !== p.body.receipt_number)
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (p.subject) await this.refreshSale(p.subject);
       await this.refreshFiscal();
@@ -1977,7 +2215,7 @@ export class PosController {
         !result.sale.refunds.some((r) => r.kind === 'void')
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (!this.state.order || this.state.order.order_id === id) this.state.order = result.order;
       if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = result.sale;
@@ -2003,7 +2241,7 @@ export class PosController {
         )
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = sale;
       await this.reloadSaleOrder(id!);
@@ -2074,7 +2312,7 @@ export class PosController {
         )
           throw new Error('INVALID_RESPONSE');
       }
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.quote = null;
       // A sales shift closed with its approval (if any): it is spent, never shown again.
       if (p.kind === 'shift_close') this.state.approval = null;
@@ -2147,6 +2385,17 @@ export class PosController {
     if (!this.journal || !this.state.menu || this.state.busy) return;
     try {
       if (this.journal.pending) throw new Error('PENDING');
+      if (this.paidUnsold) {
+        // The guest's payment has no order yet: this only closes an order opened beside it,
+        // back to the held payment. The cart, quote and sale draft are never reset.
+        if (!this.state.order) throw new Error('TERMINAL_PAID_UNSOLD');
+        this.save({ ...this.journal, selected: null });
+        this.state.order = null;
+        this.state.sale = null;
+        this.state.error = null;
+        this.emit();
+        return;
+      }
       this.save({
         ...this.journal,
         selected: null,
@@ -2295,6 +2544,11 @@ export class PosController {
       this.fail(new Error('PENDING'));
       return;
     }
+    // A sale approval quotes the cart again, which would detach the paid amount from its quote.
+    if (this.paidUnsold && SALE_ACTIONS.includes(action)) {
+      this.fail(new Error('TERMINAL_PAID_UNSOLD'));
+      return;
+    }
     await this.run(async () => {
       const actor = this.state.actor;
       const sale = SALE_ACTIONS.includes(action);
@@ -2347,7 +2601,8 @@ export class PosController {
   }
   /** Pays the confirmed quote: one journaled POST pos/sales, replayed only with its own key. */
   async sell(payment: SalePayment) {
-    if (!this.editable()) return;
+    const paidSale = payment.method === 'kaspi_terminal' && payment.attempt_id !== undefined;
+    if (!this.editable(paidSale && this.state.terminal?.attempt_id === payment.attempt_id)) return;
     await this.run(async () => {
       if (!this.state.operationsAvailable || this.state.operationsError)
         throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
@@ -2408,6 +2663,7 @@ export class PosController {
         now: this.now(),
       });
       this.state.terminal = null;
+      this.state.terminalRefusal = null;
       let value: unknown;
       try {
         value = await this.request('pos/terminal-payments', {
@@ -2425,7 +2681,7 @@ export class PosController {
         }
         throw error;
       }
-      const t = parse.terminalPayment(value);
+      const t = this.readAttempt(value);
       if (t.quote_id !== quote.quote_id || t.amount_minor !== quote.total_minor)
         throw new Error('INVALID_RESPONSE');
       this.state.terminal = t;
@@ -2456,11 +2712,17 @@ export class PosController {
    * without an order comes first: the guest has paid and has no order (audit 26.11 P0-4).
    */
   get terminalRecovery(): string | null {
-    const own = this.state.terminal?.attempt_id;
+    const mine = this.state.terminal;
+    if (this.paidRefused && mine)
+      return `Оплачено на терминале ${parse.money(mine.amount_minor)}, заказ не оформлен: откройте оплату и нажмите «Оформить ещё раз»`;
+    const own = mine?.attempt_id;
     const other = this.state.terminalOpen.filter((t) => t.attempt_id !== own);
     const paid = other.find((t) => t.state === 'success' && !t.order_id);
     if (paid)
-      return `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
+      // A point with the release routes: the screen lists it for every cashier of this desk.
+      return paid.released_at !== undefined
+        ? `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа - откройте «Оплаты без заказа»`
+        : `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
     if (other.some((t) => t.state === 'lost'))
       return 'Терминал Kaspi: проверьте последнюю операцию на его экране';
     if (other.some((t) => terminalActive(t)))
@@ -2471,6 +2733,66 @@ export class PosController {
   get terminalHold() {
     const t = this.state.terminal;
     return terminalActive(t) || Boolean(t?.state === 'success' && !t.order_id);
+  }
+  /** This desk's attempt is paid on the terminal and has no order (sold now, or refused). */
+  get paidUnsold() {
+    const t = this.state.terminal;
+    return Boolean(t && t.state === 'success' && !t.order_id);
+  }
+  /** The edge refused the sale of the paid attempt: it waits for the cashier's tap. */
+  get paidRefused() {
+    const r = this.state.terminalRefusal;
+    return Boolean(r && this.paidUnsold && r.attempt_id === this.state.terminal?.attempt_id);
+  }
+  /**
+   * "Оформить ещё раз": the same sale again for the attempt the guest paid, with its own quote,
+   * only on the cashier's tap. The poll never does it (an older point server may refuse it
+   * again and again), so one tap is one request.
+   */
+  async retryPaidSale() {
+    const t = this.state.terminal;
+    if (!t || t.state !== 'success' || t.order_id) {
+      this.fail(new Error('TERMINAL_NOTHING_TO_SELL'));
+      return;
+    }
+    // The sale is made with exactly what the guest paid for: its quote and its sale draft
+    // (channel, aggregator number, repeat), read back from the hold when this screen lost them.
+    const hold = this.journal?.terminal;
+    if (hold?.attempt_id === t.attempt_id && hold.quote.quote_id === t.quote_id) {
+      if (this.state.quote?.quote_id !== t.quote_id) this.state.quote = hold.quote;
+      if (!unchanged(this.state.saleDraft, hold.sale_draft)) this.state.saleDraft = hold.sale_draft;
+    }
+    await this.sellPaid(t.attempt_id, this.state.terminalRefusal);
+  }
+  /**
+   * The sale of the paid attempt. If it is neither sold nor refused by the edge (a check before
+   * sending failed, e.g. no pos/config outside the paid mode), it waits for the cashier's tap
+   * like a refusal, so no poll repeats it every second.
+   */
+  private async sellPaid(attempt: string, previous: State['terminalRefusal']) {
+    this.state.terminalRefusal = null;
+    await this.sell({ method: 'kaspi_terminal', attempt_id: attempt });
+    if (this.paidUnsold && !this.journal?.pending && !this.state.terminalRefusal) {
+      if (previous) this.state.terminalRefusal = previous;
+      else this.markRefused(attempt, codeOf(this.state.error));
+    }
+    this.emit();
+  }
+  /**
+   * The paid attempt waits for the cashier's tap: remembered here and in the journal hold, so a
+   * restart or a new sign-in does not sell it again by itself.
+   */
+  private markRefused(attempt: string, code: string) {
+    this.state.terminalRefusal = { attempt_id: attempt, code };
+    const j = this.journal,
+      hold = j?.terminal;
+    const saved = /^[A-Z0-9_]{1,64}$/.test(code) ? code : 'UNKNOWN';
+    if (!j || !hold || hold.attempt_id !== attempt || hold.refusal === saved) return;
+    try {
+      this.save({ ...j, terminal: { ...hold, refusal: saved } });
+    } catch {
+      // Storage refused: in this session nothing sells again; a restart may try once.
+    }
   }
   /**
    * One poll of the amount on the terminal (the screen asks about once a second). Success makes
@@ -2484,9 +2806,7 @@ export class PosController {
       if (!terminalActive(current)) return;
       let next: TerminalPayment;
       try {
-        next = parse.terminalPayment(
-          await this.request(`pos/terminal-payments/${current.attempt_id}`),
-        );
+        next = this.readAttempt(await this.request(`pos/terminal-payments/${current.attempt_id}`));
       } catch (error) {
         if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
           this.fail(error);
@@ -2499,6 +2819,10 @@ export class PosController {
         this.fail(new Error('INVALID_RESPONSE'));
         return;
       }
+      if (next.released_at) {
+        this.applyRelease(next);
+        return;
+      }
       this.state.terminal = next;
       this.keepTerminalHold(next);
       this.emit();
@@ -2506,7 +2830,104 @@ export class PosController {
     }
     const paid = this.state.terminal!;
     if (this.state.quote?.quote_id !== paid.quote_id) return;
-    await this.sell({ method: 'kaspi_terminal', attempt_id: paid.attempt_id });
+    // Refused for good once: never again by itself (one tap of the cashier is one request). The
+    // point does not ask the terminal about a success, so a release by hand is found by a slow
+    // question about the attempt instead.
+    if (this.state.terminalRefusal?.attempt_id === paid.attempt_id) {
+      await this.pollTerminalRelease();
+      return;
+    }
+    await this.sellPaid(paid.attempt_id, null);
+  }
+  private readAttempt(value: unknown): TerminalPayment {
+    const t = parse.terminalPayment(value);
+    if (t.released_at !== undefined) this.noteSchema();
+    return t;
+  }
+  /** The first released_at of a session: the other desks may be asked again at once. */
+  private noteSchema() {
+    if (!this.releaseSchema) this.otherDesksAfter = -Infinity;
+    this.releaseSchema = true;
+  }
+  private readAttempts(value: unknown): TerminalPayment[] {
+    const list = parse.terminalPayments(value);
+    if (list.some((t) => t.released_at !== undefined)) this.noteSchema();
+    return list;
+  }
+  /**
+   * One question about this desk's held paid attempt: was it released by a shift manager? Asked
+   * at most every TERMINAL_RELEASE_POLL_MS (the first call only starts the window), and only while
+   * the paid attempt is held; `force` asks at once (the open list no longer names the attempt).
+   */
+  private async pollTerminalRelease(force = false) {
+    const t = this.state.terminal,
+      epoch = this.generation,
+      now = this.now();
+    if (!t || t.state !== 'success' || t.order_id || !this.credential) return;
+    // Never under a command in flight: a release applied there would be written over (or over
+    // by) the journal that command saves.
+    if (this.state.busy) return;
+    if (!force) {
+      // A point that sends no released_at has no release to find: the question is never asked.
+      if (t.released_at === undefined) return;
+      if (this.terminalReleaseAt === -Infinity) {
+        this.terminalReleaseAt = now;
+        return;
+      }
+      if (now - this.terminalReleaseAt < TERMINAL_RELEASE_POLL_MS) return;
+    }
+    this.terminalReleaseAt = now;
+    let next: TerminalPayment;
+    try {
+      next = this.readAttempt(await this.request(`pos/terminal-payments/${t.attempt_id}`));
+    } catch (error) {
+      if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+        this.fail(error);
+      return;
+    }
+    if (epoch !== this.generation || this.state.terminal?.attempt_id !== t.attempt_id) return;
+    if (this.state.busy) return;
+    if (next.attempt_id !== t.attempt_id || !next.released_at) return;
+    this.applyRelease(next);
+  }
+  /**
+   * The point released this attempt (a shift manager, the refund was made on the terminal): it
+   * can never get an order. What this desk holds for it goes - the amount, its quote, the pending
+   * sale of it, the hold in the journal - and the cashier is told. The cart draft stays.
+   */
+  private applyRelease(t: TerminalPayment) {
+    const j = this.journal;
+    this.releases.delete(t.attempt_id);
+    this.state.terminalOpen = this.state.terminalOpen.filter((x) => x.attempt_id !== t.attempt_id);
+    this.state.terminalOthers = this.state.terminalOthers.filter(
+      (x) => x.attempt_id !== t.attempt_id,
+    );
+    const mine =
+      this.state.terminal?.attempt_id === t.attempt_id || j?.terminal?.attempt_id === t.attempt_id;
+    if (!mine) {
+      this.emit();
+      return;
+    }
+    if (j) {
+      const { terminal: _hold, ...rest } = j;
+      void _hold;
+      try {
+        this.save({
+          ...rest,
+          pending: attemptOf(j.pending) === t.attempt_id ? null : j.pending,
+        });
+      } catch {
+        // Storage refused: the hold is dropped again at the next chance; nothing is charged by it.
+      }
+    }
+    if (this.state.quote?.quote_id === t.quote_id) this.state.quote = null;
+    this.state.terminal = null;
+    this.state.terminalRefusal = null;
+    this.state.saleDraft = blankSaleDraft();
+    if (this.state.approval?.action === 'terminal_release') this.state.approval = null;
+    this.terminalReleaseAt = -Infinity;
+    this.state.terminalNotice = { id: ++this.noticeSeq, text: TERMINAL_RELEASED_NOTICE };
+    this.emit();
   }
   /** The terminal said no (or never got the amount): the cashier may send again or pay another way. */
   dismissTerminal() {
@@ -2519,18 +2940,224 @@ export class PosController {
   async readOpenTerminalPayments() {
     const epoch = this.generation;
     if (!this.state.posConfig?.kaspi_terminal_link) {
-      if (this.state.terminalOpen.length) {
+      if (this.state.terminalOpen.length || this.state.terminalOthers.length) {
         this.state.terminalOpen = [];
+        this.state.terminalOthers = [];
         this.emit();
       }
       return;
     }
-    const open = parse.terminalPayments(await this.request('pos/terminal-payments/open'));
+    const open = this.readAttempts(await this.request('pos/terminal-payments/open'));
     if (epoch !== this.generation) return;
     if (!unchanged(open, this.state.terminalOpen)) {
       this.state.terminalOpen = open;
       this.emit();
     }
+    // A held paid attempt the list no longer names was sold or released: the attempt says which.
+    const own = this.state.terminal;
+    if (
+      own?.state === 'success' &&
+      !own.order_id &&
+      !open.some((t) => t.attempt_id === own.attempt_id)
+    )
+      await this.pollTerminalRelease(true);
+    await this.readOtherDesks();
+  }
+  /**
+   * A shift manager reads the paid attempts without an order of the other desks (CR pos-8). A
+   * refusal or an older point (400, 403, 404, an answer that does not parse) is an empty list and
+   * never an error on the screen; a lost answer keeps the last list.
+   */
+  private async readOtherDesks() {
+    const epoch = this.generation,
+      actor = this.state.actor,
+      now = this.now();
+    let others: TerminalPayment[] = [];
+    if (actor?.role === 'shift_manager' && this.state.posConfig?.kaspi_terminal_link) {
+      // A refusal or an old point is not asked again for a while (an old point answers 200 with
+      // this desk's own attempts, which is no proof that it can release).
+      if (now < this.otherDesksAfter) return;
+      try {
+        const list = this.readAttempts(
+          await this.request('pos/terminal-payments/open?scope=other_desks'),
+        );
+        if (!this.releaseSchema) this.otherDesksAfter = now + OTHER_DESKS_PAUSE_MS;
+        // An older point ignores the scope and answers with this desk's own attempts, which carry
+        // no released_at key: only what a new point sent for another desk is taken.
+        others = list.filter(
+          (t) =>
+            t.state === 'success' &&
+            !t.order_id &&
+            t.released_at === null &&
+            t.terminal_id !== undefined &&
+            t.terminal_id !== actor.terminal_id,
+        );
+      } catch (error) {
+        if (epoch !== this.generation) return;
+        if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+          this.fail(error);
+          return;
+        }
+        if (error instanceof ApiError && ![400, 403, 404].includes(error.status)) return;
+        this.otherDesksAfter = now + OTHER_DESKS_PAUSE_MS;
+      }
+    }
+    if (epoch !== this.generation || unchanged(others, this.state.terminalOthers)) return;
+    this.state.terminalOthers = others;
+    this.emit();
+  }
+  /** What this desk may do about paid attempts without an order, from what the point sent. */
+  get unsoldPayments() {
+    const t = this.state.terminal;
+    const own = this.state.terminalOpen.filter((x) => x.state === 'success' && !x.order_id);
+    if (
+      t &&
+      t.state === 'success' &&
+      !t.order_id &&
+      !own.some((x) => x.attempt_id === t.attempt_id)
+    )
+      own.unshift(t);
+    // A point with the release routes sends released_at on every attempt; an older one never does.
+    return own.filter((x) => x.released_at === null);
+  }
+  /** The screen «Оплаты без заказа» exists only against a point that sends released_at. */
+  get terminalPaymentsAvailable() {
+    return Boolean(
+      this.saleMode && this.state.posConfig?.kaspi_terminal_link && this.releaseSchema,
+    );
+  }
+  /** Reads the lists of the screen at once (the poll reads them every 30 s). */
+  async refreshTerminalPayments() {
+    if (!this.saleMode || !this.credential) return;
+    await this.readOpenTerminalPayments();
+  }
+  /** This desk's own hold is for this attempt, the journal has it, and this cashier sent it. */
+  canSellPaid(attemptId: string) {
+    const t = this.state.terminal,
+      hold = this.journal?.terminal,
+      actor = this.state.actor;
+    return Boolean(
+      actor &&
+      t &&
+      t.attempt_id === attemptId &&
+      t.state === 'success' &&
+      !t.order_id &&
+      hold?.attempt_id === attemptId &&
+      hold.quote.quote_id === t.quote_id &&
+      (t.staff_id === undefined || t.staff_id === null || t.staff_id === actor.staff_id),
+    );
+  }
+  /** A release was sent and its answer is not known: the next try is the same request. */
+  releaseUnknown(attemptId: string) {
+    return this.releases.has(attemptId);
+  }
+  /**
+   * POST pos/terminal-payments/{id}/release (CR pos-8): the guest paid on the terminal, no order
+   * can be made, the refund was done by hand on the terminal, and a shift manager approved with
+   * a PIN (approval terminal_release for {quote_id, amount_minor}). The Idempotency-Key and the
+   * body are kept until the answer is known; after a lost answer the attempt is read first, and
+   * released_at there is the success. A 404 is a point without the route. True when released.
+   */
+  async releaseTerminalPayment(attemptId: string, reason: string): Promise<boolean> {
+    let released = false;
+    await this.run(async () => {
+      try {
+        released = await this.releaseOnce(attemptId, reason);
+      } catch (error) {
+        // The screen words these for the release (not for a sale): the error carries the context.
+        if (error instanceof Error) Object.assign(error, { terminalRelease: true });
+        throw error;
+      }
+    });
+    return released;
+  }
+  private async releaseOnce(attemptId: string, reason: string): Promise<boolean> {
+    if (!this.saleMode || !this.state.actor) throw new Error('SERVICE_MODE_DISABLED');
+    const known = [
+      ...(this.state.terminal ? [this.state.terminal] : []),
+      ...this.state.terminalOpen,
+      ...this.state.terminalOthers,
+    ].find((t) => t.attempt_id === attemptId);
+    if (!known || known.state !== 'success' || known.order_id || known.released_at)
+      throw new Error('TERMINAL_ATTEMPT_INVALID');
+    let saved = this.releases.get(attemptId);
+    if (saved) {
+      // The earlier request may have been committed: ask the point before sending anything.
+      const now = this.readAttempt(await this.request(`pos/terminal-payments/${attemptId}`));
+      if (now.attempt_id !== attemptId) throw new Error('INVALID_RESPONSE');
+      if (now.released_at) {
+        this.releases.delete(attemptId);
+        this.applyRelease(now);
+        return true;
+      }
+      if (now.order_id) {
+        this.releases.delete(attemptId);
+        throw new Error('TERMINAL_ATTEMPT_INVALID');
+      }
+    } else {
+      const text = reason.trim();
+      if (text.length < 3 || text.length > 300) throw new Error('REASON_REQUIRED');
+      const approval = approvalProof(
+        this.state.approval,
+        'terminal_release',
+        terminalReleaseSubject(known),
+        this.now(),
+        this.state.posConfig?.approval_ttl_seconds ?? 0,
+      );
+      saved = {
+        key: this.newKey(),
+        body: { reason: text, refunded_on_terminal: true, approval },
+      };
+      this.releases.set(attemptId, saved);
+    }
+    let value: unknown;
+    try {
+      value = await this.request(`pos/terminal-payments/${attemptId}/release`, {
+        method: 'POST',
+        body: saved.body,
+        key: saved.key,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        this.releases.delete(attemptId);
+        // The point itself answers NOT_FOUND both when the attempt is not there and when it cannot
+        // release (no schema 030, no rights), so only the attempt tells them apart. A 404 without
+        // that code is a missing route.
+        if (error.code === 'NOT_FOUND') {
+          let exists = true;
+          try {
+            this.readAttempt(await this.request(`pos/terminal-payments/${attemptId}`));
+          } catch (again) {
+            exists = !(again instanceof ApiError && again.status === 404);
+          }
+          if (!exists) {
+            await this.readOpenTerminalPayments().catch(() => {});
+            throw new Error('TERMINAL_RELEASE_NOT_FOUND', { cause: error });
+          }
+        }
+        throw new Error('TERMINAL_RELEASE_UNSUPPORTED', { cause: error });
+      }
+      if (
+        error instanceof ApiError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        ![408, 429].includes(error.status)
+      ) {
+        // A definite refusal: this key never succeeds, and the approval is spent or invalid.
+        this.releases.delete(attemptId);
+        this.state.approval = null;
+        if (error.code === 'TERMINAL_ATTEMPT_INVALID')
+          await this.readOpenTerminalPayments().catch(() => {});
+      }
+      // Any other answer (a lost one, a timeout, 5xx) leaves the outcome unknown: same key again.
+      throw error;
+    }
+    const t = this.readAttempt(value);
+    if (t.attempt_id !== attemptId || !t.released_at) throw new Error('INVALID_RESPONSE');
+    this.releases.delete(attemptId);
+    this.state.approval = null;
+    this.applyRelease(t);
+    return true;
   }
   /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
   async recordReceipt(receiptNumber: string) {
@@ -2957,13 +3584,39 @@ export class PosController {
       const shift = this.state.shift;
       if (!this.saleMode || shift?.state !== 'open') throw new Error('CASH_SHIFT_REQUIRED');
       this.state.shiftReport = await this.readReport('x', shift.shift_id);
+      await this.readTerminalReleases(shift.shift_id);
     });
+  }
+  /**
+   * GET cash-shifts/{id}/terminal-releases for the report line (CR pos-8). Best effort: a point
+   * without the route (404), a lost answer or an answer that does not parse is no line, and the
+   * report itself is never held back by it.
+   */
+  async readTerminalReleases(shiftId: string) {
+    const epoch = this.generation,
+      now = this.now();
+    let value: TerminalReleases | null;
+    // A point without the route (404, 400, 403) is not asked again for a while.
+    if (now < this.shiftReleasesAfter) value = null;
+    else
+      try {
+        const list = parse.terminalReleases(
+          await this.request(`cash-shifts/${parse.uuid(shiftId)}/terminal-releases`),
+        );
+        value = list.shift_id === shiftId ? list : null;
+      } catch (error) {
+        value = null;
+        if (error instanceof ApiError && [400, 403, 404].includes(error.status))
+          this.shiftReleasesAfter = now + SHIFT_RELEASES_PAUSE_MS;
+      }
+    if (epoch === this.generation) this.state.terminalReleases = value;
   }
   /** The frozen Z report of a closed sales shift (GET cash-shifts/{id}/z-report). */
   async zReport(shiftId: string) {
     await this.run(async () => {
       if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
       this.state.zReport = await this.readReport('z', shiftId);
+      await this.readTerminalReleases(shiftId);
     });
   }
   /** Pending receipts of one shift, for the close wizard (the closing manager's session). */
