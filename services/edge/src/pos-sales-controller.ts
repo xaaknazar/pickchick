@@ -21,6 +21,8 @@ import {
   readPosConfig,
   readPosSale,
   readShiftReport,
+  readShiftTerminalReleases,
+  releaseTerminalPayment,
   recordFiscalReceipt,
   refundPosSale,
   voidPosSale,
@@ -116,8 +118,13 @@ export class PosSalesController {
 
   @Get('pos/terminal-payments/open')
   @Header('Cache-Control', 'no-store')
-  openTerminalPayments(@Headers() headers: Record<string, string | undefined>) {
-    return this.run(headers, (auth) => listOpenTerminalPayments(this.pool, this.branchId, auth));
+  openTerminalPayments(
+    @Headers() headers: Record<string, string | undefined>,
+    @Query('scope') scope?: string,
+  ) {
+    return this.run(headers, (auth) =>
+      listOpenTerminalPayments(this.pool, this.branchId, auth, scope),
+    );
   }
 
   /** ADR-0017: the attempt after asking the terminal once (the POS polls about once a second). */
@@ -129,6 +136,30 @@ export class PosSalesController {
   ) {
     return this.run(headers, (auth) =>
       readTerminalPayment(this.pool, this.branchId, auth, attemptId),
+    );
+  }
+
+  /**
+   * Edge schema030 (owner decision 28.11.2026): the guest paid on the terminal and no order can be
+   * made; the refund is made by hand on the terminal and the payment is released with the shift
+   * manager's PIN (approval terminal_release).
+   */
+  @Post('pos/terminal-payments/:attemptId/release')
+  @HttpCode(200)
+  releaseTerminalPaymentRoute(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('attemptId') attemptId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      releaseTerminalPayment(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        attemptId,
+        body,
+      ),
     );
   }
 
@@ -302,6 +333,18 @@ export class PosSalesController {
   ) {
     return this.run(headers, (auth) =>
       readShiftReport(this.pool, this.branchId, auth, shiftId, 'z'),
+    );
+  }
+
+  /** Edge schema030: terminal payments released by hand at this sales shift (not in the Z report). */
+  @Get('cash-shifts/:shiftId/terminal-releases')
+  @Header('Cache-Control', 'no-store')
+  terminalReleases(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('shiftId') shiftId: string,
+  ) {
+    return this.run(headers, (auth) =>
+      readShiftTerminalReleases(this.pool, this.branchId, auth, shiftId),
     );
   }
 }

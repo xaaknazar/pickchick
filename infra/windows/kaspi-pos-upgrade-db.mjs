@@ -19,6 +19,8 @@ import {
  * unchanged and both new tables are empty. Everything stays off: no cash desk has a terminal
  * until the owner tool scripts/kaspi-terminal-setup.mjs registers one. A second `apply` refuses.
  * Rollback: the previous runtime never names the new relations, so it keeps working on 029.
+ * A ledger that continues with later reviewed rows (030+) counts as installed: `inspect` answers
+ * so and `apply` refuses; this tool only ever compares the first 29 rows.
  */
 export const KASPI_POS_MIGRATION = MIGRATION;
 /** SHA-256 of the reviewed 029; any other 029 bytes are refused. */
@@ -49,13 +51,16 @@ export async function kaspiPosMigration(
     await readFile(join(appRoot, 'infra/windows/native-edge-backup-ledger.json'), 'utf8'),
   );
   const file = await readFile(join(appRoot, 'db/edge/migrations', KASPI_POS_MIGRATION));
+  // The pinned file may carry later reviewed rows (030+): this tool takes its first 29 rows.
   if (
     digest(file) !== KASPI_POS_SHA256 ||
-    pinned.length !== PREVIOUS_LENGTH + 1 ||
+    !Array.isArray(pinned) ||
+    pinned.length < PREVIOUS_LENGTH + 1 ||
     pinned[PREVIOUS_LENGTH].version !== KASPI_POS_MIGRATION ||
     pinned[PREVIOUS_LENGTH].checksum !== KASPI_POS_SHA256
   )
     throw refused('Expected the reviewed migration029 and its ledger');
+  const expected = pinned.slice(0, PREVIOUS_LENGTH + 1);
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL lock_timeout='5s'");
@@ -76,11 +81,12 @@ export async function kaspiPosMigration(
     const ledger = (
       await client.query('SELECT scope,version,checksum FROM schema_migrations ORDER BY version')
     ).rows.map(({ scope, version, checksum }) => ({ version, checksum, scope }));
+    // Already on the reviewed 029 (later reviewed migrations may follow): inspect verifies it.
     const installed =
-      ledger.length === PREVIOUS_LENGTH + 1 && JSON.stringify(ledger) === JSON.stringify(pinned);
+      JSON.stringify(ledger.slice(0, PREVIOUS_LENGTH + 1)) === JSON.stringify(expected);
     if (installed) {
       if (mode === 'apply') throw refused('Migration029 is already applied; nothing changed');
-    } else if (JSON.stringify(ledger) !== JSON.stringify(pinned.slice(0, PREVIOUS_LENGTH)))
+    } else if (JSON.stringify(ledger) !== JSON.stringify(expected.slice(0, PREVIOUS_LENGTH)))
       throw refused('Expected unchanged schema028 and only reviewed migration029');
     const tables = (
       await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [
@@ -126,7 +132,7 @@ export async function kaspiPosMigration(
     return {
       mode,
       migration: KASPI_POS_MIGRATION,
-      migrations: installed || mode === 'apply' ? PREVIOUS_LENGTH + 1 : PREVIOUS_LENGTH,
+      migrations: ledger.length + (mode === 'apply' && !installed ? 1 : 0),
       applied: mode === 'apply',
       alreadyInstalled: installed,
       runtimeRolePresent: runtime,

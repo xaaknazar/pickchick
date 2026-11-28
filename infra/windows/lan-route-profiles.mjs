@@ -101,6 +101,8 @@ const POS_SALE_READS = [
   // ADR-0017: Kaspi Smart POS attempts of this desk.
   'pos/terminal-payments/open',
   `pos/terminal-payments/${UUID}`,
+  // Audit 28.11 P0-1 (edge 030): releases of paid Kaspi attempts of one shift.
+  `cash-shifts/${UUID}/terminal-releases`,
   // 23.11: «Заказы» lists every order of the branch between two days.
   'pos/branch-orders',
   // 25.11: automatic Webkassa receipt state and its print form with the QR.
@@ -116,6 +118,8 @@ const POS_SALE_WRITES = [
   `pos/sales/${UUID}/refunds`,
   `pos/fiscal-receipts/${UUID}/record`,
   'pos/terminal-payments',
+  // Audit 28.11 P0-1 (edge 030): release of a paid attempt without an order, by the shift manager.
+  `pos/terminal-payments/${UUID}/release`,
 ];
 export const POS_READ_PATH = new RegExp(
   `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${POS_SALE_READS.join('|')})$`,
@@ -149,6 +153,8 @@ export function allowedPosRoute(method, raw) {
       url.search.startsWith('?client_version=') &&
       POS_CLIENT_VERSION.test(url.search.slice('?client_version='.length))
     );
+  if (url.search && url.pathname === '/edge/v1/pos/terminal-payments/open')
+    return method === 'GET' && url.search === '?scope=other_desks';
   if (url.search && url.pathname === '/edge/v1/pos/branch-orders')
     return method === 'GET' && new RegExp(`^${POS_DAY_RANGE_QUERY}$`).test(url.search);
   if (url.search)

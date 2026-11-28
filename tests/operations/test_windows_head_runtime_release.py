@@ -136,10 +136,11 @@ try {
  [IO.File]::WriteAllText((Join-Path $dir 'head-ledger.ps1'),(($ledgerFunctions|ForEach-Object {$_.Extent.Text}) -join "`n"))
  . (Join-Path $dir 'head-ledger.ps1')
  $rows=[Text.Encoding]::UTF8.GetString($ledgerBytes)|ConvertFrom-Json
- Check (@($rows).Count -eq 29) 'The reviewed ledger has 29 rows (028 plus the Kaspi 029 row)'
+ Check (@($rows).Count -eq 30) 'The reviewed ledger has 30 rows (028 plus the Kaspi 029 and 030 rows)'
  function Copy-LedgerRows($Rows){return @($Rows|ForEach-Object {@{scope=$_.scope;version=$_.version;checksum=$_.checksum}})}
  Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..27]);Check $true 'The reviewed 028 candidate is accepted'
- Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows)} 'A 029 candidate is not a 028 candidate'
+ Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows)} 'A 030 candidate is not a 028 candidate'
+ Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..28])} 'A 029 candidate is not a 028 candidate'
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..24])} 'A 025 candidate is refused'
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..26])} 'A 027 candidate is refused'
  $changed=Copy-LedgerRows $rows[0..27];$changed[27].checksum='0'*64

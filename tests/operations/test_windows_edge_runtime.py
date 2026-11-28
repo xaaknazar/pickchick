@@ -136,7 +136,11 @@ class WindowsEdgePackageTests(unittest.TestCase):
                  # ADR-0017: edge 029 upgrade, its grants and the terminal link owner tool;
                  # edge-runtime-grants.mjs imports kaspi-pos-grants.mjs.
                  'infra/windows/kaspi-pos-upgrade-db.mjs', 'infra/windows/kaspi-pos-grants.mjs',
-                 'infra/windows/edge-runtime-grants.mjs', 'scripts/kaspi-terminal-setup.mjs']
+                 'infra/windows/edge-runtime-grants.mjs', 'scripts/kaspi-terminal-setup.mjs',
+                 # Audit 28.11 P0-1: edge 030 upgrade and its grants (imported by the same
+                 # edge-runtime-grants.mjs and by the upgrade).
+                 'infra/windows/kaspi-pos-release-upgrade-db.mjs',
+                 'infra/windows/kaspi-pos-release-grants.mjs']
         # Workspace packages of the runtime closure: the build roots and their dependencies.
         workspace = {}
         for manifest in [*repo.glob('packages/*/package.json'), *repo.glob('services/*/package.json')]:
@@ -187,12 +191,15 @@ class WindowsEdgePackageTests(unittest.TestCase):
         for row in ledger:
             self.assertEqual(pinned[row['version']], row['checksum'], row['version'])
         tools = {name: (repo / 'infra/windows' / name).read_text()
-                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs', 'kaspi-pos-upgrade-db.mjs')}
+                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs', 'kaspi-pos-upgrade-db.mjs',
+                              'kaspi-pos-release-upgrade-db.mjs')}
         for tool, constant, migration in (
                 ('pos-sales-upgrade-db.mjs', 'POS_SALES_SHA256', '026_edge_pos_sales.sql'),
                 ('kds-upgrade-db.mjs', 'KDS_SHA256', '027_edge_kds_foundation.sql'),
                 ('pos-sales-upgrade-db.mjs', 'DESK_NUMBER_SHA256', '028_edge_pos_desk_number.sql'),
-                ('kaspi-pos-upgrade-db.mjs', 'KASPI_POS_SHA256', '029_edge_kaspi_pos.sql')):
+                ('kaspi-pos-upgrade-db.mjs', 'KASPI_POS_SHA256', '029_edge_kaspi_pos.sql'),
+                ('kaspi-pos-release-upgrade-db.mjs', 'KASPI_POS_RELEASE_SHA256',
+                 '030_edge_kaspi_pos_release.sql')):
             found = re.search(r'export const ' + constant + r" =\s*'([a-f0-9]{64})'", tools[tool])
             self.assertIsNotNone(found, constant)
             self.assertEqual(pinned[migration], found.group(1), migration)

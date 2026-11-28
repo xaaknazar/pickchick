@@ -19,6 +19,7 @@ import { consumeApproval } from './approvals.js';
 import type { ConsumedApproval } from './approvals.js';
 import { buildShiftReport, pendingShiftReceipts, shiftCash } from './shift-reports.js';
 import { appendPosSaleEvent } from './pos-outbox.js';
+import { countUnsoldTerminalPayments } from './terminal-payments.js';
 
 /** Cash of a sales_mode shift (cutover 5.1); null for every other shift (no sales, as before). */
 type SalesCash = { cash_sales_minor: string; cash_refunds_minor: string } | null;
@@ -191,6 +192,10 @@ export function closeCashShift(
         throw new OrderError('INVALID_REQUEST');
       let spent: ConsumedApproval | null = null;
       if (sales) {
+        // Edge 030 (owner decision 28.11.2026): the guest paid on the terminal and nothing was sold
+        // or released at this desk - the shift does not close over that money.
+        if ((await countUnsoldTerminalPayments(client, branchId, old.terminal_id)) > 0)
+          throw new OrderError('TERMINAL_UNSOLD_PAYMENTS');
         const pending = await pendingShiftReceipts(client, branchId, old.shift_id);
         // An approval sent while nothing is pending is not spent (it expires in 120 s).
         if (pending.count > 0) {

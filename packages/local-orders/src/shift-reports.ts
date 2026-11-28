@@ -1,16 +1,18 @@
 import {
   PosPaymentMethodSchema,
   PosShiftReportSchema,
+  PosTerminalReleaseListSchema,
   SalesChannelSchema,
   UuidSchema,
 } from '@pickchick/contracts';
-import type { PosShiftReport } from '@pickchick/contracts';
+import type { PosShiftReport, PosTerminalReleaseList } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateStaff, requirePermission } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { lockBranch } from './commands.js';
 import { posSalesInstalled } from './approvals.js';
+import { kaspiReleaseInstalled } from './terminal-payments.js';
 import { OrderError } from './errors.js';
 
 /** @internal Cash of a sales shift (schema026 pos_shift_cash): sales net of change, refunds paid out. */
@@ -224,5 +226,64 @@ export async function readShiftReport(
     ).rows[0];
     if (!frozen) throw new OrderError('NOT_FOUND');
     return PosShiftReportSchema.parse(frozen.report);
+  });
+}
+
+/**
+ * GET cash-shifts/{id}/terminal-releases (edge schema030, owner decision 28.11.2026): the paid
+ * Kaspi attempts released by hand at this sales shift - count, sum and rows. They are not part of
+ * the frozen Z report (its schema goes to the cloud unchanged). Same access as the shift reports
+ * (a cashier sees this desk, a shift manager every desk; NOT_FOUND for a shift that did not open in
+ * pos_sale mode). An edge without schema030 has no releases: an empty list.
+ */
+export async function readShiftTerminalReleases(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  shiftId: string,
+): Promise<PosTerminalReleaseList> {
+  if (!UuidSchema.safeParse(shiftId).success) throw new OrderError('INVALID_REQUEST');
+  return transaction(pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    requirePermission(actor, 'read');
+    if (!(await posSalesInstalled(client))) throw new OrderError('NOT_FOUND');
+    await lockBranch(client, branchId);
+    const shift = (
+      await client.query<{ id: string; sales_mode: boolean }>(
+        `SELECT id,sales_mode FROM local_cash_shifts WHERE id=$1 AND branch_id=$2
+         AND ($3::boolean OR terminal_id=$4)`,
+        [shiftId, branchId, actor.role === 'shift_manager', actor.terminal_id],
+      )
+    ).rows[0];
+    if (!shift?.sales_mode) throw new OrderError('NOT_FOUND');
+    const items = (await kaspiReleaseInstalled(client))
+      ? (
+          await client.query<{
+            attempt_id: string;
+            attempt_terminal_id: string;
+            quote_id: string;
+            amount_minor: string;
+            transaction_id: string;
+            attempt_staff_id: string;
+            released_by_staff_id: string;
+            manager_staff_id: string;
+            reason: string;
+            released_at: Date;
+          }>(
+            `SELECT r.attempt_id,r.attempt_terminal_id,a.quote_id,r.amount_minor::text AS amount_minor,r.transaction_id,
+             r.attempt_staff_id,r.released_by_staff_id,r.manager_staff_id,r.reason,r.released_at
+             FROM kaspi_pos_attempt_releases r
+             JOIN kaspi_pos_attempts a ON a.id=r.attempt_id AND a.branch_id=r.branch_id
+             WHERE r.branch_id=$1 AND r.shift_id=$2 ORDER BY r.released_at,r.attempt_id LIMIT 500`,
+            [branchId, shift.id],
+          )
+        ).rows
+      : [];
+    return PosTerminalReleaseListSchema.parse({
+      shift_id: shift.id,
+      count: items.length,
+      amount_minor: items.reduce((sum, item) => sum + BigInt(item.amount_minor), 0n).toString(),
+      items: items.map((item) => ({ ...item, released_at: item.released_at.toISOString() })),
+    });
   });
 }

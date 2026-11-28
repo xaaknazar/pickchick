@@ -143,5 +143,10 @@
     "version": "029_edge_kaspi_pos.sql",
     "checksum": "edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784",
     "scope": "edge"
+  },
+  {
+    "version": "030_edge_kaspi_pos_release.sql",
+    "checksum": "5dfc739e56991d170624b47eb4ac2d6846e598ac14fe8a23703fca191018022a",
+    "scope": "edge"
   }
 ]

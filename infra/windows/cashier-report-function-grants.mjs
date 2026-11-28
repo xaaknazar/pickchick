@@ -28,10 +28,10 @@ import { fileURLToPath } from 'node:url';
  *   append_cashier_order_report (it writes kitchen reservations that may belong to POS orders).
  *
  * The functions stay invoker: each still runs with the caller's own table rights. One transaction
- * under an advisory lock; the ledger must equal a reviewed prefix of length 016..029: rows 001..028
- * of native-edge-backup-ledger.json next to this tool, then the reviewed Kaspi 029 row pinned here
- * (the cutover ledger ends at 028; the test cashier runs 029); one branch (EDGE_BRANCH_ID when
- * set); restricted existing roles;
+ * under an advisory lock; the ledger must equal a reviewed prefix of length 016..030: rows 001..028
+ * of native-edge-backup-ledger.json next to this tool, then the reviewed Kaspi 029 and 030 rows
+ * pinned here (a 029 or 030 row the file may carry is not trusted in their place); one branch
+ * (EDGE_BRANCH_ID when set); restricted existing roles;
  * the full privilege map of every role must differ by exactly the added (or removed) EXECUTE
  * entries. A replay changes nothing. `revoke` removes only these entries (rollback). Output: role
  * and function names, codes and booleans only; no row data, SQL or connection details.
@@ -58,11 +58,11 @@ export const OWNER_FUNCTIONS = Object.freeze([
   'edge_restore_fence(boolean)',
   'fulfillment_display_allocate(uuid)',
 ]);
-/** Ledger lengths: 016 adds the report functions, 026 the sales helpers; 029 is the reviewed end. */
+/** Ledger lengths: 016 adds the report functions, 026 the sales helpers; 030 is the reviewed end. */
 export const FIRST_SCHEMA = 16;
 export const SALES_SCHEMA = 26;
-export const LAST_SCHEMA = 29;
-/** The shipped cutover ledger ends at 028: a pinned file holds at least that many rows. */
+export const LAST_SCHEMA = 30;
+/** Rows 001..028 come from the pinned file, which holds at least that many rows. */
 export const PINNED_MIN = 28;
 /**
  * 029 (Kaspi Smart POS, ADR-0017; on the test cashier since 16.11, runtime 8290c87f), reviewed by
@@ -75,7 +75,22 @@ export const KASPI_SCHEMA_ROW = Object.freeze({
   version: '029_edge_kaspi_pos.sql',
   checksum: 'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
 });
-const REVIEWED_RANGE = 'Reviewed schema016 to schema029 required';
+/**
+ * 030 (paid terminal sale on a closed branch and the manager release of a payment without an
+ * order, audit 28.11 P0-1), reviewed by its exact bytes. Its functions: two trigger functions on
+ * the Kaspi tables (one SECURITY DEFINER with its search_path pinned and EXECUTE revoked from
+ * PUBLIC: a trigger function is not checked for EXECUTE when it fires, so it is not planned here),
+ * and CREATE OR REPLACE of guard_local_execution_mode (a trigger function) and of
+ * pos_sale_assert_complete(uuid,uuid) with the same signature, which is already in
+ * SALES_FUNCTIONS and keeps its invoker rights and its ACL. No new non-trigger helper, so 030
+ * needs exactly the 028 plan. Any other 030 is refused until it is reviewed here.
+ */
+export const KASPI_RELEASE_SCHEMA_ROW = Object.freeze({
+  scope: 'edge',
+  version: '030_edge_kaspi_pos_release.sql',
+  checksum: '5dfc739e56991d170624b47eb4ac2d6846e598ac14fe8a23703fca191018022a',
+});
+const REVIEWED_RANGE = 'Reviewed schema016 to schema030 required';
 const NAME = /^[a-z][a-z0-9_]{0,62}$/;
 const identifier = (name) => {
   if (!NAME.test(name ?? '')) throw Error('Invalid identifier');
@@ -150,9 +165,13 @@ export async function cashierReportFunctionGrants(
     const ledger = (
       await client.query('SELECT scope,version,checksum FROM schema_migrations ORDER BY version')
     ).rows;
-    // Reviewed rows: 001..028 from the pinned file, then the reviewed Kaspi 029 row of this tool (a
-    // 029 row the pinned file may carry is not trusted in its place).
-    const reviewedRows = [...pinned.slice(0, PINNED_MIN), KASPI_SCHEMA_ROW];
+    // Reviewed rows: 001..028 from the pinned file, then the reviewed Kaspi 029 and 030 rows of this
+    // tool (a 029 or 030 row the pinned file may carry is not trusted in its place).
+    const reviewedRows = [
+      ...pinned.slice(0, PINNED_MIN),
+      KASPI_SCHEMA_ROW,
+      KASPI_RELEASE_SCHEMA_ROW,
+    ];
     const row = ({ scope, version, checksum }) => JSON.stringify({ scope, version, checksum });
     const reviewed =
       ledger.length >= FIRST_SCHEMA &&

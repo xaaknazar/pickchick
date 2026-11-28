@@ -123,6 +123,8 @@ test('ErrorSchema lists every POS code of PosErrorCodeSchema and the KDS handove
     'TERMINAL_NOT_LINKED',
     'TERMINAL_BUSY',
     'TERMINAL_ATTEMPT_INVALID',
+    // Edge 030: paid on the terminal, neither sold nor released (shift close).
+    'TERMINAL_UNSOLD_PAYMENTS',
   ]);
   const listed = ErrorSchema.shape.code.options;
   for (const code of [...POS_CODES, ...KDS_CODES]) {

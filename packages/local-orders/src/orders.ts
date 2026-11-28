@@ -50,6 +50,12 @@ export interface LocalOrderExecutionPort {
       /** Absent: unpaid_service, exactly as before the cutover. */
       kind?: LocalAdmissionKind;
       delivery?: LocalDeliveryRef;
+      /**
+       * The guest already paid the whole sale on the Kaspi terminal (ADR-0017). The kitchen then
+       * takes the order although the branch stopped accepting orders meanwhile; the host keeps
+       * every other check. Absent or false: exactly as before.
+       */
+      paidOnTerminal?: boolean;
     },
     actor: StaffSession,
     commandId: string,
@@ -114,13 +120,17 @@ export async function stopAuditReady(client: DatabaseClient) {
     )
   ).rows[0]!.ready;
 }
-/** @internal */
-export async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
-  const stopped = await client.query(
-    `SELECT 1 FROM local_stops WHERE branch_id = $1 AND variant_id = ANY($2::uuid[]) AND stopped AND (expires_at IS NULL OR expires_at > clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open')) LIMIT 1`,
+/** @internal Variants among these that are on stop now (same rule checkStops enforces). */
+export async function findStops(client: DatabaseClient, branchId: string, variants: string[]) {
+  const stopped = await client.query<{ variant_id: string }>(
+    `SELECT DISTINCT variant_id FROM local_stops WHERE branch_id = $1 AND variant_id = ANY($2::uuid[]) AND stopped AND (expires_at IS NULL OR expires_at > clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open'))`,
     [branchId, variants],
   );
-  if (stopped.rowCount) throw new OrderError('ITEM_STOPPED');
+  return stopped.rows.map((row) => row.variant_id);
+}
+/** @internal */
+export async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
+  if ((await findStops(client, branchId, variants)).length) throw new OrderError('ITEM_STOPPED');
 }
 /**
  * Stop ids of priced lines in the active menu (combo stop rule, PM decision 1). With the

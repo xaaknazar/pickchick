@@ -97,6 +97,11 @@ ADMIN_FILES = (
     'infra/windows/kaspi-pos-upgrade-db.mjs',
     'infra/windows/native-edge-backup-ledger.json',
     'scripts/kaspi-terminal-setup.mjs',
+    # Audit 28.11 P0-1 (edge 030): the release table grants (imported by edge-runtime-grants.mjs and
+    # by the guarded upgrade) and the guarded 029 -> 030 upgrade, which also imports
+    # kaspi-pos-upgrade-db.mjs and kaspi-pos-grants.mjs (shipped above) and reads the ledger.
+    'infra/windows/kaspi-pos-release-grants.mjs',
+    'infra/windows/kaspi-pos-release-upgrade-db.mjs',
 )
 
 

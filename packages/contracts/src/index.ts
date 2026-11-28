@@ -246,6 +246,8 @@ export const ErrorSchema = z.strictObject({
     'TERMINAL_NOT_LINKED',
     'TERMINAL_BUSY',
     'TERMINAL_ATTEMPT_INVALID',
+    // Edge schema030: the shift has terminal payments that are neither sold nor released.
+    'TERMINAL_UNSOLD_PAYMENTS',
     'SHIFT_CLOSED',
     // Kitchen edge only (cutover KDS-4, CR kds-6): handoff of a delivery order without the three
     // courier marks. Only kitchen clients with the KDS layout send marks; cloud routes never

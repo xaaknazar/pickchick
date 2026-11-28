@@ -488,7 +488,12 @@ test('payment method policy and Russian error texts follow contracts section 00'
   assert.equal(POS_PAYMENT_METHOD_POLICY.chocofood.confirmation, 'aggregator_attested');
   assert.deepEqual(POS_PAYMENT_METHOD_POLICY.chocofood.channels, ['hall']);
   assert.deepEqual(POS_PAYMENT_METHOD_POLICY.aggregator_glovo.channels, ['glovo']);
-  assert.equal(PosErrorCodeSchema.options.length, 18);
+  // 18 with ADR-0017, 19 with edge 030 (TERMINAL_UNSOLD_PAYMENTS).
+  assert.equal(PosErrorCodeSchema.options.length, 19);
+  assert.equal(
+    posErrorTextRu('TERMINAL_UNSOLD_PAYMENTS'),
+    'На кассе есть оплаты на терминале без заказа - оформите их или снимите по PIN начальника смены',
+  );
   for (const code of PosErrorCodeSchema.options) {
     const text = posErrorTextRu(code);
     assert.match(text, /[А-Яа-яЁё]/);

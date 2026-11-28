@@ -8,6 +8,7 @@ import {
   UuidSchema,
 } from '@pickchick/contracts';
 import type {
+  MenuSnapshot,
   PosPaymentMethod,
   PosSale,
   PosSaleRequest,
@@ -26,6 +27,7 @@ import {
   activeMenu,
   cartStopIds,
   checkStops,
+  findStops,
   loadOrder,
   orderEvent,
   type LocalOrderExecutionPort,
@@ -33,7 +35,7 @@ import {
 import { consumeApproval, posSalesInstalled } from './approvals.js';
 import type { ConsumedApproval } from './approvals.js';
 import { loadPaymentMethods } from './payment-methods.js';
-import { useTerminalAttempt } from './terminal-payments.js';
+import { kaspiReleaseInstalled, useTerminalAttempt } from './terminal-payments.js';
 import {
   FISCAL_RECEIPT_COLUMNS,
   appendFiscalEvent,
@@ -255,17 +257,82 @@ export async function createPosSale(
           ),
         );
       if (!row.valid && attempts.length === 0) throw new OrderError('QUOTE_EXPIRED');
-      if (!branch.ordering_enabled) throw new OrderError('BRANCH_UNAVAILABLE');
-      const menu = await activeMenu(client, branchId);
-      if (menu.release_id !== row.release_id) throw new OrderError('MENU_CHANGED');
       const quote = QuoteSchema.parse(row.snapshot);
-      await checkStops(client, branchId, cartStopIds(menu, quote.lines));
+      // ADR-0017 and the owner decision: when the guest already paid the WHOLE sale on the terminal
+      // (exactly one tender: kaspi_terminal, a confirmed attempt checked by useTerminalAttempt above
+      // - success, this quote, this terminal, this amount, not yet used, not released - for the
+      // whole quote total), a newer menu release, a stop, a closed branch and a switched-off
+      // method do not refuse the sale. It is made from the stored quote snapshot (the prices the
+      // guest paid) and the bypass is audited below; a refund of what the kitchen cannot cook is
+      // made by hand on the terminal. A partly paid sale (terminal plus cash) and every other
+      // check keep their old behaviour. This is exactly the condition of the edge schema030
+      // guards (guard_local_execution_mode, pos_sale_assert_complete). After a menu change the
+      // stop ids of a combo are read by the ACTIVE release, so the audit of a bypassed stop may
+      // name the components of the newer combo.
+      const paidOnTerminal =
+        attempts.length === 1 &&
+        request.tenders.length === 1 &&
+        request.tenders[0]!.method === 'kaspi_terminal' &&
+        BigInt(request.tenders[0]!.amount_minor) === BigInt(quote.total_minor);
+      const bypassed: string[] = [];
+      const overrideDetails: string[] = [];
+      // A closed branch and a switched-off method are bypassed only where the edge has schema030,
+      // whose guards accept such a sale; on an older edge (026+029) they refuse it, so the refusal
+      // stays clean and early (BRANCH_UNAVAILABLE, METHOD_DISABLED) as in the first release.
+      const closedAllowed = paidOnTerminal && (await kaspiReleaseInstalled(client));
+      if (!branch.ordering_enabled) {
+        if (!closedAllowed) throw new OrderError('BRANCH_UNAVAILABLE');
+        bypassed.push('branch_closed');
+      }
+      let menu: MenuSnapshot | null;
+      try {
+        menu = await activeMenu(client, branchId);
+      } catch (error) {
+        // No active menu at all is the same refusal, except for a sale already paid.
+        if (!paidOnTerminal || !(error instanceof OrderError)) throw error;
+        menu = null;
+      }
+      if (menu?.release_id !== row.release_id) {
+        if (!paidOnTerminal) throw new OrderError('MENU_CHANGED');
+        bypassed.push('menu_changed');
+        overrideDetails.push(
+          `menu_changed|quote_release=${row.release_id}|active_release=${menu?.release_id ?? 'none'}`,
+        );
+      }
+      // The stop list is read for the quote's own lines (against the old release when it moved on).
+      const stopIds = menu
+        ? cartStopIds(menu, quote.lines)
+        : quote.lines.flatMap((line) => [
+            line.variant_id,
+            ...(line.modifiers ?? []).map((modifier) => modifier.option_id),
+          ]);
+      if (paidOnTerminal) {
+        const stopped = await findStops(client, branchId, stopIds);
+        if (stopped.length) {
+          bypassed.push('item_stopped');
+          const names = new Map<string, string>();
+          for (const line of quote.lines) {
+            names.set(line.variant_id, line.name.ru);
+            for (const modifier of line.modifiers ?? [])
+              names.set(modifier.option_id, `${line.name.ru} / ${modifier.name}`);
+          }
+          // The name is for a person reading the audit: one line, no field separator, short.
+          for (const variant of stopped)
+            overrideDetails.push(
+              `item_stopped|variant=${variant}|name=${(names.get(variant) ?? 'component')
+                .replace(/[|\r\n]+/g, ' ')
+                .slice(0, 80)}`,
+            );
+        }
+      } else await checkStops(client, branchId, stopIds);
       const plan = planPosSale(request, quote);
       const methods = new Map(
         (await loadPaymentMethods(client, branchId)).map((method) => [method.code, method]),
       );
-      if (plan.methods.some((code) => !methods.get(code)?.enabled))
-        throw new OrderError('METHOD_DISABLED');
+      if (plan.methods.some((code) => !methods.get(code)?.enabled)) {
+        if (!closedAllowed) throw new OrderError('METHOD_DISABLED');
+        bypassed.push('method_disabled');
+      }
       // The open sales shift of this cash desk takes the sale (and its drawer the cash).
       const shift = (
         await client.query<{ id: string; sales_mode: boolean }>(
@@ -321,6 +388,7 @@ export async function createPosSale(
           branchId,
           quote,
           kind: 'pos_sale',
+          ...(paidOnTerminal ? { paidOnTerminal: true } : {}),
           ...(plan.channel !== 'hall'
             ? { delivery: { provider: plan.channel, externalNumber: plan.externalOrderRef! } }
             : {}),
@@ -434,6 +502,27 @@ export async function createPosSale(
       const order = await loadOrder(client, branchId, actor, orderId);
       await orderEvent(client, order, 'order.created');
       await audit(client, branchId, actor.staff_id, 'pos_sale.created', orderId);
+      // Sold although a check would have refused it: the manager sees it and refunds by hand if
+      // the kitchen cannot cook. local_audit has only action and resource (the order); the
+      // details ride in the action text. No bypass, no event.
+      if (bypassed.length) {
+        const attemptIds = attempts.map((tender) => tender.attempt_id).join(',');
+        await audit(
+          client,
+          branchId,
+          actor.staff_id,
+          `pos_sale.paid_override|attempt=${attemptIds}|amount=${quote.total_minor}|checks=${bypassed.join(',')}`,
+          orderId,
+        );
+        for (const detail of overrideDetails)
+          await audit(
+            client,
+            branchId,
+            actor.staff_id,
+            `pos_sale.paid_override.${detail}`,
+            orderId,
+          );
+      }
       return PosSaleResultSchema.parse({ order, sale });
     },
   );

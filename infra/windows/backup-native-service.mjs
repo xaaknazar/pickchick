@@ -91,8 +91,10 @@ export const SERVICE_BACKUP_SCHEMAS = Object.freeze({
   schema028: 28,
   // ADR-0017: the guarded 028 -> 029 upgrade (Kaspi Smart POS) follows a schema028 copy.
   schema029: 29,
+  // Audit 28.11 P0-1: the guarded 029 -> 030 upgrade (Kaspi paid-sale release) follows a schema029 copy.
+  schema030: 30,
 });
-const PINNED_LEDGER_LENGTH = 29;
+const PINNED_LEDGER_LENGTH = 30;
 
 /** The exact expected ledger for a mode, after validating the shape of the pinned file. */
 export function expectedServiceLedger(pinned, ledgerMode = 'schema014') {

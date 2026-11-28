@@ -46,6 +46,8 @@ export const ManagerApprovalActionSchema = z.enum([
   'cash_movement',
   'kds_mode',
   'courier_incident_update',
+  // Edge schema030 (owner decision 28.11.2026, CR pos-8): release of a paid Kaspi attempt without an order.
+  'terminal_release',
 ]);
 export const FiscalModeSchema = z.enum(['manual_webkassa']);
 export const FiscalReceiptKindSchema = z.enum(['sale', 'refund']);

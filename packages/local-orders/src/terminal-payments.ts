@@ -3,17 +3,18 @@ import {
   PosTerminalPaymentListSchema,
   PosTerminalPaymentRequestSchema,
   PosTerminalPaymentSchema,
+  PosTerminalReleaseRequestSchema,
   QuoteSchema,
   UuidSchema,
 } from '@pickchick/contracts';
 import type { PosTerminalPayment } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
-import { authenticateStaff, requirePermission } from './staff.js';
+import { audit, authenticateStaff, requirePermission } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { command } from './commands.js';
 import { OrderError } from './errors.js';
-import { posSalesInstalled } from './approvals.js';
+import { consumeApproval, posSalesInstalled } from './approvals.js';
 import { loadPaymentMethods } from './payment-methods.js';
 import { kaspiExpiration, kaspiPort } from './kaspi-client.js';
 import type { KaspiCallResult, KaspiLink, KaspiPosPort } from './kaspi-client.js';
@@ -25,13 +26,19 @@ import type { KaspiCallResult, KaspiLink, KaspiPosPort } from './kaspi-client.js
  * `lost` (sent, answer lost, no processId) only by a person. The POS polls GET
  * pos/terminal-payments/{id}; each poll asks the terminal once.
  */
-const ATTEMPT_COLUMNS = `id,quote_id,terminal_id,amount_minor::text AS amount_minor,state,sub_status,
-  transaction_id,payment_method,message,order_id,created_at,updated_at,device_id,process_id,
+const ATTEMPT_COLUMNS = `id,quote_id,terminal_id,staff_id,amount_minor::text AS amount_minor,state,
+  sub_status,transaction_id,payment_method,message,order_id,created_at,updated_at,device_id,process_id,
   actualized_at,clock_timestamp() AS now`;
+/** Edge schema030: the release of a paid attempt without an order, read with the attempt. */
+const RELEASED_AT = `(SELECT r.released_at FROM kaspi_pos_attempt_releases r
+  WHERE r.attempt_id=kaspi_pos_attempts.id AND r.branch_id=kaspi_pos_attempts.branch_id) AS released_at`;
+const attemptColumns = async (client: DatabaseClient | DatabasePool) =>
+  `${ATTEMPT_COLUMNS},${(await kaspiReleaseInstalled(client)) ? RELEASED_AT : 'NULL::timestamptz AS released_at'}`;
 interface AttemptRow {
   id: string;
   quote_id: string;
   terminal_id: string;
+  staff_id: string;
   amount_minor: string;
   state: PosTerminalPayment['state'];
   sub_status: string | null;
@@ -44,6 +51,7 @@ interface AttemptRow {
   device_id: string;
   process_id: string | null;
   actualized_at: Date | null;
+  released_at: Date | null;
   now: Date;
 }
 interface DeviceRow {
@@ -79,6 +87,8 @@ const view = (row: AttemptRow): PosTerminalPayment =>
     order_id: row.order_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
+    staff_id: row.staff_id,
+    released_at: row.released_at?.toISOString() ?? null,
   });
 const link = (device: DeviceRow): KaspiLink => ({
   host: device.host,
@@ -94,6 +104,38 @@ export async function kaspiPosInstalled(client: DatabaseClient | DatabasePool) {
          AND has_table_privilege('kaspi_pos_devices','SELECT') AS ready`,
     )
   ).rows[0]!.ready;
+}
+/**
+ * Whether schema030 (releases of paid attempts without an order, paid sales at a closed branch) is
+ * installed and readable by this role: its ledger row and its table. On an edge without it the
+ * sale and the shift behave exactly as before (clean refusals, no new reads).
+ */
+export async function kaspiReleaseInstalled(client: DatabaseClient | DatabasePool) {
+  return (
+    await client.query<{ ready: boolean }>(
+      `SELECT to_regclass('kaspi_pos_attempt_releases') IS NOT NULL
+         AND EXISTS(SELECT 1 FROM schema_migrations
+           WHERE scope='edge' AND version='030_edge_kaspi_pos_release.sql')
+         AND coalesce(has_table_privilege(to_regclass('kaspi_pos_attempts'),'SELECT'),false)
+         AND coalesce(has_table_privilege(to_regclass('kaspi_pos_attempt_releases'),'SELECT'),false) AS ready`,
+    )
+  ).rows[0]!.ready;
+}
+/** Paid attempts of this desk without an order that nobody released: the guest paid, nothing was sold. */
+export async function countUnsoldTerminalPayments(
+  client: DatabaseClient,
+  branchId: string,
+  terminalId: string,
+) {
+  if (!(await kaspiPosInstalled(client)) || !(await kaspiReleaseInstalled(client))) return 0;
+  return (
+    await client.query<{ count: number }>(
+      `SELECT count(*)::integer AS count FROM kaspi_pos_attempts a
+       WHERE a.branch_id=$1 AND a.terminal_id=$2 AND a.state='success' AND a.order_id IS NULL
+         AND NOT EXISTS(SELECT 1 FROM kaspi_pos_attempt_releases r WHERE r.attempt_id=a.id)`,
+      [branchId, terminalId],
+    )
+  ).rows[0]!.count;
 }
 /** The active terminal of a cash desk, or null (also on an edge without schema029). */
 export async function activeKaspiDevice(
@@ -312,7 +354,7 @@ async function loadAttempt(
   return (
     (
       await client.query<AttemptRow>(
-        `SELECT ${ATTEMPT_COLUMNS} FROM kaspi_pos_attempts WHERE id=$1 AND branch_id=$2`,
+        `SELECT ${await attemptColumns(client)} FROM kaspi_pos_attempts WHERE id=$1 AND branch_id=$2`,
         [attemptId, branchId],
       )
     ).rows[0] ?? null
@@ -378,11 +420,15 @@ export async function createTerminalPayment(
       if ((quote.sales_channel ?? 'hall') !== 'hall') throw new OrderError('INVALID_REQUEST');
       if (BigInt(request.amount_minor) > BigInt(quote.total_minor))
         throw new OrderError('TENDER_SUM_MISMATCH');
-      // A paid attempt of this quote that has no order yet is used for the sale, not paid again.
+      // A paid attempt of this quote that has no order yet is used for the sale, not paid again;
+      // one released by hand (edge 030) is gone and does not stop the quote from being paid anew.
+      const released = (await kaspiReleaseInstalled(client))
+        ? ' AND NOT EXISTS(SELECT 1 FROM kaspi_pos_attempt_releases r WHERE r.attempt_id=a.id)'
+        : '';
       if (
         (
           await client.query(
-            `SELECT 1 FROM kaspi_pos_attempts WHERE branch_id=$1 AND quote_id=$2 AND state='success'`,
+            `SELECT 1 FROM kaspi_pos_attempts a WHERE a.branch_id=$1 AND a.quote_id=$2 AND a.state='success'${released}`,
             [branchId, request.quote_id],
           )
         ).rowCount
@@ -493,7 +539,7 @@ export async function pollTerminalPayments(
   if (!(await kaspiPosInstalled(pool))) return 0;
   const rows = (
     await pool.query<AttemptRow>(
-      `SELECT ${ATTEMPT_COLUMNS} FROM kaspi_pos_attempts
+      `SELECT ${ATTEMPT_COLUMNS},NULL::timestamptz AS released_at FROM kaspi_pos_attempts
        WHERE branch_id=$1 AND state IN ('created','sending','wait','unknown')
          AND created_at > clock_timestamp() - interval '24 hours'
        ORDER BY created_at LIMIT $2`,
@@ -525,22 +571,52 @@ export async function readTerminalPayment(
   return view((await loadAttempt(pool, branchId, attemptId))!);
 }
 
-/** GET pos/terminal-payments/open: what this desk must finish (unfinished, lost or paid without order). */
+/**
+ * GET pos/terminal-payments/open: what this desk must finish (unfinished, lost or paid without
+ * order). With scope=other_desks (edge 030, a shift manager only): the payments of the OTHER desks
+ * of the branch that are paid, have no order and were not released - what a manager can release
+ * from this desk when theirs is broken or retired.
+ */
 export async function listOpenTerminalPayments(
   pool: DatabasePool,
   branchId: string,
   auth: StaffAuth,
+  scope?: string,
 ) {
+  if (scope !== undefined && scope !== 'other_desks') throw new OrderError('INVALID_REQUEST');
   return transaction(pool, async (client) => {
     const actor = await authenticateStaff(client, branchId, auth);
     requirePermission(actor, 'checkout');
+    if (scope === 'other_desks') {
+      if (actor.role !== 'shift_manager') throw new OrderError('FORBIDDEN');
+      if (!(await kaspiPosInstalled(client)) || !(await kaspiReleaseInstalled(client)))
+        return PosTerminalPaymentListSchema.parse({ items: [] });
+      const others = (
+        await client.query<AttemptRow>(
+          `SELECT ${await attemptColumns(client)} FROM kaspi_pos_attempts
+           WHERE branch_id=$1 AND terminal_id<>$2 AND state='success' AND order_id IS NULL
+             AND NOT EXISTS(SELECT 1 FROM kaspi_pos_attempt_releases r WHERE r.attempt_id=kaspi_pos_attempts.id)
+           ORDER BY created_at DESC LIMIT 50`,
+          [branchId, actor.terminal_id],
+        )
+      ).rows;
+      return PosTerminalPaymentListSchema.parse({ items: others.map(view) });
+    }
     if (!(await kaspiPosInstalled(client)))
       return PosTerminalPaymentListSchema.parse({ items: [] });
+    // Edge 030: a payment that is paid, has no order and was not released stays here whatever its
+    // age (the guest's money is on the terminal until a person sells or releases it); the rest of
+    // the list keeps its 24 h window. Without 030 the whole list is the 24 h one, as before.
+    const unsold = (await kaspiReleaseInstalled(client))
+      ? `(state='success' AND order_id IS NULL
+            AND NOT EXISTS(SELECT 1 FROM kaspi_pos_attempt_releases r WHERE r.attempt_id=kaspi_pos_attempts.id))
+         OR (created_at > clock_timestamp() - interval '24 hours' AND state IN ('created','sending','wait','unknown','lost'))`
+      : `created_at > clock_timestamp() - interval '24 hours'
+         AND (state IN ('created','sending','wait','unknown','lost') OR (state='success' AND order_id IS NULL))`;
     const rows = (
       await client.query<AttemptRow>(
-        `SELECT ${ATTEMPT_COLUMNS} FROM kaspi_pos_attempts
-         WHERE branch_id=$1 AND terminal_id=$2 AND created_at > clock_timestamp() - interval '24 hours'
-           AND (state IN ('created','sending','wait','unknown','lost') OR (state='success' AND order_id IS NULL))
+        `SELECT ${await attemptColumns(client)} FROM kaspi_pos_attempts
+         WHERE branch_id=$1 AND terminal_id=$2 AND (${unsold})
          ORDER BY created_at DESC LIMIT 50`,
         [branchId, actor.terminal_id],
       )
@@ -588,10 +664,149 @@ export async function useTerminalAttempt(
     row.transaction_id === null
   )
     throw new OrderError('TERMINAL_ATTEMPT_INVALID');
+  // Edge 030: a payment released by hand (refunded on the terminal) is not used for a sale.
+  if (
+    (await kaspiReleaseInstalled(client)) &&
+    (
+      await client.query('SELECT 1 FROM kaspi_pos_attempt_releases WHERE attempt_id=$1', [
+        attemptId,
+      ])
+    ).rowCount
+  )
+    throw new OrderError('TERMINAL_ATTEMPT_INVALID');
   if (orderId !== null)
     await client.query('UPDATE kaspi_pos_attempts SET order_id=$2 WHERE id=$1', [
       attemptId,
       orderId,
     ]);
   return row.transaction_id;
+}
+
+/**
+ * POST pos/terminal-payments/{attemptId}/release (edge schema030, owner decision 28.11.2026): the
+ * guest paid on the terminal, the order cannot be made, the refund is made by hand on the terminal.
+ * The shift manager's PIN (approval terminal_release for the attempt's quote and amount) releases
+ * the payment; it never reaches the terminal. Any attempt of the branch can be released: of any
+ * cashier (who may have gone home) and of any desk (which may be broken or retired), from the desk
+ * where the manager types the PIN; everything is read from the attempt, not from a quote or a
+ * journal. Idempotent by key; a paid, unsold, unreleased attempt only, at an open sales shift.
+ */
+export async function releaseTerminalPayment(
+  pool: DatabasePool,
+  branchId: string,
+  auth: StaffAuth,
+  key: string,
+  attemptId: string,
+  input: unknown,
+): Promise<PosTerminalPayment> {
+  const parsed = PosTerminalReleaseRequestSchema.safeParse(input);
+  if (!parsed.success || !UuidSchema.safeParse(attemptId).success)
+    throw new OrderError('INVALID_REQUEST');
+  const request = parsed.data;
+  return command(
+    pool,
+    branchId,
+    auth,
+    'checkout',
+    'kaspi_pos.release',
+    key,
+    { attempt_id: attemptId.toLowerCase(), ...request },
+    async (client, actor) => {
+      if (
+        !(await posSalesInstalled(client)) ||
+        !(await kaspiPosInstalled(client)) ||
+        !(await kaspiReleaseInstalled(client)) ||
+        !(
+          await client.query<{ ok: boolean }>(
+            `SELECT has_table_privilege('kaspi_pos_attempt_releases','INSERT') AS ok`,
+          )
+        ).rows[0]!.ok
+      )
+        throw new OrderError('NOT_FOUND');
+      const attempt = (
+        await client.query<{
+          terminal_id: string;
+          quote_id: string;
+          staff_id: string;
+          amount_minor: string;
+          state: string;
+          order_id: string | null;
+          transaction_id: string | null;
+        }>(
+          `SELECT terminal_id,quote_id,staff_id,amount_minor::text AS amount_minor,state,order_id,transaction_id
+           FROM kaspi_pos_attempts WHERE id=$1 AND branch_id=$2 FOR UPDATE`,
+          [attemptId.toLowerCase(), branchId],
+        )
+      ).rows[0];
+      // Any desk of this branch: the one that took the payment may be broken or retired. The
+      // approval and the open sales shift are those of THIS (releasing) desk.
+      if (!attempt) throw new OrderError('NOT_FOUND');
+      if (
+        attempt.state !== 'success' ||
+        attempt.order_id !== null ||
+        attempt.transaction_id === null ||
+        (
+          await client.query('SELECT 1 FROM kaspi_pos_attempt_releases WHERE attempt_id=$1', [
+            attemptId.toLowerCase(),
+          ])
+        ).rowCount
+      )
+        throw new OrderError('TERMINAL_ATTEMPT_INVALID');
+      const shift = (
+        await client.query<{ id: string }>(
+          `SELECT id FROM local_cash_shifts
+           WHERE branch_id=$1 AND terminal_id=$2 AND state='open' AND sales_mode`,
+          [branchId, actor.terminal_id],
+        )
+      ).rows[0];
+      if (!shift) throw new OrderError('CASH_SHIFT_REQUIRED');
+      const approval = await consumeApproval(
+        client,
+        branchId,
+        actor,
+        key,
+        request.approval,
+        'terminal_release',
+        { quote_id: attempt.quote_id, amount_minor: attempt.amount_minor },
+      );
+      try {
+        await client.query('SAVEPOINT kaspi_release');
+        await client.query(
+          `INSERT INTO kaspi_pos_attempt_releases(attempt_id,branch_id,attempt_terminal_id,terminal_id,
+           shift_id,amount_minor,transaction_id,attempt_staff_id,released_by_staff_id,manager_staff_id,
+           approval_id,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [
+            attemptId.toLowerCase(),
+            branchId,
+            attempt.terminal_id,
+            actor.terminal_id,
+            shift.id,
+            attempt.amount_minor,
+            attempt.transaction_id,
+            attempt.staff_id,
+            actor.staff_id,
+            approval.manager_staff_id,
+            approval.approval_id,
+            request.reason,
+          ],
+        );
+      } catch (error) {
+        // The schema030 guard behind the checks above (a concurrent state change).
+        const sqlstate = (error as { code?: string }).code;
+        if (sqlstate === '23514' || sqlstate === '23505') {
+          await client.query('ROLLBACK TO SAVEPOINT kaspi_release');
+          throw new OrderError('TERMINAL_ATTEMPT_INVALID');
+        }
+        throw error;
+      }
+      await audit(
+        client,
+        branchId,
+        actor.staff_id,
+        `kaspi_pos.payment_released|attempt=${attemptId.toLowerCase()}|amount=${attempt.amount_minor}|manager=${approval.manager_staff_id}|txn=${attempt.transaction_id}`,
+        attemptId.toLowerCase(),
+      );
+      return view((await loadAttempt(client, branchId, attemptId.toLowerCase()))!);
+    },
+  );
 }

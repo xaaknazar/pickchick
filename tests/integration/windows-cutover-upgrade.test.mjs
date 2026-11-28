@@ -47,6 +47,8 @@ import {
 } from '../../infra/windows/pos-sales-upgrade-db.mjs';
 import { setDeskNumber } from '../../scripts/pos-sales-setup.mjs';
 import { kaspiPosMigration } from '../../infra/windows/kaspi-pos-upgrade-db.mjs';
+import { kaspiPosReleaseMigration } from '../../infra/windows/kaspi-pos-release-upgrade-db.mjs';
+import { assertKaspiPosReleaseRuntimePrivileges } from '../../infra/windows/kaspi-pos-release-grants.mjs';
 import {
   KDS_TABLES,
   assertKdsRuntimePrivileges,
@@ -1398,8 +1400,18 @@ test('night C4 chain on a populated 024 edge: the operator 025 database step, th
             false,
           );
           assert.equal((await tool(kaspiPosMigration, { mode: 'apply', ...desk })).applied, true);
+          // Audit 28.11 P0-1: the release step 030 accepts what the 029 tool left, and grants the
+          // runtime its table rights in the same run.
+          const release030 = await tool(kaspiPosReleaseMigration, { mode: 'inspect', ...desk });
+          assert.equal(release030.applied, false);
+          assert.equal(release030.migrations, 29);
+          const applied030 = await tool(kaspiPosReleaseMigration, { mode: 'apply', ...desk });
+          assert.equal(applied030.applied, true);
+          assert.equal(applied030.migrations, 30);
+          assert.equal(applied030.runtimeGrantsVerified, true);
+          await assertKaspiPosReleaseRuntimePrivileges(pool, runtime.role, schema);
 
-          // The ledger is the reviewed 001-029 of the repository, byte for byte.
+          // The ledger is the reviewed 001-030 of the repository, byte for byte.
           const pinned = JSON.parse(
             await readFile(join(repoRoot, 'infra/windows/native-edge-backup-ledger.json'), 'utf8'),
           );
@@ -1407,7 +1419,7 @@ test('night C4 chain on a populated 024 edge: the operator 025 database step, th
             await ledger(pool),
             pinned.map(({ version, checksum }) => ({ version, checksum })),
           );
-          assert.equal(pinned.length, 29);
+          assert.equal(pinned.length, 30);
 
           // Every tool still verifies after the whole chain; the operator's grants survived it.
           assert.equal((await tool(posSalesMigration, { mode: 'inspect', ...pos })).applied, true);
@@ -1415,6 +1427,23 @@ test('night C4 chain on a populated 024 edge: the operator 025 database step, th
           assert.equal(
             (await tool(deskNumberMigration, { mode: 'inspect', ...desk })).applied,
             true,
+          );
+          // The 029 tool on the 30-row ledger answers installed instead of refusing, and never
+          // applies again; the 030 tool says the same of itself.
+          const old029 = await tool(kaspiPosMigration, { mode: 'inspect', ...desk });
+          assert.equal(old029.alreadyInstalled, true);
+          assert.equal(old029.migrations, 30);
+          await assert.rejects(
+            tool(kaspiPosMigration, { mode: 'apply', ...desk }),
+            /already applied/,
+          );
+          assert.equal(
+            (await tool(kaspiPosReleaseMigration, { mode: 'inspect', ...desk })).alreadyInstalled,
+            true,
+          );
+          await assert.rejects(
+            tool(kaspiPosReleaseMigration, { mode: 'apply', ...desk }),
+            /already applied/,
           );
           assert.equal(await review('fulfillment_restore_reviews', 'SELECT'), true);
           assert.equal(await review('fulfillment_restore_decisions', 'INSERT'), true);

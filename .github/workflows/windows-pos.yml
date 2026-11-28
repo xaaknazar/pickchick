@@ -20,6 +20,7 @@ on:
       - 'tests/operations/test_windows_head_runtime_release.py'
       - 'tests/operations/test_windows_head_029_runtime_release.py'
       - 'tests/operations/test_windows_app_029_runtime_release.py'
+      - 'tests/operations/test_windows_head_030_runtime_release.py'
       - 'tests/operations/test_windows_webkassa_edge.py'
       - 'tests/operations/windows-webkassa-edge.test.ps1'
   pull_request:
@@ -41,6 +42,7 @@ on:
       - 'tests/operations/test_windows_head_runtime_release.py'
       - 'tests/operations/test_windows_head_029_runtime_release.py'
       - 'tests/operations/test_windows_app_029_runtime_release.py'
+      - 'tests/operations/test_windows_head_030_runtime_release.py'
       - 'tests/operations/test_windows_webkassa_edge.py'
       - 'tests/operations/windows-webkassa-edge.test.ps1'
   workflow_dispatch:
@@ -87,6 +89,8 @@ jobs:
           python tests/operations/test_windows_head_029_runtime_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_app_029_runtime_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/operations/test_windows_head_030_runtime_release.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/operations/test_windows_edge_backup.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

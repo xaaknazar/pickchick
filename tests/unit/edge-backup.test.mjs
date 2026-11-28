@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-029 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-030 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -46,6 +46,7 @@ test('only the reviewed edge schemas 020-029 are backed up; anything else is ref
     schema027: 27,
     schema028: 28,
     schema029: 29,
+    schema030: 30,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -650,6 +651,22 @@ test('schema029 (Kaspi Smart POS, ADR-0017) is reviewed by the exact bytes of th
   assert.equal(verifiedSchema(rows(28), pinned), 'schema028');
   assert.throws(
     () => verifiedSchema(rows(28).concat([{ ...pinned[28], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
+});
+
+test('schema030 (paid terminal sale on a closed branch and the release of a payment, audit 28.11 P0-1) is reviewed by the exact bytes of the edge 030 migration', async () => {
+  const name = '030_edge_kaspi_pos_release.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  assert.equal(checksum, '5dfc739e56991d170624b47eb4ac2d6846e598ac14fe8a23703fca191018022a');
+  assert.deepEqual(pinned[29], { version: name, checksum, scope: 'edge' });
+  assert.equal(pinned.length, 30);
+  assert.equal(verifiedSchema(rows(30), pinned), 'schema030');
+  // A cashier still on 029 before the 030 step is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(29), pinned), 'schema029');
+  assert.throws(
+    () => verifiedSchema(rows(29).concat([{ ...pinned[29], checksum: 'e'.repeat(64) }]), pinned),
     code('UNREVIEWED_SCHEMA'),
   );
 });

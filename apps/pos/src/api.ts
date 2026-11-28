@@ -138,6 +138,13 @@ export const errorMessage = (error: unknown): string => {
         UNSUPPORTED_BROWSER:
           'Защита журнала недоступна. Обратитесь к оператору для обновления рабочего места.',
         LIMIT: 'Допустимо до 50 разных блюд и 99 порций одного блюда.',
+        TERMINAL_PAID_UNSOLD:
+          'Гость оплатил на терминале, заказ ещё не оформлен. Откройте оплату и оформите заказ.',
+        TERMINAL_IN_PROGRESS:
+          'Идёт оплата на терминале. Дождитесь результата или отмените на терминале.',
+        TERMINAL_NOTHING_TO_SELL: 'Нет оплаты на терминале, которую нужно оформить',
+        TERMINAL_HOLD_OTHER_STAFF:
+          'На кассе есть оплата гостя без заказа. Её оформляет кассир, который отправил сумму на терминал.',
       } as Record<string, string>
     )[code] ?? 'Не удалось выполнить действие. Проверьте локальный узел и повторите проверку.'
   );
@@ -146,6 +153,8 @@ export const errorMessage = (error: unknown): string => {
 export type SaleErrorContext = {
   channel?: 'hall' | 'yandex_eda' | 'glovo';
   method?: string;
+  /** The error is of releasing a paid terminal attempt (it may also say so itself, see below). */
+  terminalRelease?: boolean;
 };
 /**
  * Cashier texts of the paid-sale mode (contracts section 5.1 and section 00). Codes the sale
@@ -154,6 +163,16 @@ export type SaleErrorContext = {
 export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {}): string => {
   const code = error instanceof Error ? error.message : 'UNKNOWN';
   const chocofood = context.method === 'chocofood';
+  // The controller marks the errors of a release, so the toast of the app words them right.
+  const release =
+    context.terminalRelease === true ||
+    (error instanceof Error && (error as { terminalRelease?: unknown }).terminalRelease === true);
+  const releaseText: Record<string, string> = release
+    ? {
+        TERMINAL_ATTEMPT_INVALID: 'Оплата уже оформлена или снята',
+        CASH_SHIFT_REQUIRED: 'На этой кассе нет открытой смены - откройте смену и повторите',
+      }
+    : {};
   const text: Record<string, string> = {
     SERVICE_MODE_DISABLED: 'Касса не принимает оплату - сообщите менеджеру',
     METHOD_DISABLED: 'Этот способ оплаты выключен',
@@ -209,8 +228,12 @@ export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {})
     TERMINAL_BUSY: 'Терминал занят предыдущей оплатой - завершите её на терминале',
     TERMINAL_ATTEMPT_INVALID:
       'Оплата на терминале не подходит к этому заказу. Проверьте операцию на терминале.',
-    TERMINAL_IN_PROGRESS:
-      'Идёт оплата на терминале. Дождитесь результата или отмените на терминале.',
+    // CR pos-8: paid on the terminal without an order, released by a shift manager.
+    TERMINAL_UNSOLD_PAYMENTS:
+      'На кассе есть оплаты на терминале без заказа - оформите их или снимите по PIN начальника смены',
+    TERMINAL_RELEASE_UNSUPPORTED: 'Снятие оплаты появится после обновления сервера точки',
+    TERMINAL_RELEASE_NOT_FOUND: 'Оплата не найдена',
+    ...releaseText,
   };
   return text[code] ?? errorMessage(error);
 };

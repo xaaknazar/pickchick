@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createPool, transaction } from '@pickchick/database';
 import { applyMenu, publishMenu } from '@pickchick/menu-sync';
 import {
+  closeCashShift,
   createPosSale,
   createQuote,
   createTerminalPayment,
@@ -18,6 +19,7 @@ import { localUnpaidExecution, provisionFulfillment } from '@pickchick/edge-fulf
 import { PosTerminalPaymentSchema } from '@pickchick/contracts';
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
 import { assertKaspiPosRuntimePrivileges } from '../../infra/windows/kaspi-pos-grants.mjs';
+import { assertKaspiPosReleaseRuntimePrivileges } from '../../infra/windows/kaspi-pos-release-grants.mjs';
 import {
   linkKaspiTerminal,
   parseKaspiTerminalSetupArgs,
@@ -313,6 +315,561 @@ test('terminal payment: wait, success, then the sale names the attempt and goes 
   });
 });
 
+// The guest paid on the terminal: the sale is made even when the item went to stop, the menu moved
+// on, the branch closed or the method was switched off meanwhile (owner decision; a refund that
+// cannot be cooked is a manual terminal refund). Everything else still holds.
+async function paidAttempt(ctx, port, q, transactionId = 'SYN-TXN-PAID') {
+  const started = await pay(ctx, port, { quote_id: q.quote_id, amount_minor: q.total_minor });
+  port.script.status.push(success(transactionId));
+  assert.equal((await poll(ctx, port, started.attempt_id)).state, 'success');
+  return started.attempt_id;
+}
+const terminalTender = (q, attemptId) => [
+  { method: 'kaspi_terminal', amount_minor: q.total_minor, attempt_id: attemptId },
+];
+const cashTender = (q) => [{ method: 'cash', amount_minor: q.total_minor }];
+const cashSale = (ctx, q) =>
+  sell(ctx, q, cashTender(q), ctx.cashier, { cash_tendered_minor: q.total_minor });
+const happen = {
+  stop: (ctx, q) =>
+    ctx.edge.pool.query(
+      "INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES($1,$2,true,1,'Закончилось')",
+      [ctx.branch, q.lines[0].variant_id],
+    ),
+  menu: async (ctx) =>
+    applyMenu(ctx.edge.pool, ctx.branch, await publishMenu(ctx.cloud.pool, ctx.menu(2))),
+  closed: (ctx) =>
+    setOrdering(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), false, {
+      expected_version: 2,
+    }),
+  method: (ctx, _q, method = 'kaspi_terminal') =>
+    transaction(ctx.edge.pool, async (client) => {
+      await setting(
+        client,
+        ctx.branch,
+        method,
+        { enabled: true, fiscal_policy: 'manual_webkassa' },
+        { enabled: false, fiscal_policy: 'manual_webkassa' },
+      );
+      await client.query(
+        'UPDATE pos_payment_methods SET enabled=false WHERE branch_id=$1 AND code=$2',
+        [ctx.branch, method],
+      );
+    }),
+};
+// Since edge 030 a sales shift does not close over a paid, unsold terminal payment
+// (TERMINAL_UNSOLD_PAYMENTS). A test that needs a closed desk WITH such a payment closes it as an
+// edge whose schema_migrations lacks the 030 row (the server's gate for every 030 behaviour).
+const as030Absent = (ctx) =>
+  ctx.edge.pool.query(
+    "DELETE FROM schema_migrations WHERE version='030_edge_kaspi_pos_release.sql'",
+  );
+const overrides = async (ctx, orderId) =>
+  (
+    await ctx.edge.pool.query(
+      "SELECT action FROM local_audit WHERE resource_id=$1 AND action LIKE 'pos_sale.paid_override%' ORDER BY action",
+      [orderId],
+    )
+  ).rows.map((row) => row.action);
+async function assertSoldAndCooked(ctx, result, attemptId) {
+  assert.equal(result.order.state, 'paid');
+  assert.equal(result.order.payment_state, 'captured');
+  const orderId = result.order.order_id;
+  const pool = ctx.edge.pool;
+  assert.equal(
+    (await pool.query('SELECT state FROM fulfillment_reservations WHERE order_id=$1', [orderId]))
+      .rows[0].state,
+    'accepted',
+  );
+  assert.ok(
+    (await pool.query('SELECT count(*)::int n FROM fulfillment_tasks WHERE order_id=$1', [orderId]))
+      .rows[0].n > 0,
+  );
+  assert.equal(
+    (await pool.query('SELECT order_id FROM kaspi_pos_attempts WHERE id=$1', [attemptId])).rows[0]
+      .order_id,
+    orderId,
+  );
+}
+
+test('paid on the terminal: an item put on stop after the payment is still sold and cooked', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await happen.stop(ctx, q);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    const events = await overrides(ctx, result.order.order_id);
+    assert.ok(events.some((a) => a.startsWith('pos_sale.paid_override|')));
+    const summary = events.find((a) => a.startsWith('pos_sale.paid_override|'));
+    assert.match(summary, new RegExp(`attempt=${attemptId}`));
+    assert.match(summary, new RegExp(`amount=${q.total_minor}`));
+    assert.match(summary, /checks=item_stopped$/);
+    const item = events.find((a) => a.startsWith('pos_sale.paid_override.item_stopped|'));
+    assert.match(item, new RegExp(`variant=${q.lines[0].variant_id}`));
+    assert.ok(item.includes(q.lines[0].name.ru));
+  });
+});
+
+test('paid on the terminal: a new menu release does not refuse the sale; the quote snapshot is sold', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await happen.menu(ctx);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    assert.equal(result.sale.total_minor, q.total_minor);
+    const events = await overrides(ctx, result.order.order_id);
+    assert.ok(events.some((a) => /checks=menu_changed$/.test(a)));
+    const menu = events.find((a) => a.startsWith('pos_sale.paid_override.menu_changed|'));
+    assert.match(menu, new RegExp(`quote_release=${q.release_id}`));
+    assert.match(menu, /active_release=[0-9a-f-]{36}/);
+    const reservation = (
+      await ctx.edge.pool.query('SELECT snapshot FROM fulfillment_reservations WHERE order_id=$1', [
+        result.order.order_id,
+      ])
+    ).rows[0];
+    assert.equal(reservation.snapshot.totalMinor, q.total_minor);
+  });
+});
+
+test('paid on the terminal: a closed branch still takes the sale and the kitchen admits it', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await happen.closed(ctx);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    assert.ok(
+      (await overrides(ctx, result.order.order_id)).some((a) => /checks=branch_closed$/.test(a)),
+    );
+  });
+});
+
+test('paid on the terminal: the kaspi_terminal method switched off meanwhile does not refuse it', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await happen.method(ctx);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    assert.ok(
+      (await overrides(ctx, result.order.order_id)).some((a) => /checks=method_disabled$/.test(a)),
+    );
+  });
+});
+
+test('paid on the terminal: stop and new menu at once; sold once, replay idempotent', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    const q2 = await quote(ctx);
+    for (const change of ['stop', 'menu']) await happen[change](ctx, q);
+    const key = randomUUID();
+    const body = {
+      quote_id: q.quote_id,
+      service_mode_confirmed: true,
+      order_repeated: true,
+      tenders: terminalTender(q, attemptId),
+    };
+    const run = () =>
+      createPosSale(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), key, body, ctx.execution);
+    const result = await run();
+    await assertSoldAndCooked(ctx, result, attemptId);
+    const events = await overrides(ctx, result.order.order_id);
+    assert.ok(events.some((a) => a.endsWith('checks=menu_changed,item_stopped')));
+    // The same request again returns the stored sale: no second order, no second audit.
+    const again = await run();
+    assert.equal(again.order.order_id, result.order.order_id);
+    assert.deepEqual(await overrides(ctx, result.order.order_id), events);
+    assert.equal(
+      (await ctx.edge.pool.query('SELECT count(*)::int n FROM local_orders')).rows[0].n,
+      1,
+    );
+    // The attempt pays one order: another quote cannot take it, a new key on this quote conflicts.
+    await assert.rejects(
+      sell(ctx, q2, terminalTender(q2, attemptId)),
+      code('TERMINAL_ATTEMPT_INVALID'),
+    );
+    await assert.rejects(sell(ctx, q, terminalTender(q, attemptId)), code('CONFLICT'));
+  });
+});
+
+test('paid on the terminal: no bypass event when nothing would have refused the sale', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    assert.deepEqual(await overrides(ctx, result.order.order_id), []);
+  });
+});
+
+test('without a paid attempt the same four conditions still refuse the sale', async () => {
+  const expected = {
+    stop: 'ITEM_STOPPED',
+    menu: 'MENU_CHANGED',
+    closed: 'BRANCH_UNAVAILABLE',
+  };
+  for (const [change, error] of Object.entries(expected))
+    await desk(async (ctx) => {
+      const q = await quote(ctx);
+      await happen[change](ctx, q);
+      await assert.rejects(cashSale(ctx, q), code(error));
+      assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+    });
+  await desk(async (ctx) => {
+    const q = await quote(ctx);
+    await happen.method(ctx, q, 'cash');
+    await assert.rejects(cashSale(ctx, q), code('METHOD_DISABLED'));
+    assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+});
+
+test('paid on the terminal: all four checks at once; sold once with every check named in the audit', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    for (const change of ['stop', 'menu', 'closed', 'method']) await happen[change](ctx, q);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    const events = await overrides(ctx, result.order.order_id);
+    assert.ok(
+      events.some((a) =>
+        a.endsWith('checks=branch_closed,menu_changed,item_stopped,method_disabled'),
+      ),
+      events.join('\n'),
+    );
+    assert.equal(
+      (
+        await ctx.edge.pool.query(
+          "SELECT enabled FROM pos_payment_methods WHERE branch_id=$1 AND code='kaspi_terminal'",
+          [ctx.branch],
+        )
+      ).rows[0].enabled,
+      false,
+    );
+  });
+});
+
+test('a paid unused attempt does not let a closed branch or a switched-off method take another payment', async () => {
+  // Closed branch: the guest paid on the terminal, the cashier takes cash for the same quote.
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    await paidAttempt(ctx, port, q);
+    await happen.closed(ctx);
+    await assert.rejects(cashSale(ctx, q), code('BRANCH_UNAVAILABLE'));
+    assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+  // Cash switched off: a terminal bypass is for the terminal part only.
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    await paidAttempt(ctx, port, q);
+    await happen.method(ctx, q, 'cash');
+    await assert.rejects(cashSale(ctx, q), code('METHOD_DISABLED'));
+    assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+  // A part paid on the terminal plus cash is not "paid on the terminal": a closed branch refuses it.
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    assert.ok(BigInt(q.total_minor) > 100n && BigInt(q.total_minor) % 100n === 0n);
+    const part = '100';
+    const started = await pay(ctx, port, { quote_id: q.quote_id, amount_minor: '100' });
+    port.script.status.push(success('SYN-TXN-PART'));
+    assert.equal((await poll(ctx, port, started.attempt_id)).state, 'success');
+    await happen.closed(ctx);
+    const rest = (BigInt(q.total_minor) - BigInt(part)).toString();
+    await assert.rejects(
+      sell(
+        ctx,
+        q,
+        [
+          { method: 'kaspi_terminal', amount_minor: part, attempt_id: started.attempt_id },
+          { method: 'cash', amount_minor: rest },
+        ],
+        ctx.cashier,
+        { cash_tendered_minor: rest },
+      ),
+      code('BRANCH_UNAVAILABLE'),
+    );
+  });
+});
+
+test('a sale paid by two terminal parts is not "paid on the terminal": a closed branch refuses it', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    const device = await link(ctx);
+    const pool = ctx.edge.pool;
+    const q = await quote(ctx);
+    const first = await pay(ctx, port, { quote_id: q.quote_id, amount_minor: '100' });
+    port.script.status.push(success('SYN-TXN-A'));
+    assert.equal((await poll(ctx, port, first.attempt_id)).state, 'success');
+    // The second part: an attempt written around the code (the code never pays a quote twice).
+    const secondId = randomUUID();
+    await pool.query(
+      `INSERT INTO kaspi_pos_attempts(id,branch_id,device_id,terminal_id,staff_id,quote_id,amount_minor)
+       VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        secondId,
+        ctx.branch,
+        device,
+        ctx.cashier.terminal_id,
+        ctx.cashier.staff_id,
+        q.quote_id,
+        (BigInt(q.total_minor) - 100n).toString(),
+      ],
+    );
+    await pool.query("UPDATE kaspi_pos_attempts SET state='sending' WHERE id=$1", [secondId]);
+    await pool.query("UPDATE kaspi_pos_attempts SET state='wait',process_id='two' WHERE id=$1", [
+      secondId,
+    ]);
+    await pool.query(
+      "UPDATE kaspi_pos_attempts SET state='success',transaction_id='SYN-TXN-B',finished_at=clock_timestamp() WHERE id=$1",
+      [secondId],
+    );
+    await happen.closed(ctx);
+    await assert.rejects(
+      sell(ctx, q, [
+        { method: 'kaspi_terminal', amount_minor: '100', attempt_id: first.attempt_id },
+        {
+          method: 'kaspi_terminal',
+          amount_minor: (BigInt(q.total_minor) - 100n).toString(),
+          attempt_id: secondId,
+        },
+      ]),
+      code('BRANCH_UNAVAILABLE'),
+    );
+    assert.equal((await pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+});
+
+test('schema030 guards in SQL: a closed branch takes an order only with a whole-amount paid attempt of the quote', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const pool = ctx.edge.pool;
+    const shift = (
+      await pool.query("SELECT id FROM local_cash_shifts WHERE terminal_id=$1 AND state='open'", [
+        ctx.cashier.terminal_id,
+      ])
+    ).rows[0].id;
+    const attemptOf = async (q, amount = q.total_minor) => {
+      const started = await pay(ctx, port, { quote_id: q.quote_id, amount_minor: amount });
+      port.script.status.push(success(`SYN-TXN-${randomUUID().slice(0, 8)}`));
+      assert.equal((await poll(ctx, port, started.attempt_id)).state, 'success');
+      return started.attempt_id;
+    };
+    // Inserts the order row of a quote and rolls back: only the BEFORE INSERT guard is exercised.
+    const insertOrder = (q) =>
+      transaction(pool, async (client) => {
+        await client.query(
+          `INSERT INTO local_orders(id,branch_id,quote_id,total_minor,cash_shift_id,execution_mode,state,payment_state)
+           VALUES ($1,$2,$3,$4,$5,'pos_sale','paid','captured')`,
+          [randomUUID(), ctx.branch, q.quote_id, q.total_minor, shift],
+        );
+        throw new Error('ROLLBACK');
+      });
+    const inserted = (error) => error.message === 'ROLLBACK';
+    const refused = (error) =>
+      error.code === '23514' && /POS sale mode is not enabled/.test(error.message);
+    const free = await quote(ctx);
+    const paid = await quote(ctx);
+    const half = await quote(ctx);
+    const released = await quote(ctx);
+    const paidAttemptId = await attemptOf(paid);
+    await attemptOf(half, '100');
+    const releasedId = await attemptOf(released);
+    await happen.closed(ctx);
+    await assert.rejects(insertOrder(free), refused);
+    await assert.rejects(insertOrder(half), refused);
+    await assert.rejects(insertOrder(paid), inserted);
+    // Released by hand (direct rows: the approval flow is tested in kaspi-pos-release.test.mjs).
+    const approval = randomUUID();
+    await pool.query(
+      `INSERT INTO local_manager_approvals(id,branch_id,terminal_id,manager_staff_id,requested_by_staff_id,
+       action,subject,subject_hash,token_hash,expires_at)
+       VALUES($1,$2,$3,$4,$5,'terminal_release',$6,$7,$8,clock_timestamp()+interval '120 seconds')`,
+      [
+        approval,
+        ctx.branch,
+        ctx.cashier.terminal_id,
+        ctx.manager.staff_id,
+        ctx.cashier.staff_id,
+        { quote_id: released.quote_id, amount_minor: released.total_minor },
+        'a'.repeat(64),
+        'b'.repeat(64),
+      ],
+    );
+    await pool.query(
+      'UPDATE local_manager_approvals SET consumed_at=clock_timestamp(),consumed_command_key=$2 WHERE id=$1',
+      [approval, randomUUID()],
+    );
+    await pool.query(
+      `INSERT INTO kaspi_pos_attempt_releases(attempt_id,branch_id,attempt_terminal_id,terminal_id,shift_id,
+       amount_minor,transaction_id,attempt_staff_id,released_by_staff_id,manager_staff_id,approval_id,reason)
+       SELECT id,branch_id,terminal_id,terminal_id,$2,amount_minor,transaction_id,staff_id,$3,$4,$5,'Синтетический возврат'
+       FROM kaspi_pos_attempts WHERE id=$1`,
+      [releasedId, shift, ctx.cashier.staff_id, ctx.manager.staff_id, approval],
+    );
+    await assert.rejects(insertOrder(released), refused);
+    assert.ok(paidAttemptId);
+    assert.equal((await pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+});
+
+test("schema030 completeness at COMMIT: a closed branch or a switched-off method accepts only the order's own terminal payment", async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const pool = ctx.edge.pool;
+    const terminalSale = await quote(ctx);
+    const terminalAttempt = await paidAttempt(ctx, port, terminalSale);
+    const sold = await sell(ctx, terminalSale, terminalTender(terminalSale, terminalAttempt));
+    const cashQuote = await quote(ctx);
+    const cashed = await cashSale(ctx, cashQuote);
+    const assertComplete = (order) =>
+      pool.query('SELECT pos_sale_assert_complete($1,$2)', [order.order.order_id, ctx.branch]);
+    await assertComplete(sold);
+    await assertComplete(cashed);
+    await happen.closed(ctx);
+    await assertComplete(sold);
+    await assert.rejects(
+      assertComplete(cashed),
+      (error) => error.code === '23514' && /POS sale mode is not enabled/.test(error.message),
+    );
+    await happen.method(ctx, null, 'kaspi_terminal');
+    await assertComplete(sold);
+    await happen.method(ctx, null, 'cash');
+    await assert.rejects(
+      assertComplete(cashed),
+      (error) => error.code === '23514' && /POS payment method is disabled/.test(error.message),
+    );
+  });
+});
+
+test('an edge without schema030 keeps the clean refusals of a closed branch and a switched-off method', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await as030Absent(ctx);
+    await happen.closed(ctx);
+    await assert.rejects(sell(ctx, q, terminalTender(q, attemptId)), code('BRANCH_UNAVAILABLE'));
+    assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await as030Absent(ctx);
+    await happen.method(ctx);
+    await assert.rejects(sell(ctx, q, terminalTender(q, attemptId)), code('METHOD_DISABLED'));
+    assert.equal((await ctx.edge.pool.query('SELECT 1 FROM local_orders')).rowCount, 0);
+  });
+  // The first-release bypasses (stop, new menu) work without 030 as before.
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await as030Absent(ctx);
+    await happen.stop(ctx, q);
+    const result = await sell(ctx, q, terminalTender(q, attemptId));
+    await assertSoldAndCooked(ctx, result, attemptId);
+    assert.ok(
+      (await overrides(ctx, result.order.order_id)).some((a) => /checks=item_stopped$/.test(a)),
+    );
+    const open = await listOpenTerminalPayments(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier));
+    assert.deepEqual(open.items, []);
+  });
+});
+
+test('paid on the terminal: a desk without an open sales shift and a switched-off sales mode still refuse the sale', async () => {
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await as030Absent(ctx);
+    const shiftId = (
+      await ctx.edge.pool.query(
+        "SELECT id FROM local_cash_shifts WHERE terminal_id=$1 AND state='open'",
+        [ctx.cashier.terminal_id],
+      )
+    ).rows[0].id;
+    await closeCashShift(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), shiftId, {
+      expected_version: 1,
+      counted_cash_minor: '0',
+      reason: 'Синтетическое закрытие',
+    });
+    await assert.rejects(sell(ctx, q, terminalTender(q, attemptId)), code('CASH_SHIFT_REQUIRED'));
+    // Nothing was spent: the failed sale rolled back, the attempt is still free.
+    assert.equal(
+      (
+        await ctx.edge.pool.query('SELECT order_id FROM kaspi_pos_attempts WHERE id=$1', [
+          attemptId,
+        ])
+      ).rows[0].order_id,
+      null,
+    );
+  });
+  await desk(async (ctx) => {
+    const port = simulator();
+    await link(ctx);
+    const q = await quote(ctx);
+    const attemptId = await paidAttempt(ctx, port, q);
+    await as030Absent(ctx);
+    // The mode cannot be switched while a sales shift is open: close them all first.
+    for (const shift of (
+      await ctx.edge.pool.query("SELECT id FROM local_cash_shifts WHERE state='open'")
+    ).rows)
+      await closeCashShift(
+        ctx.edge.pool,
+        ctx.branch,
+        staffAuth(ctx.manager),
+        randomUUID(),
+        shift.id,
+        { expected_version: 1, counted_cash_minor: '0', reason: 'Синтетическое закрытие' },
+      );
+    await transaction(ctx.edge.pool, async (client) => {
+      await setting(
+        client,
+        ctx.branch,
+        'pos_service_mode',
+        { pos_service_mode: 'pos_sale' },
+        { pos_service_mode: 'payment_required' },
+      );
+      await client.query(
+        "UPDATE branch_config SET pos_service_mode='payment_required' WHERE id=$1",
+        [ctx.branch],
+      );
+    });
+    await assert.rejects(sell(ctx, q, terminalTender(q, attemptId)), code('SERVICE_MODE_DISABLED'));
+  });
+});
+
 test('one operation per terminal; fail frees it; refused and unreachable never paid', async () => {
   await desk(async (ctx) => {
     const port = simulator();
@@ -573,6 +1130,10 @@ test('runtime role: exact schema029 privileges and the attempt flow without owne
         fulfillment: true,
       });
       await assertKaspiPosRuntimePrivileges(ctx.edge.pool, role, ctx.edge.schema);
+      // Edge 030 adds a table the runtime reads (the guards of an attempt) and inserts into (the
+      // release): the same reset grants exactly SELECT and INSERT on it
+      // (infra/windows/kaspi-pos-release-grants.mjs).
+      await assertKaspiPosReleaseRuntimePrivileges(ctx.edge.pool, role, ctx.edge.schema);
       const url = new URL(ctx.edge.config.databaseUrl);
       url.username = role;
       url.password = password;
