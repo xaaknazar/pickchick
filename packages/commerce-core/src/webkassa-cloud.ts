@@ -1,11 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabasePool } from '@pickchick/database';
-import { WEBKASSA_CODE, WebkassaClient, readWebkassaAccount } from '@pickchick/webkassa';
+import {
+  WEBKASSA_CODE,
+  WebkassaClient,
+  checkWebkassaMode,
+  readWebkassaAccount,
+  webkassaModeFromEnv,
+} from '@pickchick/webkassa';
 import type {
   FiscalLine,
   FiscalPayment,
   WebkassaAccount,
   WebkassaError,
+  WebkassaMode,
+  WebkassaModeCheck,
   WebkassaPaymentType,
 } from '@pickchick/webkassa';
 import { CommerceRepository } from './repository.js';
@@ -50,19 +58,46 @@ export interface WebkassaCloudConfig {
   /** commerce_provider_accounts row (kind fiscal, provider webkassa) of the branch. */
   accountId: string;
   account: WebkassaAccount;
+  /** Declared mode (WEBKASSA_ENVIRONMENT), equal to the host of the account file. */
+  environment: WebkassaMode;
 }
 
-/** Off unless both the private account file and the provider account are configured. */
-export function webkassaCloudConfig(env: NodeJS.ProcessEnv): WebkassaCloudConfig | null {
+/** Why the worker issues nothing although the account is configured (no secrets, no file content). */
+export type WebkassaCloudBlocked = Exclude<WebkassaModeCheck, { ok: true }>;
+
+/**
+ * Owner 28.11.2026: without an explicit test/live mode (WEBKASSA_ENVIRONMENT, or the old
+ * WEBKASSA_REQUIRE_LIVE=true = live) equal to the host of the account file the worker issues
+ * nothing: `config` is null and `blocked` names the reason, so the documents stay queued (they
+ * are not lost: the kitchen does not wait for them, F-4) and the worker logs the event.
+ * A typo or contradicting flags block the same way (environment_invalid / environment_conflict).
+ */
+export function resolveWebkassaCloud(env: NodeJS.ProcessEnv): {
+  config: WebkassaCloudConfig | null;
+  blocked?: WebkassaCloudBlocked;
+} {
   const file = env.WEBKASSA_ACCOUNT_FILE?.trim(),
     accountId = env.WEBKASSA_FISCAL_ACCOUNT_ID?.trim();
-  if (!file && !accountId) return null;
+  if (!file && !accountId) return { config: null };
   if (!file || !accountId || !file.startsWith('/') || !UUIDSchema.safeParse(accountId).success)
     throw new Error('INVALID_WEBKASSA_CONFIG');
-  // WEBKASSA_REQUIRE_LIVE=true (audit 26.11 P0-2): the cloud refuses the TEST register devkkm.
-  const account = readWebkassaAccount(file, { requireLive: env.WEBKASSA_REQUIRE_LIVE === 'true' });
+  const declared = webkassaModeFromEnv(env, 'WEBKASSA_');
+  // A typo in the mode must not crash the worker: it stays up, blocked, and says why.
+  if (declared.invalid)
+    return {
+      config: null,
+      blocked: { ok: false, reason: declared.invalid, expected: 'live|test' },
+    };
+  const account = readWebkassaAccount(file);
   if (!account) throw new Error('INVALID_WEBKASSA_CONFIG');
-  return { accountId, account };
+  const check = checkWebkassaMode(declared.mode, account);
+  if (!check.ok) return { config: null, blocked: check };
+  return { config: { accountId, account, environment: check.environment } };
+}
+
+/** Off unless the private account file, the provider account and a matching mode are configured. */
+export function webkassaCloudConfig(env: NodeJS.ProcessEnv): WebkassaCloudConfig | null {
+  return resolveWebkassaCloud(env).config;
 }
 
 /** Webkassa PaymentType by the provider of the capture: TipTopPay is a card, Kaspi is mobile. */

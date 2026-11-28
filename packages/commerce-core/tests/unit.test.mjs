@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   digest,
   priceSnapshot,
@@ -15,6 +18,8 @@ import {
   KIOSK_KASPI_QR_PROVIDER,
   KIOSK_KASPI_TERMINAL_PROVIDER,
   webkassaCaptureType,
+  resolveWebkassaCloud,
+  webkassaCloudConfig,
 } from '../dist/index.js';
 import { COMBO_REWARD_THRESHOLD } from '../dist/combo-rewards.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
@@ -323,4 +328,95 @@ test('every payment provider that makes order captures has a Webkassa payment ty
   assert.equal(webkassaCaptureType(KIOSK_KASPI_QR_PROVIDER, 'card'), 4);
   for (const unknown of ['mystery-pay', '', 'Kaspi-POS', '__proto__', 'constructor'])
     assert.equal(webkassaCaptureType(unknown, 'card'), undefined, unknown);
+});
+
+// Owner 28.11.2026: without an explicit test/live mode equal to the account host the cloud worker
+// issues nothing; the documents stay queued and the worker says why.
+test('cloud Webkassa mode: matrix of WEBKASSA_ENVIRONMENT, host and WEBKASSA_REQUIRE_LIVE', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wk-cloud-'));
+  const account = (baseUrl) => {
+    const file = join(dir, baseUrl.includes('devkkm') ? 'dev.json' : 'live.json');
+    writeFileSync(
+      file,
+      JSON.stringify({
+        baseUrl,
+        apiKey: 'synthetic-key-1',
+        login: 'synthetic@example.com',
+        password: 'p',
+        cashboxUniqueNumber: 'SWK00000002',
+      }),
+    );
+    return file;
+  };
+  const files = {
+    devkkm: account('https://devkkm.webkassa.kz'),
+    kkm: account('https://kkm.webkassa.kz'),
+  };
+  const accountId = randomUUID();
+  const base = (host, extra) => ({
+    WEBKASSA_ACCOUNT_FILE: files[host],
+    WEBKASSA_FISCAL_ACCOUNT_ID: accountId,
+    ...extra,
+  });
+  // [WEBKASSA_ENVIRONMENT, host, WEBKASSA_REQUIRE_LIVE, expected]
+  const matrix = [
+    [undefined, 'kkm', undefined, 'not_set'],
+    [undefined, 'devkkm', undefined, 'not_set'],
+    [undefined, 'devkkm', 'false', 'not_set'],
+    [undefined, 'kkm', 'false', 'not_set'],
+    [undefined, 'kkm', 'true', 'live'],
+    [undefined, 'devkkm', 'true', 'mismatch'],
+    ['live', 'kkm', undefined, 'live'],
+    ['live', 'devkkm', undefined, 'mismatch'],
+    ['live', 'kkm', 'true', 'live'],
+    ['live', 'devkkm', 'false', 'mismatch'],
+    ['test', 'devkkm', undefined, 'test'],
+    ['test', 'devkkm', 'false', 'test'],
+    ['test', 'kkm', undefined, 'mismatch'],
+    ['test', 'kkm', 'false', 'mismatch'],
+    ['test', 'kkm', 'true', 'conflict'],
+    ['test', 'devkkm', 'true', 'conflict'],
+    ['prod', 'kkm', undefined, 'invalid'],
+    ['LIVE', 'kkm', undefined, 'invalid'],
+    [' test ', 'devkkm', undefined, 'test'],
+    [undefined, 'kkm', 'yes', 'invalid'],
+  ];
+  for (const [environment, host, requireLive, expected] of matrix) {
+    const extra = {};
+    if (environment !== undefined) extra.WEBKASSA_ENVIRONMENT = environment;
+    if (requireLive !== undefined) extra.WEBKASSA_REQUIRE_LIVE = requireLive;
+    const label = JSON.stringify([environment, host, requireLive]);
+    const env = base(host, extra);
+    const resolved = resolveWebkassaCloud(env);
+    if (expected === 'live' || expected === 'test') {
+      assert.equal(resolved.blocked, undefined, label);
+      assert.equal(resolved.config.accountId, accountId, label);
+      assert.equal(resolved.config.environment, expected, label);
+      assert.equal(webkassaCloudConfig(env)?.accountId, accountId, label);
+    } else if (expected === 'invalid' || expected === 'conflict') {
+      // A typo never crashes the worker: blocked, with the accepted values named.
+      assert.equal(resolved.config, null, label);
+      assert.deepEqual(
+        resolved.blocked,
+        { ok: false, reason: `environment_${expected}`, expected: 'live|test' },
+        label,
+      );
+    } else {
+      assert.equal(resolved.config, null, label);
+      assert.equal(webkassaCloudConfig(env), null, label);
+      assert.equal(
+        resolved.blocked.reason,
+        expected === 'not_set' ? 'environment_not_set' : 'environment_mismatch',
+        label,
+      );
+      assert.equal(resolved.blocked.host, host === 'kkm' ? 'live' : 'test', label);
+      // No secret and no file content in the blocked report.
+      const text = JSON.stringify(resolved.blocked);
+      assert.ok(!text.includes('synthetic') && !text.includes(dir), label);
+    }
+  }
+  // Configuration absent altogether stays plainly off, not blocked.
+  assert.deepEqual(resolveWebkassaCloud({}), { config: null });
+  assert.equal(webkassaCloudConfig({}), null);
+  assert.throws(() => webkassaCloudConfig({ WEBKASSA_FISCAL_ACCOUNT_ID: randomUUID() }));
 });

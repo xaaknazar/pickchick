@@ -452,10 +452,7 @@ export class WebkassaClient {
  * password, cashboxUniqueNumber, kioskCashboxUniqueNumber?}. Absent path = Webkassa off (manual mode). The file never enters
  * git, logs or the database.
  */
-export function readWebkassaAccount(
-  path: string | undefined,
-  options: { requireLive?: boolean } = {},
-): WebkassaAccount | null {
+export function readWebkassaAccount(path: string | undefined): WebkassaAccount | null {
   if (!path) return null;
   const raw = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')) as Record<
     string,
@@ -480,9 +477,6 @@ export function readWebkassaAccount(
       throw new Error('Webkassa account file: the kiosk cashbox must differ from the point one');
     Object.assign(account, { kioskCashboxUniqueNumber: kiosk });
   }
-  // Audit 26.11 P0-2: a live point never runs on the test register by mistake.
-  if (options.requireLive && webkassaEnvironment(account) !== 'live')
-    throw new Error('Webkassa account file: the test host devkkm is refused, live is required');
   return account;
 }
 
@@ -492,6 +486,58 @@ export function readWebkassaAccount(
  */
 export function webkassaEnvironment(account: Pick<WebkassaAccount, 'baseUrl'>): 'test' | 'live' {
   return /^https:\/\/kkm\.webkassa\.kz\/?$/.test(account.baseUrl) ? 'live' : 'test';
+}
+
+/** The mode an operator declares for a register: it must equal the host of the account file. */
+export type WebkassaMode = 'live' | 'test';
+
+/**
+ * Owner decision 28.11.2026 (audit 26.11 P0-2): receipts are off unless the mode «test» or «live»
+ * is set explicitly and equals the account host. Reads `<prefix>ENVIRONMENT` (live|test, trimmed,
+ * lower case only: the intent is never guessed) and the old `<prefix>REQUIRE_LIVE` (true = live;
+ * false or empty = not declared, it no longer allows the test host). A typo or two contradicting
+ * settings never throw (a fiscal variable must not stop sales): they come back as `invalid`.
+ */
+export type WebkassaModeFromEnv =
+  | { mode?: WebkassaMode; invalid?: undefined }
+  | { mode?: undefined; invalid: 'environment_invalid' | 'environment_conflict' };
+
+export function webkassaModeFromEnv(
+  env: Record<string, string | undefined>,
+  prefix: 'WEBKASSA_' | 'EDGE_WEBKASSA_',
+): WebkassaModeFromEnv {
+  const rawMode = env[`${prefix}ENVIRONMENT`]?.trim() || undefined;
+  const legacy = env[`${prefix}REQUIRE_LIVE`]?.trim() || undefined;
+  if (
+    (rawMode !== undefined && rawMode !== 'live' && rawMode !== 'test') ||
+    (legacy !== undefined && legacy !== 'true' && legacy !== 'false')
+  )
+    return { invalid: 'environment_invalid' };
+  if (legacy === 'true' && rawMode === 'test') return { invalid: 'environment_conflict' };
+  const mode = legacy === 'true' ? 'live' : (rawMode as WebkassaMode | undefined);
+  return mode ? { mode } : {};
+}
+
+export type WebkassaModeCheck =
+  | { ok: true; environment: WebkassaMode }
+  | { ok: false; reason: 'environment_not_set'; host: WebkassaMode }
+  | { ok: false; reason: 'environment_mismatch'; declared: WebkassaMode; host: WebkassaMode }
+  | {
+      ok: false;
+      reason: 'environment_invalid' | 'environment_conflict';
+      /** The accepted values, so the operator sees what to set. */
+      expected: 'live|test';
+    };
+
+/** Automatic receipts run only when the declared mode equals the host of the account file. */
+export function checkWebkassaMode(
+  declared: WebkassaMode | undefined,
+  account: Pick<WebkassaAccount, 'baseUrl'>,
+): WebkassaModeCheck {
+  const host = webkassaEnvironment(account);
+  if (declared === undefined) return { ok: false, reason: 'environment_not_set', host };
+  if (declared !== host) return { ok: false, reason: 'environment_mismatch', declared, host };
+  return { ok: true, environment: host };
 }
 
 /** ReturnBasisDetails of a refund: the sale receipt it returns (FiscalCheck.returnBasis). */

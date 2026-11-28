@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   WebkassaClient,
   basisDateTime,
+  checkWebkassaMode,
   checkBody,
   fiscalLinesOf,
   fiscalPaymentsOf,
@@ -16,6 +17,7 @@ import {
   returnBasisFromPrintForm,
   readWebkassaAnswer,
   webkassaEnvironment,
+  webkassaModeFromEnv,
 } from '@pickchick/local-orders';
 
 // Webkassa API v4 client: request shapes and answers as seen on devkkm.webkassa.kz 25.11.2026.
@@ -241,7 +243,7 @@ test('account file: only Webkassa hosts, a SWK number and present fields; absent
   assert.equal(readWebkassaAccount(file).kioskCashboxUniqueNumber, 'SWK00036967');
 });
 
-test('test or live register: devkkm is TEST, a live point refuses it (audit 26.11 P0-2)', () => {
+test('test or live register: devkkm is TEST, kkm is live (audit 26.11 P0-2)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wk-env-'));
   const file = join(dir, 'account.json');
   const account = {
@@ -254,13 +256,9 @@ test('test or live register: devkkm is TEST, a live point refuses it (audit 26.1
   assert.equal(webkassaEnvironment(account), 'test');
   assert.equal(webkassaEnvironment({ baseUrl: 'https://kkm.webkassa.kz/' }), 'live');
   writeFileSync(file, JSON.stringify(account));
-  assert.deepEqual(readWebkassaAccount(file, { requireLive: false }), account);
-  assert.throws(() => readWebkassaAccount(file, { requireLive: true }), /live is required/);
+  assert.deepEqual(readWebkassaAccount(file), account);
   writeFileSync(file, JSON.stringify({ ...account, baseUrl: 'https://kkm.webkassa.kz' }));
-  assert.equal(
-    readWebkassaAccount(file, { requireLive: true })?.baseUrl,
-    'https://kkm.webkassa.kz',
-  );
+  assert.equal(readWebkassaAccount(file)?.baseUrl, 'https://kkm.webkassa.kz');
 });
 
 // The tail of the 26.11 devkkm sale form (receipt 132600001), as Ticket/PrintFormat returns it.
@@ -332,4 +330,68 @@ test('a partial refund fits the sale lines by discounting the largest first', ()
   assert.throws(() => fitFiscalLines(lines, 1n));
   assert.throws(() => fitFiscalLines(lines, 419001n));
   assert.throws(() => fitFiscalLines([], 1n));
+});
+
+// Owner 28.11.2026: "without an explicit test/live setting receipts are off": the mode is declared
+// and must equal the host of the account file.
+test('declared mode: ENVIRONMENT live|test, REQUIRE_LIVE=true is a synonym, a typo or contradiction is reported, never thrown', () => {
+  const mode = (env) => webkassaModeFromEnv(env, 'WEBKASSA_');
+  assert.deepEqual(mode({}), {});
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: '' }), {});
+  assert.deepEqual(mode({ WEBKASSA_REQUIRE_LIVE: 'false' }), {}, 'false no longer allows test');
+  assert.deepEqual(mode({ WEBKASSA_REQUIRE_LIVE: ' ' }), {});
+  assert.deepEqual(mode({ WEBKASSA_REQUIRE_LIVE: 'true' }), { mode: 'live' });
+  assert.deepEqual(mode({ WEBKASSA_REQUIRE_LIVE: ' true ' }), { mode: 'live' });
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: 'live' }), { mode: 'live' });
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: ' test ' }), { mode: 'test' });
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: 'test', WEBKASSA_REQUIRE_LIVE: 'false' }), {
+    mode: 'test',
+  });
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: 'live', WEBKASSA_REQUIRE_LIVE: 'true' }), {
+    mode: 'live',
+  });
+  assert.deepEqual(mode({ WEBKASSA_ENVIRONMENT: 'test', WEBKASSA_REQUIRE_LIVE: 'true' }), {
+    invalid: 'environment_conflict',
+  });
+  for (const env of [
+    { WEBKASSA_ENVIRONMENT: 'prod' },
+    { WEBKASSA_ENVIRONMENT: 'LIVE' },
+    { WEBKASSA_ENVIRONMENT: 'Test' },
+    { WEBKASSA_REQUIRE_LIVE: '1' },
+    { WEBKASSA_ENVIRONMENT: 'live', WEBKASSA_REQUIRE_LIVE: 'yes' },
+  ])
+    assert.deepEqual(mode(env), { invalid: 'environment_invalid' }, JSON.stringify(env));
+  // The point's variables carry the EDGE_ prefix.
+  assert.deepEqual(webkassaModeFromEnv({ EDGE_WEBKASSA_ENVIRONMENT: 'test' }, 'EDGE_WEBKASSA_'), {
+    mode: 'test',
+  });
+});
+
+test('mode check: receipts work only when the declared mode equals the account host', () => {
+  const dev = { baseUrl: 'https://devkkm.webkassa.kz' };
+  const live = { baseUrl: 'https://kkm.webkassa.kz/' };
+  assert.deepEqual(checkWebkassaMode('test', dev), { ok: true, environment: 'test' });
+  assert.deepEqual(checkWebkassaMode('live', live), { ok: true, environment: 'live' });
+  assert.deepEqual(checkWebkassaMode(undefined, dev), {
+    ok: false,
+    reason: 'environment_not_set',
+    host: 'test',
+  });
+  assert.deepEqual(checkWebkassaMode(undefined, live), {
+    ok: false,
+    reason: 'environment_not_set',
+    host: 'live',
+  });
+  assert.deepEqual(checkWebkassaMode('live', dev), {
+    ok: false,
+    reason: 'environment_mismatch',
+    declared: 'live',
+    host: 'test',
+  });
+  assert.deepEqual(checkWebkassaMode('test', live), {
+    ok: false,
+    reason: 'environment_mismatch',
+    declared: 'test',
+    host: 'live',
+  });
 });

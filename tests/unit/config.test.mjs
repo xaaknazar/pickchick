@@ -150,3 +150,57 @@ test('edge remote stop applier defaults off and is an exact edge-only opt-in', (
     assert.throws(() => loadConfig('edge', { ...env, EDGE_REMOTE_STOPS_ENABLED: value }));
   assert.throws(() => loadConfig('api', { ...env, EDGE_REMOTE_STOPS_ENABLED: 'true' }));
 });
+
+// Owner 28.11.2026: without an explicit test/live mode the automatic Webkassa receipts stay off.
+test('edge Webkassa mode: EDGE_WEBKASSA_ENVIRONMENT live|test, REQUIRE_LIVE=true is a synonym', () => {
+  const mode = (extra) => loadConfig('edge', { ...env, ...extra }).webkassaEnvironment;
+  const matrix = [
+    // [EDGE_WEBKASSA_ENVIRONMENT, EDGE_WEBKASSA_REQUIRE_LIVE, expected mode]
+    [undefined, undefined, undefined],
+    [undefined, 'false', undefined],
+    [undefined, 'true', 'live'],
+    ['live', undefined, 'live'],
+    ['live', 'true', 'live'],
+    ['live', 'false', 'live'],
+    ['test', undefined, 'test'],
+    ['test', 'false', 'test'],
+    ['', undefined, undefined],
+  ];
+  for (const [environment, requireLive, expected] of matrix) {
+    const extra = {};
+    if (environment !== undefined) extra.EDGE_WEBKASSA_ENVIRONMENT = environment;
+    if (requireLive !== undefined) extra.EDGE_WEBKASSA_REQUIRE_LIVE = requireLive;
+    assert.equal(mode(extra), expected, JSON.stringify(extra));
+  }
+  // A typo or a contradiction never stops the point server: receipts stay off and the edge says why.
+  for (const [extra, invalid] of [
+    [
+      { EDGE_WEBKASSA_ENVIRONMENT: 'test', EDGE_WEBKASSA_REQUIRE_LIVE: 'true' },
+      'environment_conflict',
+    ],
+    [{ EDGE_WEBKASSA_ENVIRONMENT: 'prod' }, 'environment_invalid'],
+    [{ EDGE_WEBKASSA_ENVIRONMENT: 'Live' }, 'environment_invalid'],
+    [{ EDGE_WEBKASSA_ENVIRONMENT: 'true' }, 'environment_invalid'],
+    [{ EDGE_WEBKASSA_REQUIRE_LIVE: 'yes' }, 'environment_invalid'],
+    [{ EDGE_WEBKASSA_REQUIRE_LIVE: '1' }, 'environment_invalid'],
+    [
+      { EDGE_WEBKASSA_ENVIRONMENT: 'live', EDGE_WEBKASSA_REQUIRE_LIVE: 'maybe' },
+      'environment_invalid',
+    ],
+  ]) {
+    const config = loadConfig('edge', { ...env, ...extra });
+    assert.equal(config.webkassaModeInvalid, invalid, JSON.stringify(extra));
+    assert.equal(config.webkassaEnvironment, undefined, JSON.stringify(extra));
+  }
+  // Whitespace around a valid value is trimmed, for the old flag as well.
+  assert.equal(mode({ EDGE_WEBKASSA_ENVIRONMENT: ' test ' }), 'test');
+  assert.equal(mode({ EDGE_WEBKASSA_REQUIRE_LIVE: ' true ' }), 'live');
+  assert.equal(loadConfig('edge', env).webkassaModeInvalid, undefined);
+  // Edge only.
+  assert.throws(() => loadConfig('api', { ...env, EDGE_WEBKASSA_ENVIRONMENT: 'live' }));
+  assert.throws(() => loadConfig('api', { ...env, EDGE_WEBKASSA_REQUIRE_LIVE: 'true' }));
+  assert.equal(
+    loadConfig('api', { ...env, EDGE_WEBKASSA_REQUIRE_LIVE: 'false' }).webkassaEnvironment,
+    undefined,
+  );
+});

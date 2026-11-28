@@ -85,10 +85,17 @@ export interface ServiceConfig {
    */
   webkassaAccountFile?: string;
   /**
-   * EDGE_WEBKASSA_REQUIRE_LIVE=true (audit 26.11 P0-2): an account file on the test host devkkm
-   * is refused and receipts stay manual, so a live point never prints test receipts.
+   * EDGE_WEBKASSA_ENVIRONMENT=live|test (owner 28.11.2026): the declared Webkassa mode; it must
+   * equal the host of the account file (live = kkm, test = devkkm), otherwise automatic receipts
+   * stay off (manual mode). The old EDGE_WEBKASSA_REQUIRE_LIVE=true is a synonym of live;
+   * =false no longer allows the test host. Unset: receipts stay off.
    */
-  webkassaRequireLive?: boolean;
+  webkassaEnvironment?: 'live' | 'test';
+  /**
+   * A typo in the mode or contradicting flags never stop the point server (sales go on): receipts
+   * stay off and the edge logs webkassa_mode_blocked with this reason.
+   */
+  webkassaModeInvalid?: 'environment_invalid' | 'environment_conflict';
   /** Cloud accepts device-initiated identity renewal (cloud066, edge-identity-rotation.md). */
   edgeIdentityRotationEnabled?: boolean;
 }
@@ -272,9 +279,23 @@ export function loadConfig(
   const webkassaFile = env.EDGE_WEBKASSA_ACCOUNT_FILE?.trim() || undefined;
   if (webkassaFile && (service !== 'edge' || !isAbsolute(webkassaFile)))
     throw new Error('EDGE_WEBKASSA_ACCOUNT_FILE requires the edge and an absolute path');
-  const webkassaLive = env.EDGE_WEBKASSA_REQUIRE_LIVE ?? 'false';
-  if (!['true', 'false'].includes(webkassaLive) || (webkassaLive === 'true' && service !== 'edge'))
-    throw new Error('EDGE_WEBKASSA_REQUIRE_LIVE configuration invalid');
+  // Owner 28.11.2026: a wrong value must not stop sales; the edge turns receipts off and says why.
+  const webkassaModeRaw = env.EDGE_WEBKASSA_ENVIRONMENT?.trim() || undefined;
+  const webkassaLive = env.EDGE_WEBKASSA_REQUIRE_LIVE?.trim() || undefined;
+  if (service !== 'edge' && (webkassaModeRaw !== undefined || webkassaLive === 'true'))
+    throw new Error('EDGE_WEBKASSA_ENVIRONMENT configuration invalid');
+  let webkassaEnvironment: 'live' | 'test' | undefined;
+  let webkassaModeInvalid: 'environment_invalid' | 'environment_conflict' | undefined;
+  if (
+    (webkassaModeRaw !== undefined && webkassaModeRaw !== 'live' && webkassaModeRaw !== 'test') ||
+    (webkassaLive !== undefined && webkassaLive !== 'true' && webkassaLive !== 'false')
+  )
+    webkassaModeInvalid = 'environment_invalid';
+  else if (webkassaLive === 'true' && webkassaModeRaw === 'test')
+    webkassaModeInvalid = 'environment_conflict';
+  else
+    webkassaEnvironment =
+      webkassaLive === 'true' ? 'live' : (webkassaModeRaw as 'live' | 'test' | undefined);
   const identityRotation = env.CLOUD_EDGE_IDENTITY_ROTATION_ENABLED ?? 'false';
   if (
     !['true', 'false'].includes(identityRotation) ||
@@ -358,7 +379,8 @@ export function loadConfig(
     ...(posSales === 'true' ? { posSalesSyncEnabled: true } : {}),
     ...(remoteStops === 'true' ? { remoteStopsEnabled: true } : {}),
     ...(webkassaFile ? { webkassaAccountFile: webkassaFile } : {}),
-    ...(webkassaLive === 'true' ? { webkassaRequireLive: true } : {}),
+    ...(webkassaEnvironment ? { webkassaEnvironment } : {}),
+    ...(webkassaModeInvalid ? { webkassaModeInvalid } : {}),
     ...(identityRotation === 'true' ? { edgeIdentityRotationEnabled: true } : {}),
   };
   if (service === 'edge') {
