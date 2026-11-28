@@ -463,9 +463,19 @@ const openapi = {
           get: {
             operationId: 'listOpenPosTerminalPayments',
             security: staff,
+            parameters: [
+              {
+                name: 'scope',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', enum: ['other_desks'] },
+                description:
+                  'other_desks (edge 030, shift manager only, else 403): paid, unsold, unreleased attempts of the OTHER desks of the branch, to release them from this desk.',
+              },
+            ],
             responses: { 200: ok(c.PosTerminalPaymentListSchema), ...errors },
             description:
-              'Attempts of this desk from the last 24 h a person must finish: unfinished, lost, or paid without their sale.',
+              'Attempts of this desk a person must finish: unfinished, lost, from the last 24 h; and paid without their sale and not released, with no age limit (edge 030; before it, 24 h).',
           },
         },
         '/edge/v1/pos/terminal-payments/{attemptId}': {
@@ -476,6 +486,24 @@ const openapi = {
             responses: { 200: ok(c.PosTerminalPaymentSchema), ...errors },
             description:
               'One attempt of this desk; while it waits, the edge asks the terminal once per read (status, or actualize at most every 10 s for unknown). Its success is spent by POST pos/sales with tenders[].attempt_id.',
+          },
+        },
+        '/edge/v1/pos/terminal-payments/{attemptId}/release': {
+          post: {
+            operationId: 'releasePosTerminalPayment',
+            security: staff,
+            parameters: [uuidParameter('attemptId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosTerminalReleaseRequestSchema),
+            responses: {
+              200: ok(c.PosTerminalPaymentSchema, 'The attempt with released_at set'),
+              ...errors,
+              409: response(
+                'Error',
+                'TERMINAL_ATTEMPT_INVALID (not paid, has an order, already released), CASH_SHIFT_REQUIRED, APPROVAL_REQUIRED or APPROVAL_INVALID',
+              ),
+            },
+            description:
+              "Owner decision 28.11.2026 (edge 030): the guest paid on the terminal and no order can be made; the refund is made by hand on the terminal. Needs the approval 'terminal_release' for {quote_id, amount_minor} of the attempt (the same shift manager PIN as void and refund), an open sales shift of THIS (releasing) desk and refunded_on_terminal true. Any attempt of the branch can be released: of any cashier and of any desk (a broken or retired desk is released from another one; find them with GET pos/terminal-payments/open?scope=other_desks); an attempt of another branch is 404. A replay with the same Idempotency-Key returns the same answer.",
           },
         },
         '/edge/v1/pos/sales/{orderId}': {
@@ -600,6 +628,16 @@ const openapi = {
             },
             description:
               'PickChick Z report frozen when the sales shift closed (not fiscal). 404 for a shift that did not open in pos_sale mode.',
+          },
+        },
+        '/edge/v1/cash-shifts/{shiftId}/terminal-releases': {
+          get: {
+            operationId: 'listCashShiftTerminalReleases',
+            security: staff,
+            parameters: [uuidParameter('shiftId')],
+            responses: { 200: ok(c.PosTerminalReleaseListSchema), ...errors },
+            description:
+              'Terminal payments released by hand from this sales shift (edge 030; the attempt may belong to another desk, attempt_terminal_id): count, sum and rows. Not part of the Z report. Same access as the shift reports.',
           },
         },
         // The close of a sales shift also takes the Kaspi terminal total and, with pending

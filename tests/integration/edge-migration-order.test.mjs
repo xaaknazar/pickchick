@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFile, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { appendFile, copyFile, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -193,6 +193,10 @@ const CUTOVER_EDGE = {
     '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf',
   // ADR-0017: the Kaspi Smart POS link and attempts, applied only after 028.
   '029_edge_kaspi_pos.sql': 'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
+  // Owner decision 28.11.2026: a paid terminal sale at a closed branch and the release of a paid
+  // attempt without an order, applied only after 029.
+  '030_edge_kaspi_pos_release.sql':
+    '5dfc739e56991d170624b47eb4ac2d6846e598ac14fe8a23703fca191018022a',
 };
 
 test('cutover edge migrations upgrade a 025 edge in order with their reviewed bytes, earlier ledger unchanged', async () => {
@@ -230,6 +234,101 @@ test('cutover edge migrations upgrade a 025 edge in order with their reviewed by
       },
     ),
   );
+});
+
+test('cutover edge 030 follows 029: a 029 edge gets only 030, the ledger before it is unchanged, a second run does nothing', async () => {
+  await isolated(async (pool) => {
+    await subset(
+      (name) => name < '030',
+      async (installed) => {
+        assert.equal((await migrate(pool, installed, 'edge')).at(-1), '029_edge_kaspi_pos.sql');
+      },
+    );
+    const before = await ledger(pool);
+    assert.equal(before.at(-1).version, '029_edge_kaspi_pos.sql');
+    assert.deepEqual(await migrate(pool, directory, 'edge'), ['030_edge_kaspi_pos_release.sql']);
+    const after = await ledger(pool);
+    assert.deepEqual(after.slice(0, before.length), before);
+    assert.deepEqual(
+      after.slice(before.length).map(({ version, checksum }) => [version, checksum]),
+      [['030_edge_kaspi_pos_release.sql', CUTOVER_EDGE['030_edge_kaspi_pos_release.sql']]],
+    );
+    assert.deepEqual(await migrate(pool, directory, 'edge'), []);
+    assert.deepEqual(await ledger(pool), after);
+    // 026 pinned the approval actions in an unnamed CHECK: it is recreated under its usual name.
+    const checks = (
+      await pool.query(
+        `SELECT conname FROM pg_constraint WHERE conrelid='local_manager_approvals'::regclass
+         AND contype='c' AND pg_get_constraintdef(oid) LIKE '%terminal_release%'`,
+      )
+    ).rows;
+    assert.deepEqual(checks, [{ conname: 'local_manager_approvals_action_check' }]);
+  });
+});
+
+test('a failure inside 030 rolls the whole migration back: no table, old checks and functions, ledger unchanged', async () => {
+  await isolated(async (pool) => {
+    await subset(
+      (name) => name < '030',
+      async (installed) => migrate(pool, installed, 'edge'),
+    );
+    const before = await ledger(pool);
+    const functions = async () =>
+      (
+        await pool.query(
+          `SELECT proname,md5(prosrc) AS body,prosecdef FROM pg_proc
+           WHERE pronamespace=current_schema()::regnamespace AND proname IN
+           ('guard_local_execution_mode','pos_sale_assert_complete','guard_kaspi_pos_attempt_released')
+           ORDER BY proname`,
+        )
+      ).rows;
+    const oldFunctions = await functions();
+    await subset(
+      () => true,
+      async (broken) => {
+        // The statements of 030 run first, then the last one fails.
+        await appendFile(join(broken, '030_edge_kaspi_pos_release.sql'), '\nSELECT 1/0;\n');
+        await assert.rejects(migrate(pool, broken, 'edge'), /division by zero/);
+      },
+    );
+    assert.deepEqual(await ledger(pool), before);
+    assert.deepEqual(await functions(), oldFunctions);
+    for (const relation of ['kaspi_pos_attempt_releases', 'kaspi_pos_attempts_unsold_idx'])
+      assert.equal(
+        (await pool.query('SELECT to_regclass($1) AS r', [relation])).rows[0].r,
+        null,
+        relation,
+      );
+    assert.equal(
+      (
+        await pool.query(
+          `SELECT count(*)::int AS n FROM pg_constraint WHERE conrelid='local_manager_approvals'::regclass
+           AND pg_get_constraintdef(oid) LIKE '%terminal_release%'`,
+        )
+      ).rows[0].n,
+      0,
+    );
+    // The real 030 still applies afterwards, and its function with owner rights has a pinned path.
+    assert.deepEqual(await migrate(pool, directory, 'edge'), ['030_edge_kaspi_pos_release.sql']);
+    const definer = (
+      await pool.query(
+        `SELECT prosecdef,proconfig FROM pg_proc WHERE proname='guard_kaspi_pos_attempt_released'
+         AND pronamespace=current_schema()::regnamespace`,
+      )
+    ).rows[0];
+    assert.equal(definer.prosecdef, true);
+    assert.ok(definer.proconfig.some((item) => item.startsWith('search_path=pg_catalog')));
+    // Every other function of 030 runs with the caller's rights.
+    assert.deepEqual(
+      (
+        await pool.query(
+          `SELECT proname FROM pg_proc WHERE pronamespace=current_schema()::regnamespace AND prosecdef
+           AND proname LIKE '%kaspi_pos_attempt%' ORDER BY proname`,
+        )
+      ).rows,
+      [{ proname: 'guard_kaspi_pos_attempt_released' }],
+    );
+  });
 });
 
 test('cutover edge 027 is never applied before 026: a gapped install refuses 026 later without changes', async () => {

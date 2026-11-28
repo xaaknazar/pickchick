@@ -31,7 +31,9 @@ export class OrderError extends Error {
       // ADR-0017 (Kaspi Smart POS adapter); all are 409.
       | 'TERMINAL_NOT_LINKED'
       | 'TERMINAL_BUSY'
-      | 'TERMINAL_ATTEMPT_INVALID',
+      | 'TERMINAL_ATTEMPT_INVALID'
+      // Owner decision 28.11.2026 (edge schema030): paid on the terminal, neither sold nor released.
+      | 'TERMINAL_UNSOLD_PAYMENTS',
   ) {
     super(code);
   }
@@ -66,4 +68,5 @@ export const orderErrorStatus = {
   TERMINAL_NOT_LINKED: 409,
   TERMINAL_BUSY: 409,
   TERMINAL_ATTEMPT_INVALID: 409,
+  TERMINAL_UNSOLD_PAYMENTS: 409,
 } as const;

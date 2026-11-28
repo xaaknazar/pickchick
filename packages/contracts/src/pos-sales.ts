@@ -407,6 +407,8 @@ export const PosErrorCodeSchema = z.enum([
   'TERMINAL_NOT_LINKED',
   'TERMINAL_BUSY',
   'TERMINAL_ATTEMPT_INVALID',
+  // Edge schema030: a shift is closed only when every paid terminal payment is sold or released.
+  'TERMINAL_UNSOLD_PAYMENTS',
 ]);
 export type PosErrorCode = z.infer<typeof PosErrorCodeSchema>;
 const POS_ERROR_TEXTS_RU: Readonly<Record<PosErrorCode, string>> = Object.freeze({
@@ -429,6 +431,8 @@ const POS_ERROR_TEXTS_RU: Readonly<Record<PosErrorCode, string>> = Object.freeze
   TERMINAL_NOT_LINKED: 'Терминал Kaspi не подключён к этой кассе',
   TERMINAL_BUSY: 'Терминал Kaspi занят прошлой операцией - завершите её на терминале',
   TERMINAL_ATTEMPT_INVALID: 'Оплата на терминале не подходит к этому заказу',
+  TERMINAL_UNSOLD_PAYMENTS:
+    'На кассе есть оплаты на терминале без заказа - оформите их или снимите по PIN начальника смены',
 });
 const POS_CHANNEL_PRICE_TEXTS_RU: Readonly<Record<AggregatorChannel, string>> = Object.freeze({
   yandex_eda: 'Нет в меню Яндекс Еды',
@@ -482,11 +486,50 @@ export const PosTerminalPaymentSchema = z.strictObject({
   order_id: uuid.nullable(),
   created_at: datetime,
   updated_at: datetime,
+  // Edge schema030 (CR pos-8), always sent by it; optional so that a body of an older edge, which
+  // has neither key, still parses. released_at is null until the payment is released by hand.
+  staff_id: uuid.nullable().optional(),
+  released_at: datetime.nullable().optional(),
 });
 /** GET pos/terminal-payments/open: unfinished or paid-without-order attempts of this desk (24 h). */
 export const PosTerminalPaymentListSchema = z.strictObject({
   items: z.array(PosTerminalPaymentSchema).max(50),
 });
+/**
+ * POST pos/terminal-payments/{attemptId}/release (edge schema030, owner decision 28.11.2026): the
+ * guest paid on the terminal, the order cannot be made; the refund is made by hand on the terminal
+ * and the payment is released with the shift manager's PIN (approval action terminal_release for
+ * {quote_id, amount_minor} of the attempt). The answer is the attempt with released_at set.
+ */
+export const PosTerminalReleaseRequestSchema = z.strictObject({
+  reason: reasonText,
+  refunded_on_terminal: z.literal(true),
+  // Optional like in POST pos/sales: no proof is answered APPROVAL_REQUIRED, not a bare 400.
+  approval: PosApprovalProofSchema.optional(),
+});
+/** GET cash-shifts/{shiftId}/terminal-releases: what was released at this shift (not in the Z report). */
+export const PosTerminalReleaseSchema = z.strictObject({
+  attempt_id: uuid,
+  // The desk that took the payment; the release itself belongs to the shift of the desk that made it.
+  attempt_terminal_id: uuid,
+  quote_id: uuid,
+  amount_minor: positiveMoney,
+  transaction_id: z.string().min(1).max(40),
+  attempt_staff_id: uuid,
+  released_by_staff_id: uuid,
+  manager_staff_id: uuid,
+  reason: reasonText,
+  released_at: datetime,
+});
+export const PosTerminalReleaseListSchema = z.strictObject({
+  shift_id: uuid,
+  count,
+  amount_minor: money,
+  items: z.array(PosTerminalReleaseSchema).max(500),
+});
+export type PosTerminalReleaseRequest = z.infer<typeof PosTerminalReleaseRequestSchema>;
+export type PosTerminalRelease = z.infer<typeof PosTerminalReleaseSchema>;
+export type PosTerminalReleaseList = z.infer<typeof PosTerminalReleaseListSchema>;
 export type KaspiAttemptState = z.infer<typeof KaspiAttemptStateSchema>;
 export type PosTerminalPaymentRequest = z.infer<typeof PosTerminalPaymentRequestSchema>;
 export type PosTerminalPayment = z.infer<typeof PosTerminalPaymentSchema>;

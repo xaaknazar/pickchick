@@ -35,7 +35,7 @@ import {
 import { consumeApproval, posSalesInstalled } from './approvals.js';
 import type { ConsumedApproval } from './approvals.js';
 import { loadPaymentMethods } from './payment-methods.js';
-import { useTerminalAttempt } from './terminal-payments.js';
+import { kaspiReleaseInstalled, useTerminalAttempt } from './terminal-payments.js';
 import {
   FISCAL_RECEIPT_COLUMNS,
   appendFiscalEvent,
@@ -259,26 +259,31 @@ export async function createPosSale(
       if (!row.valid && attempts.length === 0) throw new OrderError('QUOTE_EXPIRED');
       const quote = QuoteSchema.parse(row.snapshot);
       // ADR-0017 and the owner decision: when the guest already paid the WHOLE sale on the terminal
-      // (every tender is a confirmed attempt, checked by useTerminalAttempt above: success, this
-      // quote, this terminal, this amount, not yet used), a newer menu release and a stop do not
-      // refuse the sale (closed branch and a switched-off method: see below). It is made from the
-      // stored quote snapshot (the prices the guest paid) and the bypass is audited below; a refund
-      // of what the kitchen cannot cook is made by hand on the terminal. A partly paid sale
-      // (terminal plus cash) and every other check keep their old behaviour; the desk sends an
-      // attempt only as the single kaspi_terminal tender of a sale (apps/pos model, SalePayment).
-      // After a menu change the stop ids of a combo are read by the ACTIVE release, so the audit
-      // of a bypassed stop may name the components of the newer combo.
+      // (exactly one tender: kaspi_terminal, a confirmed attempt checked by useTerminalAttempt above
+      // - success, this quote, this terminal, this amount, not yet used, not released - for the
+      // whole quote total), a newer menu release, a stop, a closed branch and a switched-off
+      // method do not refuse the sale. It is made from the stored quote snapshot (the prices the
+      // guest paid) and the bypass is audited below; a refund of what the kitchen cannot cook is
+      // made by hand on the terminal. A partly paid sale (terminal plus cash) and every other
+      // check keep their old behaviour. This is exactly the condition of the edge schema030
+      // guards (guard_local_execution_mode, pos_sale_assert_complete). After a menu change the
+      // stop ids of a combo are read by the ACTIVE release, so the audit of a bypassed stop may
+      // name the components of the newer combo.
       const paidOnTerminal =
-        attempts.length > 0 &&
-        attempts.length === request.tenders.length &&
-        request.tenders.reduce((sum, tender) => sum + BigInt(tender.amount_minor), 0n) ===
-          BigInt(quote.total_minor);
+        attempts.length === 1 &&
+        request.tenders.length === 1 &&
+        request.tenders[0]!.method === 'kaspi_terminal' &&
+        BigInt(request.tenders[0]!.amount_minor) === BigInt(quote.total_minor);
       const bypassed: string[] = [];
       const overrideDetails: string[] = [];
-      // NOT bypassed yet: edge schema026 refuses a pos_sale order while the branch is closed
-      // (guard_local_execution_mode) and at COMMIT while its method is off (pos_sale_assert_complete).
-      // Both need a new edge migration first; until then the refusal stays clean and early.
-      if (!branch.ordering_enabled) throw new OrderError('BRANCH_UNAVAILABLE');
+      // A closed branch and a switched-off method are bypassed only where the edge has schema030,
+      // whose guards accept such a sale; on an older edge (026+029) they refuse it, so the refusal
+      // stays clean and early (BRANCH_UNAVAILABLE, METHOD_DISABLED) as in the first release.
+      const closedAllowed = paidOnTerminal && (await kaspiReleaseInstalled(client));
+      if (!branch.ordering_enabled) {
+        if (!closedAllowed) throw new OrderError('BRANCH_UNAVAILABLE');
+        bypassed.push('branch_closed');
+      }
       let menu: MenuSnapshot | null;
       try {
         menu = await activeMenu(client, branchId);
@@ -324,8 +329,10 @@ export async function createPosSale(
       const methods = new Map(
         (await loadPaymentMethods(client, branchId)).map((method) => [method.code, method]),
       );
-      if (plan.methods.some((code) => !methods.get(code)?.enabled))
-        throw new OrderError('METHOD_DISABLED');
+      if (plan.methods.some((code) => !methods.get(code)?.enabled)) {
+        if (!closedAllowed) throw new OrderError('METHOD_DISABLED');
+        bypassed.push('method_disabled');
+      }
       // The open sales shift of this cash desk takes the sale (and its drawer the cash).
       const shift = (
         await client.query<{ id: string; sales_mode: boolean }>(
