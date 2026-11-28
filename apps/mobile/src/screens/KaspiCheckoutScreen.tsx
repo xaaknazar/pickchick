@@ -66,6 +66,7 @@ import { useCommerceFeedback } from '../useCommerceFeedback';
 import {
   EARLIER_ORDER_NOTICE,
   ORDERING_FORBIDDEN_DEMO,
+  PAYMENT_IN_REVIEW_NOTICE,
   checkoutError,
   commerceStatus,
   earlierOrderNotice,
@@ -103,7 +104,13 @@ import {
   rememberPaymentMethod,
   usePaymentMethod,
 } from '../usePaymentMethod';
-import { phoneWallets, useTipTopPayCheckout } from '../useTipTopPayCheckout';
+import {
+  forgetTipTopPayIntent,
+  phoneWallets,
+  readTipTopPayIntent,
+  useTipTopPayCheckout,
+} from '../useTipTopPayCheckout';
+import { guardKaspiPress, holdAfterConflict, settlePaidIntent } from '../tiptoppay-recovery';
 import {
   TIPTOPPAY_TEST_BUILD,
   confirmConnectedMethod,
@@ -234,6 +241,13 @@ function KaspiCheckoutSession(
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null);
   const [restoring, setRestoring] = useState(true);
+  // A TipTopPay press is running (card / Apple Pay / Google Pay): the cart stays open and as it is.
+  const [tipTopPayBusy, setTipTopPayBusy] = useState(false);
+  // The order on screen is an earlier TipTopPay payment in review that holds a new order (409).
+  const [reviewHold, setReviewHold] = useState<string | null>(null);
+  // TipTopPay orders whose paid intent this mount has settled (cart cleared once).
+  const tipTopPaySettled = useRef(new Set<string>());
+  const resumeTipTopPay = useRef<((signal: AbortSignal) => Promise<void>) | null>(null);
   const [connectionPaused, setConnectionPaused] = useState(false);
   const [paymentPaused, setPaymentPaused] = useState(false);
   const preparation = useRef<AbortController | null>(null);
@@ -293,6 +307,9 @@ function KaspiCheckoutSession(
     !leaving &&
       ((restoring && props.screenId !== 'M09') ||
         busy ||
+        // A card / wallet payment in progress: closing the cart would cut the app's side of a
+        // charge the server completes anyway (audit 28.11 P0-2).
+        tipTopPayBusy ||
         connectionPaused ||
         paidMoment ||
         Boolean(pending.current && !order) ||
@@ -362,9 +379,32 @@ function KaspiCheckoutSession(
         pending.current = { ...draft, orderId: current.orderId };
         await AsyncStorage.setItem(key, JSON.stringify(pending.current));
       }
+      // A paid TipTopPay order, whenever it became paid (a slow bank, 3-D Secure, a restart): the
+      // cart that was paid is cleared once, exactly that one (its signature is in the saved
+      // intent); a cart built later stays. The intent is dropped (audit 28.11 P0-2).
+      if (
+        paymentReceived(current.phase) &&
+        customerId &&
+        !tipTopPaySettled.current.has(current.orderId)
+      ) {
+        tipTopPaySettled.current.add(current.orderId);
+        const intent = await readTipTopPayIntent(customerId);
+        const settled = settlePaidIntent({ order: current, intent, cart: signatureRef.current });
+        if (settled) {
+          if (settled.clearCart) {
+            props.model.clearCart(
+              cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
+            );
+            props.model.setOrderComment('');
+            props.model.comboRewards?.select(false);
+          }
+          props.model.comboRewards?.refresh();
+          await forgetTipTopPayIntent(customerId);
+        }
+      }
       return current;
     },
-    [key, props.model.clearCart],
+    [key, props.model.clearCart, customerId],
   );
   const recover = useCallback(
     async (draft: Pending, signal?: AbortSignal) => {
@@ -713,7 +753,12 @@ function KaspiCheckoutSession(
         setPriceNotice(PRICES_UPDATED);
         return null;
       }
-      return { quoteId: currentQuote.quoteId, totalMinor: String(currentQuote.totalMinor) };
+      return {
+        quoteId: currentQuote.quoteId,
+        totalMinor: String(currentQuote.totalMinor),
+        // The cart this payment is for: a late payment clears only this one.
+        signature: sent,
+      };
     } catch (e) {
       if (
         e instanceof CustomerSessionError &&
@@ -729,7 +774,6 @@ function KaspiCheckoutSession(
   };
   const tipTopPayQuoteRef = useRef(tipTopPayQuote);
   tipTopPayQuoteRef.current = tipTopPayQuote;
-  const [tipTopPayBusy, setTipTopPayBusy] = useState(false);
   const tipTopPay = useTipTopPayCheckout({
     request,
     newQuote: useCallback((signal: AbortSignal) => tipTopPayQuoteRef.current(signal), []),
@@ -741,25 +785,73 @@ function KaspiCheckoutSession(
     test: TIPTOPPAY_TEST_BUILD,
     // LIVE terminal (23.11.2026): a card / Apple Pay / Google Pay press pays a real order.
     live: useCallback(() => connectedMethodsStore.environment() === 'live', []),
+    customerId,
+    cart: useCallback(() => signatureRef.current, []),
+    cartTotal: useCallback(() => shownTotal.current, []),
+    cartLines: useCallback(
+      () =>
+        checkoutItems(cart.current).map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        })),
+      [],
+    ),
     onOrder: useCallback(
-      async (value: CustomerCommerceOrder, method: 'card' | 'apple_pay' | 'google_pay') => {
+      async (
+        value: CustomerCommerceOrder,
+        method: 'card' | 'apple_pay' | 'google_pay',
+        info?: { hold?: boolean },
+      ) => {
         // The handle and «Способ оплаты» show the method of the last payment (item 6b).
-        rememberPaymentMethod(customerId, method, 'payment');
-        if (paymentReceived(value.phase)) {
-          // The paid cart is this cart: the press quoted it a moment ago.
-          props.model.clearCart(
-            cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
-          );
-          props.model.setOrderComment('');
-          props.model.comboRewards?.select(false);
-          props.model.comboRewards?.refresh();
-        }
+        if (!info?.hold) rememberPaymentMethod(customerId, method, 'payment');
+        setReviewHold(info?.hold ? value.orderId : null);
         // The order screen takes over: number, cooking, ready (the same view as a Kaspi order).
+        // A paid order clears the cart that was paid, from the saved intent (accept).
         await acceptRef.current(value, false);
       },
-      [customerId, props.model],
+      [customerId],
     ),
   });
+  resumeTipTopPay.current = tipTopPay.resume;
+  // The cart opened, or the app came back (also from 3-D Secure, or after a restart): a saved
+  // TipTopPay intent is read once, without holding /config or the pay button, and not again on
+  // every cart edit. Nothing here charges or creates an order.
+  useEffect(() => {
+    if (!foreground || props.screenId === 'M19' || !customerId) return;
+    const controller = new AbortController();
+    void (async () => {
+      if (orderRef.current || pending.current) return;
+      await resumeTipTopPay.current?.(controller.signal);
+    })().catch(() => undefined);
+    return () => controller.abort();
+  }, [foreground, customerId, props.screenId]);
+  /**
+   * The server answered CONFLICT to a new order or a payment: if this guest's TipTopPay payment is
+   * in review, its order is shown with the exact reason instead of «Цены обновились» (the same
+   * CONFLICT also means a menu change; the guest's own orders tell which). false: not that.
+   */
+  const showHeldTipTopPay = async (signal?: AbortSignal) => {
+    try {
+      const value = (await request('/orders', 'GET', undefined, signal)) as { orders?: unknown };
+      if (!Array.isArray(value.orders)) return false;
+      const hold = holdAfterConflict(
+        value.orders.map((item) => CustomerCommerceOrderSchema.parse(item)),
+        await readTipTopPayIntent(customerId),
+        Date.now(),
+      );
+      if (!hold || signal?.aborted) return false;
+      // A create intent without an order never got one: the server refused it for this hold.
+      if (pending.current && !pending.current.orderId) {
+        await AsyncStorage.removeItem(key).catch(() => undefined);
+        pending.current = null;
+      }
+      setReviewHold(hold.state === 'paid' ? null : hold.order.orderId);
+      await acceptRef.current(hold.order, false);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
     // This session sends Kaspi invoices only; another active method never sends one. Until that
@@ -875,16 +967,30 @@ function KaspiCheckoutSession(
         pending.current = null;
       }
       const result = await prepared(() => request('/orders', 'GET', undefined, controller.signal));
+      const listed = (result as { orders: unknown[] }).orders.map((value) =>
+        CustomerCommerceOrderSchema.parse(value),
+      );
+      // A TipTopPay payment of this guest that is not over (its charge may be on its way, it is in
+      // review, or it was paid and not yet shown) holds a Kaspi order too: paying twice is the
+      // one thing to prevent (audit 28.11 P0-2).
+      const held = guardKaspiPress(await readTipTopPayIntent(customerId), listed, Date.now());
+      if (held?.kind === 'wait') {
+        setResumeNotice(t(PAYMENT_IN_REVIEW_NOTICE));
+        return;
+      }
+      if (held) {
+        setReviewHold(held.state === 'paid' ? null : held.order.orderId);
+        await accept(held.order, false);
+        return;
+      }
       // Only an order the bank may still charge is resumed; unbilled or attention orders stay
       // in «Заказы» and the current cart becomes a new order.
-      const existing = resumableOrder(
-        (result as { orders: unknown[] }).orders.map((value) =>
-          CustomerCommerceOrderSchema.parse(value),
-        ),
-        Date.now(),
-      );
+      const existing = resumableOrder(listed, Date.now());
       if (existing) {
         setReopened(existing.orderId);
+        // A TipTopPay payment still with the bank holds this press: say so (not the Kaspi text).
+        if ((await readTipTopPayIntent(customerId))?.orderId === existing.orderId)
+          setReviewHold(existing.orderId);
         await accept(existing);
         return;
       }
@@ -938,6 +1044,16 @@ function KaspiCheckoutSession(
       setIntentSaved(draft.key);
       await accept(await prepared(() => recover(draft, controller.signal)));
     } catch (e) {
+      // CONFLICT is also the server's answer while a TipTopPay payment of this guest is in review
+      // (audit 28.11 P0-2): the guest's orders tell it from a menu change, never the error text.
+      if (
+        e instanceof CustomerSessionError &&
+        e.authoritative &&
+        e.code === 'CONFLICT' &&
+        (await showHeldTipTopPay(controller.signal))
+      ) {
+        return;
+      }
       // Transport failures stay on the connecting scene; only a final actionable outcome returns.
       if (
         e instanceof CustomerSessionError &&
@@ -1020,7 +1136,14 @@ function KaspiCheckoutSession(
         ),
       );
     } catch (e) {
-      if (e instanceof CustomerSessionError && e.authoritative && e.code === 'MENU_CHANGED')
+      if (
+        e instanceof CustomerSessionError &&
+        e.authoritative &&
+        e.code === 'CONFLICT' &&
+        (await showHeldTipTopPay(controller.signal))
+      ) {
+        // The earlier TipTopPay order is shown; this Kaspi order was not billed.
+      } else if (e instanceof CustomerSessionError && e.authoritative && e.code === 'MENU_CHANGED')
         await refreshChangedMenu(order.orderId);
       else if (paymentRefused(e)) {
         // Audit 2.1: the restaurant refused to bill this order (stop list, closed, not ready,
@@ -1308,8 +1431,23 @@ function KaspiCheckoutSession(
           // QA 28.10 (item 19): a pay tap that reopened an earlier order at the bank, while the
           // cart now differs from it, says at once which order this is and why no new one.
           props.screenId !== 'M19' &&
-          reopened === order.orderId &&
-          earlierOrderNotice(order, { lines: props.model.cart.length, totalMinor: localTotal }) ? (
+          reviewHold === order.orderId &&
+          !paymentReceived(order.phase) ? (
+            <View
+              testID="tiptoppay-review-notice"
+              style={[s.earlier, tightScreen && s.tightEarlier]}
+              accessibilityLiveRegion="polite"
+            >
+              <Caption style={[s.earlierText, tightScreen && s.tightEarlierText]}>
+                {t(PAYMENT_IN_REVIEW_NOTICE)}
+              </Caption>
+            </View>
+          ) : props.screenId !== 'M19' &&
+            reopened === order.orderId &&
+            earlierOrderNotice(order, {
+              lines: props.model.cart.length,
+              totalMinor: localTotal,
+            }) ? (
             <View
               testID="kaspi-earlier-order"
               style={[s.earlier, tightScreen && s.tightEarlier]}
