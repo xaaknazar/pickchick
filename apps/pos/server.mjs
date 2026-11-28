@@ -9,6 +9,8 @@ import {
   SHIFT_FILTERED,
   DAY_RANGE_PATH,
   DAY_RANGE_QUERY,
+  SCOPE_PATH,
+  SCOPE_QUERY,
   createMenuMediaCache,
   menuMediaResponse,
 } from '../pos-desktop/protocol.mjs';
@@ -23,10 +25,12 @@ const SALE_WRITES = SALE_ROUTES.write.join('|');
 const FILTERED = SHIFT_FILTERED.map((path) => `${path}\\?shift_id=${UUID}`).join('|');
 // 23.11: «Заказы» of every channel between two days (pos-desktop protocol.mjs).
 const DAY_RANGE = `${DAY_RANGE_PATH}${DAY_RANGE_QUERY}`;
+// CR pos-8: a shift manager reads the paid attempts without an order of the other desks.
+const OTHER_DESKS = `${SCOPE_PATH}${SCOPE_QUERY}`;
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|${DAY_RANGE}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|${DAY_RANGE}|${OTHER_DESKS}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
         'i',
       ).test(path)
     : method === 'POST' &&

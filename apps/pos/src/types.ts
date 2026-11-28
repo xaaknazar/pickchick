@@ -848,6 +848,22 @@ export type TerminalPayment = {
   transaction_id: string | null;
   message: string | null;
   order_id: string | null;
+  /** This desk's terminal (a list of other desks names it). Absent in older answers. */
+  terminal_id?: string;
+  created_at?: string;
+  /**
+   * Edge schema030 (CR pos-8): the cashier who sent the amount, and when the payment without an
+   * order was released by hand (null until then). An older point sends neither key (undefined).
+   */
+  staff_id?: string | null;
+  released_at?: string | null;
+};
+/** GET cash-shifts/{id}/terminal-releases: what was released at one shift (CR pos-8). */
+export type TerminalReleases = {
+  shift_id: string;
+  count: number;
+  amount_minor: string;
+  items: { attempt_id: string; amount_minor: string; released_at: string }[];
 };
 export type SaleTender = {
   tender_id: string;
@@ -969,10 +985,38 @@ export function terminalPayment(value: unknown): TerminalPayment {
     transaction_id: optional(t.transaction_id),
     message: optional(t.message),
     order_id: t.order_id === null || t.order_id === undefined ? null : uuid(t.order_id),
+    ...(t.terminal_id === undefined ? {} : { terminal_id: uuid(t.terminal_id) }),
+    ...(typeof t.created_at === 'string' && Number.isFinite(Date.parse(t.created_at))
+      ? { created_at: t.created_at }
+      : {}),
+    // Kept apart from "null": a point that sends no keys cannot release or tell who sent it.
+    ...(t.staff_id === undefined
+      ? {}
+      : { staff_id: t.staff_id === null ? null : uuid(t.staff_id) }),
+    ...(t.released_at === undefined
+      ? {}
+      : { released_at: t.released_at === null ? null : date(t.released_at) }),
   };
 }
 export function terminalPayments(value: unknown): TerminalPayment[] {
   return array(record(value).items, 50).map(terminalPayment);
+}
+export function terminalReleases(value: unknown): TerminalReleases {
+  const r = record(value);
+  const items = array(r.items, 500).map((v) => {
+    const i = record(v);
+    return {
+      attempt_id: uuid(i.attempt_id),
+      amount_minor: minor(i.amount_minor),
+      released_at: date(i.released_at),
+    };
+  });
+  return {
+    shift_id: uuid(r.shift_id),
+    count: integer(r.count, 0, Number.MAX_SAFE_INTEGER),
+    amount_minor: minor(r.amount_minor),
+    items,
+  };
 }
 /** The kitchen number is a positive integer; the edge may send it as a number or a string. */
 function displayNumber(value: unknown): string {

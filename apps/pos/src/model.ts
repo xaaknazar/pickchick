@@ -22,6 +22,7 @@ import type {
   Selection,
   EdgeCloudLink,
   TerminalPayment,
+  TerminalReleases,
 } from './types.js';
 import {
   ApiError,
@@ -78,7 +79,13 @@ export type SalePayment =
   | { method: 'marketing'; reason: string };
 /** Approval actions the cashier asks for (contracts section 2.1, P0 subset). */
 export type ApprovalAction =
-  'staff_meal' | 'marketing' | 'void' | 'refund' | 'fiscal_correct' | 'shift_close_pending_fiscal';
+  | 'staff_meal'
+  | 'marketing'
+  | 'void'
+  | 'refund'
+  | 'fiscal_correct'
+  | 'shift_close_pending_fiscal'
+  | 'terminal_release';
 /**
  * What one approval is for (POST staff/approvals `subject`). Built only by the helpers below, so
  * the key order is fixed and two subjects compare by their JSON.
@@ -116,6 +123,13 @@ export const closeSubject = (
   shift_id: shiftId,
   amount_minor: pending.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n).toString(),
 });
+/**
+ * terminal_release (CR pos-8): the quote and the amount of the paid attempt without an order that
+ * is released. The point compares this subject with the attempt it names.
+ */
+export const terminalReleaseSubject = (
+  t: Pick<TerminalPayment, 'quote_id' | 'amount_minor'>,
+): ApprovalSubject => ({ quote_id: t.quote_id, amount_minor: t.amount_minor });
 /** One-time shift manager approval for one subject; never written to the journal with a PIN. */
 export type HeldApproval = Approval & {
   action: ApprovalAction;
@@ -194,7 +208,18 @@ const OPERATION_REJECTIONS = new Set([
   'DRAWER_INSUFFICIENT',
 ]);
 /** Definite answers to closing a sales shift: pending receipts without a valid approval. */
-const CLOSE_REJECTIONS = new Set(['FISCAL_PENDING', 'APPROVAL_REQUIRED', 'APPROVAL_INVALID']);
+const CLOSE_REJECTIONS = new Set([
+  'FISCAL_PENDING',
+  'APPROVAL_REQUIRED',
+  'APPROVAL_INVALID',
+  // CR pos-8: the desk has paid attempts without an order; the cashier finishes or releases them.
+  'TERMINAL_UNSOLD_PAYMENTS',
+]);
+/** What the cashier reads when a paid attempt was released on the point (CR pos-8). */
+export const TERMINAL_RELEASED_NOTICE =
+  'Оплата на терминале снята начальником смены - возврат сделан на терминале';
+/** The cashier asks about a held paid attempt of its own this often (the point never polls it). */
+export const TERMINAL_RELEASE_POLL_MS = 5000;
 const VOID_KEYS = ['expected_version', 'reason_code', 'reason', 'fiscal_sale_issued', 'approval'];
 const REFUND_KEYS = ['refund_id', 'tenders', 'reason_code', 'reason', 'approval'];
 const CLOSE_KEYS = [
@@ -561,6 +586,15 @@ export type State = {
   /** Terminal operations of this desk left unfinished (GET pos/terminal-payments/open). */
   terminalOpen: TerminalPayment[];
   /**
+   * A shift manager only: paid attempts without an order of the OTHER desks of the point (GET
+   * pos/terminal-payments/open?scope=other_desks), so they can be released from here.
+   */
+  terminalOthers: TerminalPayment[];
+  /** The last release of this desk's own hold found on the point; `id` grows, shown once. */
+  terminalNotice: { id: number; text: string } | null;
+  /** GET cash-shifts/{id}/terminal-releases of the shift the X or Z report on screen is of. */
+  terminalReleases: TerminalReleases | null;
+  /**
    * The edge refused the sale of an attempt this desk already has paid (no order): the guest has
    * paid, so the attempt and its quote stay and the cashier sells again by hand (retryPaidSale).
    * Within one session nothing retries by itself. It is NOT written to the journal (the desktop
@@ -658,6 +692,9 @@ const blankOperations = () => ({
   webkassaEnvironment: null as 'test' | 'live' | null,
   terminal: null as TerminalPayment | null,
   terminalOpen: [] as TerminalPayment[],
+  terminalOthers: [] as TerminalPayment[],
+  terminalNotice: null as { id: number; text: string } | null,
+  terminalReleases: null as TerminalReleases | null,
   terminalRefusal: null as { attempt_id: string; code: string } | null,
   branchOrders: null as BranchOrders | null,
   branchOrdersMissing: false,
@@ -772,6 +809,15 @@ export class PosController {
   private cloudLinkMissingUntil = -Infinity;
   private posConfigAt = -Infinity;
   private posConfigMissingUntil = -Infinity;
+  /** When this desk last asked the point whether its held paid attempt was released. */
+  private terminalReleaseAt = -Infinity;
+  private noticeSeq = 0;
+  /**
+   * A release sent and not answered for sure, by attempt: its key and body stay until the answer
+   * is known, so a repeat is the same request (CR pos-8). In memory only: the journal of the
+   * desktop accepts nothing else, and a restart finds the result in GET of the attempt anyway.
+   */
+  private releases = new Map<string, { key: string; body: Record<string, unknown> }>();
   /** When each entry of state.saleReceipts was last read (or its read last failed). */
   private receiptReadAt = new Map<string, number>();
   /** The edge runs the paid mode (`pos_sale`); otherwise every screen is today's cashier. */
@@ -1169,6 +1215,7 @@ export class PosController {
     this.posConfigAt = -Infinity;
     this.operationsSaleAt = -Infinity;
     this.posConfigMissingUntil = -Infinity;
+    this.terminalReleaseAt = -Infinity;
     this.receiptReadAt.clear();
     await this.refreshData();
     await this.readOperations();
@@ -1197,6 +1244,11 @@ export class PosController {
     }
     if (epoch !== this.generation) return;
     if (t.attempt_id !== hold.attempt_id || t.quote_id !== hold.quote.quote_id) return;
+    // Released by a shift manager while this window was closed: the guest got the money back.
+    if (t.released_at) {
+      this.applyRelease(t);
+      return;
+    }
     if (t.order_id || t.state === 'fail' || t.state === 'send_failed') {
       this.dropTerminalHold();
       return;
@@ -1946,6 +1998,11 @@ export class PosController {
     if (['TERMINAL_ATTEMPT_INVALID', 'CONFLICT'].includes(codeOf(error))) {
       try {
         const now = parse.terminalPayment(await this.request(`pos/terminal-payments/${attempt}`));
+        // Released by hand: it can never be sold. The hold, its quote and the pending sale go.
+        if (now.attempt_id === attempt && now.released_at) {
+          this.applyRelease(now);
+          return true;
+        }
         if (
           now.attempt_id === attempt &&
           now.order_id &&
@@ -2043,8 +2100,11 @@ export class PosController {
       ) {
         this.save({ ...j, pending: null });
         this.state.approval = null;
-        if (p.kind === 'shift_close') await this.refreshFiscal();
-        else await this.reloadSaleOrder(p.path.split('/')[2]!);
+        if (p.kind === 'shift_close') {
+          await this.refreshFiscal();
+          if (error.code === 'TERMINAL_UNSOLD_PAYMENTS')
+            await this.readOpenTerminalPayments().catch(() => {});
+        } else await this.reloadSaleOrder(p.path.split('/')[2]!);
         if (error.code === 'SERVICE_MODE_DISABLED') await this.refreshPosConfig(true);
         throw error;
       }
@@ -2647,7 +2707,10 @@ export class PosController {
     const other = this.state.terminalOpen.filter((t) => t.attempt_id !== own);
     const paid = other.find((t) => t.state === 'success' && !t.order_id);
     if (paid)
-      return `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
+      // A point with the release routes: the screen lists it for every cashier of this desk.
+      return paid.released_at !== undefined
+        ? `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа - откройте «Оплаты без заказа»`
+        : `Оплачено на терминале ${parse.money(paid.amount_minor)} без заказа: войдите тем кассиром, кто отправил сумму`;
     if (other.some((t) => t.state === 'lost'))
       return 'Терминал Kaspi: проверьте последнюю операцию на его экране';
     if (other.some((t) => terminalActive(t)))
@@ -2746,6 +2809,10 @@ export class PosController {
         this.fail(new Error('INVALID_RESPONSE'));
         return;
       }
+      if (next.released_at) {
+        this.applyRelease(next);
+        return;
+      }
       this.state.terminal = next;
       this.keepTerminalHold(next);
       this.emit();
@@ -2753,9 +2820,83 @@ export class PosController {
     }
     const paid = this.state.terminal!;
     if (this.state.quote?.quote_id !== paid.quote_id) return;
-    // Refused for good once: never again by itself (one tap of the cashier is one request).
-    if (this.state.terminalRefusal?.attempt_id === paid.attempt_id) return;
+    // Refused for good once: never again by itself (one tap of the cashier is one request). The
+    // point does not ask the terminal about a success, so a release by hand is found by a slow
+    // question about the attempt instead.
+    if (this.state.terminalRefusal?.attempt_id === paid.attempt_id) {
+      await this.pollTerminalRelease();
+      return;
+    }
     await this.sellPaid(paid.attempt_id, null);
+  }
+  /**
+   * One question about this desk's held paid attempt: was it released by a shift manager? Asked
+   * at most every TERMINAL_RELEASE_POLL_MS (the first call only starts the window), and only while
+   * the paid attempt is held; `force` asks at once (the open list no longer names the attempt).
+   */
+  private async pollTerminalRelease(force = false) {
+    const t = this.state.terminal,
+      epoch = this.generation,
+      now = this.now();
+    if (!t || t.state !== 'success' || t.order_id || !this.credential) return;
+    if (!force) {
+      if (this.terminalReleaseAt === -Infinity) {
+        this.terminalReleaseAt = now;
+        return;
+      }
+      if (now - this.terminalReleaseAt < TERMINAL_RELEASE_POLL_MS) return;
+    }
+    this.terminalReleaseAt = now;
+    let next: TerminalPayment;
+    try {
+      next = parse.terminalPayment(await this.request(`pos/terminal-payments/${t.attempt_id}`));
+    } catch (error) {
+      if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+        this.fail(error);
+      return;
+    }
+    if (epoch !== this.generation || this.state.terminal?.attempt_id !== t.attempt_id) return;
+    if (next.attempt_id !== t.attempt_id || !next.released_at) return;
+    this.applyRelease(next);
+  }
+  /**
+   * The point released this attempt (a shift manager, the refund was made on the terminal): it
+   * can never get an order. What this desk holds for it goes - the amount, its quote, the pending
+   * sale of it, the hold in the journal - and the cashier is told. The cart draft stays.
+   */
+  private applyRelease(t: TerminalPayment) {
+    const j = this.journal;
+    this.releases.delete(t.attempt_id);
+    this.state.terminalOpen = this.state.terminalOpen.filter((x) => x.attempt_id !== t.attempt_id);
+    this.state.terminalOthers = this.state.terminalOthers.filter(
+      (x) => x.attempt_id !== t.attempt_id,
+    );
+    const mine =
+      this.state.terminal?.attempt_id === t.attempt_id || j?.terminal?.attempt_id === t.attempt_id;
+    if (!mine) {
+      this.emit();
+      return;
+    }
+    if (j) {
+      const { terminal: _hold, ...rest } = j;
+      void _hold;
+      try {
+        this.save({
+          ...rest,
+          pending: attemptOf(j.pending) === t.attempt_id ? null : j.pending,
+        });
+      } catch {
+        // Storage refused: the hold is dropped again at the next chance; nothing is charged by it.
+      }
+    }
+    if (this.state.quote?.quote_id === t.quote_id) this.state.quote = null;
+    this.state.terminal = null;
+    this.state.terminalRefusal = null;
+    this.state.saleDraft = blankSaleDraft();
+    this.state.approval = null;
+    this.terminalReleaseAt = -Infinity;
+    this.state.terminalNotice = { id: ++this.noticeSeq, text: TERMINAL_RELEASED_NOTICE };
+    this.emit();
   }
   /** The terminal said no (or never got the amount): the cashier may send again or pay another way. */
   dismissTerminal() {
@@ -2768,8 +2909,9 @@ export class PosController {
   async readOpenTerminalPayments() {
     const epoch = this.generation;
     if (!this.state.posConfig?.kaspi_terminal_link) {
-      if (this.state.terminalOpen.length) {
+      if (this.state.terminalOpen.length || this.state.terminalOthers.length) {
         this.state.terminalOpen = [];
+        this.state.terminalOthers = [];
         this.emit();
       }
       return;
@@ -2780,6 +2922,191 @@ export class PosController {
       this.state.terminalOpen = open;
       this.emit();
     }
+    // A held paid attempt the list no longer names was sold or released: the attempt says which.
+    const own = this.state.terminal;
+    if (
+      own?.state === 'success' &&
+      !own.order_id &&
+      !open.some((t) => t.attempt_id === own.attempt_id)
+    )
+      await this.pollTerminalRelease(true);
+    await this.readOtherDesks();
+  }
+  /**
+   * A shift manager reads the paid attempts without an order of the other desks (CR pos-8). A
+   * refusal or an older point (400, 403, 404, an answer that does not parse) is an empty list and
+   * never an error on the screen; a lost answer keeps the last list.
+   */
+  private async readOtherDesks() {
+    const epoch = this.generation,
+      actor = this.state.actor;
+    let others: TerminalPayment[] = [];
+    if (actor?.role === 'shift_manager' && this.state.posConfig?.kaspi_terminal_link) {
+      try {
+        others = parse
+          .terminalPayments(await this.request('pos/terminal-payments/open?scope=other_desks'))
+          // An older point ignores the scope and answers with this desk's own attempts, which carry
+          // no released_at key: only what a new point sent for another desk is taken.
+          .filter(
+            (t) =>
+              t.state === 'success' &&
+              !t.order_id &&
+              t.released_at === null &&
+              t.terminal_id !== undefined &&
+              t.terminal_id !== actor.terminal_id,
+          );
+      } catch (error) {
+        if (epoch !== this.generation) return;
+        if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+          this.fail(error);
+          return;
+        }
+        if (error instanceof ApiError && ![400, 403, 404].includes(error.status)) return;
+      }
+    }
+    if (epoch !== this.generation || unchanged(others, this.state.terminalOthers)) return;
+    this.state.terminalOthers = others;
+    this.emit();
+  }
+  /** What this desk may do about paid attempts without an order, from what the point sent. */
+  get unsoldPayments() {
+    const t = this.state.terminal;
+    const own = this.state.terminalOpen.filter((x) => x.state === 'success' && !x.order_id);
+    if (
+      t &&
+      t.state === 'success' &&
+      !t.order_id &&
+      !own.some((x) => x.attempt_id === t.attempt_id)
+    )
+      own.unshift(t);
+    // A point with the release routes sends released_at on every attempt; an older one never does.
+    return own.filter((x) => x.released_at === null);
+  }
+  /** The screen «Оплаты без заказа» exists only against a point that sends released_at. */
+  get terminalPaymentsAvailable() {
+    if (!this.saleMode || !this.state.posConfig?.kaspi_terminal_link) return false;
+    return [this.state.terminal, ...this.state.terminalOpen, ...this.state.terminalOthers].some(
+      (t) => t?.released_at !== undefined,
+    );
+  }
+  /** Reads the lists of the screen at once (the poll reads them every 30 s). */
+  async refreshTerminalPayments() {
+    if (!this.saleMode || !this.credential) return;
+    await this.readOpenTerminalPayments();
+  }
+  /** This desk's own hold is for this attempt, the journal has it, and this cashier sent it. */
+  canSellPaid(attemptId: string) {
+    const t = this.state.terminal,
+      hold = this.journal?.terminal,
+      actor = this.state.actor;
+    return Boolean(
+      actor &&
+      t &&
+      t.attempt_id === attemptId &&
+      t.state === 'success' &&
+      !t.order_id &&
+      hold?.attempt_id === attemptId &&
+      hold.quote.quote_id === t.quote_id &&
+      (t.staff_id === undefined || t.staff_id === null || t.staff_id === actor.staff_id),
+    );
+  }
+  /** A release was sent and its answer is not known: the next try is the same request. */
+  releaseUnknown(attemptId: string) {
+    return this.releases.has(attemptId);
+  }
+  /**
+   * POST pos/terminal-payments/{id}/release (CR pos-8): the guest paid on the terminal, no order
+   * can be made, the refund was done by hand on the terminal, and a shift manager approved with
+   * a PIN (approval terminal_release for {quote_id, amount_minor}). The Idempotency-Key and the
+   * body are kept until the answer is known; after a lost answer the attempt is read first, and
+   * released_at there is the success. A 404 is a point without the route. True when released.
+   */
+  async releaseTerminalPayment(attemptId: string, reason: string): Promise<boolean> {
+    let released = false;
+    await this.run(async () => {
+      try {
+        released = await this.releaseOnce(attemptId, reason);
+      } catch (error) {
+        // The screen words these for the release (not for a sale): the error carries the context.
+        if (error instanceof Error) Object.assign(error, { terminalRelease: true });
+        throw error;
+      }
+    });
+    return released;
+  }
+  private async releaseOnce(attemptId: string, reason: string): Promise<boolean> {
+    if (!this.saleMode || !this.state.actor) throw new Error('SERVICE_MODE_DISABLED');
+    const known = [
+      ...(this.state.terminal ? [this.state.terminal] : []),
+      ...this.state.terminalOpen,
+      ...this.state.terminalOthers,
+    ].find((t) => t.attempt_id === attemptId);
+    if (!known || known.state !== 'success' || known.order_id || known.released_at)
+      throw new Error('TERMINAL_ATTEMPT_INVALID');
+    let saved = this.releases.get(attemptId);
+    if (saved) {
+      // The earlier request may have been committed: ask the point before sending anything.
+      const now = parse.terminalPayment(await this.request(`pos/terminal-payments/${attemptId}`));
+      if (now.attempt_id !== attemptId) throw new Error('INVALID_RESPONSE');
+      if (now.released_at) {
+        this.releases.delete(attemptId);
+        this.applyRelease(now);
+        return true;
+      }
+      if (now.order_id) {
+        this.releases.delete(attemptId);
+        throw new Error('TERMINAL_ATTEMPT_INVALID');
+      }
+    } else {
+      const text = reason.trim();
+      if (text.length < 3 || text.length > 300) throw new Error('REASON_REQUIRED');
+      const approval = approvalProof(
+        this.state.approval,
+        'terminal_release',
+        terminalReleaseSubject(known),
+        this.now(),
+        this.state.posConfig?.approval_ttl_seconds ?? 0,
+      );
+      saved = {
+        key: this.newKey(),
+        body: { reason: text, refunded_on_terminal: true, approval },
+      };
+      this.releases.set(attemptId, saved);
+    }
+    let value: unknown;
+    try {
+      value = await this.request(`pos/terminal-payments/${attemptId}/release`, {
+        method: 'POST',
+        body: saved.body,
+        key: saved.key,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        // The route is not there (an older point server, or no schema 030): nothing was done.
+        this.releases.delete(attemptId);
+        throw new Error('TERMINAL_RELEASE_UNSUPPORTED', { cause: error });
+      }
+      if (
+        error instanceof ApiError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        ![408, 429].includes(error.status)
+      ) {
+        // A definite refusal: this key never succeeds, and the approval is spent or invalid.
+        this.releases.delete(attemptId);
+        this.state.approval = null;
+        if (error.code === 'TERMINAL_ATTEMPT_INVALID')
+          await this.readOpenTerminalPayments().catch(() => {});
+      }
+      // Any other answer (a lost one, a timeout, 5xx) leaves the outcome unknown: same key again.
+      throw error;
+    }
+    const t = parse.terminalPayment(value);
+    if (t.attempt_id !== attemptId || !t.released_at) throw new Error('INVALID_RESPONSE');
+    this.releases.delete(attemptId);
+    this.state.approval = null;
+    this.applyRelease(t);
+    return true;
   }
   /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
   async recordReceipt(receiptNumber: string) {
@@ -3206,13 +3533,33 @@ export class PosController {
       const shift = this.state.shift;
       if (!this.saleMode || shift?.state !== 'open') throw new Error('CASH_SHIFT_REQUIRED');
       this.state.shiftReport = await this.readReport('x', shift.shift_id);
+      await this.readTerminalReleases(shift.shift_id);
     });
+  }
+  /**
+   * GET cash-shifts/{id}/terminal-releases for the report line (CR pos-8). Best effort: a point
+   * without the route (404), a lost answer or an answer that does not parse is no line, and the
+   * report itself is never held back by it.
+   */
+  async readTerminalReleases(shiftId: string) {
+    const epoch = this.generation;
+    let value: TerminalReleases | null;
+    try {
+      const list = parse.terminalReleases(
+        await this.request(`cash-shifts/${parse.uuid(shiftId)}/terminal-releases`),
+      );
+      value = list.shift_id === shiftId ? list : null;
+    } catch {
+      value = null;
+    }
+    if (epoch === this.generation) this.state.terminalReleases = value;
   }
   /** The frozen Z report of a closed sales shift (GET cash-shifts/{id}/z-report). */
   async zReport(shiftId: string) {
     await this.run(async () => {
       if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
       this.state.zReport = await this.readReport('z', shiftId);
+      await this.readTerminalReleases(shiftId);
     });
   }
   /** Pending receipts of one shift, for the close wizard (the closing manager's session). */

@@ -958,6 +958,7 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       `cash-shifts/${uuid}/z-report`,
       'pos/terminal-payments/open',
       `pos/terminal-payments/${uuid}`,
+      `cash-shifts/${uuid}/terminal-releases`,
       'pos/branch-orders',
       `pos/fiscal-receipts/${uuid}/webkassa`,
       `pos/fiscal-receipts/${uuid}/webkassa/print`,
@@ -971,6 +972,7 @@ test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () =
       `pos/sales/${uuid}/refunds`,
       `pos/fiscal-receipts/${uuid}/record`,
       'pos/terminal-payments',
+      `pos/terminal-payments/${uuid}/release`,
     ],
   });
   // The gateway profile (CL-4) imports these two expressions instead of copying them.
@@ -1287,5 +1289,77 @@ test('an unresponsive remote edge is bounded by the transport timeout', async ()
     );
   } finally {
     await stop(idle);
+  }
+});
+
+// ---- Stage 3 (CR pos-8): release of a paid terminal attempt without an order -----------------
+
+const RELEASE_GET = [
+  `cash-shifts/${ID}/terminal-releases`,
+  `pos/terminal-payments/${ID}`,
+  'pos/terminal-payments/open',
+  'pos/terminal-payments/open?scope=other_desks',
+];
+const RELEASE_POST = [`pos/terminal-payments/${ID}/release`];
+const RELEASE_REFUSED = [
+  ['GET', 'pos/terminal-payments/open?scope=all'],
+  ['GET', 'pos/terminal-payments/open?scope=other_desks&all=1'],
+  ['GET', 'pos/terminal-payments/open?scope=other_desks&scope=other_desks'],
+  ['GET', `pos/terminal-payments/${ID}?scope=other_desks`],
+  ['GET', 'pos/config?scope=other_desks'],
+  ['POST', 'pos/terminal-payments/open?scope=other_desks'],
+  ['GET', `pos/terminal-payments/${ID}/release`],
+  ['POST', `pos/terminal-payments/${ID}/release?force=1`],
+  ['POST', 'pos/terminal-payments/release'],
+  ['POST', `pos/terminal-payments/${ID}/refund`],
+  ['POST', `cash-shifts/${ID}/terminal-releases`],
+  ['GET', `cash-shifts/${ID}/terminal-releases?all=1`],
+  ['GET', 'cash-shifts/current/terminal-releases'],
+];
+
+test('release routes and the other_desks scope pass the desktop adapter and the browser server alike', async () => {
+  await fixture(async (handler, upstream) => {
+    for (const path of RELEASE_GET) {
+      assert.equal(isAllowedRendererURL(new URL('/edge/v1/' + path, APP_URL).href), true, path);
+      assert.equal((await handler(request('/edge/v1/' + path))).status, 200, path);
+      assert.equal(upstream.at(-1).url, `http://127.0.0.1:3101/edge/v1/${path}`);
+    }
+    for (const path of RELEASE_POST) {
+      assert.equal((await handler(request(`/edge/v1/${path}`, saleRequest('POST')))).status, 200);
+      assert.equal(upstream.at(-1).options.method, 'POST');
+    }
+    const forwarded = upstream.length;
+    for (const [method, path] of RELEASE_REFUSED)
+      assert.ok(
+        (await handler(request(`/edge/v1/${path}`, saleRequest(method)))).status >= 400,
+        method + ' ' + path,
+      );
+    assert.equal(upstream.length, forwarded, 'refused paths never reach the edge');
+  });
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  const seen = [];
+  const edge = createServer((req, res) => {
+    seen.push(`${req.method} ${req.url}`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{}');
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const pos = createPosServer({ edgePort: edge.address().port });
+  await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${pos.address().port}/edge/v1/`;
+    for (const path of RELEASE_GET)
+      assert.equal((await fetch(base + path)).status, 200, 'server GET ' + path);
+    for (const path of RELEASE_POST)
+      assert.equal((await fetch(base + path, saleRequest('POST'))).status, 200, 'server ' + path);
+    for (const [method, path] of RELEASE_REFUSED)
+      assert.ok((await fetch(base + path, saleRequest(method))).status >= 400, method + ' ' + path);
+    assert.deepEqual(seen, [
+      ...RELEASE_GET.map((path) => `GET /edge/v1/${path}`),
+      ...RELEASE_POST.map((path) => `POST /edge/v1/${path}`),
+    ]);
+  } finally {
+    await new Promise((resolve) => pos.close(resolve));
+    await new Promise((resolve) => edge.close(resolve));
   }
 });

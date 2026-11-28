@@ -131,8 +131,19 @@ export function reportRows(report) {
       : [['Итог терминала Kaspi', report.terminal_reported_minor]]),
   ];
 }
+/**
+ * «Оплаты без заказа, возврат на терминале: N на S» (CR pos-8): what shift managers released at
+ * this shift. Only with a list of this very shift and at least one release; an older point sends
+ * none, and the money rows and the terminal reconciliation above do not change.
+ */
+function releasedLines(report, releases) {
+  if (!releases || releases.shift_id !== report.shift_id || !(releases.count > 0)) return [];
+  return [
+    `Оплаты без заказа, возврат на терминале: ${releases.count} на ${money(releases.amount_minor)}`,
+  ];
+}
 /** Text lines of a report that are not plain amounts (differences, receipts, orders). */
-export function reportLines(report) {
+export function reportLines(report, releases = null) {
   return [
     ...(report.discrepancy_minor === null
       ? []
@@ -142,20 +153,26 @@ export function reportLines(report) {
       : ['Расхождение терминала Kaspi: ' + signed(report.terminal_discrepancy_minor)]),
     `Заказов: ${report.orders.count}, отменено: ${report.orders.voided_count}`,
     `Чеки Webkassa: оформлено ${report.fiscal.recorded}, не оформлено ${report.fiscal.pending}, не нужен ${report.fiscal.not_required}`,
+    ...releasedLines(report, releases),
   ];
 }
 /**
  * The typed ticket of an X or Z report (contracts section 5.8): main builds the paper from this
  * JSON only, the renderer never sends HTML. Amounts stay strings of tiyn.
  */
-export function reportTicket(report, terminalLabel, printedAt = new Date().toISOString()) {
+export function reportTicket(
+  report,
+  terminalLabel,
+  printedAt = new Date().toISOString(),
+  releases = null,
+) {
   return {
     kind: report.kind === 'z' ? 'z_report' : 'x_report',
     title:
       report.kind === 'z'
         ? 'Z-отчёт PickChick (не фискальный)'
         : 'X-отчёт PickChick (не фискальный)',
-    lines: reportLines(report),
+    lines: reportLines(report, releases),
     totals: reportRows(report).map(([label, amount_minor]) => ({ label, amount_minor })),
     tenders: report.methods.map((m) => ({
       method: m.method,
@@ -296,6 +313,7 @@ export class OpsView {
    * @param options.endSession locks the desk after the Z report
    * @param options.printer the pos-desktop printer bridge, or undefined (contracts 5.8)
    * @param options.terminalLabel the desk name printed on tickets
+   * @param options.openTerminalPayments opens «Оплаты без заказа» with a note (the close wizard)
    */
   constructor(model, sale, options) {
     this.model = model;
@@ -309,6 +327,7 @@ export class OpsView {
     this.endSession = options.endSession;
     this.printer = options.printer;
     this.terminalLabel = options.terminalLabel ?? 'Касса';
+    this.openTerminalPayments = options.openTerminalPayments;
     this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.clock = options.clock ?? (() => Date.now());
   }
@@ -994,10 +1013,17 @@ export class OpsView {
         name: `${CHANNEL_NAMES[c.sales_channel]} · ${c.count}`,
         value: money(c.total_minor),
       })),
-      opsReportLines: reportLines(report).map((text, i) => ({ key: String(i), text })),
+      opsReportLines: reportLines(report, this.model.state.terminalReleases).map((text, i) => ({
+        key: String(i),
+        text,
+      })),
       opsReportRevenue: money(reportRevenue(report)),
       opsReportZ: z,
-      opsReportPrint: g(() => this.print(reportTicket(report, this.terminalLabel))),
+      opsReportPrint: g(() =>
+        this.print(
+          reportTicket(report, this.terminalLabel, undefined, this.model.state.terminalReleases),
+        ),
+      ),
       opsReportClose: g(() => {
         if (!z) {
           this.setState({ report: null });
@@ -1030,10 +1056,25 @@ export class OpsView {
       this.say('Сначала откройте смену');
       return;
     }
+    // CR pos-8: paid on the terminal without an order. The point refuses the close then anyway
+    // (TERMINAL_UNSOLD_PAYMENTS); asking first saves the manager the whole wizard. An older point
+    // sends no released_at, m.unsoldPayments is empty, and the close goes as it always did.
+    await m.refreshTerminalPayments().catch(() => {});
+    if (m.unsoldPayments.length) {
+      this.unsold();
+      return;
+    }
     await m.xReport();
     if (m.state.error) return;
     await m.refreshFiscal('shift');
     this.setState({ close: { step: 1, shiftId, counted: '', terminal: '', reason: '' } });
+  }
+  /** Says why the shift is not closed and offers the list of paid attempts without an order. */
+  unsold() {
+    const text = this.text(new Error('TERMINAL_UNSOLD_PAYMENTS'));
+    this.setState({ close: null });
+    this.say(text);
+    this.openTerminalPayments?.(text);
   }
   closeNumbers() {
     const report = this.model.state.shiftReport,
@@ -1115,6 +1156,13 @@ export class OpsView {
       ...(terminal ? { terminal_reported_minor: numbers.terminal.toString() } : {}),
       reason,
     });
+    if (m.state.error?.message === 'TERMINAL_UNSOLD_PAYMENTS') {
+      // A paid attempt without an order appeared after the check (or an older list): the point
+      // refused, nothing was closed, and the manager goes to the list.
+      await m.refreshTerminalPayments().catch(() => {});
+      this.unsold();
+      return true;
+    }
     if (m.state.error || m.state.pending) return true;
     await m.zReport(c.shiftId);
     this.setState({ close: null, report: 'z' });

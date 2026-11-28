@@ -15,6 +15,7 @@ import {
   mixableMethods,
   refundSubject,
   voidSubject,
+  terminalReleaseSubject,
 } from '../../apps/pos/dist/model.js';
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
 import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
@@ -72,6 +73,8 @@ import {
   posSale as parseSale,
   shiftReport as parseReport,
   tenderRefundable,
+  terminalPayment as parseTerminalPayment,
+  terminalReleases as parseTerminalReleases,
 } from '../../apps/pos/dist/types.js';
 
 const memory = () => {
@@ -3388,6 +3391,7 @@ function opsScreens(model, options = {}) {
     endSession: () => ended++,
     printer: options.printer,
     terminalLabel: 'Тестовая точка',
+    openTerminalPayments: options.openTerminalPayments,
   });
   return { ...base, ops, tabs, ended: () => ended };
 }
@@ -6127,4 +6131,966 @@ test('ЗАКАЗЫ reads the whole branch; an edge without the route keeps the d
   await model.refreshBranchOrders('2026-11-01', '2026-11-23');
   assert.equal(calls.length, 3);
   assert.equal(model.state.error, null);
+});
+
+// ---- Stage 3 (CR pos-8): a paid terminal attempt without an order is released by hand --------
+
+const RELEASED_NOTICE = 'Оплата на терминале снята начальником смены - возврат сделан на терминале';
+const UNSOLD_TEXT =
+  'На кассе есть оплаты на терминале без заказа - оформите их или снимите по PIN начальника смены';
+const clone = (value) => globalThis.structuredClone(value);
+/**
+ * The point server of stage 1 on top of terminalEdge: attempts carry staff_id and released_at,
+ * POST .../release (approval terminal_release, idempotent), GET open?scope=other_desks and
+ * GET cash-shifts/{id}/terminal-releases. `legacy` is a point without any of it (404 / no keys).
+ */
+function releaseEdge({ legacy = false, role } = {}) {
+  const edge = terminalEdge();
+  if (role) {
+    edge.actor.role = role;
+    edge.credential.role = role;
+  }
+  const rel = {
+    legacy,
+    posts: [],
+    commands: new Map(),
+    loseAfter: 0,
+    loseBefore: 0,
+    missing: false,
+    reject: null,
+    others: [],
+    othersError: null,
+    releases: null,
+  };
+  const inner = edge.api;
+  const stamp = (value) => {
+    if (legacy || !value || typeof value !== 'object' || !('attempt_id' in value)) return value;
+    if (!('staff_id' in value)) value.staff_id = edge.actor.staff_id;
+    if (!('released_at' in value)) value.released_at = null;
+    return value;
+  };
+  edge.api = async (path, auth, options = {}) => {
+    if (path === 'pos/terminal-payments/open?scope=other_desks') {
+      edge.calls.push({ path });
+      if (rel.othersError) throw rel.othersError;
+      return { items: rel.others };
+    }
+    if (/^cash-shifts\/[0-9a-f-]+\/terminal-releases$/.test(path)) {
+      edge.calls.push({ path });
+      if (!rel.releases) throw new ApiError('NOT_FOUND', 404);
+      if (rel.releases instanceof Error) throw rel.releases;
+      return rel.releases;
+    }
+    const match = /^pos\/terminal-payments\/([0-9a-f-]{36})\/release$/.exec(path);
+    if (match) {
+      edge.calls.push({ path, ...clone(options) });
+      rel.posts.push({ path, ...clone(options) });
+      if (rel.missing) throw new ApiError('NOT_FOUND', 404);
+      assert.equal(options.method, 'POST');
+      assert.ok(options.key, 'a release is sent with an Idempotency-Key');
+      const saved = rel.commands.get(options.key);
+      if (saved) {
+        assert.equal(saved.body, JSON.stringify(options.body), 'same key, same body');
+        return clone(saved.result);
+      }
+      if (rel.loseBefore > 0) {
+        rel.loseBefore--;
+        throw new ApiError('EDGE_UNREACHABLE');
+      }
+      if (rel.reject) throw rel.reject;
+      const attempt = edge.terminal.attempts.get(match[1]);
+      if (!attempt) throw new ApiError('NOT_FOUND', 404);
+      if (attempt.state !== 'success' || attempt.order_id || attempt.released_at)
+        throw new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+      assert.deepEqual(Object.keys(options.body).sort(), [
+        'approval',
+        'reason',
+        'refunded_on_terminal',
+      ]);
+      assert.equal(options.body.refunded_on_terminal, true);
+      assert.ok(options.body.reason.length >= 3);
+      const proof = options.body.approval,
+        issued = proof && edge.edge.approvals.get(proof.approval_id);
+      if (!proof) throw new ApiError('APPROVAL_REQUIRED', 409);
+      if (
+        !issued ||
+        issued.action !== 'terminal_release' ||
+        JSON.stringify(issued.subject) !==
+          JSON.stringify({ quote_id: attempt.quote_id, amount_minor: attempt.amount_minor }) ||
+        edge.edge.used.has(proof.approval_id)
+      )
+        throw new ApiError('APPROVAL_INVALID', 409);
+      edge.edge.used.add(proof.approval_id);
+      attempt.released_at = new Date().toISOString();
+      rel.others = rel.others.filter((t) => t.attempt_id !== attempt.attempt_id);
+      const result = stamp(clone(attempt));
+      rel.commands.set(options.key, { body: JSON.stringify(options.body), result: clone(result) });
+      if (rel.loseAfter > 0) {
+        rel.loseAfter--;
+        throw new ApiError('EDGE_UNREACHABLE');
+      }
+      return result;
+    }
+    const value = await inner(path, auth, options);
+    if (path === 'pos/terminal-payments/open') for (const t of value.items) stamp(t);
+    else if (path.startsWith('pos/terminal-payments/')) stamp(value);
+    return value;
+  };
+  return { ...edge, rel };
+}
+/** An attempt of another cashier (or desk) as the point lists it. */
+function otherAttempt(edge, over = {}) {
+  const attempt = {
+    attempt_id: randomUUID(),
+    quote_id: randomUUID(),
+    terminal_id: edge.actor.terminal_id,
+    amount_minor: '150000',
+    state: 'success',
+    sub_status: null,
+    transaction_id: '9001',
+    payment_method: 'qr',
+    message: null,
+    order_id: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    staff_id: randomUUID(),
+    released_at: null,
+    ...over,
+  };
+  edge.terminal.attempts.set(attempt.attempt_id, attempt);
+  return attempt;
+}
+/** The guest paid on the terminal, the edge refused the sale: the attempt is held (P0-4). */
+async function paidHeld(edge, { storage = memory(), options = {}, code = 'ITEM_STOPPED' } = {}) {
+  const model = await saleCashier(edge, storage, memory(), options);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  edge.edge.reject = new ApiError(code, 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '555', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()].at(-1);
+  return { model, storage, quote, attempt };
+}
+const attemptReads = (edge, attempt) =>
+  edge.calls.filter((c) => c.path === `pos/terminal-payments/${attempt.attempt_id}`).length;
+const holdOf = (storage) => {
+  const raw = [...storage.data.values()].find((v) => v.includes('"scope"'));
+  return JSON.parse(raw);
+};
+async function termScreens(model, extra = {}) {
+  const { TerminalPaymentsView } = await import('../../apps/pos/dist/v2/terminal-payments-view.js');
+  const base = screens(model);
+  const payments = new TerminalPaymentsView(model, base.view, {
+    onChange: () => {},
+    guard:
+      (fn) =>
+      async (...args) => {
+        if (model.state.busy || model.state.pending) return;
+        await fn(...args);
+      },
+    say: (text) => base.said.push(text),
+    ...extra,
+  });
+  return { ...base, payments };
+}
+
+test('release: staff_id and released_at are read when the point sends them, an older point still parses', () => {
+  const base = {
+    attempt_id: randomUUID(),
+    quote_id: randomUUID(),
+    amount_minor: '150000',
+    state: 'success',
+    transaction_id: '7',
+    message: null,
+    order_id: null,
+  };
+  const old = parseTerminalPayment(base);
+  assert.equal(old.staff_id, undefined);
+  assert.equal(old.released_at, undefined);
+  const staff = randomUUID(),
+    at = '2026-11-28T10:00:00.000Z';
+  const fresh = parseTerminalPayment({ ...base, staff_id: staff, released_at: null });
+  assert.equal(fresh.staff_id, staff);
+  assert.equal(fresh.released_at, null);
+  assert.equal(parseTerminalPayment({ ...base, staff_id: null, released_at: at }).released_at, at);
+  assert.throws(() => parseTerminalPayment({ ...base, released_at: 'yesterday' }));
+  assert.throws(() => parseTerminalPayment({ ...base, staff_id: 'not-a-uuid' }));
+  const shift = randomUUID();
+  const list = parseTerminalReleases({
+    shift_id: shift,
+    count: 1,
+    amount_minor: '150000',
+    items: [
+      {
+        attempt_id: base.attempt_id,
+        attempt_terminal_id: randomUUID(),
+        quote_id: base.quote_id,
+        amount_minor: '150000',
+        transaction_id: '7',
+        attempt_staff_id: staff,
+        released_by_staff_id: staff,
+        manager_staff_id: staff,
+        reason: 'Гость ушёл',
+        released_at: at,
+      },
+    ],
+  });
+  assert.deepEqual([list.shift_id, list.count, list.amount_minor], [shift, 1, '150000']);
+  assert.throws(() =>
+    parseTerminalReleases({ shift_id: shift, count: -1, amount_minor: '0', items: [] }),
+  );
+  assert.throws(() =>
+    parseTerminalReleases({ shift_id: 'x', count: 0, amount_minor: '0', items: [] }),
+  );
+});
+
+test('release: a hold released on the point is dropped at sign-in, the cart draft stays, lock and sign-in are allowed again', async () => {
+  const edge = releaseEdge();
+  const { model, storage, attempt } = await paidHeld(edge);
+  assert.equal(model.terminalHold, true);
+  model.logout();
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD', 'locked while the hold is alive');
+  // Another desk's shift manager released it (refunded by hand on the terminal).
+  attempt.released_at = new Date().toISOString();
+  const after = await saleCashier(edge, storage);
+  assert.equal(after.state.error, null, String(after.state.error));
+  assert.equal(after.state.terminal, null);
+  assert.equal(after.state.terminalRefusal, null);
+  assert.equal(after.state.quote, null, 'the quote of the hold is gone');
+  assert.equal(after.terminalHold, false);
+  assert.equal(after.paidUnsold, false);
+  assert.equal(after.state.pending, null);
+  assert.ok(after.state.draft?.items.length, 'the cart draft is kept');
+  assert.equal(after.state.terminalNotice?.text, RELEASED_NOTICE);
+  const journal = holdOf(storage);
+  assert.equal(journal.terminal, undefined, 'the hold is gone from the journal');
+  assert.ok(journal.draft?.items.length, 'and the draft is still in it');
+  assert.equal(
+    edge.edge.posts.length,
+    1,
+    'only the refused sale of before: nothing sold by itself',
+  );
+  // Lock, sign in as the same or another person, a new sale: all allowed.
+  assert.equal(after.logout(), true);
+  assert.equal(after.state.error, null);
+  const next = await saleCashier(edge, storage);
+  assert.equal(next.state.terminal, null);
+  await reviewed(next, edge, 'dine_in');
+  await next.sendToTerminal();
+  assert.equal(next.state.terminal?.state, 'wait');
+});
+
+test('release: a pending paid sale of a released attempt is dropped with the hold at sign-in', async () => {
+  const edge = releaseEdge();
+  const storage = memory();
+  const model = await saleCashier(edge, storage);
+  await reviewed(model, edge, 'takeaway');
+  await model.sendToTerminal();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  // The answer of the sale is lost: the command stays pending in the journal.
+  edge.edge.loseNextSale = true;
+  edge.terminal.next.push({ state: 'success', transaction_id: '55', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  assert.ok(model.state.pending, 'sale of the paid attempt is pending');
+  attempt.released_at = new Date().toISOString();
+  const after = await saleCashier(edge, storage);
+  assert.equal(after.state.pending, null);
+  assert.equal(after.state.terminal, null);
+  assert.equal(after.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.ok(after.state.draft?.items.length);
+});
+
+test('release: a hold released while the cashier works is found by a slow poll, never faster than every 5 s', async () => {
+  let clock = Date.now();
+  const edge = releaseEdge();
+  const { model, storage, attempt } = await paidHeld(edge, { options: { now: () => clock } });
+  const sales = edge.edge.posts.length,
+    start = attemptReads(edge, attempt);
+  clock += 1000;
+  await model.checkTerminalPayment();
+  clock += 2000;
+  await model.checkTerminalPayment();
+  assert.equal(attemptReads(edge, attempt), start, 'nothing asked in the first seconds');
+  clock += 3000;
+  await model.checkTerminalPayment();
+  assert.equal(attemptReads(edge, attempt), start + 1, 'one question after 5 s');
+  assert.equal(model.terminalHold, true, 'not released yet');
+  clock += 2000;
+  await model.checkTerminalPayment();
+  assert.equal(attemptReads(edge, attempt), start + 1, 'not more than once per 5 s');
+  attempt.released_at = new Date().toISOString();
+  clock += 3000;
+  await model.checkTerminalPayment();
+  assert.equal(attemptReads(edge, attempt), start + 2);
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.state.quote, null);
+  assert.equal(model.state.terminalRefusal, null);
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.ok(model.state.draft?.items.length, 'the draft stays');
+  assert.equal(holdOf(storage).terminal, undefined);
+  assert.equal(edge.edge.posts.length, sales, 'no sale request for a released attempt');
+  assert.equal(model.logout(), true);
+});
+
+test('release: the poll and the sale itself learn of a release when the amount turns to success', async () => {
+  // The amount is already released in the answer that says success: no sale is attempted.
+  const edge = releaseEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'dine_in');
+  await model.sendToTerminal();
+  edge.terminal.next.push({ state: 'success', released_at: new Date().toISOString() });
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 0);
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.ok(model.state.draft?.items.length);
+});
+
+test('release: a sale refused TERMINAL_ATTEMPT_INVALID for a released attempt drops the hold and the pending sale', async () => {
+  const edge = releaseEdge();
+  const storage = memory();
+  const model = await saleCashier(edge, storage);
+  await reviewed(model, edge, 'takeaway');
+  await model.sendToTerminal();
+  edge.edge.reject = new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+  // The first answer says success, the one after the refusal says released.
+  edge.terminal.next.push(
+    { state: 'success', transaction_id: '81', payment_method: 'qr' },
+    { released_at: new Date().toISOString() },
+  );
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 1, 'one sale request was made and refused');
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.pending, null);
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.state.terminalRefusal, null);
+  assert.equal(model.state.quote, null);
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.ok(model.state.draft?.items.length);
+  assert.equal(holdOf(storage).terminal, undefined);
+  assert.equal(holdOf(storage).pending, null);
+  assert.equal(model.logout(), true);
+});
+
+test('release: a hold missing from the open list and released is found by the recovery read', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalHold, true, 'listed and not released: kept');
+  attempt.released_at = new Date().toISOString();
+  edge.terminal.open = [];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.equal(model.logout(), true);
+});
+
+test('release: an old point (no staff_id, no released_at) behaves exactly as before', async () => {
+  const edge = releaseEdge({ legacy: true });
+  let clock = Date.now();
+  const { model, storage, attempt } = await paidHeld(edge, { options: { now: () => clock } });
+  for (let i = 0; i < 4; i++) {
+    clock += 6000;
+    await model.checkTerminalPayment();
+  }
+  assert.equal(model.terminalHold, true, 'nothing to release on a point that cannot');
+  assert.equal(model.state.terminalNotice, null);
+  assert.equal(model.state.terminal.released_at, undefined);
+  const again = await saleCashier(edge, storage);
+  assert.equal(again.state.terminal?.attempt_id, attempt.attempt_id);
+  assert.equal(again.terminalHold, true);
+  // The open list: no other-desks read, no key, the old header words.
+  const foreign = otherAttempt(edge, { terminal_id: randomUUID() });
+  delete foreign.staff_id;
+  delete foreign.released_at;
+  edge.terminal.open = [foreign];
+  const fresh = await saleCashier(edge, memory());
+  await fresh.refreshTerminalRecovery();
+  assert.equal(
+    fresh.terminalRecovery,
+    'Оплачено на терминале 1 500 ₸ без заказа: войдите тем кассиром, кто отправил сумму',
+  );
+  assert.equal(fresh.terminalPaymentsAvailable, false);
+  assert.ok(!edge.calls.some((c) => c.path.includes('scope=')));
+  assert.equal(fresh.state.terminalOthers.length, 0);
+});
+
+test('release: the header points a new point at «Оплаты без заказа», an own refused hold keeps its words', async () => {
+  const edge = releaseEdge();
+  const model = await saleCashier(edge);
+  edge.terminal.open = [otherAttempt(edge)];
+  await model.refreshTerminalRecovery();
+  assert.equal(model.terminalPaymentsAvailable, true);
+  assert.equal(
+    model.terminalRecovery,
+    'Оплачено на терминале 1 500 ₸ без заказа - откройте «Оплаты без заказа»',
+  );
+  assert.equal(
+    connectionLabel({ ...model.state, terminalRecovery: model.terminalRecovery }).tone,
+    'down',
+  );
+  const held = await paidHeld(releaseEdge());
+  assert.match(
+    held.model.terminalRecovery,
+    /^Оплачено на терминале 6 990 ₸, заказ не оформлен: откройте оплату и нажмите «Оформить ещё раз»/,
+  );
+});
+
+test('release: PIN approval for {quote_id, amount_minor}, one key kept over a lost answer, GET decides afterwards', async () => {
+  // The answer is lost after the point committed: the repeat asks first and finds released_at.
+  const edge = releaseEdge();
+  const { model, attempt, storage } = await paidHeld(edge);
+  const subject = terminalReleaseSubject(model.state.terminal);
+  assert.deepEqual(subject, { quote_id: attempt.quote_id, amount_minor: attempt.amount_minor });
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  assert.ok(model.approvalFor('terminal_release', subject));
+  edge.rel.loseAfter = 1;
+  assert.equal(
+    await model.releaseTerminalPayment(attempt.attempt_id, '  Гость ушёл, блюда нет  '),
+    false,
+  );
+  assert.equal(model.state.error.message, 'EDGE_UNREACHABLE');
+  assert.equal(model.terminalHold, true, 'unknown outcome: the hold stays');
+  assert.equal(model.releaseUnknown(attempt.attempt_id), true);
+  assert.equal(
+    await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл, блюда нет'),
+    true,
+  );
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(edge.rel.posts.length, 1, 'released_at in the GET is the success: no second POST');
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+  assert.equal(model.state.approval, null);
+  assert.equal(holdOf(storage).terminal, undefined);
+  assert.ok(model.state.draft?.items.length);
+  const sent = edge.rel.posts[0];
+  assert.equal(sent.path, `pos/terminal-payments/${attempt.attempt_id}/release`);
+  assert.deepEqual(sent.body.reason, 'Гость ушёл, блюда нет', 'trimmed');
+  assert.equal(sent.body.refunded_on_terminal, true);
+  assert.deepEqual(Object.keys(sent.body.approval).sort(), ['approval_id', 'token']);
+  assert.equal(model.logout(), true);
+});
+
+test('release: a request that never reached the point is repeated with the same key and body', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  const subject = terminalReleaseSubject(model.state.terminal);
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  edge.rel.loseBefore = 1;
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.releaseUnknown(attempt.attempt_id), true);
+  // No new PIN is asked and the typed reason of the repeat cannot change the body of the key.
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Другое слово'), true);
+  assert.equal(edge.rel.posts.length, 2);
+  assert.equal(edge.rel.posts[1].key, edge.rel.posts[0].key, 'the same Idempotency-Key');
+  assert.deepEqual(edge.rel.posts[1].body, edge.rel.posts[0].body);
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.releaseUnknown(attempt.attempt_id), false);
+});
+
+test('release: definite refusals clear the key and the approval, each with its own words', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  const subject = terminalReleaseSubject(model.state.terminal);
+  // No approval: nothing is sent.
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'APPROVAL_REQUIRED');
+  assert.equal(edge.rel.posts.length, 0);
+  // A short reason: nothing is sent either.
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'ab'), false);
+  assert.equal(model.state.error.message, 'REASON_REQUIRED');
+  assert.equal(edge.rel.posts.length, 0);
+  // An approval for another action does not pass.
+  await model.requestApproval(MANAGER_PIN, 'void', {
+    order_id: randomUUID(),
+    amount_minor: attempt.amount_minor,
+  });
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'APPROVAL_REQUIRED');
+  // The point refuses the approval: the key is gone, the PIN is asked again.
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  edge.rel.reject = new ApiError('APPROVAL_INVALID', 409);
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'APPROVAL_INVALID');
+  assert.equal(model.state.approval, null);
+  assert.equal(model.releaseUnknown(attempt.attempt_id), false);
+  // The shift is not open on the releasing desk.
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  edge.rel.reject = new ApiError('CASH_SHIFT_REQUIRED', 409);
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'CASH_SHIFT_REQUIRED');
+  assert.equal(model.terminalHold, true, 'a refused release changes nothing');
+  assert.equal(
+    saleErrorMessage(new Error('TERMINAL_ATTEMPT_INVALID'), { terminalRelease: true }),
+    'Оплата уже оформлена или снята',
+  );
+  assert.equal(
+    saleErrorMessage(new Error('CASH_SHIFT_REQUIRED'), { terminalRelease: true }),
+    'На этой кассе нет открытой смены - откройте смену и повторите',
+  );
+  // Already sold or released: refreshed and said so.
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  edge.rel.reject = new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'TERMINAL_ATTEMPT_INVALID');
+});
+
+test('release: a point without the route (404) says TERMINAL_RELEASE_UNSUPPORTED and keeps the hold', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  const subject = terminalReleaseSubject(model.state.terminal);
+  await model.requestApproval(MANAGER_PIN, 'terminal_release', subject);
+  edge.rel.missing = true;
+  assert.equal(await model.releaseTerminalPayment(attempt.attempt_id, 'Гость ушёл'), false);
+  assert.equal(model.state.error.message, 'TERMINAL_RELEASE_UNSUPPORTED');
+  assert.equal(
+    saleErrorMessage(model.state.error),
+    'Снятие оплаты появится после обновления сервера точки',
+  );
+  assert.equal(model.terminalHold, true);
+  assert.equal(model.releaseUnknown(attempt.attempt_id), false, 'a 404 is a definite answer');
+});
+
+test('release: only a shift manager reads the other desks, and a refusal or an old point means an empty list', async () => {
+  const cashier = releaseEdge();
+  cashier.rel.others = [otherAttempt(cashier, { terminal_id: randomUUID() })];
+  const model = await saleCashier(cashier);
+  await model.refreshTerminalRecovery();
+  assert.ok(!cashier.calls.some((c) => c.path.includes('scope=')), 'a cashier never asks');
+  assert.deepEqual(model.state.terminalOthers, []);
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const far = otherAttempt(edge, { terminal_id: randomUUID() });
+  edge.rel.others = [far];
+  const manager = await saleCashier(edge);
+  await manager.refreshTerminalRecovery();
+  assert.deepEqual(
+    manager.state.terminalOthers.map((t) => t.attempt_id),
+    [far.attempt_id],
+  );
+  // Answers of an old point or a refusal: no list, no error on the screen.
+  for (const error of [
+    new ApiError('NOT_FOUND', 404),
+    new ApiError('FORBIDDEN', 403),
+    new ApiError('INVALID_REQUEST', 400),
+  ]) {
+    edge.rel.othersError = error;
+    await manager.refreshTerminalRecovery();
+    assert.deepEqual(manager.state.terminalOthers, [], error.code);
+    assert.equal(manager.state.error, null, error.code);
+  }
+  // An old point that ignores the scope answers with this desk's own attempts: never other desks.
+  edge.rel.othersError = null;
+  edge.rel.others = [
+    otherAttempt(edge),
+    { ...otherAttempt(edge, { terminal_id: randomUUID() }), released_at: undefined },
+  ];
+  delete edge.rel.others[1].released_at;
+  await manager.refreshTerminalRecovery();
+  assert.deepEqual(manager.state.terminalOthers, []);
+});
+
+test('screen: rows show own and other cashiers, «Оформить» only to the cashier who sent the amount and holds the sale', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  const foreign = otherAttempt(edge);
+  edge.terminal.open = [attempt, foreign];
+  const { payments, said } = await termScreens(model);
+  assert.equal(payments.templateValues().isTermPay, false, 'closed: nothing is drawn');
+  await payments.open();
+  const values = payments.templateValues();
+  assert.equal(values.isTermPay, true);
+  assert.equal(values.termPayTitle, 'Оплаты без заказа');
+  assert.equal(values.termPayRows.length, 2);
+  const [own, other] = values.termPayRows;
+  assert.equal(own.amount, '6 990 ₸');
+  assert.equal(own.canSell, true);
+  assert.equal(typeof own.sell, 'function');
+  assert.equal(other.amount, '1 500 ₸');
+  assert.equal(other.canSell, false);
+  assert.equal(other.sellNote, 'Оформляет кассир, который отправил сумму');
+  assert.equal(other.sell, undefined);
+  assert.ok(typeof own.release === 'function' && typeof other.release === 'function');
+  assert.ok(!values.termPayRows.some((r) => r.deskLabel), 'no desk label on this desk');
+  // Own staff_id but no hold in this session (another window, journal not matching): not sold here.
+  model.state.terminal = null;
+  const lost = payments.templateValues().termPayRows.find((r) => r.key === attempt.attempt_id);
+  assert.equal(lost.canSell, false);
+  assert.equal(lost.sellNote, 'Оформляет кассир, который отправил сумму');
+  assert.deepEqual(said, []);
+});
+
+test('screen: «Оформить» sells the held attempt through retryPaidSale and closes the list', async () => {
+  const edge = releaseEdge();
+  const { model, attempt, quote } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  const { payments } = await termScreens(model);
+  await payments.open();
+  edge.edge.reject = null;
+  const sales = edge.edge.posts.length;
+  await payments.templateValues().termPayRows[0].sell();
+  assert.equal(edge.edge.posts.length, sales + 1);
+  assert.equal(edge.edge.posts.at(-1).body.quote_id, quote.quote_id);
+  assert.equal(edge.edge.posts.at(-1).body.tenders[0].attempt_id, attempt.attempt_id);
+  assert.ok(model.state.sale, 'the guest who paid gets the order');
+  assert.equal(payments.state.open, false);
+});
+
+test('screen: «Снять» needs a reason, the mark and the manager PIN; success removes the row and says so', async () => {
+  const edge = releaseEdge();
+  const { model, attempt, storage } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  const { payments, view, said } = await termScreens(model);
+  await payments.open();
+  await payments.templateValues().termPayRows[0].release();
+  let values = payments.templateValues();
+  assert.equal(values.termPayForm, true);
+  assert.equal(values.termPayFormTitle, 'Снятие оплаты 6 990 ₸');
+  assert.equal(values.termPayReasonValue, 'Нажмите, чтобы ввести');
+  assert.equal(values.termPayRefundedPressed, 'false');
+  assert.equal(values.termPayRefundedLabel, 'Возврат на терминале сделан');
+  assert.equal(values.termPayConfirmLabel, 'Снять оплату · PIN начальника смены');
+  // Nothing typed: the reason is asked first.
+  await values.termPayConfirm();
+  assert.equal(said.at(-1), 'Укажите причину - от 3 до 300 символов');
+  assert.equal(view.state.approvalOpen, false);
+  // The reason through the text entry of the sale view.
+  await values.termPayReasonPick();
+  assert.equal(view.state.entry.purpose, 'opsReason');
+  await tap(view.values().saleEntryKeys, ['Г', 'О', 'С', 'Т', 'Ь']);
+  await view.values().saleEntrySave();
+  values = payments.templateValues();
+  assert.equal(values.termPayReasonValue, 'Гость');
+  // The mark of the manual refund is required.
+  await values.termPayConfirm();
+  assert.equal(said.at(-1), 'Отметьте: возврат на терминале сделан');
+  assert.equal(view.state.approvalOpen, false);
+  await values.termPayRefunded();
+  values = payments.templateValues();
+  assert.equal(values.termPayRefundedPressed, 'true');
+  await values.termPayConfirm();
+  assert.equal(view.state.approvalOpen, true, 'only now the PIN of the shift manager is asked');
+  assert.equal(view.values().saleApprovalSub, 'Снятие оплаты 6 990 ₸ без заказа');
+  assert.equal(edge.rel.posts.length, 0);
+  await pinTap(view, '1111');
+  assert.equal(edge.rel.posts.length, 0, 'a wrong PIN sends nothing');
+  assert.equal(view.state.approvalOpen, true);
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(view.state.approvalOpen, false);
+  assert.equal(edge.rel.posts.length, 1);
+  assert.equal(edge.rel.posts[0].body.reason, 'Гость');
+  assert.equal(
+    edge.edge.approvals.get(edge.rel.posts[0].body.approval.approval_id).action,
+    'terminal_release',
+  );
+  assert.equal(model.state.terminal, null);
+  assert.equal(holdOf(storage).terminal, undefined);
+  values = payments.templateValues();
+  assert.equal(values.termPayRows.length, 0, 'the row is gone');
+  assert.equal(values.termPayForm, false);
+  assert.ok(said.includes('Оплата снята. Возврат гостю сделан на терминале'));
+  assert.equal(model.state.terminalNotice?.text, RELEASED_NOTICE);
+});
+
+test('screen: a release whose answer is lost is repeated with the same key and without a second PIN', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  const { payments, view, said } = await termScreens(model);
+  await payments.open();
+  await payments.templateValues().termPayRows[0].release();
+  payments.setReason('Блюда нет, гость ушёл');
+  await payments.templateValues().termPayRefunded();
+  edge.rel.loseBefore = 1;
+  await payments.templateValues().termPayConfirm();
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(edge.rel.posts.length, 1);
+  assert.equal(payments.templateValues().termPayConfirmLabel, 'Повторить снятие');
+  await payments.templateValues().termPayConfirm();
+  assert.equal(view.state.approvalOpen, false, 'no second PIN');
+  assert.equal(edge.rel.posts.length, 2);
+  assert.equal(edge.rel.posts[1].key, edge.rel.posts[0].key);
+  assert.equal(model.state.terminal, null);
+  assert.ok(said.includes('Оплата снята. Возврат гостю сделан на терминале'));
+});
+
+test('screen: an old point says that releasing needs a server update', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  edge.rel.missing = true;
+  const { payments, view, said } = await termScreens(model);
+  await payments.open();
+  await payments.templateValues().termPayRows[0].release();
+  payments.setReason('Блюда нет');
+  await payments.templateValues().termPayRefunded();
+  await payments.templateValues().termPayConfirm();
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(
+    saleErrorMessage(model.state.error),
+    'Снятие оплаты появится после обновления сервера точки',
+  );
+  assert.ok(!said.includes('Оплата снята. Возврат гостю сделан на терминале'));
+  assert.equal(model.terminalHold, true);
+});
+
+test('screen: a release of an attempt already sold or released says so', async () => {
+  const edge = releaseEdge();
+  const { model, attempt } = await paidHeld(edge);
+  edge.terminal.open = [attempt];
+  edge.rel.reject = new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+  const { payments, view } = await termScreens(model);
+  await payments.open();
+  await payments.templateValues().termPayRows[0].release();
+  payments.setReason('Блюда нет');
+  await payments.templateValues().termPayRefunded();
+  await payments.templateValues().termPayConfirm();
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(saleErrorMessage(model.state.error), 'Оплата уже оформлена или снята');
+});
+
+test("screen: another cashier's attempt is released from this session, and other desks only by a shift manager", async () => {
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  const here = otherAttempt(edge);
+  const far = otherAttempt(edge, { terminal_id: randomUUID(), amount_minor: '250000' });
+  edge.terminal.open = [here];
+  edge.rel.others = [far];
+  const { payments, view } = await termScreens(model);
+  await payments.open();
+  let rows = payments.templateValues().termPayRows;
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].deskLabel, '');
+  assert.match(rows[1].deskLabel, /^Другая касса · [0-9a-f]{8}$/);
+  assert.equal(rows[1].amount, '2 500 ₸');
+  assert.equal(rows[1].canSell, false, 'another desk cannot be sold here');
+  assert.equal(rows[1].sellNote, 'Оформляет кассир, который отправил сумму');
+  // Release the other desk's payment.
+  await rows[1].release();
+  payments.setReason('Касса сломана, блюда нет');
+  await payments.templateValues().termPayRefunded();
+  await payments.templateValues().termPayConfirm();
+  assert.equal(view.values().saleApprovalSub, 'Снятие оплаты 2 500 ₸ без заказа');
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(edge.rel.posts.length, 1);
+  assert.equal(edge.rel.posts[0].path, `pos/terminal-payments/${far.attempt_id}/release`);
+  assert.deepEqual(edge.edge.approvals.get(edge.rel.posts[0].body.approval.approval_id).subject, {
+    quote_id: far.quote_id,
+    amount_minor: '250000',
+  });
+  rows = payments.templateValues().termPayRows;
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    [here.attempt_id],
+  );
+  assert.equal(model.state.terminalNotice, null, "it was not this desk's hold: no notice");
+  // A cashier never sees the other desks; an old point or a refusal never breaks the screen.
+  const cashierEdge = releaseEdge();
+  cashierEdge.rel.others = [otherAttempt(cashierEdge, { terminal_id: randomUUID() })];
+  const cashier = await saleCashier(cashierEdge);
+  const screen = await termScreens(cashier);
+  await screen.payments.open();
+  assert.deepEqual(screen.payments.templateValues().termPayRows, []);
+  assert.equal(screen.payments.templateValues().termPayEmpty, true);
+  const refused = releaseEdge({ role: 'shift_manager' });
+  refused.rel.othersError = new ApiError('NOT_FOUND', 404);
+  const man = await saleCashier(refused);
+  const second = await termScreens(man);
+  await second.payments.open();
+  assert.deepEqual(second.payments.templateValues().termPayRows, []);
+  assert.deepEqual(second.said, []);
+  assert.equal(man.state.error, null);
+});
+
+test('screen: it is available on a new point with a linked terminal only, and the header opens it', async () => {
+  const edge = releaseEdge();
+  const model = await saleCashier(edge);
+  const { payments } = await termScreens(model);
+  assert.equal(payments.count, 0);
+  assert.equal(payments.templateValues().termPayEntry, false);
+  edge.terminal.open = [otherAttempt(edge)];
+  await model.refreshTerminalRecovery();
+  assert.equal(payments.available, true);
+  assert.equal(payments.count, 1);
+  assert.equal(payments.templateValues().termPayEntry, 'Оплаты без заказа: 1');
+  assert.equal(typeof payments.templateValues().termPayEntryOpen, 'function');
+  // An older point sends no released_at: no screen, no entry, and the header keeps its old words.
+  const legacy = releaseEdge({ legacy: true });
+  const old = await saleCashier(legacy);
+  const stale = otherAttempt(legacy);
+  delete stale.staff_id;
+  delete stale.released_at;
+  legacy.terminal.open = [stale];
+  await old.refreshTerminalRecovery();
+  const oldScreen = await termScreens(old);
+  assert.equal(oldScreen.payments.available, false);
+  assert.equal(oldScreen.payments.count, 0);
+  assert.equal(oldScreen.payments.templateValues().termPayEntry, false);
+});
+
+test('close: a paid attempt without an order stops the close, says why and offers the list', async () => {
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  const opened = [];
+  const { ops, said } = opsScreens(model, { openTerminalPayments: (note) => opened.push(note) });
+  edge.terminal.open = [otherAttempt(edge)];
+  await ops.templateValues(legacyShift, 'shift').startClose();
+  assert.equal(ops.state.close, null, 'the wizard does not open');
+  assert.equal(said.at(-1), UNSOLD_TEXT);
+  assert.deepEqual(opened, [UNSOLD_TEXT]);
+  assert.equal(edge.edge.ops.length, 0, 'no close request');
+  assert.equal(saleErrorMessage(new Error('TERMINAL_UNSOLD_PAYMENTS')), UNSOLD_TEXT);
+  assert.equal(errorMessage(new Error('TERMINAL_UNSOLD_PAYMENTS')).length > 0, true);
+  // Released or sold: the close goes on as always.
+  edge.terminal.open = [];
+  await ops.templateValues(legacyShift, 'shift').startClose();
+  assert.equal(ops.state.close?.step, 1);
+});
+
+test('close: an old point (no keys) closes as before, even with a paid attempt in the list', async () => {
+  const edge = releaseEdge({ legacy: true, role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  const opened = [];
+  const { ops } = opsScreens(model, { openTerminalPayments: (note) => opened.push(note) });
+  const old = otherAttempt(edge);
+  delete old.staff_id;
+  delete old.released_at;
+  edge.terminal.open = [old];
+  await ops.templateValues(legacyShift, 'shift').startClose();
+  assert.equal(ops.state.close?.step, 1);
+  assert.deepEqual(opened, []);
+});
+
+test('close: the point answering TERMINAL_UNSOLD_PAYMENTS ends the command and opens the list', async () => {
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  const opened = [];
+  const { ops, said } = opsScreens(model, {
+    openTerminalPayments: (note) => opened.push(note),
+    pinCredential: async () => edge.credential,
+  });
+  await ops.startClose();
+  assert.equal(ops.state.close?.step, 1);
+  // A paid attempt appears between the check and the close request.
+  const late = otherAttempt(edge);
+  edge.edge.opReject = new ApiError('TERMINAL_UNSOLD_PAYMENTS', 409);
+  edge.terminal.open = [late];
+  ops.setState({ close: { ...ops.state.close, step: 6, counted: '5000', terminal: '0' } });
+  assert.equal(await ops.closeWithPin(MANAGER_PIN), true);
+  assert.equal(model.state.error.message, 'TERMINAL_UNSOLD_PAYMENTS');
+  assert.equal(model.state.pending, null, 'a definite refusal: nothing is replayed');
+  assert.equal(saleErrorMessage(model.state.error), UNSOLD_TEXT);
+  assert.deepEqual(opened, [UNSOLD_TEXT]);
+  assert.equal(ops.state.close, null);
+  assert.ok(said.length >= 0);
+});
+
+test('report: the line «Оплаты без заказа, возврат на терминале» appears only with releases, in the view and on paper', async () => {
+  const base = {
+    shift_id: randomUUID(),
+    count: 2,
+    amount_minor: '300000',
+    items: [],
+  };
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  const report = parseReport(
+    edge.edge.reportOverride ??
+      (await edge.api('cash-shifts/' + edge.shift.shift_id + '/x-report', edge.credential)),
+  );
+  const line = 'Оплаты без заказа, возврат на терминале: 2 на 3 000 ₸';
+  assert.ok(reportLines(report, { ...base, shift_id: report.shift_id }).includes(line));
+  assert.ok(!reportLines(report).includes(line), 'no argument: as before');
+  assert.ok(!reportLines(report, null).some((l) => l.startsWith('Оплаты без заказа')));
+  assert.ok(
+    !reportLines(report, { ...base, shift_id: report.shift_id, count: 0, amount_minor: '0' }).some(
+      (l) => l.startsWith('Оплаты без заказа'),
+    ),
+  );
+  assert.ok(
+    !reportLines(report, base).some((l) => l.startsWith('Оплаты без заказа')),
+    'another shift',
+  );
+  // The X view reads the list of its shift; a point without the route (404) draws no line.
+  const printer = printerBridge();
+  const { ops } = opsScreens(model, { printer });
+  await ops.openX();
+  assert.ok(!ops.templateValues(legacyShift, 'shift').opsReportLines.some((l) => l.text === line));
+  edge.rel.releases = { ...base, shift_id: edge.shift.shift_id };
+  await ops.openX();
+  const values = ops.templateValues(legacyShift, 'shift');
+  assert.ok(values.opsReportLines.some((l) => l.text === line));
+  await values.opsReportPrint();
+  const [, ticket] = printer.calls.at(-1);
+  assert.ok(ticket.lines.includes(line));
+  assert.deepEqual(parseTicket(ticket), ticket);
+  assert.ok(ticket.lines.length <= 30);
+  // A failing read keeps the report as it was.
+  edge.rel.releases = new ApiError('EDGE_UNREACHABLE');
+  await ops.openX();
+  assert.equal(model.state.error, null);
+  assert.ok(!ops.templateValues(legacyShift, 'shift').opsReportLines.some((l) => l.text === line));
+});
+
+test('report: the Z report of the closed shift carries the line too', async () => {
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const model = await saleCashier(edge);
+  edge.rel.releases = {
+    shift_id: edge.shift.shift_id,
+    count: 1,
+    amount_minor: '150000',
+    items: [],
+  };
+  const { ops } = opsScreens(model, { pinCredential: async () => edge.credential });
+  await ops.startClose();
+  ops.setState({ close: { ...ops.state.close, step: 6, counted: '5000', terminal: '0' } });
+  assert.equal(await ops.closeWithPin(MANAGER_PIN), true);
+  const values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsReportZ, true);
+  assert.ok(
+    values.opsReportLines.some(
+      (l) => l.text === 'Оплаты без заказа, возврат на терминале: 1 на 1 500 ₸',
+    ),
+  );
+});
+
+test('release: every new text is Russian copy with the plain hyphen and without the word «тест»', async () => {
+  const edge = releaseEdge({ role: 'shift_manager' });
+  const { model, attempt } = await paidHeld(edge);
+  const foreign = otherAttempt(edge);
+  edge.terminal.open = [attempt, foreign];
+  edge.rel.others = [otherAttempt(edge, { terminal_id: randomUUID() })];
+  const { payments, said } = await termScreens(model);
+  const seen = [];
+  await payments.open(UNSOLD_TEXT);
+  seen.push(...texts(payments.templateValues()));
+  await payments.templateValues().termPayRows[0].release();
+  seen.push(...texts(payments.templateValues()));
+  seen.push(model.terminalRecovery, RELEASED_NOTICE, UNSOLD_TEXT);
+  for (const code of [
+    'TERMINAL_UNSOLD_PAYMENTS',
+    'TERMINAL_RELEASE_UNSUPPORTED',
+    'TERMINAL_ATTEMPT_INVALID',
+    'CASH_SHIFT_REQUIRED',
+    'APPROVAL_INVALID',
+    'APPROVAL_REQUIRED',
+  ])
+    seen.push(
+      saleErrorMessage(new Error(code), { terminalRelease: true }),
+      saleErrorMessage(new Error(code)),
+    );
+  seen.push(...said.filter((t) => !t.startsWith('Подтвердил')));
+  assert.ok(seen.length > 20);
+  for (const text of seen.filter((t) => typeof t === 'string')) {
+    assert.ok(!/[–—]/.test(text), text);
+    assert.ok(!/тест/i.test(text), text);
+  }
 });
