@@ -432,7 +432,15 @@ export class Reconciliation {
         'method',
         'amount_minor',
       ])) &&
-      (await this.readable(db, 'cloud_pos_refunds', ['refund_id', 'branch_id', 'created_at']));
+      (await this.readable(db, 'cloud_pos_refunds', ['refund_id', 'branch_id', 'created_at'])) &&
+      // Only a branch that already sells through the PickChick cashier: until its first tender,
+      // cash and Kaspi POS stay external (no expectation), as before cloud073.
+      (
+        await db.query<{ ok: boolean }>(
+          'SELECT EXISTS(SELECT 1 FROM cloud_pos_tenders WHERE branch_id=$1) ok',
+          [branch],
+        )
+      ).rows[0]?.ok === true;
     if (posRecorded) {
       const methods = Object.keys(POS_TENDER_METHODS);
       for (const t of await rows<{
