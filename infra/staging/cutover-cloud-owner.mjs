@@ -21,6 +21,7 @@
  *   node infra/staging/cutover-cloud-owner.mjs compose-supply --compose <file> --sha256 <hex> --out <file>
  *   node infra/staging/cutover-cloud-owner.mjs compose-expenses --compose <file> --sha256 <hex> --out <file>
  *   node infra/staging/cutover-cloud-owner.mjs compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>
+ *   (flag: a cutover, P1, second-wave key, expenses, or reconciliation, see STAGE2_COMPOSE)
  *
  * inspect/deploy/flag run inside the candidate API image as the cloud owner (CLOUD_DATABASE_URL
  * of pickchick_owner on pickchick_cloud), in ONE repeatable-read transaction, for the API role
@@ -224,6 +225,14 @@ export const EXPENSES_CHECKSUM = 'af585ccadaed5ea51e416a904e2e729308904a949a16ae
 export const EXPENSES_TABLES = Object.freeze([...BACKOFFICE_EXPENSES_RELATIONS]);
 /** The API environment key of the section (compose-expenses adds it, compose-flag flips it). */
 export const EXPENSES_COMPOSE = Object.freeze({ expenses: 'BACKOFFICE_EXPENSES_ENABLED' });
+/**
+ * Earlier keys the installed api service already carries as "false" (stage2 release, 24.10):
+ * compose-flag flips them like the others. Their grants come from their own owner tool
+ * (stage2-cloud-owner.mjs flag reconciliation <true|false>): grants first, then this key.
+ */
+export const STAGE2_COMPOSE = Object.freeze({
+  reconciliation: 'BACKOFFICE_RECONCILIATION_ENABLED',
+});
 export const API_ROLE = 'pickchick_app';
 /** Back-office grants on (backofficeGrants(role, true)), as in stage2-cloud-owner.mjs. */
 const BACKOFFICE_MARKER = 'bo_commands||INSERT';
@@ -1084,11 +1093,18 @@ export function composeExpenses(text, expectedSha256) {
 export function composeFlag(text, expectedSha256, flag, enabled) {
   installed(text, expectedSha256);
   guard(
-    (flag in COMPOSE_FLAGS || flag in SUPPLY_COMPOSE || flag in EXPENSES_COMPOSE) &&
+    (flag in COMPOSE_FLAGS ||
+      flag in SUPPLY_COMPOSE ||
+      flag in EXPENSES_COMPOSE ||
+      flag in STAGE2_COMPOSE) &&
       typeof enabled === 'boolean',
     'Invalid flag',
   );
-  const key = COMPOSE_FLAGS[flag] ?? SUPPLY_COMPOSE[flag]?.key ?? EXPENSES_COMPOSE[flag];
+  const key =
+    COMPOSE_FLAGS[flag] ??
+    SUPPLY_COMPOSE[flag]?.key ??
+    EXPENSES_COMPOSE[flag] ??
+    STAGE2_COMPOSE[flag];
   const resolved = resolvedCompose(text);
   if (resolved) {
     const env = resolved.services.api.environment;
@@ -1199,7 +1215,10 @@ export function parseArguments(argv) {
     return { command, ...composeOptions(rest) };
   if (
     command === 'compose-flag' &&
-    (rest[0] in COMPOSE_FLAGS || rest[0] in SUPPLY_COMPOSE || rest[0] in EXPENSES_COMPOSE) &&
+    (rest[0] in COMPOSE_FLAGS ||
+      rest[0] in SUPPLY_COMPOSE ||
+      rest[0] in EXPENSES_COMPOSE ||
+      rest[0] in STAGE2_COMPOSE) &&
     ['true', 'false'].includes(rest[1])
   )
     return {
@@ -1232,7 +1251,8 @@ async function compose(args) {
           environment:
             COMPOSE_FLAGS[args.flag] ??
             SUPPLY_COMPOSE[args.flag]?.key ??
-            EXPENSES_COMPOSE[args.flag],
+            EXPENSES_COMPOSE[args.flag] ??
+            STAGE2_COMPOSE[args.flag],
           enabled: args.enabled,
         }
       : {}),

@@ -9,6 +9,7 @@ import {
   COMPOSE_FLAGS,
   PROVISION_KEYS,
   SUPPLY_COMPOSE,
+  STAGE2_COMPOSE,
   composeCandidate,
   composeExpenses,
   composeFlag,
@@ -212,4 +213,22 @@ test('resolved compose CLI never prints configuration and refuses overwriting fi
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('reconciliation flips only its own key in a compose that already carries it', () => {
+  const base = installed();
+  base.services.api.environment[STAGE2_COMPOSE.reconciliation] = 'false';
+  const { expenses } = chain(json(base));
+  const enabled = call(composeFlag, expenses, 'reconciliation', true);
+  const data = JSON.parse(enabled);
+  assert.equal(data.services.api.environment.BACKOFFICE_RECONCILIATION_ENABLED, 'true');
+  data.services.api.environment.BACKOFFICE_RECONCILIATION_ENABLED = 'false';
+  assert.equal(json(data), expenses);
+  assert.equal(call(composeFlag, enabled, 'reconciliation', false), expenses);
+  assert.throws(() => call(composeFlag, enabled, 'reconciliation', true), /expected state/);
+  // A compose without the key is refused, never extended.
+  assert.throws(
+    () => call(composeFlag, chain().expenses, 'reconciliation', true),
+    /expected state/,
+  );
 });
