@@ -488,3 +488,40 @@ test('paid sale, void, refund, Webkassa number and sales close survive a native 
     }
   });
 });
+
+test('a Kaspi terminal hold keeps an optional refusal code; old records read as before, extra keys are refused', async () => {
+  await fixture(async ({ options }) => {
+    const store = createJournalStore(options);
+    authorize(store);
+    const hold = {
+      attempt_id: id(20),
+      quote: { quote_id: id(21), total_minor: '699000' },
+      sale_draft: {
+        channel: 'hall',
+        serviceModeChosen: true,
+        externalOrderRef: '',
+        reviewed: null,
+      },
+    };
+    const record = (terminal) => JSON.stringify({ ...JSON.parse(snapshot()), terminal });
+    // A record written before the refusal existed.
+    store.setItem(key, record(hold));
+    assert.deepEqual(JSON.parse(store.getItem(key)).terminal, hold);
+    // The refusal of the edge to take the paid sale.
+    const refused = { ...hold, refusal: 'ITEM_STOPPED' };
+    store.setItem(key, record(refused));
+    assert.deepEqual(JSON.parse(store.getItem(key)).terminal, refused);
+    // Anything else is still refused, and the previous record stays.
+    for (const bad of [
+      { ...hold, refusal: '' },
+      { ...hold, refusal: 'item stopped' },
+      { ...hold, refusal: 'X'.repeat(65) },
+      { ...hold, refusal: 7 },
+      { ...hold, refusal: null },
+      { ...hold, extra: 'x' },
+      { ...refused, extra: 'x' },
+    ])
+      assert.throws(() => store.setItem(key, record(bad)), /STORAGE_UNAVAILABLE/);
+    assert.deepEqual(JSON.parse(store.getItem(key)).terminal, refused);
+  });
+});
