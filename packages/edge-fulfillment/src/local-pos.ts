@@ -23,9 +23,16 @@ export function localUnpaidExecution(host: {
       const config = (
         await client.query(
           `SELECT f.* FROM fulfillment_config f JOIN branch_config b ON b.id=f.branch_id
-         WHERE f.branch_id=$1 AND f.device_id=$2 AND b.ordering_enabled
+         WHERE f.branch_id=$1 AND f.device_id=$2 AND (b.ordering_enabled OR $4::boolean)
            AND b.pos_service_mode=$3 FOR SHARE OF f`,
-          [order.branchId, host.deviceId, kind],
+          // A sale the guest already paid on the Kaspi terminal is admitted even when the branch
+          // stopped accepting orders; the kitchen configuration and routing are still required.
+          [
+            order.branchId,
+            host.deviceId,
+            kind,
+            kind === 'pos_sale' && order.paidOnTerminal === true,
+          ],
         )
       ).rows[0];
       if (!config) throw new OrderError('KITCHEN_UNAVAILABLE');
