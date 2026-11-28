@@ -175,6 +175,15 @@ export function allowedPath(path: string): boolean {
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
   }
+  // «Скорость кухни» (owner 27.11): one Almaty day.
+  if (new RegExp(`^operations/branches/${UUID}/ops/kitchen-speed$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 1 &&
+      q.getAll('date').length === 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '')
+    );
+  }
   // Lane bo-ui «Касса»: one Almaty day, optionally one cash desk.
   if (new RegExp(`^operations/branches/${UUID}/ops/pos-day$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');

@@ -1,5 +1,5 @@
 import { InventoryView, inventoryEditor } from './inventory.js';
-import { SalesReportView } from './sales-report.js';
+import { KitchenSpeedView, SalesReportView } from './sales-report.js';
 import { PosDayView, PosHomeView, receiptDetails } from './pos-day.js';
 import { almatyTime, csvTenge } from './sales-report-model.js';
 import {
@@ -674,6 +674,7 @@ export class OperationsView {
   private splashStatus = '';
   private inventory = new InventoryView();
   private sales = new SalesReportView();
+  private kitchenSpeed = new KitchenSpeedView();
   private posDay = new PosDayView();
   private home = new PosHomeView();
   private orderSort: 'new' | 'old' | 'number' | 'amount' = 'new';
@@ -3819,6 +3820,9 @@ export class OperationsView {
       // Cutover CC-7: the sales report of every channel, only from servers that have it.
       if (page === 'reports' && salesReportAvailable(d))
         content.append(this.sales.render((start, end) => this.model.salesReport(start, end)));
+      // «Скорость кухни» (owner 27.11): stations and late orders of one day.
+      if (page === 'reports')
+        content.append(this.kitchenSpeed.render((date) => this.model.kitchenSpeed(date)));
       // Lane bo-ui (iiko-gap P0-6): today of every channel and the cash desks on «Главная».
       if (page === 'dash' && posLabels)
         content.append(

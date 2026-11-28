@@ -1,5 +1,6 @@
 import { ApiError, type Request } from './api.js';
 import { salesReport, type SalesReport } from './sales-report-model.js';
+import type { KitchenSpeed } from './sales-report.js';
 import { posDay, type PosDay } from './pos-day-model.js';
 import { ordersSearch, ordersView, type OrdersParams, type OrdersView } from './orders-model.js';
 import {
@@ -655,6 +656,24 @@ export class OperationsModel {
     const value = await this.api(`branches/${branch}/ops/${view}${search ? '?' + search : ''}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return { value, branch };
+  }
+  /** «Скорость кухни» (owner 27.11): GET .../ops/kitchen-speed of one Almaty day. */
+  async kitchenSpeed(date: string): Promise<KitchenSpeed> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = object(
+      await this.api(`branches/${branch}/ops/kitchen-speed?${new URLSearchParams({ date })}`),
+    );
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    if (
+      value['date'] !== date ||
+      !Array.isArray(value['stations']) ||
+      typeof value['truncated'] !== 'boolean'
+    )
+      throw new ApiError('INVALID_RESPONSE');
+    object(value['orders']);
+    object(value['sources']);
+    return value as unknown as KitchenSpeed;
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

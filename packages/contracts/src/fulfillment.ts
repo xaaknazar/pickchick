@@ -109,6 +109,11 @@ export const FulfillmentStationsSchema = z.strictObject({
         id: uuid,
         kind: z.enum(['prep', 'assembly']),
         name: z.string().min(1).max(100),
+        /**
+         * Back-office norm of this station (station plan, «Норма, секунд»): the kitchen timer
+         * turns amber after it and red after twice it. Absent without an applied plan.
+         */
+        targetSeconds: z.number().int().min(1).max(3600).optional(),
       }),
     )
     .max(100),

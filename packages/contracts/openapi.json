@@ -33321,6 +33321,11 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 100
+                },
+                "targetSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3600
                 }
               },
               "required": [

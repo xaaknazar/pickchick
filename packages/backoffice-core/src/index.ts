@@ -36,6 +36,7 @@ import {
 } from './roles.js';
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
+import { readKitchenSpeed } from './kitchen-speed.js';
 import { p1Capabilities } from './p1-flags.js';
 import { p2Capabilities, staffAssignmentAvailable, supplyAvailable } from './p2-flags.js';
 import {
@@ -123,6 +124,7 @@ export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
+export * from './kitchen-speed.js';
 export * from './p1-flags.js';
 export * from './p2-flags.js';
 export * from './p2-commands.js';
@@ -837,6 +839,8 @@ export class Backoffice {
       const actor = await this.scope(db, token, branch);
       if (view === 'sales' && this.options.salesReportEnabled === true)
         return readSalesReport(db, branch, input, new Date());
+      // «Скорость кухни» (owner 27.11): read only, every role reads.
+      if (view === 'kitchen-speed') return readKitchenSpeed(db, branch, input, new Date());
       // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
       if (view === 'pos-day' && this.options.posDayEnabled === true)
         return readPosDay(db, branch, input, new Date());
