@@ -3,6 +3,10 @@ import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
 import { MIGRATION as POS_SALES_MIGRATION, posSalesRuntimeGrants } from './pos-sales-grants.mjs';
 import { MIGRATION as KDS_MIGRATION, kdsRuntimeGrantSql } from './kds-grants.mjs';
 import { MIGRATION as KASPI_POS_MIGRATION, kaspiPosRuntimeGrantSql } from './kaspi-pos-grants.mjs';
+import {
+  MIGRATION as KASPI_POS_RELEASE_MIGRATION,
+  kaspiPosReleaseRuntimeGrantSql,
+} from './kaspi-pos-release-grants.mjs';
 
 const posRead = [
   'schema_migrations',
@@ -383,6 +387,19 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     ).rows[0];
     if (kaspi.applied !== kaspi.attempts) throw new Error('Kaspi POS migration objects differ');
     if (kaspi.applied) await client.query(kaspiPosRuntimeGrantSql(role, schema));
+    // Edge schema030 (audit 28.11 P0-1, CR pos-8): the manager releases of paid Kaspi attempts
+    // without an order, SELECT and INSERT only (infra/windows/kaspi-pos-release-grants.mjs).
+    // Before 030 nothing is granted.
+    const release = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version=$1) AS applied,
+       to_regclass($2) IS NOT NULL AS releases`,
+        [KASPI_POS_RELEASE_MIGRATION, `${namespace}.kaspi_pos_attempt_releases`],
+      )
+    ).rows[0];
+    if (release.applied !== release.releases)
+      throw new Error('Kaspi POS release migration objects differ');
+    if (release.applied) await client.query(kaspiPosReleaseRuntimeGrantSql(role, schema));
 
     const create = await client.query("SELECT has_schema_privilege($1,$2,'CREATE') AS permitted", [
       role,

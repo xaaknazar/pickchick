@@ -10,7 +10,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import {
+  KASPI_RELEASE_SCHEMA_ROW,
   KASPI_SCHEMA_ROW,
+  LAST_SCHEMA,
   OWNER_FUNCTIONS,
   PINNED_MIN,
   REPORT_FUNCTIONS,
@@ -26,8 +28,9 @@ const migrations = new URL('../../db/edge/migrations/', import.meta.url);
 const migration = (name) => readFile(new URL(name, migrations), 'utf8');
 
 test('functionGrantPlan: report helpers from schema016, sales helpers from schema026, worker gets the order report only', () => {
-  for (const length of [15, 30, 16.5, '28', undefined])
-    assert.throws(() => functionGrantPlan(length), /Reviewed schema016 to schema029 required/);
+  assert.equal(LAST_SCHEMA, 30);
+  for (const length of [15, 31, 16.5, '28', undefined])
+    assert.throws(() => functionGrantPlan(length), /Reviewed schema016 to schema030 required/);
   const runtime = (fns) => fns.map((fn) => ({ role: RUNTIME_ROLE, fn }));
   assert.deepEqual(functionGrantPlan(16), runtime(REPORT_FUNCTIONS));
   assert.deepEqual(functionGrantPlan(25), runtime(REPORT_FUNCTIONS));
@@ -40,6 +43,11 @@ test('functionGrantPlan: report helpers from schema016, sales helpers from schem
   // The reviewed Kaspi 029 (test cashier) adds no helper: exactly the 028 plan.
   assert.deepEqual(
     functionGrantPlan(29, { workerRoles: [...WORKER_ROLES] }),
+    functionGrantPlan(28, { workerRoles: [...WORKER_ROLES] }),
+  );
+  // The reviewed 030 adds no non-trigger helper either: exactly the 028 plan again.
+  assert.deepEqual(
+    functionGrantPlan(30, { workerRoles: [...WORKER_ROLES] }),
     functionGrantPlan(28, { workerRoles: [...WORKER_ROLES] }),
   );
   assert.deepEqual(WORKER_FUNCTIONS, ['append_cashier_order_report(uuid)']);
@@ -130,6 +138,58 @@ test('029 is accepted only as the reviewed Kaspi file: trigger functions only, n
       if (!/RETURNS trigger\b/.test(head)) helpers.add(fn);
   assert.ok(helpers.has('append_cashier_order_report') && helpers.has('pos_shift_cash'));
   for (const fn of helpers) assert.doesNotMatch(text, new RegExp(`\\b${fn}\\s*\\(`), fn);
+});
+
+test('030 is accepted only as the reviewed release file: no new non-trigger helper, the definer is a trigger function', async () => {
+  assert.deepEqual(Object.keys(KASPI_RELEASE_SCHEMA_ROW), ['scope', 'version', 'checksum']);
+  assert.equal(KASPI_RELEASE_SCHEMA_ROW.scope, 'edge');
+  assert.match(KASPI_RELEASE_SCHEMA_ROW.version, /^030_[a-z_]+\.sql$/);
+  assert.match(KASPI_RELEASE_SCHEMA_ROW.checksum, /^[a-f0-9]{64}$/);
+  const ledger = JSON.parse(
+    await readFile(new URL('native-edge-backup-ledger.json', windows), 'utf8'),
+  );
+  assert.ok(ledger.length >= PINNED_MIN + 2);
+  assert.deepEqual(ledger[PINNED_MIN + 1], KASPI_RELEASE_SCHEMA_ROW);
+  assert.deepEqual(
+    (await readdir(migrations)).filter((name) => name.startsWith('030_')),
+    [KASPI_RELEASE_SCHEMA_ROW.version],
+  );
+  const text = await migration(KASPI_RELEASE_SCHEMA_ROW.version);
+  assert.equal(createHash('sha256').update(text).digest('hex'), KASPI_RELEASE_SCHEMA_ROW.checksum);
+  // Every function it creates: a trigger function, or CREATE OR REPLACE of a planned sales helper
+  // with its own signature (it keeps its invoker rights and its ACL).
+  const created = [
+    ...text.matchAll(/CREATE (OR REPLACE )?FUNCTION (\w+)\(([^)]*)\) RETURNS (\w+)/g),
+  ];
+  assert.equal(created.length, (text.match(/CREATE (?:OR REPLACE )?FUNCTION/g) ?? []).length);
+  const triggers = [];
+  for (const [, replace, name, args, returns] of created) {
+    if (returns === 'trigger') {
+      assert.equal(args, '', name);
+      triggers.push(name);
+    } else {
+      assert.equal(replace, 'OR REPLACE ', name);
+      assert.ok(SALES_FUNCTIONS.includes(`${name}(uuid,uuid)`), name);
+      assert.equal(args, 'p_order uuid, p_branch uuid', name);
+    }
+  }
+  assert.deepEqual(triggers.sort(), [
+    'guard_kaspi_pos_attempt_release',
+    'guard_kaspi_pos_attempt_released',
+    'guard_local_execution_mode',
+  ]);
+  // The only definer is the trigger function with a pinned search_path and no PUBLIC EXECUTE.
+  const code = text.replace(/^\s*--.*$/gm, '');
+  assert.equal((code.match(/SECURITY DEFINER/g) ?? []).length, 1);
+  assert.match(
+    text,
+    /CREATE FUNCTION guard_kaspi_pos_attempt_released\(\) RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER/,
+  );
+  assert.match(text, /SET search_path = pg_catalog, %I, pg_temp/);
+  assert.match(text, /REVOKE EXECUTE ON FUNCTION guard_kaspi_pos_attempt_released\(\) FROM PUBLIC/);
+  assert.doesNotMatch(text, /GRANT /);
+  // The replaced helper is a planned one: its grant stays with the 028 plan.
+  assert.ok(SALES_FUNCTIONS.includes('pos_sale_assert_complete(uuid,uuid)'));
 });
 
 test('the tool grants or revokes EXECUTE on functions only and never prints driver text', async () => {

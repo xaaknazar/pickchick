@@ -49,14 +49,14 @@ test('backup rejects foreign branch, different service mode and changed migratio
   assert.throws(() => verifyServiceSnapshot(branch, changed, branchId, ledger));
 });
 
-test('pinned ledger is exactly the reviewed edge migrations 001-029 of this repository', async () => {
+test('pinned ledger is exactly the reviewed edge migrations 001-030 of this repository', async () => {
   const dir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-  // A later migration (030+) needs its own reviewed allowlist entry; it is not accepted here.
+  // A later migration (031+) needs its own reviewed allowlist entry; it is not accepted here.
   const names = (await readdir(dir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .slice(0, 29);
-  assert.equal(names.length, 29);
+    .slice(0, 30);
+  assert.equal(names.length, 30);
   assert.deepEqual(
     pinned,
     await Promise.all(
@@ -116,9 +116,16 @@ test('pinned ledger is exactly the reviewed edge migrations 001-029 of this repo
     pinned[28].checksum,
     'edf0f0cbce196dc6601c5bcb2d9457ac2d43e12a51916d52d5cd6824f5339784',
   );
+  // Audit 28.11 P0-1: the paid terminal sale on a closed branch and the release, after a schema029 copy.
+  assert.equal(pinned[29].version, '030_edge_kaspi_pos_release.sql');
+  assert.equal(
+    pinned[29].checksum,
+    '5dfc739e56991d170624b47eb4ac2d6846e598ac14fe8a23703fca191018022a',
+  );
+  assert.equal(pinned.length, 30);
 });
 
-test('each reviewed schema014-029 accepts only its own exact ledger', () => {
+test('each reviewed schema014-030 accepts only its own exact ledger', () => {
   assert.deepEqual(Object.keys(SERVICE_BACKUP_SCHEMAS), [
     'schema014',
     'schema015',
@@ -136,6 +143,7 @@ test('each reviewed schema014-029 accepts only its own exact ledger', () => {
     'schema027',
     'schema028',
     'schema029',
+    'schema030',
   ]);
   for (const [mode, length] of Object.entries(SERVICE_BACKUP_SCHEMAS)) {
     const expected = expectedServiceLedger(pinned, mode);

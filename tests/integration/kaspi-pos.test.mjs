@@ -19,6 +19,7 @@ import { localUnpaidExecution, provisionFulfillment } from '@pickchick/edge-fulf
 import { PosTerminalPaymentSchema } from '@pickchick/contracts';
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
 import { assertKaspiPosRuntimePrivileges } from '../../infra/windows/kaspi-pos-grants.mjs';
+import { assertKaspiPosReleaseRuntimePrivileges } from '../../infra/windows/kaspi-pos-release-grants.mjs';
 import {
   linkKaspiTerminal,
   parseKaspiTerminalSetupArgs,
@@ -1129,12 +1130,10 @@ test('runtime role: exact schema029 privileges and the attempt flow without owne
         fulfillment: true,
       });
       await assertKaspiPosRuntimePrivileges(ctx.edge.pool, role, ctx.edge.schema);
-      // Edge 030 adds a table the runtime must read (the guards of an attempt read it) and insert
-      // into (the release). Its exact grants belong to the operator tools (infra/windows, next
-      // stage); until then this test grants what they will.
-      await ctx.edge.pool.query(
-        `GRANT SELECT, INSERT ON ${ctx.edge.schema}.kaspi_pos_attempt_releases TO ${role}`,
-      );
+      // Edge 030 adds a table the runtime reads (the guards of an attempt) and inserts into (the
+      // release): the same reset grants exactly SELECT and INSERT on it
+      // (infra/windows/kaspi-pos-release-grants.mjs).
+      await assertKaspiPosReleaseRuntimePrivileges(ctx.edge.pool, role, ctx.edge.schema);
       const url = new URL(ctx.edge.config.databaseUrl);
       url.username = role;
       url.password = password;

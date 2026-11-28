@@ -520,3 +520,95 @@ test('cutover 028: the runtime reads the desk number through its table SELECT an
     }),
   );
 });
+
+test('edge 030: runtime grants hold exactly SELECT and INSERT on the releases table and nothing else changes', async () => {
+  await fixture(async (ctx) =>
+    runtime(ctx, async (pool, role, options) => {
+      const { MIGRATION, assertKaspiPosReleaseRuntimePrivileges } =
+        await import('../../infra/windows/kaspi-pos-release-grants.mjs');
+      const { assertKaspiPosRuntimePrivileges } =
+        await import('../../infra/windows/kaspi-pos-grants.mjs');
+      assert.equal(MIGRATION, '030_edge_kaspi_pos_release.sql');
+      // The reset grants the reviewed 030 set next to the unchanged 029 set.
+      assert.equal(
+        (await assertKaspiPosReleaseRuntimePrivileges(ctx.pool, role, ctx.schema)).tables,
+        1,
+      );
+      assert.equal((await assertKaspiPosRuntimePrivileges(ctx.pool, role, ctx.schema)).tables, 2);
+      const rights = async (who) =>
+        (
+          await ctx.pool.query(
+            `SELECT a.privilege_type FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a
+              WHERE c.relname='kaspi_pos_attempt_releases' AND c.relnamespace=$2::regnamespace
+                AND a.grantee=$1::regrole ORDER BY 1`,
+            [who, ctx.schema],
+          )
+        ).rows.map((r) => r.privilege_type);
+      assert.deepEqual(await rights(role), ['INSERT', 'SELECT']);
+      // Only the owner and this runtime hold anything on the table (no PUBLIC, no other login).
+      const grantees = (
+        await ctx.pool.query(
+          `SELECT DISTINCT a.grantee::regrole::text AS grantee FROM pg_class c
+             CROSS JOIN LATERAL aclexplode(c.relacl) a
+            WHERE c.relname='kaspi_pos_attempt_releases' AND c.relnamespace=$1::regnamespace
+              AND a.grantee<>c.relowner ORDER BY 1`,
+          [ctx.schema],
+        )
+      ).rows.map((r) => r.grantee);
+      assert.deepEqual(grantees, [role]);
+      assert.equal((await pool.query('SELECT 1 FROM kaspi_pos_attempt_releases')).rowCount, 0);
+      for (const sql of [
+        "UPDATE kaspi_pos_attempt_releases SET reason='Другая причина'",
+        'DELETE FROM kaspi_pos_attempt_releases',
+        'TRUNCATE kaspi_pos_attempt_releases',
+      ])
+        await assert.rejects(pool.query(sql), denied, sql);
+      // A first install gets the same set with and without kitchen access.
+      for (const fulfillment of [true, false])
+        await freshRole(ctx, async (other) => {
+          await applyEdgeRuntimeGrants(ctx.pool, other, { ...options, fulfillment });
+          assert.deepEqual(await rights(other), ['INSERT', 'SELECT']);
+          await assertKaspiPosReleaseRuntimePrivileges(ctx.pool, other, ctx.schema);
+        });
+      // A stray extra right is found by the exact check.
+      await ctx.pool.query(`GRANT DELETE ON ${ctx.schema}.kaspi_pos_attempt_releases TO ${role}`);
+      await assert.rejects(
+        assertKaspiPosReleaseRuntimePrivileges(ctx.pool, role, ctx.schema),
+        /table privileges differ/,
+      );
+      await ctx.pool.query(
+        `REVOKE DELETE ON ${ctx.schema}.kaspi_pos_attempt_releases FROM ${role}`,
+      );
+      await ctx.pool.query(
+        `GRANT UPDATE(reason) ON ${ctx.schema}.kaspi_pos_attempt_releases TO ${role}`,
+      );
+      await assert.rejects(
+        assertKaspiPosReleaseRuntimePrivileges(ctx.pool, role, ctx.schema),
+        /column privileges differ/,
+      );
+      await ctx.pool.query(
+        `REVOKE UPDATE(reason) ON ${ctx.schema}.kaspi_pos_attempt_releases FROM ${role}`,
+      );
+      await assertKaspiPosReleaseRuntimePrivileges(ctx.pool, role, ctx.schema);
+      // A ledger that names 030 while its table exists (or the reverse) is refused.
+      const row = (
+        await ctx.pool.query(
+          "DELETE FROM schema_migrations WHERE version='030_edge_kaspi_pos_release.sql' RETURNING version,checksum,scope",
+        )
+      ).rows[0];
+      try {
+        await freshRole(ctx, (other) =>
+          assert.rejects(
+            applyEdgeRuntimeGrants(ctx.pool, other, options),
+            /Kaspi POS release migration objects differ/,
+          ),
+        );
+      } finally {
+        await ctx.pool.query(
+          'INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)',
+          [row.version, row.checksum, row.scope],
+        );
+      }
+    }),
+  );
+});

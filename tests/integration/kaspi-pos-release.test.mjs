@@ -8,6 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate, transaction } from '@pickchick/database';
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
+import { assertKaspiPosReleaseRuntimePrivileges } from '../../infra/windows/kaspi-pos-release-grants.mjs';
 import { createEdge } from '@pickchick/edge';
 import { applyMenu, hashToken, publishMenu } from '@pickchick/menu-sync';
 import {
@@ -1152,9 +1153,13 @@ async function withRuntimeRole(ctx, run, { releaseGrants = false } = {}) {
       schema: ctx.edge.schema,
       fulfillment: true,
     });
+    // The reset grants SELECT and INSERT on the releases table (kaspi-pos-release-grants.mjs).
     if (releaseGrants)
+      await assertKaspiPosReleaseRuntimePrivileges(ctx.edge.pool, role, ctx.edge.schema);
+    // A role without them is what an edge looks like before the 030 tool granted its rights.
+    else
       await ctx.edge.pool.query(
-        `GRANT SELECT, INSERT ON ${ctx.edge.schema}.kaspi_pos_attempt_releases TO ${role}`,
+        `REVOKE ALL ON ${ctx.edge.schema}.kaspi_pos_attempt_releases FROM ${role}`,
       );
     const url = new URL(ctx.edge.config.databaseUrl);
     url.username = role;

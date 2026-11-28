@@ -145,20 +145,21 @@ try {
  [IO.File]::WriteAllText((Join-Path $dir 'head-ledger.ps1'),(($ledgerFunctions|ForEach-Object {$_.Extent.Text}) -join "`n"))
  . (Join-Path $dir 'head-ledger.ps1')
  $rows=[Text.Encoding]::UTF8.GetString($ledgerBytes)|ConvertFrom-Json
- Check (@($rows).Count -eq 29) 'The reviewed ledger has 29 rows'
+ Check (@($rows).Count -eq 30) 'The reviewed ledger has 30 rows (029 plus the 030 row)'
  function Copy-LedgerRows($Rows){return @($Rows|ForEach-Object {@{scope=$_.scope;version=$_.version;checksum=$_.checksum}})}
- Assert-HeadMigrationSet (Copy-LedgerRows $rows);Check $true 'The reviewed 029 candidate is accepted'
+ Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..28]);Check $true 'The reviewed 029 candidate is accepted'
+ Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows)} 'A 030 candidate is not a 029 candidate'
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..27])} 'A 028 candidate is refused'
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..24])} 'A 025 candidate is refused'
  Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..26])} 'A 027 candidate is refused'
- $changed=Copy-LedgerRows $rows;$changed[28].checksum='0'*64
+ $changed=Copy-LedgerRows $rows[0..28];$changed[28].checksum='0'*64
  Rejects {Assert-HeadMigrationSet $changed} 'A changed 029 migration is refused'
- $changed=Copy-LedgerRows $rows;$changed[27].checksum='0'*64
+ $changed=Copy-LedgerRows $rows[0..28];$changed[27].checksum='0'*64
  Rejects {Assert-HeadMigrationSet $changed} 'A changed 028 migration is refused'
- $changed=Copy-LedgerRows $rows;$changed[5].checksum='0'*64
+ $changed=Copy-LedgerRows $rows[0..28];$changed[5].checksum='0'*64
  Rejects {Assert-HeadMigrationSet $changed} 'A changed historical migration is refused'
  [IO.File]::WriteAllText($ledgerFile,(ConvertTo-Json @(Copy-LedgerRows $rows[0..27]) -Depth 3))
- Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows)} 'A ledger file without 029 is refused'
+ Rejects {Assert-HeadMigrationSet (Copy-LedgerRows $rows[0..28])} 'A ledger file without 029 is refused'
 } finally {[IO.Directory]::Delete($dir,$true)}
 Write-Output ('app-runtime-029: '+$script:cases+' checks passed; mocked SCM/SQL, no installation')
 '''.replace('__NEIGHBOR_CASES__', base.NEIGHBOR_CASES.strip()).replace('__SERVICE_LISTS__', '\n'.join(LISTS)).replace(
