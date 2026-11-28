@@ -1,0 +1,240 @@
+[
+ {
+  "Name": "ПФ острый соус",
+  "Category": "Соусы",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ чесночный соус",
+  "Category": "Соусы",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ красный соус",
+  "Category": "Соусы",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ майонез",
+  "Category": "Соусы",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ перчик",
+  "Category": "Соусы",
+  "Shelf": 24,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ острый соус (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ чесночный соус (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ красный соус (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ майонез (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ перчик (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Соусы (вскрытый вакуум)",
+  "Category": "Соусы",
+  "Shelf": 48,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Перчик (вскрытый вакуум)",
+  "Category": "Соусы",
+  "Shelf": 48,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ огурцы (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ огурцы (саладет)",
+  "Category": "Овощи",
+  "Shelf": 3,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Огурцы маринованные (после вскрытия)",
+  "Category": "Овощи",
+  "Shelf": 48,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ лук (на станции)",
+  "Category": "На станции",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "ПФ лук с цеха (саладет)",
+  "Category": "Овощи",
+  "Shelf": 3,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лук с цеха (вскрытый вакуум)",
+  "Category": "Овощи",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лук неочищенный (в контейнере)",
+  "Category": "Овощи",
+  "Shelf": 48,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лук нарезанный (саладет)",
+  "Category": "Овощи",
+  "Shelf": 2,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Говядина готовая (в мармите)",
+  "Category": "Мясо и картофель",
+  "Shelf": 1,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Курица готовая (в мармите)",
+  "Category": "Мясо и картофель",
+  "Shelf": 1,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Картошка с цеха (вскрытая упаковка)",
+  "Category": "Мясо и картофель",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Картошка готовая",
+  "Category": "Мясо и картофель",
+  "Shelf": 20,
+  "Unit": "min",
+  "Storage": ""
+ },
+ {
+  "Name": "Картофель фри готовый",
+  "Category": "Мясо и картофель",
+  "Shelf": 5,
+  "Unit": "min",
+  "Storage": ""
+ },
+ {
+  "Name": "Лапиза (вскрытая упаковка)",
+  "Category": "Лаваш",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лаваш вскрытый (холодильник)",
+  "Category": "Лаваш",
+  "Shelf": 12,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лаваш вскрытый (на станции)",
+  "Category": "Лаваш",
+  "Shelf": 4,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лаваш с лапизой (холодильник)",
+  "Category": "Лаваш",
+  "Shelf": 4,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Лаваш с лапизой (на станции)",
+  "Category": "Лаваш",
+  "Shelf": 30,
+  "Unit": "min",
+  "Storage": ""
+ },
+ {
+  "Name": "Специя Santa Maria (вскрытая упаковка)",
+  "Category": "Прочее",
+  "Shelf": 7,
+  "Unit": "d",
+  "Storage": ""
+ },
+ {
+  "Name": "Специя Santa Maria (в солонке)",
+  "Category": "Прочее",
+  "Shelf": 24,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Соусы «Дипоты» (на станции)",
+  "Category": "На станции",
+  "Shelf": 120,
+  "Unit": "h",
+  "Storage": ""
+ },
+ {
+  "Name": "Дезраствор К-214 (0,5%)",
+  "Category": "Прочее",
+  "Shelf": 4,
+  "Unit": "h",
+  "Storage": ""
+ }
+]
