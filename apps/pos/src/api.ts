@@ -232,6 +232,7 @@ export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {})
     TERMINAL_UNSOLD_PAYMENTS:
       'На кассе есть оплаты на терминале без заказа - оформите их или снимите по PIN начальника смены',
     TERMINAL_RELEASE_UNSUPPORTED: 'Снятие оплаты появится после обновления сервера точки',
+    TERMINAL_RELEASE_NOT_FOUND: 'Оплата не найдена',
     ...releaseText,
   };
   return text[code] ?? errorMessage(error);

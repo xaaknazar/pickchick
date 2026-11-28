@@ -220,6 +220,9 @@ export const TERMINAL_RELEASED_NOTICE =
   'Оплата на терминале снята начальником смены - возврат сделан на терминале';
 /** The cashier asks about a held paid attempt of its own this often (the point never polls it). */
 export const TERMINAL_RELEASE_POLL_MS = 5000;
+/** After a refusal or an old point's answer, other desks / shift releases are asked no sooner. */
+const OTHER_DESKS_PAUSE_MS = 5 * 60000;
+const SHIFT_RELEASES_PAUSE_MS = 10 * 60000;
 const VOID_KEYS = ['expected_version', 'reason_code', 'reason', 'fiscal_sale_issued', 'approval'];
 const REFUND_KEYS = ['refund_id', 'tenders', 'reason_code', 'reason', 'approval'];
 const CLOSE_KEYS = [
@@ -811,6 +814,12 @@ export class PosController {
   private posConfigMissingUntil = -Infinity;
   /** When this desk last asked the point whether its held paid attempt was released. */
   private terminalReleaseAt = -Infinity;
+  /** The point has sent released_at on an attempt at least once in this session (schema 030). */
+  private releaseSchema = false;
+  /** Other desks are not asked before this time (a refusal, an old point that is no proof). */
+  private otherDesksAfter = -Infinity;
+  /** The shift releases are not asked before this time (the route is missing). */
+  private shiftReleasesAfter = -Infinity;
   private noticeSeq = 0;
   /**
    * A release sent and not answered for sure, by attempt: its key and body stay until the answer
@@ -1216,6 +1225,9 @@ export class PosController {
     this.operationsSaleAt = -Infinity;
     this.posConfigMissingUntil = -Infinity;
     this.terminalReleaseAt = -Infinity;
+    this.releaseSchema = false;
+    this.otherDesksAfter = -Infinity;
+    this.shiftReleasesAfter = -Infinity;
     this.receiptReadAt.clear();
     await this.refreshData();
     await this.readOperations();
@@ -1236,7 +1248,7 @@ export class PosController {
     if (!hold || !this.state.posConfig?.kaspi_terminal_link) return;
     let t: TerminalPayment;
     try {
-      t = parse.terminalPayment(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
+      t = this.readAttempt(await this.request(`pos/terminal-payments/${hold.attempt_id}`));
     } catch (error) {
       if (error instanceof ApiError && error.code === 'NOT_FOUND') this.dropTerminalHold();
       // Unreachable now: the recovery read of open payments shows it until the edge answers.
@@ -1997,7 +2009,7 @@ export class PosController {
     // that order is the sale, and holding the cart closed would be forever.
     if (['TERMINAL_ATTEMPT_INVALID', 'CONFLICT'].includes(codeOf(error))) {
       try {
-        const now = parse.terminalPayment(await this.request(`pos/terminal-payments/${attempt}`));
+        const now = this.readAttempt(await this.request(`pos/terminal-payments/${attempt}`));
         // Released by hand: it can never be sold. The hold, its quote and the pending sale go.
         if (now.attempt_id === attempt && now.released_at) {
           this.applyRelease(now);
@@ -2065,7 +2077,7 @@ export class PosController {
           ['SERVICE_MODE_DISABLED', 'KITCHEN_UNAVAILABLE'].includes(error.code)) ||
           (p.kind === 'cancel' && error.code === 'ORDER_IN_PRODUCTION'));
       if (admissionRejected) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
         if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
         await this.refreshData();
@@ -2081,7 +2093,7 @@ export class PosController {
         error.status < 500 &&
         (p.kind === 'sale' ? SALE_REJECTIONS.has(error.code) : approvalKey(error.code))
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         if (approvalKey(error.code)) this.state.approval = null;
         if (['CHANNEL_PRICE_UNAVAILABLE', 'SERVICE_MODE_DISABLED'].includes(error.code))
           this.state.quote = null;
@@ -2098,7 +2110,7 @@ export class PosController {
         (((p.kind === 'void' || p.kind === 'refund') && OPERATION_REJECTIONS.has(error.code)) ||
           (p.kind === 'shift_close' && CLOSE_REJECTIONS.has(error.code)))
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.approval = null;
         if (p.kind === 'shift_close') {
           await this.refreshFiscal();
@@ -2113,7 +2125,7 @@ export class PosController {
         // replay returns that result. A 409 CONFLICT for this key is therefore a final
         // rejection (stale version, consumed quote, changed shift) that a retry repeats forever.
         // Persist resolution before reading the new state; uncertain responses remain pending.
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
         // A create is rejected when its quote is already an order (made on this terminal with
         // another key): show that order instead of leaving the same cart to be sold twice.
@@ -2143,7 +2155,7 @@ export class PosController {
           'CASH_SHIFT_REQUIRED',
         ].includes(error.code)
       ) {
-        this.save({ ...j, pending: null });
+        this.save({ ...(this.journal ?? j), pending: null });
         this.state.quote = null;
       }
       throw error;
@@ -2186,7 +2198,7 @@ export class PosController {
         (r.receipt_number !== undefined && r.receipt_number !== p.body.receipt_number)
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (p.subject) await this.refreshSale(p.subject);
       await this.refreshFiscal();
@@ -2203,7 +2215,7 @@ export class PosController {
         !result.sale.refunds.some((r) => r.kind === 'void')
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (!this.state.order || this.state.order.order_id === id) this.state.order = result.order;
       if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = result.sale;
@@ -2229,7 +2241,7 @@ export class PosController {
         )
       )
         throw new Error('INVALID_RESPONSE');
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.approval = null;
       if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = sale;
       await this.reloadSaleOrder(id!);
@@ -2300,7 +2312,7 @@ export class PosController {
         )
           throw new Error('INVALID_RESPONSE');
       }
-      this.save({ ...j, pending: null });
+      this.save({ ...(this.journal ?? j), pending: null });
       this.state.quote = null;
       // A sales shift closed with its approval (if any): it is spent, never shown again.
       if (p.kind === 'shift_close') this.state.approval = null;
@@ -2669,7 +2681,7 @@ export class PosController {
         }
         throw error;
       }
-      const t = parse.terminalPayment(value);
+      const t = this.readAttempt(value);
       if (t.quote_id !== quote.quote_id || t.amount_minor !== quote.total_minor)
         throw new Error('INVALID_RESPONSE');
       this.state.terminal = t;
@@ -2794,9 +2806,7 @@ export class PosController {
       if (!terminalActive(current)) return;
       let next: TerminalPayment;
       try {
-        next = parse.terminalPayment(
-          await this.request(`pos/terminal-payments/${current.attempt_id}`),
-        );
+        next = this.readAttempt(await this.request(`pos/terminal-payments/${current.attempt_id}`));
       } catch (error) {
         if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
           this.fail(error);
@@ -2829,6 +2839,21 @@ export class PosController {
     }
     await this.sellPaid(paid.attempt_id, null);
   }
+  private readAttempt(value: unknown): TerminalPayment {
+    const t = parse.terminalPayment(value);
+    if (t.released_at !== undefined) this.noteSchema();
+    return t;
+  }
+  /** The first released_at of a session: the other desks may be asked again at once. */
+  private noteSchema() {
+    if (!this.releaseSchema) this.otherDesksAfter = -Infinity;
+    this.releaseSchema = true;
+  }
+  private readAttempts(value: unknown): TerminalPayment[] {
+    const list = parse.terminalPayments(value);
+    if (list.some((t) => t.released_at !== undefined)) this.noteSchema();
+    return list;
+  }
   /**
    * One question about this desk's held paid attempt: was it released by a shift manager? Asked
    * at most every TERMINAL_RELEASE_POLL_MS (the first call only starts the window), and only while
@@ -2839,7 +2864,12 @@ export class PosController {
       epoch = this.generation,
       now = this.now();
     if (!t || t.state !== 'success' || t.order_id || !this.credential) return;
+    // Never under a command in flight: a release applied there would be written over (or over
+    // by) the journal that command saves.
+    if (this.state.busy) return;
     if (!force) {
+      // A point that sends no released_at has no release to find: the question is never asked.
+      if (t.released_at === undefined) return;
       if (this.terminalReleaseAt === -Infinity) {
         this.terminalReleaseAt = now;
         return;
@@ -2849,13 +2879,14 @@ export class PosController {
     this.terminalReleaseAt = now;
     let next: TerminalPayment;
     try {
-      next = parse.terminalPayment(await this.request(`pos/terminal-payments/${t.attempt_id}`));
+      next = this.readAttempt(await this.request(`pos/terminal-payments/${t.attempt_id}`));
     } catch (error) {
       if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
         this.fail(error);
       return;
     }
     if (epoch !== this.generation || this.state.terminal?.attempt_id !== t.attempt_id) return;
+    if (this.state.busy) return;
     if (next.attempt_id !== t.attempt_id || !next.released_at) return;
     this.applyRelease(next);
   }
@@ -2893,7 +2924,7 @@ export class PosController {
     this.state.terminal = null;
     this.state.terminalRefusal = null;
     this.state.saleDraft = blankSaleDraft();
-    this.state.approval = null;
+    if (this.state.approval?.action === 'terminal_release') this.state.approval = null;
     this.terminalReleaseAt = -Infinity;
     this.state.terminalNotice = { id: ++this.noticeSeq, text: TERMINAL_RELEASED_NOTICE };
     this.emit();
@@ -2916,7 +2947,7 @@ export class PosController {
       }
       return;
     }
-    const open = parse.terminalPayments(await this.request('pos/terminal-payments/open'));
+    const open = this.readAttempts(await this.request('pos/terminal-payments/open'));
     if (epoch !== this.generation) return;
     if (!unchanged(open, this.state.terminalOpen)) {
       this.state.terminalOpen = open;
@@ -2939,22 +2970,28 @@ export class PosController {
    */
   private async readOtherDesks() {
     const epoch = this.generation,
-      actor = this.state.actor;
+      actor = this.state.actor,
+      now = this.now();
     let others: TerminalPayment[] = [];
     if (actor?.role === 'shift_manager' && this.state.posConfig?.kaspi_terminal_link) {
+      // A refusal or an old point is not asked again for a while (an old point answers 200 with
+      // this desk's own attempts, which is no proof that it can release).
+      if (now < this.otherDesksAfter) return;
       try {
-        others = parse
-          .terminalPayments(await this.request('pos/terminal-payments/open?scope=other_desks'))
-          // An older point ignores the scope and answers with this desk's own attempts, which carry
-          // no released_at key: only what a new point sent for another desk is taken.
-          .filter(
-            (t) =>
-              t.state === 'success' &&
-              !t.order_id &&
-              t.released_at === null &&
-              t.terminal_id !== undefined &&
-              t.terminal_id !== actor.terminal_id,
-          );
+        const list = this.readAttempts(
+          await this.request('pos/terminal-payments/open?scope=other_desks'),
+        );
+        if (!this.releaseSchema) this.otherDesksAfter = now + OTHER_DESKS_PAUSE_MS;
+        // An older point ignores the scope and answers with this desk's own attempts, which carry
+        // no released_at key: only what a new point sent for another desk is taken.
+        others = list.filter(
+          (t) =>
+            t.state === 'success' &&
+            !t.order_id &&
+            t.released_at === null &&
+            t.terminal_id !== undefined &&
+            t.terminal_id !== actor.terminal_id,
+        );
       } catch (error) {
         if (epoch !== this.generation) return;
         if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
@@ -2962,6 +2999,7 @@ export class PosController {
           return;
         }
         if (error instanceof ApiError && ![400, 403, 404].includes(error.status)) return;
+        this.otherDesksAfter = now + OTHER_DESKS_PAUSE_MS;
       }
     }
     if (epoch !== this.generation || unchanged(others, this.state.terminalOthers)) return;
@@ -2984,9 +3022,8 @@ export class PosController {
   }
   /** The screen «Оплаты без заказа» exists only against a point that sends released_at. */
   get terminalPaymentsAvailable() {
-    if (!this.saleMode || !this.state.posConfig?.kaspi_terminal_link) return false;
-    return [this.state.terminal, ...this.state.terminalOpen, ...this.state.terminalOthers].some(
-      (t) => t?.released_at !== undefined,
+    return Boolean(
+      this.saleMode && this.state.posConfig?.kaspi_terminal_link && this.releaseSchema,
     );
   }
   /** Reads the lists of the screen at once (the poll reads them every 30 s). */
@@ -3046,7 +3083,7 @@ export class PosController {
     let saved = this.releases.get(attemptId);
     if (saved) {
       // The earlier request may have been committed: ask the point before sending anything.
-      const now = parse.terminalPayment(await this.request(`pos/terminal-payments/${attemptId}`));
+      const now = this.readAttempt(await this.request(`pos/terminal-payments/${attemptId}`));
       if (now.attempt_id !== attemptId) throw new Error('INVALID_RESPONSE');
       if (now.released_at) {
         this.releases.delete(attemptId);
@@ -3082,8 +3119,22 @@ export class PosController {
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        // The route is not there (an older point server, or no schema 030): nothing was done.
         this.releases.delete(attemptId);
+        // The point itself answers NOT_FOUND both when the attempt is not there and when it cannot
+        // release (no schema 030, no rights), so only the attempt tells them apart. A 404 without
+        // that code is a missing route.
+        if (error.code === 'NOT_FOUND') {
+          let exists = true;
+          try {
+            this.readAttempt(await this.request(`pos/terminal-payments/${attemptId}`));
+          } catch (again) {
+            exists = !(again instanceof ApiError && again.status === 404);
+          }
+          if (!exists) {
+            await this.readOpenTerminalPayments().catch(() => {});
+            throw new Error('TERMINAL_RELEASE_NOT_FOUND', { cause: error });
+          }
+        }
         throw new Error('TERMINAL_RELEASE_UNSUPPORTED', { cause: error });
       }
       if (
@@ -3101,7 +3152,7 @@ export class PosController {
       // Any other answer (a lost one, a timeout, 5xx) leaves the outcome unknown: same key again.
       throw error;
     }
-    const t = parse.terminalPayment(value);
+    const t = this.readAttempt(value);
     if (t.attempt_id !== attemptId || !t.released_at) throw new Error('INVALID_RESPONSE');
     this.releases.delete(attemptId);
     this.state.approval = null;
@@ -3542,16 +3593,22 @@ export class PosController {
    * report itself is never held back by it.
    */
   async readTerminalReleases(shiftId: string) {
-    const epoch = this.generation;
+    const epoch = this.generation,
+      now = this.now();
     let value: TerminalReleases | null;
-    try {
-      const list = parse.terminalReleases(
-        await this.request(`cash-shifts/${parse.uuid(shiftId)}/terminal-releases`),
-      );
-      value = list.shift_id === shiftId ? list : null;
-    } catch {
-      value = null;
-    }
+    // A point without the route (404, 400, 403) is not asked again for a while.
+    if (now < this.shiftReleasesAfter) value = null;
+    else
+      try {
+        const list = parse.terminalReleases(
+          await this.request(`cash-shifts/${parse.uuid(shiftId)}/terminal-releases`),
+        );
+        value = list.shift_id === shiftId ? list : null;
+      } catch (error) {
+        value = null;
+        if (error instanceof ApiError && [400, 403, 404].includes(error.status))
+          this.shiftReleasesAfter = now + SHIFT_RELEASES_PAUSE_MS;
+      }
     if (epoch === this.generation) this.state.terminalReleases = value;
   }
   /** The frozen Z report of a closed sales shift (GET cash-shifts/{id}/z-report). */
