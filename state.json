@@ -8199,6 +8199,18 @@
       "status": "active",
       "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
       "updatedAt": "2026-11-28T10:20:31.988Z"
+    },
+    {
+      "id": "p0-mobile-ttp-recovery",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-mobile-ttp-recovery",
+      "scopes": [
+        "apps/mobile/src/tiptoppay-recovery.ts",
+        "tests/mobile/tiptoppay-recovery.test.mjs"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T12:12:56.137Z"
     }
   ],
   "approvedScopeTransfers": [
