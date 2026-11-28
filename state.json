@@ -8154,19 +8154,6 @@
       "updatedAt": "2026-11-28T09:50:30.518Z"
     },
     {
-      "id": "p0-webkassa-kaspi-pos",
-      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
-      "branch": "codex/p0-webkassa-kaspi-pos",
-      "scopes": [
-        "packages/commerce-core/src/webkassa-cloud.ts",
-        "packages/local-orders/src/webkassa-fiscal.ts",
-        "packages/commerce-core/tests/webkassa-cloud.postgres.test.mjs"
-      ],
-      "status": "active",
-      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
-      "updatedAt": "2026-11-28T09:52:59.686Z"
-    },
-    {
       "id": "p0-pos-paid-hold",
       "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
       "branch": "codex/p0-pos-paid-hold",
@@ -8194,6 +8181,24 @@
       "status": "active",
       "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
       "updatedAt": "2026-11-28T10:09:07.477Z"
+    },
+    {
+      "id": "p0-webkassa-kaspi-pos",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-webkassa-kaspi-pos",
+      "scopes": [
+        "packages/commerce-core/src/webkassa-cloud.ts",
+        "packages/local-orders/src/webkassa-fiscal.ts",
+        "packages/commerce-core/tests/webkassa-cloud.postgres.test.mjs",
+        "infra/staging/webkassa-worker-grants.mjs",
+        "docs/integrations/webkassa-api.md",
+        "packages/commerce-core/tests/unit.test.mjs",
+        "tests/unit/webkassa-client.test.mjs",
+        "tests/integration/webkassa-kaspi-terminal.test.mjs"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T10:20:31.988Z"
     }
   ],
   "approvedScopeTransfers": [
