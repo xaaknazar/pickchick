@@ -17,12 +17,12 @@ const plural = (n) => {
   return 'позиций';
 };
 const METHOD = {
-  cash: ['Оплата наличными', 'Қолма-қол ақшамен төлеу'],
-  kaspi_terminal: ['Оплатите на терминале Kaspi', 'Kaspi терминалында төлеңіз'],
-  kaspi_manual: ['Оплата через Kaspi', 'Kaspi арқылы төлеу'],
-  chocofood: ['Оплата ChocoFood', 'ChocoFood арқылы төлеу'],
-  mixed: ['Оплата двумя способами', 'Екі тәсілмен төлеу'],
-  other: ['Оплата', 'Төлем'],
+  cash: ['Қолма-қол ақшамен төлеу', 'Оплата наличными'],
+  kaspi_terminal: ['Kaspi терминалында төлеңіз', 'Оплатите на терминале Kaspi'],
+  kaspi_manual: ['Kaspi арқылы төлеу', 'Оплата через Kaspi'],
+  chocofood: ['ChocoFood арқылы төлеу', 'Оплата ChocoFood'],
+  mixed: ['Екі тәсілмен төлеу', 'Оплата двумя способами'],
+  other: ['Төлем', 'Оплата'],
 };
 let shown = '';
 function el(tag, className, text) {
@@ -30,6 +30,13 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+function label(kz, ru) {
+  const dt = el('dt', '', kz);
+  const small = el('small', '', ru);
+  small.lang = 'ru';
+  dt.append(small);
+  return dt;
 }
 function drawLines(view, previous) {
   const before = new Map(
@@ -55,19 +62,19 @@ function drawPay(view) {
   const pay = byId('pay');
   pay.replaceChildren();
   if (view.kind !== 'pay') return;
-  const [ru, kz] = METHOD[view.method] ?? ['Оплата', 'Төлем'];
+  const [kz, ru] = METHOD[view.method] ?? ['Төлем', 'Оплата'];
   if (view.method === 'kaspi_terminal' || view.method === 'kaspi_manual') {
     const kaspi = el('img', 'kaspi');
     kaspi.src = '/v2/assets/kaspi.png';
     kaspi.alt = 'Kaspi';
     pay.append(kaspi);
   }
-  pay.append(el('p', 'pay-title', ru), el('p', 'kz pay-kz', kz));
+  pay.append(el('p', 'pay-title', kz), el('p', 'ru pay-ru', ru));
   if (view.tendered_minor !== undefined) {
     const box = el('dl', 'cash');
-    box.append(el('dt', '', 'Получено'), el('dd', '', money(view.tendered_minor)));
+    box.append(label('Алынды', 'Получено'), el('dd', '', money(view.tendered_minor)));
     if (view.change_minor !== undefined)
-      box.append(el('dt', '', 'Сдача'), el('dd', 'change', money(view.change_minor)));
+      box.append(label('Қайтарым', 'Сдача'), el('dd', 'change', money(view.change_minor)));
     pay.append(box);
   }
 }
@@ -81,12 +88,12 @@ function draw(view) {
     drawLines(view, last?.lines ? last : null);
     const count = view.lines.reduce((n, l) => n + l.qty, 0);
     byId('total').textContent = money(view.total_minor);
-    byId('count').textContent = count + ' ' + plural(count);
-    byId('sum-title').textContent = view.kind === 'pay' ? 'К оплате' : 'Итого';
-    byId('sum-kz').textContent = view.kind === 'pay' ? 'Төлеуге' : 'Барлығы';
+    byId('count').textContent = count + ' дана · ' + count + ' ' + plural(count);
+    byId('sum-title').textContent = view.kind === 'pay' ? 'Төлеуге' : 'Барлығы';
+    byId('sum-ru').textContent = view.kind === 'pay' ? 'К оплате' : 'Итого';
     const mode = byId('mode');
     mode.textContent =
-      view.mode === 'dine' ? 'В зале · Залда' : view.mode === 'take' ? 'С собой · Өзіңізбен' : '';
+      view.mode === 'dine' ? 'Залда · В зале' : view.mode === 'take' ? 'Өзіңізбен · С собой' : '';
     mode.hidden = !view.mode;
     drawPay(view);
   }
