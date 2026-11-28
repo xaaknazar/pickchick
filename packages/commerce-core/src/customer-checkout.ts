@@ -59,10 +59,29 @@ export const CheckoutOptionsSchema = z.strictObject({
     .max(1440)
     .refine((value) => value === 0 || value >= 5)
     .optional(),
+  /**
+   * CUSTOMER_TIPTOPPAY_OPEN_PAYMENT_WINDOW_MINUTES (default 25, 0 = off): while a TipTopPay payment
+   * of one order is in review, the same guest gets no new order and no payment of another order.
+   */
+  openTipTopPayWindowMinutes: z.int().min(0).max(1440).optional(),
+  /**
+   * The live TipTopPay payment account (TIPTOPPAY_CHECKOUT_ENABLED=true, TIPTOPPAY_ACCOUNT_ID).
+   * Only then does this server hold the TipTopPay table rights, so only then is the one-open-
+   * payment rule checked; unset (Kaspi only) the rule never reads TipTopPay tables.
+   */
+  tipTopPayAccountId: z.uuid().optional(),
 });
 export type CheckoutOptions = z.infer<typeof CheckoutOptionsSchema>;
 /** Default TTL of a mobile order that was never sent to the bank (PM decision 19.10). */
 export const UNPAID_ORDER_TTL_MINUTES = 30;
+/**
+ * Owner decision 28.11.2026: a TipTopPay payment "in review" (sent to the bank, answer unknown or
+ * 3-D Secure pending) may still be paid by reconciliation, so for this long the same guest cannot
+ * open another order or pay another one. Counted from the moment it was sent to the bank. 25 minutes:
+ * reconciliation closes an attempt the bank does not know no earlier than the 20th minute
+ * (TIPTOPPAY_NOT_FOUND_FAIL_MS), so a shorter window would reopen ordering while it can still pay.
+ */
+export const OPEN_TIPTOPPAY_PAYMENT_WINDOW_MINUTES = 25;
 function booleanFlag(value: string | undefined, fallback: boolean) {
   if (value === undefined || value === '') return fallback;
   if (value !== 'true' && value !== 'false') throw new CommerceError('INVALID');
@@ -91,7 +110,46 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
         : /^[0-9]{1,4}$/.test(ttl)
           ? Number(ttl)
           : Number.NaN,
+    openTipTopPayWindowMinutes: openTipTopPayWindowFromEnv(env),
+    ...(env.TIPTOPPAY_CHECKOUT_ENABLED === 'true'
+      ? { tipTopPayAccountId: env.TIPTOPPAY_ACCOUNT_ID }
+      : {}),
   });
+}
+/** CUSTOMER_TIPTOPPAY_OPEN_PAYMENT_WINDOW_MINUTES: default 25, 0 = off, NaN (invalid) otherwise. */
+export function openTipTopPayWindowFromEnv(env: NodeJS.ProcessEnv): number {
+  const value = env.CUSTOMER_TIPTOPPAY_OPEN_PAYMENT_WINDOW_MINUTES;
+  return value === undefined || value === ''
+    ? OPEN_TIPTOPPAY_PAYMENT_WINDOW_MINUTES
+    : /^[0-9]{1,4}$/.test(value)
+      ? Number(value)
+      : Number.NaN;
+}
+/**
+ * True when another mobile order of this guest has a TipTopPay attempt in review: pending/unknown,
+ * sent to the bank (session opened_at) less than `minutes` ago by the database clock.
+ */
+export async function otherTipTopPayInReview(
+  db: { query: DatabasePool['query'] },
+  who: { organizationId: string; branchId: string; customerId: string },
+  accountId: string,
+  exceptOrderId: string | null,
+  minutes: number,
+): Promise<boolean> {
+  if (minutes === 0) return false;
+  const found = await db.query(
+    `SELECT 1 FROM commerce_payment_attempts a
+     JOIN commerce_orders o ON o.id=a.order_id
+     JOIN commerce_tiptoppay_sessions s ON s.attempt_id=a.id
+     WHERE o.organization_id=$1 AND o.branch_id=$2 AND o.principal_id=$3 AND o.customer_id=$3
+       AND o.snapshot->>'channel'='mobile' AND NOT o.attention_required
+       AND ($4::uuid IS NULL OR o.id<>$4::uuid)
+       AND a.account_id=$6 AND a.state IN ('pending','unknown')
+       AND s.opened_at IS NOT NULL AND s.opened_at>clock_timestamp()-$5*interval '1 minute'
+     LIMIT 1`,
+    [who.organizationId, who.branchId, who.customerId, exceptOrderId, minutes, accountId],
+  );
+  return Boolean(found.rowCount);
 }
 /** Codes stored as the reason of an automatic unpaid cancellation. */
 export type UnpaidCancellationReason =
@@ -400,6 +458,8 @@ export class CustomerCheckout {
     // A quote issued before a limit reduction must not authorize a larger new charge.
     if (!quote.order_id && BigInt(quote.total_minor) > BigInt(this.options!.maxOrderMinor))
       throw new CommerceError('NOT_READY');
+    // A retry (quote already has its order) is idempotent; only a NEW order waits for a payment in review.
+    if (!quote.order_id) await this.assertNoOtherTipTopPayInReview(scope, null);
     // A retry may recover an existing order even if the restaurant is now offline.
     // A persisted order owns its original approval reference. Changing the server
     // rollout policy must not change the idempotency digest of its create command.
@@ -433,6 +493,7 @@ export class CustomerCheckout {
       BigInt(current.money.captured) > 0n
     )
       return this.read(customerId, orderId);
+    await this.assertNoOtherTipTopPayInReview(scope, orderId);
     try {
       if (!this.salesEnabled) throw new CommerceError('NOT_READY');
       assertRestaurantOrderingOpen(this.options!.hours, this.now());
@@ -502,6 +563,7 @@ export class CustomerCheckout {
         [orderId],
       )
     ).rows[0]!.count;
+    await this.assertNoOtherTipTopPayInReview(scope, orderId);
     try {
       if (!this.salesEnabled) throw new CommerceError('NOT_READY');
       assertRestaurantOrderingOpen(this.options!.hours, this.now());
@@ -531,6 +593,37 @@ export class CustomerCheckout {
     ).rows[0];
     if (!started) throw new CommerceError('NOT_READY');
     return attempt(started.id);
+  }
+  /**
+   * One open TipTopPay payment per guest. CONFLICT when ANOTHER mobile order of this guest has a
+   * TipTopPay attempt in review: state pending/unknown AND already sent to the bank (a session with
+   * opened_at; an unsent attempt cannot charge and fails by itself), sent less than the window ago
+   * by the database clock. The window starts at the send (opened_at), not at the attempt row: the
+   * bank may answer only after the send, and attempt rows have no updated_at. An order needing a
+   * manager (attention_required) is not counted. A check outside the repository transaction: two
+   * simultaneous requests can still both pass (residual race).
+   */
+  private async assertNoOtherTipTopPayInReview(
+    scope: { organizationId: string; branchId: string; principalId: string },
+    exceptOrderId: string | null,
+  ) {
+    const accountId = this.options?.tipTopPayAccountId;
+    // Without a configured live TipTopPay this server has no right to read its tables.
+    if (!accountId) return;
+    const minutes =
+      this.options?.openTipTopPayWindowMinutes ?? OPEN_TIPTOPPAY_PAYMENT_WINDOW_MINUTES;
+    const blocking = await otherTipTopPayInReview(
+      this.pool,
+      {
+        organizationId: scope.organizationId,
+        branchId: scope.branchId,
+        customerId: scope.principalId,
+      },
+      accountId,
+      exceptOrderId,
+      minutes,
+    );
+    if (blocking) throw new CommerceError('CONFLICT');
   }
   private get salesEnabled() {
     return this.options?.salesEnabled !== false;
