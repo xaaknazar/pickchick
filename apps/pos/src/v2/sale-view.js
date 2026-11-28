@@ -130,6 +130,15 @@ const blank = () => ({
   pinError: '',
 });
 
+/** Why the edge did not take an order the guest already paid for (the cart is closed, so no hint to edit it). */
+function paidRefusalReason(code) {
+  if (code === 'ITEM_STOPPED' || code === 'COMBO_STOPPED')
+    return 'Блюдо из заказа сейчас в стоп-листе.';
+  if (code === 'MENU_CHANGED') return 'Меню обновилось, пока гость платил.';
+  if (['BRANCH_UNAVAILABLE', 'KITCHEN_UNAVAILABLE', 'SERVICE_MODE_DISABLED'].includes(code))
+    return 'Приём заказов сейчас закрыт.';
+  return 'Сервер кассы пока не принял заказ.';
+}
 export class SaleView {
   state = blank();
   /**
@@ -215,6 +224,11 @@ export class SaleView {
     });
   }
   pick(method) {
+    // The guest has paid on the terminal and has no order yet: no other way to pay is offered.
+    if (this.model.paidUnsold && method !== 'kaspi_terminal') {
+      this.say(saleErrorMessage(new Error('TERMINAL_PAID_UNSOLD')));
+      return;
+    }
     const mixable = this.config ? mixableMethods(this.config) : [];
     this.setState({
       method,
@@ -338,6 +352,16 @@ export class SaleView {
       }
     } finally {
       this.ticking = false;
+    }
+  }
+  /** "Оформить ещё раз": the sale of the attempt the guest paid, again, on the cashier's tap. */
+  async retryPaidSale() {
+    const m = this.model,
+      before = m.state.sale;
+    await m.retryPaidSale();
+    if (m.state.sale && m.state.sale !== before && !m.state.pending) {
+      this.done();
+      await this.onSold?.(m.state.sale);
     }
   }
   async pay() {
@@ -605,7 +629,12 @@ export class SaleView {
       saleReviewConfirm: g(() => this.confirmReview()),
       salePayBack: g(() => {
         // The amount on the terminal belongs to this order: it stays on screen until decided.
-        if (this.model.terminalHold) this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+        if (this.model.terminalHold)
+          this.say(
+            saleErrorMessage(
+              new Error(this.model.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'),
+            ),
+          );
         else this.setState({ screen: null, method: null });
       }),
     };
@@ -787,7 +816,11 @@ export class SaleView {
     const decline = (text) =>
       g(() => {
         if (this.model.terminalHold) {
-          this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+          this.say(
+            saleErrorMessage(
+              new Error(this.model.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'),
+            ),
+          );
           return;
         }
         this.model.dismissTerminal();
@@ -815,6 +848,24 @@ export class SaleView {
             : 'Отменить можно только на самом терминале.',
         ],
         // Nothing to press while the terminal decides: no button that reads like its answer.
+        saleTerminalDeclineLabel: false,
+        saleTerminalDecline: decline(''),
+      };
+    if (t.state === 'success' && this.model.paidRefused)
+      // The guest has paid and the edge refused the order: the window stays, the cashier sells
+      // again by hand. Nothing else is offered (no second amount, no other way to pay).
+      return {
+        salePayDisabled: false,
+        salePayBg: 'var(--orange)',
+        salePayFg: '#fff',
+        salePayConfirm: g(() => this.retryPaidSale()),
+        salePayLabel: 'Оформить ещё раз',
+        saleTerminalSteps: [
+          `Оплачено ${amount}, заказ не оформлен.`,
+          paidRefusalReason(this.model.state.terminalRefusal?.code),
+          'Не отправляйте сумму на терминал снова. Менеджер может снять блюдо со стопа или открыть приём заказов, затем нажмите «Оформить ещё раз».',
+          'Если оформить не получается - возврат гостю делается на терминале вручную.',
+        ],
         saleTerminalDeclineLabel: false,
         saleTerminalDecline: decline(''),
       };
