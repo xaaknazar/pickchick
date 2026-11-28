@@ -271,14 +271,18 @@ async function enterPin(pin, close = false) {
         closeReason ?? closeReasonText(closing),
       );
       if (model.state.error) throw Error(errorMessage(model.state.error));
+      if (!model.logout()) throw Error(errorMessage(model.state.error));
       reference.setState({ closeOpen: false, screen: 'lock', pin: '', closePin: '' });
-      model.logout();
       say(shiftClosedText(closing));
     } else {
       await pinLogin(pin, config.terminalId);
       if (!model.state.draft && !model.state.pending) model.newDraft();
       if (!model.state.shift && model.state.actor?.role !== 'shift_manager') {
-        model.logout();
+        if (!model.logout()) {
+          // Signed in with a paid amount on the terminal: the cashier stays and sees why.
+          reference.setState({ pin: '', pinErr: '', screen: 'work' });
+          throw Error(errorMessage(model.state.error));
+        }
         throw Error('Смена не открыта - нужен PIN начальника смены');
       }
       reference.setState({
@@ -365,7 +369,10 @@ function nextOrder() {
 }
 function lock() {
   if (blocked()) return;
-  model.logout();
+  // The guest's payment on the terminal keeps this cashier signed in (the refusal is the reason
+  // shown): nothing is reset, the journal session stays, the screen does not change.
+  errorShown = '';
+  if (!model.logout()) return;
   sale.reset();
   ops.reset();
   globalThis.pickchickPosJournal?.endSession();
@@ -1159,7 +1166,7 @@ function draw() {
   }
   if (m.error && errorShown !== String(m.error)) {
     errorShown = String(m.error);
-    say(model.saleMode ? sale.errorText(m.error) : errorMessage(m.error));
+    say(model.saleMode || model.terminalHold ? sale.errorText(m.error) : errorMessage(m.error));
   } else if (!m.error) errorShown = '';
   if (m.busy || signing) {
     root.setAttribute('aria-busy', 'true');

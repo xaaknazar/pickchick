@@ -130,6 +130,15 @@ const blank = () => ({
   pinError: '',
 });
 
+/** Why the edge did not take an order the guest already paid for (the cart is closed, so no hint to edit it). */
+function paidRefusalReason(code) {
+  if (code === 'ITEM_STOPPED' || code === 'COMBO_STOPPED')
+    return 'Блюдо из заказа сейчас в стоп-листе.';
+  if (code === 'MENU_CHANGED') return 'Меню обновилось, пока гость платил.';
+  if (['BRANCH_UNAVAILABLE', 'KITCHEN_UNAVAILABLE', 'SERVICE_MODE_DISABLED'].includes(code))
+    return 'Приём заказов сейчас закрыт.';
+  return 'Сервер кассы пока не принял заказ.';
+}
 export class SaleView {
   state = blank();
   /**
@@ -215,6 +224,11 @@ export class SaleView {
     });
   }
   pick(method) {
+    // The guest has paid on the terminal and has no order yet: no other way to pay is offered.
+    if (this.model.paidUnsold && method !== 'kaspi_terminal') {
+      this.say(saleErrorMessage(new Error('TERMINAL_PAID_UNSOLD')));
+      return;
+    }
     const mixable = this.config ? mixableMethods(this.config) : [];
     this.setState({
       method,
@@ -304,7 +318,8 @@ export class SaleView {
   }
   /** A Kaspi Smart POS is linked to this desk: the amount is sent to it (ADR-0017). */
   get linked() {
-    return Boolean(this.config?.kaspi_terminal_link);
+    // An amount already on the terminal keeps its screen even if the point left the paid mode.
+    return Boolean(this.config?.kaspi_terminal_link) || this.model.terminalHold;
   }
   /** The amount sent to the terminal for the quote on screen, or null. */
   terminal() {
@@ -338,6 +353,16 @@ export class SaleView {
       }
     } finally {
       this.ticking = false;
+    }
+  }
+  /** "Оформить ещё раз": the sale of the attempt the guest paid, again, on the cashier's tap. */
+  async retryPaidSale() {
+    const m = this.model,
+      before = m.state.sale;
+    await m.retryPaidSale();
+    if (m.state.sale && m.state.sale !== before && !m.state.pending) {
+      this.done();
+      await this.onSold?.(m.state.sale);
     }
   }
   async pay() {
@@ -580,7 +605,9 @@ export class SaleView {
       saleEntryOpen: false,
     };
     const doneShown = s.screen === 'done' && Boolean(sale);
-    if (!this.on && !doneShown) return { saleChannelBar: false, saleRefShown: false, ...screens };
+    // The guest's payment on the terminal stays on screen outside the paid mode too.
+    if (!this.on && !this.model.terminalHold && !doneShown)
+      return { saleChannelBar: false, saleRefShown: false, ...screens };
     const q = this.quote,
       g = this.guard;
     // A quote replaced under the payment screen (live menu, expiry) is repeated to the guest.
@@ -605,7 +632,12 @@ export class SaleView {
       saleReviewConfirm: g(() => this.confirmReview()),
       salePayBack: g(() => {
         // The amount on the terminal belongs to this order: it stays on screen until decided.
-        if (this.model.terminalHold) this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+        if (this.model.terminalHold)
+          this.say(
+            saleErrorMessage(
+              new Error(this.model.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'),
+            ),
+          );
         else this.setState({ screen: null, method: null });
       }),
     };
@@ -623,18 +655,21 @@ export class SaleView {
       config = this.config,
       d = this.draft,
       total = BigInt(q.total_minor);
-    const tiles = isAggregator(d.channel)
-      ? [
-          [
-            'aggregator',
-            'ОПЛАЧЕНО АГРЕГАТОРОМ',
-            d.channel === 'glovo' ? 'G' : 'Я',
-            d.channel === 'glovo' ? '#C79A00' : 'var(--ya)',
-          ],
-        ].filter(() => methodEnabled(config, aggregatorMethod(d.channel)))
-      : TILES.filter(([code]) =>
-          code === 'mixed' ? mixableMethods(config).length >= 2 : methodEnabled(config, code),
-        );
+    // No pos/config outside the paid mode: nothing else is offered next to a held payment.
+    const tiles = !config
+      ? []
+      : isAggregator(d.channel)
+        ? [
+            [
+              'aggregator',
+              'ОПЛАЧЕНО АГРЕГАТОРОМ',
+              d.channel === 'glovo' ? 'G' : 'Я',
+              d.channel === 'glovo' ? '#C79A00' : 'var(--ya)',
+            ],
+          ].filter(() => methodEnabled(config, aggregatorMethod(d.channel)))
+        : TILES.filter(([code]) =>
+            code === 'mixed' ? mixableMethods(config).length >= 2 : methodEnabled(config, code),
+          );
     const payment = this.payment();
     const values = {
       saleTiles: tiles.map(([code, label, icon, color]) => {
@@ -787,7 +822,11 @@ export class SaleView {
     const decline = (text) =>
       g(() => {
         if (this.model.terminalHold) {
-          this.say(saleErrorMessage(new Error('TERMINAL_IN_PROGRESS')));
+          this.say(
+            saleErrorMessage(
+              new Error(this.model.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'),
+            ),
+          );
           return;
         }
         this.model.dismissTerminal();
@@ -815,6 +854,24 @@ export class SaleView {
             : 'Отменить можно только на самом терминале.',
         ],
         // Nothing to press while the terminal decides: no button that reads like its answer.
+        saleTerminalDeclineLabel: false,
+        saleTerminalDecline: decline(''),
+      };
+    if (t.state === 'success' && this.model.paidRefused)
+      // The guest has paid and the edge refused the order: the window stays, the cashier sells
+      // again by hand. Nothing else is offered (no second amount, no other way to pay).
+      return {
+        salePayDisabled: false,
+        salePayBg: 'var(--orange)',
+        salePayFg: '#fff',
+        salePayConfirm: g(() => this.retryPaidSale()),
+        salePayLabel: 'Оформить ещё раз',
+        saleTerminalSteps: [
+          `Оплачено ${amount}, заказ не оформлен.`,
+          paidRefusalReason(this.model.state.terminalRefusal?.code),
+          'Не отправляйте сумму на терминал снова. Менеджер снимает блюдо со стопа или открывает приём заказов, затем нажмите «Оформить ещё раз».',
+          'Не возвращайте деньги на терминале, пока заказ не оформлен.',
+        ],
         saleTerminalDeclineLabel: false,
         saleTerminalDecline: decline(''),
       };

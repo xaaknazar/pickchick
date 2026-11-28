@@ -5200,6 +5200,726 @@ test('Kaspi terminal linked: another operation of the desk shows in the header a
   assert.equal(model.terminalRecovery, null);
 });
 
+// P0 launch blocker: the guest paid on the terminal, then the edge refused the sale (the dish
+// went to the stop-list in those seconds). The paid attempt and its quote must stay, the cart
+// must stay closed, and a second amount must never be sent for the same guest.
+async function paidThenRefused(code = 'ITEM_STOPPED') {
+  const edge = terminalEdge(),
+    storage = memory();
+  const model = await saleCashier(edge, storage);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  edge.edge.reject = new ApiError(code, 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '555', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  return { edge, storage, model, quote, attempt };
+}
+const terminalPosts = (edge) => edge.calls.filter((c) => c.path === 'pos/terminal-payments');
+
+for (const code of [
+  'ITEM_STOPPED',
+  'MENU_CHANGED',
+  'BRANCH_UNAVAILABLE',
+  'QUOTE_EXPIRED',
+  'INVALID_REQUEST',
+  'NOT_FOUND',
+  'FORBIDDEN',
+  'CASH_SHIFT_REQUIRED',
+  'CHANNEL_PRICE_UNAVAILABLE',
+  'SERVICE_MODE_DISABLED',
+  'TERMINAL_ATTEMPT_INVALID',
+  'KITCHEN_UNAVAILABLE',
+  'CONFLICT',
+]) {
+  test(`Kaspi terminal paid, sale refused (${code}): the paid attempt and its quote stay, nothing else can be paid`, async () => {
+    const { edge, model, quote, attempt } = await paidThenRefused(code);
+    assert.equal(model.state.error.message, code);
+    assert.equal(model.state.pending, null, 'the refused command is resolved');
+    assert.equal(model.state.terminal?.attempt_id, attempt.attempt_id);
+    assert.equal(model.state.terminal.state, 'success');
+    assert.equal(model.state.quote?.quote_id, quote.quote_id, 'the paid quote is kept');
+    assert.equal(model.terminalHold, true);
+    const sales = edge.edge.posts.length;
+    // The cart is closed: any edit would lead to a new quote and a second payment.
+    model.quantity(edge.item.variant_id, 2);
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    assert.equal(model.state.quote?.quote_id, quote.quote_id);
+    model.chooseServiceMode('dine_in');
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    await model.calculate();
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    assert.equal(model.state.quote?.quote_id, quote.quote_id);
+    // No second amount to the terminal.
+    await model.sendToTerminal();
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    assert.equal(terminalPosts(edge).length, 1);
+    // No other way to pay the same cart.
+    await model.sell({ method: 'cash', tendered_minor: quote.total_minor });
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    await model.sell({ method: 'kaspi_manual' });
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    await model.sell({ method: 'kaspi_terminal', attempt_id: randomUUID() });
+    assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+    assert.equal(edge.edge.posts.length, sales, 'no sale request was made');
+    model.newDraft();
+    assert.equal(model.state.quote?.quote_id, quote.quote_id, 'a new draft does not drop it');
+    model.dismissTerminal();
+    assert.equal(model.state.terminal?.state, 'success', 'a paid attempt is never dismissed');
+  });
+}
+
+test('Kaspi terminal paid, sale refused: «Оформить ещё раз» sells the same attempt and quote, only on the tap', async () => {
+  const { edge, model, quote, attempt } = await paidThenRefused();
+  assert.equal(edge.edge.posts.length, 1);
+  edge.edge.reject = null;
+  // Nothing happens by itself: the sale waits for the cashier.
+  await model.checkTerminalPayment();
+  assert.equal(edge.edge.posts.length, 1);
+  await model.retryPaidSale();
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(edge.edge.posts.length, 2);
+  assert.deepEqual(edge.edge.posts[1].body, edge.edge.posts[0].body, 'same quote, same attempt');
+  assert.equal(edge.edge.posts[1].body.quote_id, quote.quote_id);
+  assert.equal(edge.edge.posts[1].body.tenders[0].attempt_id, attempt.attempt_id);
+  assert.ok(model.state.sale, 'the guest who paid gets the order');
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.terminalHold, false);
+  assert.equal(model.state.pending, null);
+  assert.equal(terminalPosts(edge).length, 1);
+});
+
+test('Kaspi terminal paid, sale refused again on the tap: the paid state stays and nothing loops', async () => {
+  const { edge, model, quote } = await paidThenRefused();
+  await model.retryPaidSale();
+  assert.equal(model.state.error.message, 'ITEM_STOPPED');
+  assert.equal(edge.edge.posts.length, 2, 'one request for one tap');
+  assert.equal(model.state.terminal?.state, 'success');
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  await model.retryPaidSale();
+  assert.equal(edge.edge.posts.length, 3);
+  assert.equal(terminalPosts(edge).length, 1);
+});
+
+test('Kaspi terminal paid, sale refused: polls and ticks never repeat the sale by themselves', async () => {
+  const { edge, model } = await paidThenRefused();
+  const view = new SaleView(model, { guard: (fn) => fn, say: () => {} });
+  const reads = () => edge.calls.filter((c) => c.path.startsWith('pos/terminal-payments/')).length;
+  const before = { sales: edge.edge.posts.length, reads: reads() };
+  for (let i = 0; i < 6; i++) {
+    await model.checkTerminalPayment();
+    await view.tick();
+  }
+  assert.equal(edge.edge.posts.length, before.sales, 'no new POST pos/sales');
+  assert.equal(reads(), before.reads, 'a paid attempt is not polled again');
+  assert.equal(terminalPosts(edge).length, 1);
+});
+
+test('Kaspi terminal paid, sale refused: the desk cannot be locked', async () => {
+  const { model } = await paidThenRefused();
+  model.logout();
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.ok(model.state.actor, 'still signed in');
+});
+
+test('Kaspi terminal paid, sale refused: the header says so', async () => {
+  const { model } = await paidThenRefused();
+  assert.match(model.terminalRecovery, /^Оплачено на терминале 6 990 ₸, заказ не оформлен/);
+  const line = connectionLabel({ ...model.state, terminalRecovery: model.terminalRecovery });
+  assert.equal(line.tone, 'down');
+  assert.match(line.label, /не оформлен/);
+});
+
+test('Kaspi terminal paid, sale refused: a restart restores paid, no order, closed cart, retry works', async () => {
+  const { edge, storage, quote, attempt } = await paidThenRefused();
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.error, null, String(second.state.error));
+  assert.equal(second.state.terminal?.attempt_id, attempt.attempt_id);
+  assert.equal(second.state.terminal.state, 'success');
+  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.reviewed, true);
+  assert.equal(second.terminalHold, true);
+  second.quantity(edge.item.variant_id, 2);
+  assert.equal(second.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  await second.sendToTerminal();
+  assert.equal(second.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.equal(terminalPosts(edge).length, 1);
+  second.logout();
+  assert.equal(second.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  // The server accepts now: the same attempt and quote are sold.
+  edge.edge.reject = null;
+  await second.retryPaidSale();
+  assert.equal(second.state.error, null, String(second.state.error));
+  const last = edge.edge.posts.at(-1).body;
+  assert.equal(last.quote_id, quote.quote_id);
+  assert.equal(last.tenders[0].attempt_id, attempt.attempt_id);
+  assert.ok(second.state.sale);
+  // Sold: nothing to resume at the next start.
+  const third = await saleCashier(edge, storage);
+  assert.equal(third.state.terminal, null);
+  assert.equal(third.state.quote, null);
+});
+
+test('Kaspi terminal paid, sale refused: the pay screen stays open with the reason and «Оформить ещё раз»', async () => {
+  const { edge, model } = await paidThenRefused();
+  const said = [];
+  const view = new SaleView(model, { guard: (fn) => fn, say: (t) => said.push(t) });
+  view.setState({ screen: 'pay', method: 'kaspi_terminal' });
+  let values = view.payValues();
+  assert.equal(values.salePayLabel, 'Оформить ещё раз');
+  assert.equal(values.salePayDisabled, false);
+  assert.equal(values.saleTerminalDeclineLabel, false, 'no other way to pay');
+  assert.equal(values.saleTerminalSteps[0], 'Оплачено 6 990 ₸, заказ не оформлен.');
+  assert.equal(values.saleTerminalSteps[1], 'Блюдо из заказа сейчас в стоп-листе.');
+  assert.ok(!values.saleTerminalSteps.join(' ').match(/корзин|уберите|пересчитайте/i));
+  const steps = values.saleTerminalSteps.join(' ');
+  assert.match(steps, /Не возвращайте деньги на терминале, пока заказ не оформлен/);
+  assert.match(steps, /снимает блюдо со стопа или открывает приём заказов/);
+  assert.ok(!/возврат гостю|вручную/i.test(steps), 'no promised way out that the desk lacks');
+  assert.ok(!/тест|[–—]/i.test(steps));
+  assert.ok(!values.saleTerminalSteps.join(' ').includes('тест'));
+  view.values().salePayBack();
+  assert.equal(view.state.screen, 'pay', 'the window is not closed');
+  assert.equal(said.pop(), saleErrorMessage(new Error('TERMINAL_PAID_UNSOLD')));
+  view.pick('cash');
+  assert.equal(view.state.method, 'kaspi_terminal', 'another method is not offered');
+  assert.equal(said.pop(), saleErrorMessage(new Error('TERMINAL_PAID_UNSOLD')));
+  // Still refused: the window stays and shows the new answer.
+  await values.salePayConfirm();
+  assert.equal(view.state.screen, 'pay');
+  assert.equal(edge.edge.posts.length, 2);
+  edge.edge.reject = null;
+  values = view.payValues();
+  await values.salePayConfirm();
+  assert.equal(view.state.screen, 'done');
+  assert.ok(model.state.sale);
+});
+
+test('TERMINAL_PAID_UNSOLD has a cashier text without dashes or the word test', () => {
+  const text = saleErrorMessage(new Error('TERMINAL_PAID_UNSOLD'));
+  assert.notEqual(text, 'TERMINAL_PAID_UNSOLD');
+  assert.ok(!/тест|[–—]/i.test(text), text);
+});
+
+// ---- Review of the paid-hold fix: every way to lose the paid attempt is closed ----
+const heldClosed = (model, edge, quote) => {
+  assert.equal(model.state.terminal?.state, 'success');
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.equal(model.terminalHold, true);
+  model.quantity(edge.item.variant_id, 2);
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+};
+
+test('paid hold 1: the point leaves the paid mode (SERVICE_MODE_DISABLED) - the paid attempt still stays', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  // The point really switches off the paid mode: the next config read says so.
+  edge.edge.config = { ...posConfigFor(), mode: 'unpaid_service', kaspi_terminal_link: true };
+  edge.edge.reject = new ApiError('SERVICE_MODE_DISABLED', 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '9', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  assert.equal(model.saleMode, false, 'the paid mode is really left');
+  heldClosed(model, edge, quote);
+  await model.sendToTerminal();
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.equal(terminalPosts(edge).length, 1, 'no new amount for the same guest');
+  assert.equal(model.state.terminalRefusal?.code, 'SERVICE_MODE_DISABLED');
+  // The point comes back: the same attempt and quote are sold.
+  edge.edge.config = { ...posConfigFor(), kaspi_terminal_link: true };
+  edge.edge.reject = null;
+  await model.refreshPosConfig(true);
+  await model.retryPaidSale();
+  assert.ok(model.state.sale, String(model.state.error));
+  assert.equal(edge.edge.posts.at(-1).body.quote_id, quote.quote_id);
+});
+
+test('paid hold 1b: the paid mode answered 404 before the sale answer - still held', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  edge.edge.reject = new ApiError('ITEM_STOPPED', 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '9', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  edge.edge.config = new ApiError('NOT_FOUND', 404);
+  await model.refreshPosConfig(true);
+  assert.equal(model.saleMode, false);
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+});
+
+const otherCashier = (edge) => {
+  const actor = {
+    ...edge.credential,
+    staff_id: randomUUID(),
+    session_id: randomUUID(),
+    token: 'd'.repeat(64),
+  };
+  const { token, ...session } = actor;
+  void token;
+  return {
+    credential: actor,
+    api: async (path, auth, options) =>
+      path === 'session' && auth.token === actor.token
+        ? session
+        : path === 'staff/logout' && auth.token === actor.token
+          ? {}
+          : edge.api(path, auth, options),
+  };
+};
+
+test('paid hold 2: another cashier cannot sign in over a paid amount; the same one gets it back', async () => {
+  const { edge, model, quote, attempt } = await paidThenRefused();
+  const other = otherCashier(edge);
+  model.api = other.api;
+  await model.login(JSON.stringify(other.credential));
+  assert.equal(model.state.error.message, 'TERMINAL_HOLD_OTHER_STAFF');
+  assert.equal(model.state.actor.staff_id, edge.credential.staff_id, 'still the first cashier');
+  heldClosed(model, edge, quote);
+  assert.equal(model.state.terminalRefusal?.code, 'ITEM_STOPPED', 'nothing was wiped');
+  // The same cashier signing in again over the session gets the same state back.
+  await model.login(JSON.stringify(edge.credential));
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.terminal?.attempt_id, attempt.attempt_id);
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.equal(model.terminalHold, true);
+});
+
+test('paid hold 2b: the session ends (401) during the retry - signing in again returns the hold', async () => {
+  const { edge, model, quote, attempt } = await paidThenRefused();
+  edge.edge.reject = new ApiError('UNAUTHORIZED', 401);
+  await model.retryPaidSale();
+  assert.equal(model.state.actor, null);
+  edge.edge.reject = null;
+  await model.login(JSON.stringify(edge.credential));
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.terminal?.attempt_id, attempt.attempt_id);
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.equal(model.terminalHold, true);
+  await model.recover();
+  assert.ok(model.state.sale, String(model.state.error));
+  assert.equal(edge.edge.posts.at(-1).body.tenders[0].attempt_id, attempt.attempt_id);
+});
+
+const cashOrder = async (edge) => {
+  // An order of its own, made while the edge is not refusing (the refusal is put back after).
+  const refusal = edge.edge.reject;
+  edge.edge.reject = null;
+  try {
+    return await cashOrderNow(edge);
+  } finally {
+    edge.edge.reject = refusal;
+  }
+};
+const cashOrderNow = async (edge) => {
+  const quote = await edge.api('checkout/quotes', edge.credential, {
+    method: 'POST',
+    body: {
+      release_id: edge.menu.release_id,
+      service_mode: 'takeaway',
+      items: [{ variant_id: edge.item.variant_id, quantity: 1 }],
+    },
+  });
+  return edge.api('pos/sales', edge.credential, {
+    method: 'POST',
+    key: randomUUID(),
+    body: {
+      quote_id: quote.quote_id,
+      service_mode_confirmed: true,
+      order_repeated: true,
+      tenders: [{ method: 'cash', amount_minor: quote.total_minor }],
+      cash_tendered_minor: quote.total_minor,
+    },
+  });
+};
+
+test('paid hold 3: another order can be opened over a paid amount; the hold, its quote and draft stay', async () => {
+  const { edge, model, quote } = await paidThenRefused();
+  const other = await cashOrder(edge);
+  const draft = globalThis.structuredClone(model.state.saleDraft);
+  await model.openOrder(other.order.order_id);
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.order?.order_id, other.order.order_id);
+  assert.equal(model.paidUnsold, true, 'still paid without an order');
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.deepEqual(model.state.saleDraft, draft);
+  const posts = edge.edge.posts.length;
+  model.quantity(edge.item.variant_id, 2);
+  await model.sendToTerminal();
+  assert.equal(terminalPosts(edge).length, 1, 'no second amount');
+  assert.equal(edge.edge.posts.length, posts);
+  // «Новый заказ» only closes the opened order: back to the held payment.
+  model.newDraft();
+  assert.equal(model.state.order, null);
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.deepEqual(model.state.saleDraft, draft);
+  assert.equal(model.paidUnsold, true);
+  // With nothing opened, a new draft is still refused.
+  model.newDraft();
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+});
+
+test('paid hold 3c: «Оформить ещё раз» works with another order open, and a restart keeps both', async () => {
+  const { edge, storage, model, quote, attempt } = await paidThenRefused();
+  const other = await cashOrder(edge);
+  await model.openOrder(other.order.order_id);
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.order?.order_id, other.order.order_id, 'the opened order is kept');
+  assert.equal(second.state.terminal?.attempt_id, attempt.attempt_id, 'and the hold');
+  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.paidUnsold, true);
+  edge.edge.reject = null;
+  await second.retryPaidSale();
+  assert.equal(second.state.error, null, String(second.state.error));
+  const body = edge.edge.posts.at(-1).body;
+  assert.equal(body.quote_id, quote.quote_id);
+  assert.equal(body.tenders[0].attempt_id, attempt.attempt_id);
+  assert.notEqual(second.state.order?.order_id, other.order.order_id, 'the new order is shown');
+  assert.equal(second.paidUnsold, false);
+});
+
+test('paid hold 3d: a command on another order does not drop the held quote', async () => {
+  const { edge, model, quote } = await paidThenRefused();
+  const api = model.api;
+  model.api = async (path, auth, options) =>
+    path === 'availability/stops' && options?.method === 'POST'
+      ? { variant_id: options.body.variant_id, stopped: true, version: 1 }
+      : api(path, auth, options);
+  await model.setStop(edge.item.variant_id, true, 'Закончилось');
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.quote?.quote_id, quote.quote_id, 'the paid quote stays');
+  assert.equal(model.paidUnsold, true);
+});
+
+test('paid hold 4b: the point leaves the paid mode while the amount waits - the attempt is kept and polled', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  const draft = globalThis.structuredClone(model.state.saleDraft);
+  edge.edge.config = { ...posConfigFor(), mode: 'unpaid_service', kaspi_terminal_link: true };
+  await model.refreshPosConfig(true);
+  assert.equal(model.saleMode, false);
+  assert.equal(model.state.terminal?.state, 'wait', 'the amount is not forgotten');
+  assert.equal(model.terminalHold, true);
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  assert.deepEqual(model.state.saleDraft, draft);
+  model.quantity(edge.item.variant_id, 2);
+  assert.equal(model.state.error.message, 'TERMINAL_IN_PROGRESS');
+  await model.sendToTerminal();
+  assert.equal(terminalPosts(edge).length, 1);
+  // The poll goes on. Outside the paid mode the sale cannot be built, so the guest's payment
+  // waits as «paid, no order» for the cashier's tap instead of being lost or retried each second.
+  edge.terminal.next.push({ state: 'success', transaction_id: '77', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal?.state, 'success');
+  assert.equal(model.paidRefused, true);
+  assert.equal(model.state.terminalRefusal.code, 'SERVICE_MODE_DISABLED');
+  edge.edge.config = { ...posConfigFor(), kaspi_terminal_link: true };
+  await model.refreshPosConfig(true);
+  await model.retryPaidSale();
+  assert.ok(model.state.sale, String(model.state.error));
+  assert.equal(edge.edge.posts.at(-1).body.quote_id, quote.quote_id);
+});
+
+test('paid hold 4c: left paid mode, success, the sale cannot even be built - paid without order, no loop', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  edge.edge.config = new ApiError('NOT_FOUND', 404);
+  await model.refreshPosConfig(true);
+  edge.terminal.next.push({ state: 'success', transaction_id: '77', payment_method: 'qr' });
+  await model.checkTerminalPayment();
+  assert.equal(model.state.terminal?.state, 'success');
+  assert.equal(model.paidRefused, true, 'waits for the cashier instead of failing every second');
+  assert.equal(model.state.quote?.quote_id, quote.quote_id);
+  const view = new SaleView(model, { guard: (fn) => fn, say: () => {} });
+  const calls = edge.calls.length;
+  for (let i = 0; i < 4; i++) await view.tick();
+  assert.equal(edge.calls.length, calls, 'nothing is asked or sent again by the ticks');
+});
+
+test('paid hold 4d: outside the paid mode the pay window and the header still show the paid amount', async () => {
+  const { edge, model, quote } = await paidThenRefused();
+  edge.edge.config = new ApiError('NOT_FOUND', 404);
+  await model.refreshPosConfig(true);
+  assert.equal(model.saleMode, false);
+  assert.equal(model.state.posConfig, null);
+  assert.match(model.terminalRecovery, /^Оплачено на терминале 6 990 ₸, заказ не оформлен/);
+  const said = [];
+  const view = new SaleView(model, { guard: (fn) => fn, say: (t) => said.push(t) });
+  view.setState({ screen: 'pay', method: 'kaspi_terminal' });
+  const values = view.values();
+  assert.equal(values.isSalePay, true, 'the pay window is shown');
+  assert.equal(values.salePayLabel, 'Оформить ещё раз');
+  assert.equal(values.saleTerminalSteps[0], 'Оплачено 6 990 ₸, заказ не оформлен.');
+  edge.edge.config = { ...posConfigFor(), kaspi_terminal_link: true };
+  edge.edge.reject = null;
+  await model.refreshPosConfig(true);
+  await values.salePayConfirm();
+  assert.equal(view.state.screen, 'done');
+  assert.equal(edge.edge.posts.at(-1).body.quote_id, quote.quote_id);
+  assert.equal(said.length, 0, said.join('; '));
+});
+
+test('paid hold 5b: an order of another quote is not adopted for the attempt', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  await model.sendToTerminal();
+  const foreign = await cashOrder(edge);
+  const attempt = [...edge.terminal.attempts.values()][0];
+  edge.edge.reject = new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '1', payment_method: 'qr' });
+  const api = model.api;
+  let refused = false;
+  model.api = async (path, auth, options) => {
+    if (path === 'pos/sales') refused = true;
+    if (path === `pos/terminal-payments/${attempt.attempt_id}` && refused)
+      attempt.order_id = foreign.order.order_id;
+    return api(path, auth, options);
+  };
+  await model.checkTerminalPayment();
+  assert.equal(model.state.order, null, 'not that order');
+  assert.equal(model.state.terminal?.attempt_id, attempt.attempt_id, 'the hold stays');
+  assert.equal(model.paidRefused, true);
+});
+
+test('paid hold 5c: an adopted order stays on screen even if its sale cannot be read', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  const quote = model.state.quote;
+  await model.sendToTerminal();
+  const attempt = [...edge.terminal.attempts.values()][0];
+  const made = await edge.api('pos/sales', edge.credential, {
+    method: 'POST',
+    key: randomUUID(),
+    body: {
+      quote_id: quote.quote_id,
+      service_mode_confirmed: true,
+      order_repeated: true,
+      tenders: [{ method: 'kaspi_manual', amount_minor: quote.total_minor }],
+    },
+  });
+  edge.edge.reject = new ApiError('TERMINAL_ATTEMPT_INVALID', 409);
+  edge.terminal.next.push({ state: 'success', transaction_id: '1', payment_method: 'qr' });
+  const api = model.api;
+  let refused = false;
+  model.api = async (path, auth, options) => {
+    if (path === 'pos/sales') refused = true;
+    if (path === `pos/terminal-payments/${attempt.attempt_id}` && refused)
+      attempt.order_id = made.order.order_id;
+    if (path === `pos/sales/${made.order.order_id}`) throw new ApiError('EDGE_UNREACHABLE');
+    return api(path, auth, options);
+  };
+  await model.checkTerminalPayment();
+  assert.equal(model.state.order?.order_id, made.order.order_id, 'the cashier sees the order');
+  assert.equal(model.state.terminal, null);
+  assert.equal(model.paidUnsold, false);
+});
+
+test('paid hold 6: a refused sign-in of another cashier revokes the session the edge gave them', async () => {
+  const { edge, model } = await paidThenRefused();
+  const other = otherCashier(edge);
+  const logouts = [];
+  const wrapped = other.api;
+  model.api = async (path, auth, options) => {
+    if (path === 'staff/logout') {
+      logouts.push(auth.token);
+      return {};
+    }
+    return wrapped(path, auth, options);
+  };
+  await model.login(JSON.stringify(other.credential));
+  assert.equal(model.state.error.message, 'TERMINAL_HOLD_OTHER_STAFF');
+  assert.deepEqual(logouts, [other.credential.token], 'only the refused session is revoked');
+  assert.equal(model.state.actor.staff_id, edge.credential.staff_id);
+  assert.equal(model.paidUnsold, true);
+});
+
+test('paid hold 3b: «Оформить ещё раз» sells with the held sale draft, not a lost or changed one', async () => {
+  const { edge, model, quote, attempt } = await paidThenRefused();
+  const draft = globalThis.structuredClone(model.state.saleDraft);
+  // The screen state lost its draft (here: another channel with a number); the hold knows it.
+  model.state.saleDraft = { ...draft, channel: 'yandex_eda', externalOrderRef: 'YA-1' };
+  await model.retryPaidSale();
+  assert.equal(model.state.error.message, 'ITEM_STOPPED', 'refused again, not by a local check');
+  assert.deepEqual(model.state.saleDraft, draft);
+  edge.edge.reject = null;
+  await model.retryPaidSale();
+  assert.ok(model.state.sale, String(model.state.error));
+  const body = edge.edge.posts.at(-1).body;
+  assert.equal(body.quote_id, quote.quote_id);
+  assert.deepEqual(body.tenders, [
+    { method: 'kaspi_terminal', amount_minor: quote.total_minor, attempt_id: attempt.attempt_id },
+  ]);
+  assert.equal(body.external_order_ref, undefined);
+});
+
+test('paid hold 4: a refusal kept in the journal means no automatic sale after a restart', async () => {
+  const { edge, storage, quote } = await paidThenRefused();
+  const sales = () => edge.edge.posts.length;
+  assert.equal(sales(), 1);
+  const [key] = [...storage.data.keys()];
+  assert.equal(JSON.parse(storage.data.get(key)).terminal.refusal, 'ITEM_STOPPED');
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.state.terminal?.state, 'success');
+  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.paidRefused, true, 'known as refused at once');
+  assert.equal(second.state.terminalRefusal.code, 'ITEM_STOPPED');
+  const view = new SaleView(second, { guard: (fn) => fn, say: () => {} });
+  for (let i = 0; i < 5; i++) await view.tick();
+  assert.equal(sales(), 1, 'no automatic sale request at all');
+  // Only the cashier's tap sells it again.
+  edge.edge.reject = null;
+  await second.retryPaidSale();
+  assert.ok(second.state.sale, String(second.state.error));
+  assert.equal(sales(), 2);
+});
+
+test('paid hold 4a: a hold written before the refusal existed still sells once automatically', async () => {
+  const { edge, storage } = await paidThenRefused();
+  const [key] = [...storage.data.keys()];
+  const old = JSON.parse(storage.data.get(key));
+  delete old.terminal.refusal;
+  storage.data.set(key, JSON.stringify(old));
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.paidRefused, false);
+  const view = new SaleView(second, { guard: (fn) => fn, say: () => {} });
+  for (let i = 0; i < 5; i++) await view.tick();
+  assert.equal(edge.edge.posts.length, 2, 'one automatic request, then it waits for the tap');
+  assert.equal(second.paidRefused, true);
+  assert.equal(JSON.parse(storage.data.get(key)).terminal.refusal, 'ITEM_STOPPED');
+});
+
+test('paid hold 9: logout refuses (false) while the amount is held and signs out otherwise', async () => {
+  const { model } = await paidThenRefused();
+  assert.equal(model.logout(), false);
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.ok(model.state.actor);
+  const plain = await saleCashier(terminalEdge());
+  assert.equal(plain.logout(), true);
+  assert.equal(plain.state.actor, null);
+});
+
+for (const code of ['TERMINAL_ATTEMPT_INVALID', 'CONFLICT']) {
+  test(`paid hold 5: ${code} for an attempt that already has an order adopts that order`, async () => {
+    const edge = terminalEdge();
+    const model = await saleCashier(edge);
+    await reviewed(model, edge, 'takeaway');
+    const quote = model.state.quote;
+    await model.sendToTerminal();
+    // The attempt became an order by an earlier request whose answer was lost.
+    const made = await edge.api('pos/sales', edge.credential, {
+      method: 'POST',
+      key: randomUUID(),
+      body: {
+        quote_id: quote.quote_id,
+        service_mode_confirmed: true,
+        order_repeated: true,
+        tenders: [{ method: 'kaspi_manual', amount_minor: quote.total_minor }],
+      },
+    });
+    const attempt = [...edge.terminal.attempts.values()][0];
+    edge.edge.reject = new ApiError(code, 409);
+    edge.terminal.next.push({
+      state: 'success',
+      transaction_id: '1',
+      payment_method: 'qr',
+    });
+    // The terminal poll shows success without an order; once the sale is refused, the attempt
+    // is read again and now carries the order.
+    const original = edge.terminal.attempts.get(attempt.attempt_id);
+    let refused = false;
+    const modelApi = model.api;
+    model.api = async (path, auth, options) => {
+      if (path === 'pos/sales') refused = true;
+      if (refused && path === `pos/terminal-payments/${attempt.attempt_id}`)
+        Object.assign(original, { order_id: made.order.order_id });
+      return modelApi(path, auth, options);
+    };
+    await model.checkTerminalPayment();
+    assert.equal(model.state.error, null, String(model.state.error));
+    assert.equal(model.state.order?.order_id, made.order.order_id, 'that order is shown');
+    assert.equal(model.state.terminal, null);
+    assert.equal(model.terminalHold, false);
+    assert.equal(model.paidUnsold, false);
+    assert.equal(model.state.pending, null);
+  });
+}
+
+test('paid hold 8: a refusal outside the known codes (422, 503) keeps the command pending and the cart closed', async () => {
+  for (const [code, status] of [
+    ['WEIRD_REFUSAL', 422],
+    ['SERVICE_UNAVAILABLE', 503],
+  ]) {
+    const fresh = terminalEdge();
+    const m = await saleCashier(fresh);
+    await reviewed(m, fresh, 'takeaway');
+    const q = m.state.quote;
+    await m.sendToTerminal();
+    fresh.edge.reject = new ApiError(code, status);
+    fresh.terminal.next.push({ state: 'success', transaction_id: '3', payment_method: 'qr' });
+    await m.checkTerminalPayment();
+    assert.equal(m.state.error.message, code);
+    assert.notEqual(m.state.pending, null, 'not a definite answer: the same key stays pending');
+    const sales = fresh.edge.posts.length;
+    m.quantity(fresh.item.variant_id, 2);
+    assert.equal(m.state.error.message, 'PENDING', 'the cart is closed while the command waits');
+    await m.sendToTerminal();
+    assert.equal(terminalPosts(fresh).length, 1, 'no second amount while pending');
+    const view = new SaleView(m, { guard: (fn) => fn, say: () => {} });
+    for (let i = 0; i < 3; i++) await view.tick();
+    assert.equal(fresh.edge.posts.length, sales, 'ticks do not resend a pending command');
+    assert.equal(m.state.quote?.quote_id, q.quote_id);
+    assert.equal(m.terminalHold, true);
+    // The same key goes again only through recover, and then the guest gets the order.
+    fresh.edge.reject = null;
+    await m.recover();
+    assert.ok(m.state.sale, String(m.state.error));
+    assert.equal(fresh.edge.posts.at(-1).key, fresh.edge.posts[0].key, 'same idempotency key');
+  }
+});
+
+test('paid hold 8: a mixed payment never carries an attempt_id, and is closed while paid', async () => {
+  const { edge, model, quote } = await paidThenRefused();
+  const parts = [
+    { method: 'kaspi_terminal', amount_minor: '500000', attempt_id: randomUUID() },
+    { method: 'cash', amount_minor: '199000' },
+  ];
+  await model.sell({ method: 'mixed', parts, tendered_minor: '199000' });
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.equal(edge.edge.posts.length, 1);
+  void quote;
+  // Without a hold the part is built from its reference only: no attempt_id reaches the edge.
+  const plain = terminalEdge();
+  const m = await saleCashier(plain);
+  await reviewed(m, plain, 'takeaway');
+  await m.sell({ method: 'mixed', parts, tendered_minor: '199000' });
+  const tender = plain.edge.posts.at(-1).body.tenders.find((t) => t.method === 'kaspi_terminal');
+  assert.equal(tender.attempt_id, undefined);
+});
+
+test('paid hold: retry without a paid attempt says so exactly', async () => {
+  const edge = terminalEdge();
+  const model = await saleCashier(edge);
+  await model.retryPaidSale();
+  assert.equal(model.state.error.message, 'TERMINAL_NOTHING_TO_SELL');
+  assert.notEqual(
+    saleErrorMessage(model.state.error),
+    saleErrorMessage(new Error('TERMINAL_ATTEMPT_INVALID')),
+  );
+});
+
 test('a point on the Webkassa TEST register says so in the header (audit 26.11 P0-2)', async () => {
   const base = saleEdge();
   let answer = { environment: 'test' };
