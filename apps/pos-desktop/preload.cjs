@@ -66,3 +66,18 @@ contextBridge.exposeInMainWorld('pickchickPosPrinter', {
   },
   openDrawer: () => ipcRenderer.invoke('pickchick-pos:printer-v1', { operation: 'drawer' }),
 });
+
+// The customer display on the second screen: what the guest may see of the order on the till.
+// Main validates the view; with no second screen it is dropped.
+contextBridge.exposeInMainWorld('pickchickPosCustomer', {
+  show: (view) => {
+    let json;
+    try {
+      json = JSON.stringify(view);
+    } catch {
+      return;
+    }
+    if (typeof json === 'string' && json.length <= 32000)
+      ipcRenderer.send('pickchick-pos:customer-v1', JSON.parse(json));
+  },
+});

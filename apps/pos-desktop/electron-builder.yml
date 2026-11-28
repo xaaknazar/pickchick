@@ -19,6 +19,8 @@ files:
   - renderer-recovery.mjs
   - update-feed.json
   - preload.cjs
+  - customer-display.mjs
+  - customer-preload.cjs
   - renderer/index.html
   - renderer/styles.css
   - renderer/logo.png

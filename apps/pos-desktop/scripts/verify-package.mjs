@@ -69,6 +69,8 @@ const expectedInputs = [
     'renderer-recovery.mjs',
     'update-feed.json',
     'preload.cjs',
+    'customer-display.mjs',
+    'customer-preload.cjs',
     'package.json',
     'package-lock.json',
     'electron-builder.yml',
@@ -111,6 +113,8 @@ assert.deepEqual(
     '/renderer-recovery.mjs',
     '/update-feed.json',
     '/preload.cjs',
+    '/customer-display.mjs',
+    '/customer-preload.cjs',
     '/package.json',
     '/renderer',
     '/renderer/asset-manifest.json',
@@ -136,6 +140,8 @@ for (const name of [
   'renderer-recovery.mjs',
   'update-feed.json',
   'preload.cjs',
+  'customer-display.mjs',
+  'customer-preload.cjs',
 ])
   assert.equal(
     hash(readEntry(name)),

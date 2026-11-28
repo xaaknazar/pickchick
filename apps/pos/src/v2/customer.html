@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="kk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>PickChick</title>
+    <link rel="stylesheet" href="/v2/customer.css" />
+    <script type="module" src="/v2/customer.js"></script>
+  </head>
+  <body>
+    <main id="screen" class="screen idle" aria-live="polite">
+      <section class="welcome" data-part="idle">
+        <img class="welcome-logo" src="/v2/assets/logo-sticker.webp" alt="PickChick" />
+        <h1>Қош келдіңіз!</h1>
+        <p class="ru" lang="ru">Добро пожаловать!</p>
+      </section>
+      <section class="order" data-part="order">
+        <div class="list">
+          <header class="list-head">
+            <div>
+              <h2>Сіздің тапсырысыңыз</h2>
+              <p class="ru" lang="ru">Ваш заказ</p>
+            </div>
+            <span class="mode" id="mode"></span>
+          </header>
+          <ol class="lines" id="lines"></ol>
+        </div>
+        <aside class="side">
+          <img class="side-logo" src="/v2/assets/logo-sticker.webp" alt="PickChick" />
+          <div class="sum">
+            <p class="sum-title" id="sum-title">Барлығы</p>
+            <p class="ru sum-ru" id="sum-ru" lang="ru">Итого</p>
+            <p class="sum-value" id="total"></p>
+            <p class="sum-count" id="count"></p>
+          </div>
+          <div class="pay" id="pay"></div>
+        </aside>
+      </section>
+      <section class="done" data-part="done">
+        <p class="done-thanks">Рахмет!</p>
+        <p class="ru done-thanks-ru" lang="ru">Спасибо!</p>
+        <div class="done-card">
+          <p class="done-label">Тапсырыс нөмірі</p>
+          <p class="ru done-label-ru" lang="ru">Номер вашего заказа</p>
+          <p class="done-number" id="number"></p>
+        </div>
+        <p class="done-note">Тапсырыс дайын болғанда шақырамыз</p>
+        <p class="ru done-note-ru" lang="ru">Мы позовём вас, когда заказ будет готов</p>
+      </section>
+    </main>
+  </body>
+</html>

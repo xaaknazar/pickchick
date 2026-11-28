@@ -1,0 +1,437 @@
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/v2/fonts/golos-text-2f175b8fc40e.woff2') format('woff2');
+  font-weight: 100 900;
+}
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/v2/fonts/golos-text-f8d71091110f.woff2') format('woff2');
+  font-weight: 100 900;
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: Montserrat;
+  src: url('/v2/fonts/montserrat-0b00fbd6edcc.woff2') format('woff2');
+  font-weight: 100 900;
+}
+@font-face {
+  font-family: Montserrat;
+  src: url('/v2/fonts/montserrat-6438d7b8ea9c.woff2') format('woff2');
+  font-weight: 100 900;
+  unicode-range: U+0000-00FF;
+}
+/* Cyrillic Extended carries the Kazakh letters (Ә Ғ Қ Ң Ө Ү Һ); without it they fall back to a
+   system font and look foreign inside a word. */
+@font-face {
+  font-family: 'Golos Text';
+  src: url('/v2/fonts/golos-text-10aa879203c4.woff2') format('woff2');
+  font-weight: 100 900;
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: Montserrat;
+  src: url('/v2/fonts/montserrat-744830a0e77d.woff2') format('woff2');
+  font-weight: 100 900;
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+:root {
+  --blue: #0047bb;
+  --blue-deep: #00358c;
+  --orange: #ff671f;
+  --navy: #091931;
+  --ink: #0e1524;
+  --muted: #56647b;
+  --line: #e6eaf1;
+  --paper: #ffffff;
+  --u: min(1vw, 1.78vh);
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  cursor: none;
+  user-select: none;
+}
+body {
+  background: var(--blue);
+  font-family: 'Golos Text', system-ui, sans-serif;
+  color: var(--ink);
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+.ru {
+  opacity: 0.72;
+  font-weight: 500;
+}
+.screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+[data-part] {
+  display: none;
+}
+.screen.idle [data-part='idle'],
+.screen.done [data-part='done'] {
+  display: flex;
+}
+.screen.order [data-part='order'] {
+  display: grid;
+}
+
+/* Welcome: the brand pattern, the logo and a greeting in two languages. */
+.welcome,
+.done {
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at center, rgba(0, 53, 140, 0) 0%, rgba(0, 30, 90, 0.55) 100%),
+    var(--blue);
+  isolation: isolate;
+}
+.welcome::before,
+.done::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('/v2/assets/bg-blue.png') center / calc(var(--u) * 90) auto repeat;
+  opacity: 0.12;
+}
+.welcome-logo {
+  width: calc(var(--u) * 30);
+  height: auto;
+  filter: drop-shadow(0 calc(var(--u) * 1.2) calc(var(--u) * 3) rgba(0, 20, 60, 0.35));
+  animation: breathe 6s ease-in-out infinite;
+}
+.welcome h1 {
+  margin-top: calc(var(--u) * 2);
+  font:
+    900 calc(var(--u) * 6) / 1.05 Montserrat,
+    sans-serif;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.welcome .ru {
+  margin-top: calc(var(--u) * 1);
+  font-size: calc(var(--u) * 3.2);
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(-2deg);
+  }
+  50% {
+    transform: scale(1.04) rotate(1deg);
+  }
+}
+
+/* Order: the list on paper, the total on the brand blue. */
+.order {
+  position: absolute;
+  inset: 0;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  background: var(--blue);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: calc(var(--u) * 2.4) 0 calc(var(--u) * 2.4) calc(var(--u) * 2.4);
+  padding: calc(var(--u) * 2.6) calc(var(--u) * 2.8) calc(var(--u) * 1.2);
+  background: var(--paper);
+  border-radius: calc(var(--u) * 2.4);
+  box-shadow: 0 calc(var(--u) * 1.4) calc(var(--u) * 4) rgba(0, 18, 60, 0.28);
+}
+.list-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 1) calc(var(--u) * 2);
+  padding-bottom: calc(var(--u) * 1.6);
+  border-bottom: 2px solid var(--line);
+}
+.list-head h2 {
+  font:
+    900 calc(var(--u) * 3.6) / 1.1 Montserrat,
+    sans-serif;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+.list-head .ru {
+  margin-top: calc(var(--u) * 0.3);
+  font-size: calc(var(--u) * 1.9);
+  color: var(--muted);
+}
+.mode {
+  flex: none;
+  padding: calc(var(--u) * 0.8) calc(var(--u) * 1.6);
+  border-radius: 999px;
+  background: #fff1ea;
+  color: var(--orange);
+  font:
+    800 calc(var(--u) * 1.8) / 1 Montserrat,
+    sans-serif;
+  text-transform: uppercase;
+}
+.mode[hidden] {
+  display: none;
+}
+.lines {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+.line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 1.5) calc(var(--u) * 1);
+  border-bottom: 1px solid var(--line);
+  border-radius: calc(var(--u) * 1);
+}
+.line.fresh {
+  animation: fresh 1.6s ease-out;
+}
+@keyframes fresh {
+  0% {
+    background: #ffe3d4;
+    transform: translateX(calc(var(--u) * -1));
+  }
+  25% {
+    transform: none;
+  }
+  100% {
+    background: transparent;
+  }
+}
+.qty {
+  min-width: calc(var(--u) * 5);
+  font:
+    800 calc(var(--u) * 2.6) / 1 Montserrat,
+    sans-serif;
+  color: var(--blue);
+}
+.name strong {
+  display: block;
+  font-size: calc(var(--u) * 2.7);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.name small {
+  display: block;
+  margin-top: calc(var(--u) * 0.5);
+  font-size: calc(var(--u) * 1.8);
+  line-height: 1.3;
+  color: var(--muted);
+}
+.line-sum {
+  font:
+    800 calc(var(--u) * 2.7) / 1 Montserrat,
+    sans-serif;
+  color: var(--navy);
+  white-space: nowrap;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+  padding: calc(var(--u) * 3) calc(var(--u) * 2.4);
+  color: #fff;
+  text-align: center;
+}
+.side-logo {
+  width: calc(var(--u) * 15);
+  height: auto;
+  transition: width 0.3s ease;
+}
+.screen.paying .side-logo {
+  width: calc(var(--u) * 9);
+}
+.sum-title {
+  font:
+    800 calc(var(--u) * 2.8) / 1 Montserrat,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sum-ru {
+  margin-top: calc(var(--u) * 0.6);
+  font-size: calc(var(--u) * 2);
+}
+.sum-value {
+  margin-top: calc(var(--u) * 1.4);
+  font:
+    900 calc(var(--u) * 6) / 1 Montserrat,
+    sans-serif;
+  white-space: nowrap;
+}
+.sum-count {
+  margin-top: calc(var(--u) * 1.2);
+  font-size: calc(var(--u) * 2);
+  opacity: 0.8;
+}
+.pay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: calc(var(--u) * 6);
+}
+.screen.paying .sum-value {
+  color: #fff;
+  text-shadow: 0 0 calc(var(--u) * 3) rgba(255, 103, 31, 0.55);
+}
+.screen.paying .pay {
+  width: 100%;
+  padding: calc(var(--u) * 2);
+  border-radius: calc(var(--u) * 2);
+  background: var(--orange);
+  animation: rise 0.4s ease-out;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--u) * 2));
+  }
+}
+.kaspi {
+  width: calc(var(--u) * 5.5);
+  height: auto;
+  margin-bottom: calc(var(--u) * 1);
+  border-radius: calc(var(--u) * 1.4);
+}
+.pay-title {
+  font:
+    800 calc(var(--u) * 2.5) / 1.15 Montserrat,
+    sans-serif;
+}
+.pay-ru {
+  margin-top: calc(var(--u) * 0.5);
+  font-size: calc(var(--u) * 1.8);
+}
+.cash {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: calc(var(--u) * 0.6) calc(var(--u) * 2);
+  margin: calc(var(--u) * 1.4) 0 0;
+  font-size: calc(var(--u) * 2.2);
+}
+.cash dt {
+  text-align: left;
+  line-height: 1.1;
+}
+.cash dt small {
+  display: block;
+  font-size: 0.7em;
+  opacity: 0.8;
+}
+.cash dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 800;
+}
+.cash .change {
+  font-size: calc(var(--u) * 2.8);
+}
+
+/* Done: the guest's number, big enough to read from the queue. */
+.done-thanks {
+  font:
+    900 calc(var(--u) * 6) / 1 Montserrat,
+    sans-serif;
+  text-transform: uppercase;
+}
+.done-thanks-ru {
+  margin-top: calc(var(--u) * 0.8);
+  font-size: calc(var(--u) * 3);
+}
+.done-card {
+  margin: calc(var(--u) * 3.2) 0;
+  padding: calc(var(--u) * 2.4) calc(var(--u) * 7);
+  border-radius: calc(var(--u) * 3);
+  background: #fff;
+  color: var(--navy);
+  box-shadow: 0 calc(var(--u) * 1.6) calc(var(--u) * 4) rgba(0, 18, 60, 0.35);
+  animation: pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.done-label {
+  font:
+    800 calc(var(--u) * 2.4) / 1 Montserrat,
+    sans-serif;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.done-label-ru {
+  margin-top: calc(var(--u) * 0.5);
+  font-size: calc(var(--u) * 1.8);
+  color: var(--muted);
+}
+.done-number {
+  margin-top: calc(var(--u) * 1);
+  font:
+    900 calc(var(--u) * 16) / 1 Montserrat,
+    sans-serif;
+  color: var(--orange);
+}
+.done-note {
+  font-size: calc(var(--u) * 2.6);
+  font-weight: 600;
+}
+.done-note-ru {
+  margin-top: calc(var(--u) * 0.5);
+  font-size: calc(var(--u) * 2);
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+/* A tall (portrait) guest screen: the total goes under the list. */
+@media (max-aspect-ratio: 1/1) {
+  :root {
+    --u: min(1.6vw, 1vh);
+  }
+  .order {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .list {
+    margin: calc(var(--u) * 2.4) calc(var(--u) * 2.4) 0;
+  }
+  .side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: calc(var(--u) * 2);
+  }
+  .side-logo {
+    width: calc(var(--u) * 12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+  }
+}

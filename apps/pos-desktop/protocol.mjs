@@ -281,6 +281,7 @@ export function validateConfig(value = {}) {
           'edgeHost',
           'edgeCertificatePem',
           'printer',
+          'customerDisplay',
         ].includes(key),
     )
   )
@@ -308,7 +309,9 @@ export function validateConfig(value = {}) {
     (terminalId !== undefined &&
       (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId))) ||
     // 6 only after every staff PIN of the branch was re-enrolled with 6 digits (6.5).
-    (pinLength !== undefined && pinLength !== 4 && pinLength !== 6)
+    (pinLength !== undefined && pinLength !== 4 && pinLength !== 6) ||
+    // false turns the guest's second screen off; it is on whenever a second display exists.
+    (value.customerDisplay !== undefined && typeof value.customerDisplay !== 'boolean')
   )
     throw new Error('INVALID_POS_CONFIG');
   for (const [id, label] of Object.entries(categories)) {
@@ -326,6 +329,7 @@ export function validateConfig(value = {}) {
     categories: { ...categories },
     ...(terminalId === undefined ? {} : { terminalId }),
     ...(pinLength === undefined ? {} : { pinLength }),
+    ...(value.customerDisplay === undefined ? {} : { customerDisplay: value.customerDisplay }),
     ...upstream,
     ...(printer === undefined ? {} : { printer }),
   };

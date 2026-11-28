@@ -114,7 +114,7 @@ jobs:
       - name: Typecheck renderer and desktop entry points
         run: npm run typecheck
       - name: Verify restricted local protocol, durable journal and receipt printing
-        run: node --test ../../tests/pos-desktop/protocol.test.mjs ../../tests/pos-desktop/journal.test.mjs ../../tests/pos-desktop/printer.test.mjs ../../tests/pos-desktop/fiscal-branded.test.mjs
+        run: node --test ../../tests/pos-desktop/protocol.test.mjs ../../tests/pos-desktop/journal.test.mjs ../../tests/pos-desktop/printer.test.mjs ../../tests/pos-desktop/fiscal-branded.test.mjs ../../tests/pos-desktop/customer-display.test.mjs
       - name: Package clean source for Windows x64
         run: npm run dist:win
       - name: Verify packaged source, AMD64 executable and security fuses

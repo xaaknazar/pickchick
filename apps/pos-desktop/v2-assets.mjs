@@ -34,6 +34,10 @@ export const V2_ASSETS = [
   ['v2/template-engine.js', 'text/javascript'],
   ['v2/template.html', 'text/html; charset=utf-8'],
   ['v2/styles.css', 'text/css'],
+  ['v2/customer.html', 'text/html; charset=utf-8'],
+  ['v2/customer.js', 'text/javascript'],
+  ['v2/customer.css', 'text/css'],
+  ['v2/assets/logo-sticker.webp', 'image/webp'],
   ['v2/assets/bg-blue.png', 'image/png'],
   ['v2/assets/logo.png', 'image/png'],
   ['v2/assets/kaspi.png', 'image/png'],
@@ -42,5 +46,7 @@ export const V2_ASSETS = [
     'golos-text-f8d71091110f.woff2',
     'montserrat-6438d7b8ea9c.woff2',
     'montserrat-0b00fbd6edcc.woff2',
+    'golos-text-10aa879203c4.woff2',
+    'montserrat-744830a0e77d.woff2',
   ].map((n) => ['v2/fonts/' + n, 'font/woff2']),
 ];

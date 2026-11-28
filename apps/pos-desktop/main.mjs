@@ -1,10 +1,27 @@
-import { app, BrowserWindow, Menu, protocol, session, dialog, ipcMain, net } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  protocol,
+  screen,
+  session,
+  dialog,
+  ipcMain,
+  net,
+} from 'electron';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
 import { clearInterval, setInterval } from 'node:timers';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CUSTOMER_URL,
+  createCustomerHandler,
+  isAllowedCustomerURL,
+  pickCustomerDisplay,
+  validateCustomerView,
+} from './customer-display.mjs';
 import { createJournalStore, journalsSettled } from './journal.mjs';
 import { createPrinter } from './printer.mjs';
 import {
@@ -36,6 +53,9 @@ app.setAppUserModelId('kz.pickchick.pos');
 const ownsInstance = app.requestSingleInstanceLock();
 let window;
 let fullscreenChange;
+// The guest's screen of a dual-screen monoblock and the last view the till sent to it.
+let customer = null;
+let customerView = { kind: 'idle' };
 // Hidden print windows of the Windows driver (contracts section 5.8); closed with the app.
 const sheets = new Set();
 /**
@@ -138,6 +158,82 @@ function toggleFullscreen() {
     fullscreenChange = null;
   });
   return fullscreenChange;
+}
+function sendCustomerView() {
+  if (customer && !customer.isDestroyed() && !customer.webContents.isLoading())
+    customer.webContents.send('pickchick-pos-customer:view-v1', customerView);
+}
+/**
+ * Opens the customer window full screen on the second display, moves it when displays change
+ * and closes it when the second display is gone. Never takes focus from the till.
+ */
+function placeCustomerWindow(customerSession, config) {
+  const target = pickCustomerDisplay(screen.getAllDisplays(), screen.getPrimaryDisplay(), config);
+  if (!target) {
+    if (customer && !customer.isDestroyed()) customer.destroy();
+    customer = null;
+    return;
+  }
+  if (customer && !customer.isDestroyed()) {
+    const now = customer.getBounds(),
+      want = target.bounds;
+    if (
+      now.x === want.x &&
+      now.y === want.y &&
+      now.width === want.width &&
+      now.height === want.height
+    )
+      return;
+    customer.setFullScreen(false);
+    customer.setBounds(target.bounds);
+    customer.setFullScreen(true);
+    return;
+  }
+  customer = new BrowserWindow({
+    ...target.bounds,
+    title: 'PickChick',
+    backgroundColor: '#0047bb',
+    show: false,
+    frame: false,
+    focusable: false,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    closable: true,
+    fullscreenable: true,
+    autoHideMenuBar: true,
+    webPreferences: {
+      session: customerSession,
+      preload: fileURLToPath(new URL('./customer-preload.cjs', import.meta.url)),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInWorker: false,
+      nodeIntegrationInSubFrames: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+      experimentalFeatures: false,
+      navigateOnDragDrop: false,
+      devTools: !app.isPackaged,
+    },
+  });
+  const opened = customer;
+  opened.once('ready-to-show', () => {
+    opened.setBounds(target.bounds);
+    opened.showInactive();
+    opened.setFullScreen(true);
+  });
+  opened.on('page-title-updated', (event) => event.preventDefault());
+  opened.on('closed', () => {
+    if (customer === opened) customer = null;
+  });
+  // A crashed customer page comes back on its own; the till never waits for it.
+  opened.webContents.on('render-process-gone', () => {
+    if (!opened.isDestroyed()) void opened.loadURL(CUSTOMER_URL).catch(() => {});
+  });
+  void opened.loadURL(CUSTOMER_URL).catch(() => {});
 }
 if (!ownsInstance) app.quit();
 else {
@@ -288,6 +384,41 @@ else {
           appVersion: desktopAppVersion(app.getVersion()),
         }),
       );
+      // Customer display (second screen): own session, fixed assets only, no edge.
+      const customerSession = session.fromPartition('pickchick-pos-customer-v1');
+      customerSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+        callback(false),
+      );
+      customerSession.setPermissionCheckHandler(() => false);
+      customerSession.setDevicePermissionHandler(() => false);
+      customerSession.on('will-download', (event) => event.preventDefault());
+      customerSession.webRequest.onBeforeRequest((details, callback) =>
+        callback({ cancel: !isAllowedCustomerURL(details.url) }),
+      );
+      customerSession.protocol.handle(
+        'pickchick-pos',
+        createCustomerHandler({ assetDir: new URL('./renderer/', import.meta.url) }),
+      );
+      ipcMain.on('pickchick-pos:customer-v1', (event, message) => {
+        if (
+          !window ||
+          window.isDestroyed() ||
+          event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          event.senderFrame.url !== APP_URL
+        )
+          return;
+        try {
+          customerView = validateCustomerView(message);
+        } catch {
+          customerView = { kind: 'idle' };
+        }
+        sendCustomerView();
+      });
+      ipcMain.on('pickchick-pos-customer:ready-v1', (event) => {
+        if (customer && !customer.isDestroyed() && event.sender === customer.webContents)
+          customer.webContents.send('pickchick-pos-customer:view-v1', customerView);
+      });
       Menu.setApplicationMenu(null);
       window = new BrowserWindow({
         width: 1366,
@@ -342,10 +473,18 @@ else {
       watchRenderer({ window, url: APP_URL, onGone: () => journal.setSession(null) });
       window.on('close', () => isolatedSession.flushStorageData());
       window.on('closed', () => {
+        if (customer && !customer.isDestroyed()) customer.destroy();
         for (const sheet of sheets) if (!sheet.isDestroyed()) sheet.destroy();
         sheets.clear();
       });
       await window.loadURL(APP_URL);
+      try {
+        placeCustomerWindow(customerSession, config);
+        for (const change of ['display-added', 'display-removed', 'display-metrics-changed'])
+          screen.on(change, () => placeCustomerWindow(customerSession, config));
+      } catch {
+        // The till works without the guest's screen.
+      }
       updater?.start();
     })
     .catch(() => {
