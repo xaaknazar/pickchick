@@ -4,16 +4,23 @@
  *
  * The bank's answer arrives in the API itself (the charge / post3ds answer and the signed
  * Pay / Fail notifications), so the API role gets the same bank observation rights the Kaspi
- * worker role has (kaspiWorkerGrants: inbox, captures, attempt state, outbox), plus the
- * TipTopPay session rows. The TipTopPay worker role (tiptoppay-worker.ts) gets the same and the
- * refund observation rights (refund effects, refund state). Card data is never stored anywhere.
+ * worker role has (kaspiWorkerGrants: inbox, captures, fiscal documents, attempt state, outbox),
+ * plus the TipTopPay session rows. The TipTopPay worker role (tiptoppay-worker.ts) gets the same
+ * and the refund observation rights (refund effects, refund state). Recomputing a paid or refunded
+ * order queues its sale / refund receipt (INSERT ... ON CONFLICT DO NOTHING on
+ * commerce_fiscal_documents, which PostgreSQL checks as INSERT), so both roles need that INSERT:
+ * without it a lost-answer reconciliation or a refund confirmation of an order with a receipt
+ * fails with permission denied after the money moved. Card data is never stored anywhere.
  *
- * With `enabled` false the API SQL revokes only the TipTopPay table rights (the shared money rights
- * belong to other grant modules too); the worker SQL revokes everything it granted.
+ * With `enabled` false the API SQL revokes only the TipTopPay table rights (the shared money rights,
+ * including the fiscal document INSERT, belong to other grant modules too: transport, backoffice);
+ * the worker SQL revokes everything it granted. Apply order for the API role: transport, checkout,
+ * then this module; switching the transport grants off afterwards takes the fiscal INSERT away
+ * again, so this module is applied once more after it.
  */
 const NAME = /^[a-z][a-z0-9_]{0,62}$/;
 const OBSERVE_INSERT =
-  'commerce_captures,commerce_provider_inbox,commerce_reconciliation_issues,commerce_outbox';
+  'commerce_captures,commerce_provider_inbox,commerce_fiscal_documents,commerce_reconciliation_issues,commerce_outbox';
 const SESSIONS = 'commerce_tiptoppay_sessions';
 const SESSION_UPDATE = 'authorized_operation_id,next_check_at,reconcile_attempts,last_reconcile_at';
 const READ = `branches,commerce_quotes,commerce_orders,commerce_provider_accounts,
