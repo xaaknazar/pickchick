@@ -8179,6 +8179,19 @@
       "status": "active",
       "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
       "updatedAt": "2026-11-28T09:50:36.562Z"
+    },
+    {
+      "id": "p0-webkassa-kaspi-pos",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-webkassa-kaspi-pos",
+      "scopes": [
+        "packages/commerce-core/src/webkassa-cloud.ts",
+        "packages/local-orders/src/webkassa-fiscal.ts",
+        "packages/commerce-core/tests/webkassa-cloud.postgres.test.mjs"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T09:52:59.686Z"
     }
   ],
   "approvedScopeTransfers": [
