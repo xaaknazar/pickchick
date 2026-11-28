@@ -8263,9 +8263,11 @@
         "tests/ecc",
         "tests/unit/ecc-context.test.mjs"
       ],
-      "status": "active",
-      "head": "f52744aad713b66787f210788219088df9bdbc8e",
-      "updatedAt": "2026-11-28T15:35:20.421Z"
+      "status": "available",
+      "head": "fe5f5281b2b94007364397120653c53641709f2b",
+      "updatedAt": "2026-11-28T15:49:25.531Z",
+      "summary": "ECC 2.2.3 установлен в Codex и Claude; общий профиль pickchick-control опубликован fe5f5281b2b94007364397120653c53641709f2b, PR455. 7 unit-тестов, ESLint, Prettier, diff/secrets, manifest/cache/runtime deps и совпадение двух user skills PASS. Локальная текущая копия активирована без переключения ветки; чужие установки и Claude outputs сохранены. CI46161542265 выполняется; в cutover/shared ещё не включено. Живой обмен между новыми чатами и native hooks Codex не заявлены.",
+      "nextAction": "Получить результат CI PR455, проверить diff и включить профиль обычным merge в согласованный интеграционный срез. После reload использовать pickchick-control в реальной задаче и передать опубликованный checkpoint по шаблону. Общие status/roadmap заняты desktop-kitchen-046-1117; онлайн-пульт не обновлён. На втором Mac отдельно установить ECC и получить профиль; не считать локальную память общей."
     }
   ],
   "approvedScopeTransfers": [
