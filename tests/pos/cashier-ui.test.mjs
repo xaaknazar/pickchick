@@ -5765,18 +5765,50 @@ test('paid hold 3b: «Оформить ещё раз» sells with the held sale 
   assert.equal(body.external_order_ref, undefined);
 });
 
-test('paid hold 4: a restart makes exactly one automatic sale request, later polls none', async () => {
+test('paid hold 4: a refusal kept in the journal means no automatic sale after a restart', async () => {
   const { edge, storage, quote } = await paidThenRefused();
   const sales = () => edge.edge.posts.length;
   assert.equal(sales(), 1);
+  const [key] = [...storage.data.keys()];
+  assert.equal(JSON.parse(storage.data.get(key)).terminal.refusal, 'ITEM_STOPPED');
   const second = await saleCashier(edge, storage);
   assert.equal(second.state.terminal?.state, 'success');
   assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(second.paidRefused, true, 'known as refused at once');
+  assert.equal(second.state.terminalRefusal.code, 'ITEM_STOPPED');
   const view = new SaleView(second, { guard: (fn) => fn, say: () => {} });
   for (let i = 0; i < 5; i++) await view.tick();
-  assert.equal(sales(), 2, 'one request for the whole new session, then the refusal holds');
+  assert.equal(sales(), 1, 'no automatic sale request at all');
+  // Only the cashier's tap sells it again.
+  edge.edge.reject = null;
+  await second.retryPaidSale();
+  assert.ok(second.state.sale, String(second.state.error));
+  assert.equal(sales(), 2);
+});
+
+test('paid hold 4a: a hold written before the refusal existed still sells once automatically', async () => {
+  const { edge, storage } = await paidThenRefused();
+  const [key] = [...storage.data.keys()];
+  const old = JSON.parse(storage.data.get(key));
+  delete old.terminal.refusal;
+  storage.data.set(key, JSON.stringify(old));
+  const second = await saleCashier(edge, storage);
+  assert.equal(second.paidRefused, false);
+  const view = new SaleView(second, { guard: (fn) => fn, say: () => {} });
+  for (let i = 0; i < 5; i++) await view.tick();
+  assert.equal(edge.edge.posts.length, 2, 'one automatic request, then it waits for the tap');
   assert.equal(second.paidRefused, true);
-  assert.equal(second.state.quote?.quote_id, quote.quote_id);
+  assert.equal(JSON.parse(storage.data.get(key)).terminal.refusal, 'ITEM_STOPPED');
+});
+
+test('paid hold 9: logout refuses (false) while the amount is held and signs out otherwise', async () => {
+  const { model } = await paidThenRefused();
+  assert.equal(model.logout(), false);
+  assert.equal(model.state.error.message, 'TERMINAL_PAID_UNSOLD');
+  assert.ok(model.state.actor);
+  const plain = await saleCashier(terminalEdge());
+  assert.equal(plain.logout(), true);
+  assert.equal(plain.state.actor, null);
 });
 
 for (const code of ['TERMINAL_ATTEMPT_INVALID', 'CONFLICT']) {

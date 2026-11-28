@@ -448,7 +448,13 @@ export function saleContext(body: Record<string, unknown> | undefined): SaleErro
  * Kept in the journal so a restart, a crashed window or a power cut finds it again: the same
  * quote and sale draft are restored and the sale is made as soon as the terminal says success.
  */
-type TerminalHold = { attempt_id: string; quote: Quote; sale_draft: SaleDraft };
+type TerminalHold = {
+  attempt_id: string;
+  quote: Quote;
+  sale_draft: SaleDraft;
+  /** The edge refused the sale of this paid attempt (its code): no automatic sale again. */
+  refusal?: string;
+};
 type Journal = {
   version: 1;
   scope: string;
@@ -483,7 +489,13 @@ function parseTerminalHold(value: unknown): TerminalHold {
     d.externalOrderRef.length > 40
   )
     throw new Error('STORAGE_DAMAGED');
+  if (
+    h.refusal !== undefined &&
+    !(typeof h.refusal === 'string' && /^[A-Z0-9_]{1,64}$/.test(h.refusal))
+  )
+    throw new Error('STORAGE_DAMAGED');
   return {
+    ...(typeof h.refusal === 'string' ? { refusal: h.refusal } : {}),
     attempt_id: parse.uuid(h.attempt_id),
     quote: parse.quote(h.quote),
     sale_draft: {
@@ -1192,6 +1204,9 @@ export class PosController {
     this.state.quote = hold.quote;
     this.state.saleDraft = hold.sale_draft;
     this.state.terminal = t;
+    // Refused before the restart: it waits for the cashier's tap, nothing sells by itself.
+    if (hold.refusal && t.state === 'success')
+      this.state.terminalRefusal = { attempt_id: t.attempt_id, code: hold.refusal };
     this.emit();
   }
   /** Writes (or clears) the journal hold for the amount now on the terminal. */
@@ -1245,19 +1260,20 @@ export class PosController {
       }
     }
   }
-  logout() {
-    if (this.state.busy) return;
+  /** True when the cashier is signed out; false when it was refused (state.error says why). */
+  logout(): boolean {
+    if (this.state.busy) return false;
     // The amount on the terminal belongs to this cashier's quote: locking now would hide it.
     if (this.terminalHold) {
       this.fail(new Error(this.paidUnsold ? 'TERMINAL_PAID_UNSOLD' : 'TERMINAL_IN_PROGRESS'));
-      return;
+      return false;
     }
     const credential = this.credential;
     try {
       this.sessions.removeItem(AUTH_KEY);
     } catch {
       this.fail(new Error('STORAGE_UNAVAILABLE'));
-      return;
+      return false;
     }
     this.generation++;
     this.credential = null;
@@ -1296,6 +1312,7 @@ export class PosController {
       ...blankOperations(),
     };
     this.emit();
+    return true;
   }
   /** Moves unsent carts to the new release. Lines whose variant or chosen options are gone are
    *  dropped; kept lines are repriced by the next quote. Orders and pending commands are never
@@ -1939,7 +1956,7 @@ export class PosController {
         // Unknown now: the attempt stays held and the cashier taps again.
       }
     }
-    this.state.terminalRefusal = { attempt_id: attempt, code: codeOf(error) };
+    this.markRefused(attempt, codeOf(error));
     return false;
   }
   /**
@@ -2680,12 +2697,27 @@ export class PosController {
   private async sellPaid(attempt: string, previous: State['terminalRefusal']) {
     this.state.terminalRefusal = null;
     await this.sell({ method: 'kaspi_terminal', attempt_id: attempt });
-    if (this.paidUnsold && !this.journal?.pending && !this.state.terminalRefusal)
-      this.state.terminalRefusal = previous ?? {
-        attempt_id: attempt,
-        code: codeOf(this.state.error),
-      };
+    if (this.paidUnsold && !this.journal?.pending && !this.state.terminalRefusal) {
+      if (previous) this.state.terminalRefusal = previous;
+      else this.markRefused(attempt, codeOf(this.state.error));
+    }
     this.emit();
+  }
+  /**
+   * The paid attempt waits for the cashier's tap: remembered here and in the journal hold, so a
+   * restart or a new sign-in does not sell it again by itself.
+   */
+  private markRefused(attempt: string, code: string) {
+    this.state.terminalRefusal = { attempt_id: attempt, code };
+    const j = this.journal,
+      hold = j?.terminal;
+    const saved = /^[A-Z0-9_]{1,64}$/.test(code) ? code : 'UNKNOWN';
+    if (!j || !hold || hold.attempt_id !== attempt || hold.refusal === saved) return;
+    try {
+      this.save({ ...j, terminal: { ...hold, refusal: saved } });
+    } catch {
+      // Storage refused: in this session nothing sells again; a restart may try once.
+    }
   }
   /**
    * One poll of the amount on the terminal (the screen asks about once a second). Success makes
