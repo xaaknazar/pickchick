@@ -5,6 +5,11 @@ import { z } from 'zod';
 import { CommerceError, parse, UUIDSchema } from './model.js';
 import { CommerceRepository } from './repository.js';
 import {
+  OPEN_TIPTOPPAY_PAYMENT_WINDOW_MINUTES,
+  openTipTopPayWindowFromEnv,
+  otherTipTopPayInReview,
+} from './customer-checkout.js';
+import {
   TIPTOPPAY_API,
   TipTopPayMethodSchema,
   findGooglePayGateway,
@@ -43,6 +48,8 @@ export interface TipTopPayCheckoutOptions {
   origin: string;
   methods: TipTopPayMethod[];
   googlePayGateway?: string;
+  /** One-open-payment window in minutes (default 25, 0 = off); see otherTipTopPayInReview. */
+  openPaymentWindowMinutes?: number;
 }
 
 /**
@@ -87,6 +94,7 @@ export function tipTopPayCheckoutOptions(env: NodeJS.ProcessEnv): TipTopPayCheck
     apiSecret,
     origin: origin.origin,
     methods,
+    openPaymentWindowMinutes: openTipTopPayWindowFromEnv(env),
     ...(env.TIPTOPPAY_GOOGLE_PAY_GATEWAY
       ? {
           googlePayGateway: z
@@ -254,6 +262,25 @@ export class TipTopPayCheckout {
       if (!row) throw new CommerceError('NOT_FOUND');
       if (row.intended_minor !== attempt.amountMinor) throw new CommerceError('CONFLICT');
       if (row.state !== 'pending') return false;
+      // One open payment per guest: concurrent sends of one guest queue on this lock, so the
+      // second sees the first one's session. The same order (a repeat of A) is never blocked.
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `tiptoppay-guest:${attempt.organizationId}:${attempt.branchId}:${attempt.customerId}`,
+      ]);
+      if (
+        await otherTipTopPayInReview(
+          client,
+          {
+            organizationId: attempt.organizationId,
+            branchId: attempt.branchId,
+            customerId: attempt.customerId,
+          },
+          this.options!.accountId,
+          attempt.orderId,
+          this.options!.openPaymentWindowMinutes ?? OPEN_TIPTOPPAY_PAYMENT_WINDOW_MINUTES,
+        )
+      )
+        throw new CommerceError('CONFLICT');
       // opened_at marks "sent to the bank": an attempt is charged at most once.
       const inserted = await client.query(
         `INSERT INTO commerce_tiptoppay_sessions(attempt_id,order_id,token_hash,expires_at,opened_at,method,next_check_at)
