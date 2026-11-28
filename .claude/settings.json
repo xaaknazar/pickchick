@@ -1,0 +1,27 @@
+{
+  "extraKnownMarketplaces": {
+    "ecc": {
+      "source": { "source": "github", "repo": "affaan-m/ECC" }
+    }
+  },
+  "enabledPlugins": {
+    "ecc@ecc": true
+  },
+  "env": {
+    "ECC_HOOK_PROFILE": "minimal",
+    "ECC_DISABLED_HOOKS": "session:start,stop:session-end,stop:evaluate-session,stop:cost-tracker,session:end:marker,stop:plan-canvas-pending"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/ecc/session-start.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
