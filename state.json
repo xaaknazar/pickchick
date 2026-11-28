@@ -8127,6 +8127,18 @@
       "status": "active",
       "head": "05e98d37f2bec9e1107424e301921eb5f03dbff0",
       "updatedAt": "2026-11-23T12:24:36.351Z"
+    },
+    {
+      "id": "p0-ttp-fiscal-grants",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-ttp-fiscal-grants",
+      "scopes": [
+        "infra/staging/tiptoppay-live-grants.mjs",
+        "packages/commerce-core/tests/tiptoppay-live-checkout.postgres.test.mjs"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T09:40:14.061Z"
     }
   ],
   "approvedScopeTransfers": [
