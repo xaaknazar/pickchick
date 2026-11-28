@@ -1,0 +1,15 @@
+{
+  "bind": "192.168.2.66",
+  "port": 13440,
+  "database": "C:/ProgramData/PickChickPhoto/jobs.sqlite",
+  "tlsCert": "C:/ProgramData/PickChickPhoto/tls/certificate.pem",
+  "tlsKey": "C:/ProgramData/PickChickPhoto/tls/private-key.pem",
+  "transport": "windows-queue",
+  "printerQueue": "PickChick XP-A160M",
+  "layout": "slip-v2",
+  "point": "Abay Plaza",
+  "timeZone": "Asia/Almaty",
+  "width": 576,
+  "cut": true,
+  "protocolConfirmed": false
+}

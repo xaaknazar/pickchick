@@ -24,6 +24,7 @@ export class PhotoService {
     enabled = false,
     send,
     now = Date.now,
+    render = preparePhoto,
   }) {
     this.db = new DatabaseSync(database);
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
@@ -36,6 +37,7 @@ export class PhotoService {
     this.cut = cut;
     this.enabled = enabled;
     this.send = send;
+    this.render = render;
     this.now = now;
     this.previews = new Map();
     this.rendering = false;
@@ -107,7 +109,7 @@ export class PhotoService {
     const input = Buffer.from(base64, 'base64');
     try {
       for (const [id, p] of this.previews) if (p.device === device) this.forget(id);
-      const photo = await preparePhoto(input, this.logoPath, this.width, locale);
+      const photo = await this.render(input, this.logoPath, this.width, locale);
       const id = randomUUID(),
         expiresAt = this.now() + 90000;
       this.previews.set(id, { ...photo, device, expiresAt });
