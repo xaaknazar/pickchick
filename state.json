@@ -8141,19 +8141,6 @@
       "updatedAt": "2026-11-28T09:40:14.061Z"
     },
     {
-      "id": "p0-pos-paid-hold",
-      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
-      "branch": "codex/p0-pos-paid-hold",
-      "scopes": [
-        "apps/pos/src/model.ts",
-        "apps/pos/src/v2/sale-view.js",
-        "tests/pos/cashier-ui.test.mjs"
-      ],
-      "status": "active",
-      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
-      "updatedAt": "2026-11-28T09:40:22.357Z"
-    },
-    {
       "id": "p0-ttp-one-open-order",
       "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
       "branch": "codex/p0-ttp-one-open-order",
@@ -8192,6 +8179,20 @@
       "status": "active",
       "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
       "updatedAt": "2026-11-28T09:52:59.686Z"
+    },
+    {
+      "id": "p0-pos-paid-hold",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-pos-paid-hold",
+      "scopes": [
+        "apps/pos/src/model.ts",
+        "apps/pos/src/v2/sale-view.js",
+        "tests/pos/cashier-ui.test.mjs",
+        "apps/pos/src/api.ts"
+      ],
+      "status": "active",
+      "head": "5b09632b87a6b66a877383323d30492ad30f8d3a",
+      "updatedAt": "2026-11-28T09:58:58.864Z"
     }
   ],
   "approvedScopeTransfers": [
