@@ -5,6 +5,7 @@ import { authenticateStaff, requirePermission, audit } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { OrderError } from './errors.js';
 import { posSalesInstalled } from './approvals.js';
+import { kaspiPosInstalled } from './terminal-payments.js';
 import { lockBranch } from './commands.js';
 import { FISCAL_RECEIPT_COLUMNS, appendFiscalEvent, fiscalReceipt } from './pos-outbox.js';
 import { WEBKASSA_CODE, fitFiscalLines, returnBasisFromPrintForm } from '@pickchick/webkassa';
@@ -21,15 +22,33 @@ import type { PosPaymentMethod } from '@pickchick/contracts';
 import qrcode from 'qrcode-generator';
 
 /**
+ * PaymentType of a Kaspi Smart POS terminal tender whose method has no owner decision: 'alaqan'
+ * (Kaspi palm payment), a terminal that did not report a method, and a terminal tender the cashier
+ * marked by hand without an attempt (the method is unknown). Awaiting the accountant's confirmation
+ * (the value documented before 28.11 is 1, a bank card); change it here, in one line.
+ */
+export const KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE: WebkassaPaymentType = 1;
+
+/**
  * Webkassa PaymentType by our tender method: 0 cash, 1 bank card, 4 mobile payment. Kaspi QR and
- * Kaspi transfers are mobile payments; the Kaspi Smart POS terminal takes cards and QR, so its
- * part counts as card (accountant to confirm, docs/integrations/webkassa-api.md).
+ * Kaspi transfers are mobile payments. The Kaspi Smart POS terminal takes cards and QR (and
+ * alaqan): owner 28.11, the receipt names how the guest really paid on it, so its type comes from
+ * the method of the paid attempt (kaspiTerminalPaymentType), never from this table.
  */
 export const WEBKASSA_PAYMENT_TYPE: Partial<Record<PosPaymentMethod, WebkassaPaymentType>> = {
   cash: 0,
-  kaspi_terminal: 1,
+  kaspi_terminal: KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE,
   kaspi_manual: 4,
 };
+
+/**
+ * Type of a terminal tender by the method its Kaspi attempt recorded (kaspi_pos_attempts.
+ * payment_method): card is a bank card (1), qr a mobile payment (4); anything else, including no
+ * attempt at all, the unconfirmed value above.
+ */
+export function kaspiTerminalPaymentType(method: string | null | undefined): WebkassaPaymentType {
+  return method === 'card' ? 1 : method === 'qr' ? 4 : KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE;
+}
 
 /**
  * Automatic Webkassa sale receipts (docs/integrations/webkassa-api.md, stage 1).
@@ -121,13 +140,24 @@ export function fiscalLinesOf(snapshot: PendingRow['snapshot'], total: bigint): 
   return result;
 }
 
-/** Payments of the receipt by Webkassa type; a method without a type makes the receipt manual. */
+/**
+ * Payments of the receipt by Webkassa type; a method without a type makes the receipt manual.
+ * `terminal_method` is the method of the Kaspi attempt that paid a kaspi_terminal tender (null or
+ * absent: no attempt, or the terminal did not say).
+ */
 export function fiscalPaymentsOf(
-  tenders: ReadonlyArray<{ method: PosPaymentMethod; amount_minor: string }>,
+  tenders: ReadonlyArray<{
+    method: PosPaymentMethod;
+    amount_minor: string;
+    terminal_method?: string | null;
+  }>,
 ): FiscalPayment[] | null {
   const byType = new Map<0 | 1 | 4, bigint>();
   for (const t of tenders) {
-    const type = WEBKASSA_PAYMENT_TYPE[t.method];
+    const type =
+      t.method === 'kaspi_terminal'
+        ? kaspiTerminalPaymentType(t.terminal_method)
+        : WEBKASSA_PAYMENT_TYPE[t.method];
     if (type === undefined) return null;
     byType.set(type, (byType.get(type) ?? 0n) + BigInt(t.amount_minor));
   }
@@ -226,16 +256,32 @@ export class WebkassaFiscalWorker {
 
   async #issue(row: PendingRow, now: number): Promise<boolean> {
     const refund = row.kind === 'refund';
+    // Schema029 is installed by a separate tool (kaspi-pos-upgrade-db.mjs): on a point without it
+    // there are no attempts, so no join is made and a terminal tender has the unconfirmed type.
+    const withAttempts = await kaspiPosInstalled(this.#pool);
+    const attemptJoin = withAttempts
+      ? 'LEFT JOIN kaspi_pos_attempts a ON a.id=t.attempt_id AND a.branch_id=t.branch_id'
+      : '';
+    const terminalMethod = withAttempts ? 'a.payment_method' : 'NULL::text';
     const tenders = (
       await this.#pool.query(
         refund
-          ? `SELECT method,amount_minor::text AS amount_minor FROM pos_refund_tenders
-             WHERE refund_id=$1 AND order_id=$2 AND branch_id=$3 ORDER BY created_at,tender_id`
-          : `SELECT method,amount_minor::text AS amount_minor FROM pos_sale_tenders
-             WHERE order_id=$1 AND branch_id=$2 ORDER BY created_at,id`,
+          ? `SELECT r.method,r.amount_minor::text AS amount_minor,${terminalMethod} AS terminal_method
+             FROM pos_refund_tenders r
+             JOIN pos_sale_tenders t ON t.id=r.tender_id AND t.order_id=r.order_id AND t.branch_id=r.branch_id
+             ${attemptJoin}
+             WHERE r.refund_id=$1 AND r.order_id=$2 AND r.branch_id=$3 ORDER BY r.created_at,r.tender_id`
+          : `SELECT t.method,t.amount_minor::text AS amount_minor,${terminalMethod} AS terminal_method
+             FROM pos_sale_tenders t
+             ${attemptJoin}
+             WHERE t.order_id=$1 AND t.branch_id=$2 ORDER BY t.created_at,t.id`,
         refund ? [row.refund_id, row.order_id, this.#branchId] : [row.order_id, this.#branchId],
       )
-    ).rows as Array<{ method: PosPaymentMethod; amount_minor: string }>;
+    ).rows as Array<{
+      method: PosPaymentMethod;
+      amount_minor: string;
+      terminal_method: string | null;
+    }>;
     const payments = fiscalPaymentsOf(tenders);
     let check: FiscalCheck;
     try {

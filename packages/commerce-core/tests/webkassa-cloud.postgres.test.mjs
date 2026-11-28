@@ -8,6 +8,8 @@ import { WebkassaClient } from '@pickchick/webkassa';
 import {
   BASIS_MISSING_RETRY_MS,
   CommerceRepository,
+  KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE,
+  PAYMENT_PROVIDER_UNKNOWN_RETRY_MS,
   REFUSED_RETRY_MS,
   WebkassaCloudFiscalWorker,
   cloudFiscalLines,
@@ -15,6 +17,7 @@ import {
   webkassaCloudConfig,
 } from '../dist/index.js';
 import { readCheckoutOrder } from '../dist/order-view.js';
+import { KIOSK_KASPI_TERMINAL_PROVIDER } from '../dist/kiosk-terminal.js';
 
 // Webkassa receipts of app and kiosk orders (stage 2) against a simulated Webkassa: only
 // disposable schemas in explicitly local PostgreSQL, like postgres.test.mjs.
@@ -80,6 +83,20 @@ function simulator() {
   return s;
 }
 
+/**
+ * Removing a schema takes a lock per object; while other suites share this server the lock table
+ * can be full for a moment (53200), so the removal is repeated instead of leaking the schema.
+ */
+async function removeSchema(admin, schema) {
+  for (let attempt = 1; ; attempt++)
+    try {
+      return await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+    } catch (error) {
+      if (error.code !== '53200' || attempt >= 20) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    }
+}
+
 async function fixture(run) {
   const schema = 'webkassa_' + randomUUID().replaceAll('-', '');
   const admin = createPool(connection, 4);
@@ -95,6 +112,8 @@ async function fixture(run) {
       device = randomUUID(),
       release = randomUUID(),
       payment = randomUUID(),
+      terminalAccount = randomUUID(),
+      mysteryAccount = randomUUID(),
       fiscal = randomUUID();
     await pool.query("INSERT INTO organizations(id,name) VALUES($1,'Webkassa synthetic')", [org]);
     await pool.query(
@@ -120,6 +139,8 @@ async function fixture(run) {
     );
     for (const [id, kind, provider] of [
       [payment, 'payment', 'tiptoppay'],
+      [terminalAccount, 'payment', KIOSK_KASPI_TERMINAL_PROVIDER],
+      [mysteryAccount, 'payment', 'mystery-pay'],
       [fiscal, 'fiscal', 'webkassa'],
     ])
       await pool.query(
@@ -135,7 +156,72 @@ async function fixture(run) {
     const provider = { organizationId: org, branchId: branch, accountId: payment };
     const edge = { organizationId: org, branchId: branch, deviceId: device };
     const repo = new CommerceRepository(pool);
-    async function paid(lines) {
+    /**
+     * The kiosk terminal's own record of a paid attempt (cloud 080): the method the terminal
+     * reported ('qr' | 'card' | 'alaqan' | null) sits on its result event. The attempt row's
+     * boundary trigger wants a kiosk-channel order, which this fixture does not build, so it is
+     * switched off for the insert only; every other constraint (foreign keys, checks) stays.
+     */
+    async function terminalRecord(attemptId, orderId, accountId, amountMinor, method) {
+      const kiosk = randomUUID(),
+        session = randomUUID(),
+        link = randomUUID(),
+        hex = (n) => randomUUID().replaceAll('-', '').repeat(2).slice(0, n);
+      await pool.query(
+        'INSERT INTO kiosk_devices(id,organization_id,branch_id,token_hash) VALUES($1,$2,$3,$4)',
+        [kiosk, org, branch, hex(64)],
+      );
+      await pool.query(
+        "INSERT INTO kiosk_sessions(id,device_id,organization_id,branch_id,token_hash,expires_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()+interval '1 hour')",
+        [session, kiosk, org, branch, hex(64)],
+      );
+      await pool.query(
+        "INSERT INTO kiosk_terminal_links(id,organization_id,branch_id,device_id,terminal_id,serial,host) VALUES($1,$2,$3,$4,$5,'SN-1','192.168.2.40')",
+        [link, org, branch, kiosk, 'T-' + hex(8)],
+      );
+      const terminal = (
+        await pool.query('SELECT terminal_id FROM kiosk_terminal_links WHERE id=$1', [link])
+      ).rows[0].terminal_id;
+      await pool.query(
+        'ALTER TABLE commerce_kiosk_terminal_attempts DISABLE TRIGGER commerce_kiosk_terminal_attempt_guard',
+      );
+      try {
+        await pool.query(
+          `INSERT INTO commerce_kiosk_terminal_attempts(attempt_id,order_id,account_id,organization_id,branch_id,
+            device_id,session_id,link_id,terminal_id,request_id,amount_minor,state,process_id,transaction_id,resolved_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid','P-1','TX-1',clock_timestamp())`,
+          [
+            attemptId,
+            orderId,
+            accountId,
+            org,
+            branch,
+            kiosk,
+            session,
+            link,
+            terminal,
+            randomUUID(),
+            amountMinor,
+          ],
+        );
+      } finally {
+        await pool.query(
+          'ALTER TABLE commerce_kiosk_terminal_attempts ENABLE TRIGGER commerce_kiosk_terminal_attempt_guard',
+        );
+      }
+      await pool.query(
+        `INSERT INTO commerce_kiosk_terminal_events(id,attempt_id,kind,process_id,terminal_id,status,transaction_id,method,amount_minor,request_digest,decision)
+         VALUES($1,$2,'result','P-1',$3,'success','TX-1',$4,$5,$6,'paid')`,
+        [randomUUID(), attemptId, terminal, method, amountMinor, hex(64)],
+      );
+    }
+    /**
+     * A fully paid, admitted order. `options.account` is the payment account of the capture (the
+     * TipTopPay one by default); `options.terminal` ('qr' | 'card' | 'alaqan' | null) also writes
+     * the kiosk terminal record that carries the method the terminal reported.
+     */
+    async function paid(lines, options = {}) {
+      const account = options.account ?? payment;
       const quote = await repo.issueQuote(scope, randomUUID(), {
         releaseId: release,
         customerId: null,
@@ -157,16 +243,27 @@ async function fixture(run) {
       });
       const attempt = await repo.startPaymentAttempt(scope, randomUUID(), {
         orderId: order.orderId,
-        providerAccountId: payment,
+        providerAccountId: account,
       });
-      await repo.observePayment(provider, {
-        eventId: randomUUID(),
-        attemptId: attempt.attemptId,
-        outcome: 'captured',
-        occurredAt: now(),
-        operationId: randomUUID(),
-        amountMinor: attempt.amountMinor,
-      });
+      if ('terminal' in options)
+        await terminalRecord(
+          attempt.attemptId,
+          order.orderId,
+          account,
+          attempt.amountMinor,
+          options.terminal,
+        );
+      await repo.observePayment(
+        { ...provider, accountId: account },
+        {
+          eventId: randomUUID(),
+          attemptId: attempt.attemptId,
+          outcome: 'captured',
+          occurredAt: now(),
+          operationId: randomUUID(),
+          amountMinor: attempt.amountMinor,
+        },
+      );
       return order.orderId;
     }
     const wk = simulator();
@@ -203,6 +300,8 @@ async function fixture(run) {
       manager,
       provider,
       paid,
+      terminalAccount,
+      mysteryAccount,
       wk,
       worker,
       logs,
@@ -213,7 +312,7 @@ async function fixture(run) {
     });
   } finally {
     await pool.end();
-    await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+    await removeSchema(admin, schema);
     await admin.end();
   }
 }
@@ -289,7 +388,7 @@ test('a lost answer resolves to the same receipt; a refusal (busy cashbox) waits
   }));
 
 /** A manager's refund of the order's capture, confirmed by the bank. */
-async function refunded(f, orderId, amountMinor) {
+async function refunded(f, orderId, amountMinor, provider = f.provider) {
   const view = await f.repo.readOrder(f.scope, orderId);
   const refund = await f.repo.requestRefund(f.manager, randomUUID(), {
     orderId,
@@ -298,7 +397,7 @@ async function refunded(f, orderId, amountMinor) {
     reason: 'Синтетический возврат',
     fulfillmentPolicy: 'manager_reviewed',
   });
-  await f.repo.observeRefund(f.provider, {
+  await f.repo.observeRefund(provider, {
     eventId: randomUUID(),
     refundId: refund.refundId,
     outcome: 'succeeded',
@@ -375,6 +474,114 @@ test('a refund of a sale whose receipt data are unknown waits and is logged', ()
     assert.equal(lease.later, true, `held about ${BASIS_MISSING_RETRY_MS} ms`);
   }));
 
+const checksOf = (f) => f.wk.calls.filter(([p]) => p === 'api/v4/check').map(([, b]) => b);
+const NOTHING = { issued: 0, refused: 0, retry: 0, errors: 0 };
+
+test('a kiosk terminal sale is punched by the method the terminal reported (owner 28.11)', () =>
+  fixture(async (f) => {
+    // card -> bank card (1), qr -> mobile payment (4); alaqan (Kaspi palm) and a terminal that
+    // named no method have no owner decision: the documented value until the accountant confirms.
+    assert.equal(KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE, 1);
+    for (const [terminal, expected] of [
+      ['card', 1],
+      ['qr', 4],
+      ['alaqan', KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE],
+      [null, KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE],
+    ]) {
+      const orderId = await f.paid([burger()], { account: f.terminalAccount, terminal });
+      assert.deepEqual(
+        await f.worker.tick(),
+        { ...NOTHING, issued: 1 },
+        JSON.stringify([terminal, f.logs]),
+      );
+      const check = checksOf(f).at(-1);
+      assert.equal(check.ExternalCheckNumber, orderId);
+      assert.deepEqual(check.Payments, [{ Sum: 1000, PaymentType: expected }], String(terminal));
+    }
+    // No terminal record at all (a capture without its result event): the same constant.
+    await f.paid([burger()], { account: f.terminalAccount });
+    assert.deepEqual(await f.worker.tick(), { ...NOTHING, issued: 1 });
+    assert.deepEqual(checksOf(f).at(-1).Payments, [
+      { Sum: 1000, PaymentType: KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE },
+    ]);
+    assert.equal(
+      f.logs.some((entry) => entry.event === 'webkassa_cloud_payment_provider_unknown'),
+      false,
+      'kaspi-pos is a known provider',
+    );
+  }));
+
+test('the refund receipt of a kiosk terminal sale has the type of the original payment', () =>
+  fixture(async (f) => {
+    const terminalProvider = { ...f.provider, accountId: f.terminalAccount };
+    for (const [terminal, expected] of [
+      ['qr', 4],
+      ['card', 1],
+      ['alaqan', KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE],
+    ]) {
+      const orderId = await f.paid([burger()], { account: f.terminalAccount, terminal });
+      assert.equal((await f.worker.tick()).issued, 1);
+      await refunded(f, orderId, '40000', terminalProvider);
+      assert.deepEqual(await f.worker.tick(), { ...NOTHING, issued: 1 }, terminal);
+      const back = checksOf(f).at(-1);
+      assert.equal(back.OperationType, 3, 'a refund');
+      assert.deepEqual(back.Payments, [{ Sum: 400, PaymentType: expected }], terminal);
+    }
+  }));
+
+test('a payment provider without a Webkassa type is held with its own log event, not retried at once', () =>
+  fixture(async (f) => {
+    const orderId = await f.paid([burger()], { account: f.mysteryAccount });
+    const documentId = (await f.repo.readOrder(f.scope, orderId)).fiscalDocuments[0].id;
+    const before = f.wk.calls.length;
+    assert.deepEqual(await f.worker.tick(), { ...NOTHING, retry: 1 });
+    assert.equal(f.wk.calls.length, before, 'nothing is guessed and nothing is sent to Webkassa');
+    const entry = f.logs.find((e) => e.event === 'webkassa_cloud_payment_provider_unknown');
+    assert.ok(entry, 'monitoring has an event of its own');
+    assert.equal(entry.documentId, documentId);
+    assert.deepEqual(entry.providers, ['mystery-pay']);
+    assert.ok(!f.logs.some((e) => e.event === 'webkassa_cloud_failed'));
+    const lease = (
+      await f.pool.query(
+        "SELECT lease_until-clock_timestamp() > interval '50 minutes' later FROM commerce_outbox WHERE event_type='fiscal.submit_requested' AND acknowledged_at IS NULL",
+      )
+    ).rows[0];
+    assert.equal(lease.later, true, `held about ${PAYMENT_PROVIDER_UNKNOWN_RETRY_MS} ms`);
+    // Not picked up again by the next ticks (before, it came back every 120 s lease).
+    assert.deepEqual(await f.worker.tick(), NOTHING);
+    assert.equal(
+      (await f.repo.readOrder(f.scope, orderId)).fiscalDocuments[0].state,
+      'queued',
+      'the document waits in the queue for an operator',
+    );
+  }));
+
+test('a payment sum that differs from the document is an error of its own for monitoring', () =>
+  fixture(async (f) => {
+    const orderId = await f.paid([burger()]);
+    const documentId = (await f.repo.readOrder(f.scope, orderId)).fiscalDocuments[0].id;
+    // The guard keeps documents immutable; it is off for this one corruption only.
+    await f.pool.query(
+      'ALTER TABLE commerce_fiscal_documents DISABLE TRIGGER commerce_fiscal_guard',
+    );
+    await f.pool.query(
+      'UPDATE commerce_fiscal_documents SET amount_minor=amount_minor+100 WHERE id=$1',
+      [documentId],
+    );
+    await f.pool.query(
+      'ALTER TABLE commerce_fiscal_documents ENABLE TRIGGER commerce_fiscal_guard',
+    );
+    const before = f.wk.calls.length;
+    assert.deepEqual(await f.worker.tick(), { ...NOTHING, errors: 1 });
+    assert.equal(f.wk.calls.length, before, 'nothing is sent to Webkassa');
+    assert.deepEqual(
+      f.logs.map((e) => e.event),
+      ['webkassa_cloud_payment_amount_mismatch', 'webkassa_cloud_failed'],
+    );
+    assert.equal(f.logs[0].documentId, documentId);
+    assert.equal(f.logs[1].message, 'FISCAL_PAYMENT_AMOUNT', 'still thrown, retried as before');
+  }));
+
 test('restricted role: the Webkassa worker issues sale and refund receipts with its own grants', () =>
   fixture(async (f) => {
     const { webkassaWorkerGrants } =
@@ -406,6 +613,14 @@ test('restricted role: the Webkassa worker issues sale and refund receipts with 
       assert.ok((await f.repo.readOrder(f.scope, orderId)).kitchenEffectId, 'kitchen admitted');
       await refunded(f, orderId, '100000');
       assert.deepEqual(await worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
+      // A kiosk terminal sale: the role also reads the method the terminal reported (cloud 080).
+      await f.paid([burger()], { account: f.terminalAccount, terminal: 'qr' });
+      assert.deepEqual(await worker.tick(), { issued: 1, refused: 0, retry: 0, errors: 0 });
+      assert.deepEqual(checksOf(f).at(-1).Payments, [{ Sum: 1000, PaymentType: 4 }]);
+      await assert.rejects(
+        pool.query("UPDATE commerce_kiosk_terminal_events SET method='card'"),
+        /permission denied/,
+      );
       for (const sql of [
         'UPDATE commerce_captures SET amount_minor=1',
         'DELETE FROM commerce_fiscal_documents',
