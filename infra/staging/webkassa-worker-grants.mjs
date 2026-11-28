@@ -3,7 +3,9 @@
  * rights of its dedicated role, audit 26.11 P0-1. The worker reads the fiscal queue, leases and
  * acknowledges its outbox events, records a fiscal observation (provider inbox, fiscal effect,
  * document state, the fiscal.issued event that lets the kitchen admit the order) and keeps the data
- * of each issued sale receipt that a refund receipt must name (cloud 083). The order recompute of
+ * of each issued sale receipt that a refund receipt must name (cloud 083). It reads the result
+ * events of kiosk terminal payments (cloud 080, SELECT only): the method the Kaspi terminal
+ * reported (qr, card, alaqan) decides the PaymentType of the receipt (owner 28.11). The order recompute of
  * an observation re-states the payment intent state and re-inserts (ON CONFLICT, guarded by
  * commerce_fiscal_insert_guard) the sale document, so those two rights are needed as well. It
  * never writes captures, refunds or prices.
@@ -16,7 +18,7 @@ const READ = `branches,commerce_quotes,commerce_orders,commerce_provider_account
   commerce_refund_effects,commerce_fiscal_documents,commerce_fiscal_effects,
   commerce_provider_inbox,commerce_reconciliation_issues,commerce_outbox,
   commerce_cancellation_intents,cloud_fulfillment_projection,cloud_branch_availability,
-  fulfillment_transport_bindings,devices,commerce_webkassa_receipts`;
+  fulfillment_transport_bindings,devices,commerce_webkassa_receipts,commerce_kiosk_terminal_events`;
 const INSERT = `commerce_provider_inbox,commerce_fiscal_documents,commerce_fiscal_effects,commerce_reconciliation_issues,
   commerce_outbox,commerce_webkassa_receipts`;
 const ORDER_UPDATE = 'state,version,updated_at,attention_required,kitchen_effect_id';

@@ -10,6 +10,11 @@ import {
   qrStatusOutcome,
   KIOSK_QR_PENDING_GRACE_MS,
   comboProgramOptions,
+  KASPI_REMOTE_PROVIDER,
+  KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE,
+  KIOSK_KASPI_QR_PROVIDER,
+  KIOSK_KASPI_TERMINAL_PROVIDER,
+  webkassaCaptureType,
 } from '../dist/index.js';
 import { COMBO_REWARD_THRESHOLD } from '../dist/combo-rewards.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
@@ -298,4 +303,24 @@ test('combo promotion (6 + 1) stays off until it is explicitly enabled with a da
     }),
     { startsAt: '2026-11-01T00:00:00+05:00', approvalReference: 'owner decision' },
   );
+});
+
+test('every payment provider that makes order captures has a Webkassa payment type', () => {
+  // Owner 25.11 and 28.11: TipTopPay is a card, Kaspi QR and phone invoice are mobile payments,
+  // the Kaspi terminal follows the method the terminal reported.
+  assert.equal(webkassaCaptureType('tiptoppay'), 1);
+  assert.equal(webkassaCaptureType(KASPI_REMOTE_PROVIDER), 4);
+  assert.equal(webkassaCaptureType(KIOSK_KASPI_QR_PROVIDER), 4);
+  assert.equal(webkassaCaptureType(KIOSK_KASPI_TERMINAL_PROVIDER, 'card'), 1);
+  assert.equal(webkassaCaptureType(KIOSK_KASPI_TERMINAL_PROVIDER, 'qr'), 4);
+  for (const method of ['alaqan', null, undefined, 'something-new'])
+    assert.equal(
+      webkassaCaptureType(KIOSK_KASPI_TERMINAL_PROVIDER, method),
+      KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE,
+    );
+  // The terminal method means nothing for the other providers.
+  assert.equal(webkassaCaptureType('tiptoppay', 'qr'), 1);
+  assert.equal(webkassaCaptureType(KIOSK_KASPI_QR_PROVIDER, 'card'), 4);
+  for (const unknown of ['mystery-pay', '', 'Kaspi-POS', '__proto__', 'constructor'])
+    assert.equal(webkassaCaptureType(unknown, 'card'), undefined, unknown);
 });

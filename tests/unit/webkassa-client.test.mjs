@@ -9,6 +9,8 @@ import {
   checkBody,
   fiscalLinesOf,
   fiscalPaymentsOf,
+  kaspiTerminalPaymentType,
+  KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE,
   fitFiscalLines,
   readWebkassaAccount,
   returnBasisFromPrintForm,
@@ -136,6 +138,31 @@ test('quote lines become receipt lines whose sum is the sale total to the tiyn',
     ],
   );
   assert.equal(fiscalPaymentsOf([{ method: 'aggregator_glovo', amount_minor: '100' }]), null);
+});
+
+test('a Kaspi terminal tender takes its type from the method the terminal reported (owner 28.11)', () => {
+  assert.equal(kaspiTerminalPaymentType('card'), 1);
+  assert.equal(kaspiTerminalPaymentType('qr'), 4);
+  for (const method of ['alaqan', null, undefined, '', 'cash', 'something-new'])
+    assert.equal(kaspiTerminalPaymentType(method), KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE);
+  assert.deepEqual(
+    fiscalPaymentsOf([
+      { method: 'cash', amount_minor: '100' },
+      { method: 'kaspi_terminal', amount_minor: '200', terminal_method: 'qr' },
+      { method: 'kaspi_terminal', amount_minor: '300', terminal_method: 'qr' },
+      { method: 'kaspi_terminal', amount_minor: '400', terminal_method: 'card' },
+      { method: 'kaspi_terminal', amount_minor: '500', terminal_method: 'alaqan' },
+      { method: 'kaspi_terminal', amount_minor: '600', terminal_method: null },
+      { method: 'kaspi_terminal', amount_minor: '700' },
+      { method: 'kaspi_manual', amount_minor: '800', terminal_method: 'card' },
+    ]),
+    [
+      { type: 0, amountMinor: 100n },
+      { type: 4, amountMinor: 1300n },
+      { type: 1, amountMinor: 2200n },
+    ],
+    'the same type adds up; the terminal method means nothing for other methods',
+  );
 });
 
 test('the client signs in once, renews an expired session and resolves a duplicate number', async () => {

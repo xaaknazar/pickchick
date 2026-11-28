@@ -10,6 +10,9 @@ import type {
 } from '@pickchick/webkassa';
 import { CommerceRepository } from './repository.js';
 import { UUIDSchema } from './model.js';
+import { KASPI_REMOTE_PROVIDER } from './kaspi-remote.js';
+import { KIOSK_KASPI_QR_PROVIDER } from './kiosk-kaspi-qr.js';
+import { KIOSK_KASPI_TERMINAL_PROVIDER } from './kiosk-terminal.js';
 
 /**
  * Webkassa receipts of app and kiosk orders (docs/integrations/webkassa-api.md, stage 2).
@@ -40,6 +43,8 @@ export const WEBKASSA_LEASE_SECONDS = 120;
 export const REFUSED_RETRY_MS = 5 * 60_000;
 /** A refund whose sale receipt data are unknown is looked at again this late. */
 export const BASIS_MISSING_RETRY_MS = 60 * 60_000;
+/** A document paid through a provider without a Webkassa type is looked at again this late. */
+export const PAYMENT_PROVIDER_UNKNOWN_RETRY_MS = 60 * 60_000;
 
 export interface WebkassaCloudConfig {
   /** commerce_provider_accounts row (kind fiscal, provider webkassa) of the branch. */
@@ -61,11 +66,39 @@ export function webkassaCloudConfig(env: NodeJS.ProcessEnv): WebkassaCloudConfig
 }
 
 /** Webkassa PaymentType by the provider of the capture: TipTopPay is a card, Kaspi is mobile. */
-export const WEBKASSA_CAPTURE_TYPE: Record<string, WebkassaPaymentType> = {
+export const WEBKASSA_CAPTURE_TYPE: Readonly<Record<string, WebkassaPaymentType>> = Object.freeze({
   tiptoppay: 1,
-  'kaspi-remote': 4,
-  'kaspi-qr': 4,
-};
+  [KASPI_REMOTE_PROVIDER]: 4,
+  [KIOSK_KASPI_QR_PROVIDER]: 4,
+});
+
+/**
+ * PaymentType of a Kaspi Smart POS terminal payment whose method has no owner decision: 'alaqan'
+ * (Kaspi palm payment) and a terminal that did not report a method. Awaiting the accountant's
+ * confirmation (the value documented before 28.11 is 1, a bank card); change it here, in one line.
+ */
+export const KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE: WebkassaPaymentType = 1;
+
+/**
+ * Webkassa PaymentType of one capture. A kiosk terminal capture follows the method the terminal
+ * reported for that very payment (owner 28.11: the receipt names how the guest actually paid):
+ * card is a bank card (1), qr is a mobile payment (4), anything else the unconfirmed value above.
+ * undefined: a provider without a type, which the worker never guesses.
+ */
+export function webkassaCaptureType(
+  provider: string,
+  terminalMethod?: string | null,
+): WebkassaPaymentType | undefined {
+  if (provider === KIOSK_KASPI_TERMINAL_PROVIDER)
+    return terminalMethod === 'card'
+      ? 1
+      : terminalMethod === 'qr'
+        ? 4
+        : KASPI_TERMINAL_UNCONFIRMED_PAYMENT_TYPE;
+  return Object.hasOwn(WEBKASSA_CAPTURE_TYPE, provider)
+    ? WEBKASSA_CAPTURE_TYPE[provider]
+    : undefined;
+}
 
 interface SnapshotLine {
   title?: unknown;
@@ -240,25 +273,71 @@ export class WebkassaCloudFiscalWorker {
         return 'retry';
       }
     }
-    // A sale is paid by its captures; a refund goes back by the account of its refund.
+    // A sale is paid by its captures; a refund goes back by the account of its refund. attempt_id
+    // names the payment attempt of the capture (a refund: of the captured payment it returns).
     const captures = (
-      await this.pool.query<{ provider: string; amount_minor: string }>(
+      await this.pool.query<{ provider: string; attempt_id: string; amount_minor: string }>(
         refund
-          ? `SELECT a.provider,e.amount_minor::text amount_minor FROM commerce_refund_effects e
-             JOIN commerce_provider_accounts a ON a.id=e.account_id WHERE e.id=$1 AND e.order_id=$2`
-          : `SELECT a.provider,SUM(c.amount_minor)::text amount_minor FROM commerce_captures c
-             JOIN commerce_provider_accounts a ON a.id=c.account_id WHERE c.order_id=$1 GROUP BY a.provider`,
+          ? `SELECT a.provider,c.attempt_id,e.amount_minor::text amount_minor FROM commerce_refund_effects e
+             JOIN commerce_provider_accounts a ON a.id=e.account_id
+             JOIN commerce_refunds r ON r.id=e.refund_id AND r.order_id=e.order_id
+             JOIN commerce_captures c ON c.id=r.capture_id AND c.order_id=r.order_id
+             WHERE e.id=$1 AND e.order_id=$2`
+          : `SELECT a.provider,c.attempt_id,c.amount_minor::text amount_minor FROM commerce_captures c
+             JOIN commerce_provider_accounts a ON a.id=c.account_id WHERE c.order_id=$1 ORDER BY c.received_at,c.id`,
         refund ? [document.business_operation_id, document.order_id] : [document.order_id],
       )
     ).rows;
+    // The Kaspi terminal reports how the guest paid (qr, card, alaqan); that is what the receipt
+    // names (owner 28.11). Read only when a terminal payment is involved, so the other providers
+    // never depend on the terminal tables.
+    const terminalMethods = new Map<string, string | null>();
+    const terminalAttempts = captures
+      .filter((c) => c.provider === KIOSK_KASPI_TERMINAL_PROVIDER)
+      .map((c) => c.attempt_id);
+    if (terminalAttempts.length)
+      for (const row of (
+        await this.pool.query<{ attempt_id: string; method: string | null }>(
+          `SELECT attempt_id,method FROM commerce_kiosk_terminal_events
+           WHERE attempt_id=ANY($1::uuid[]) AND kind='result' AND decision='paid'`,
+          [terminalAttempts],
+        )
+      ).rows)
+        terminalMethods.set(row.attempt_id, row.method);
+    // A provider without a Webkassa type is never guessed. It used to throw and come back with
+    // every 120 s lease for ever; now the event is held for an hour and logged on its own, so
+    // monitoring and an operator can see which provider needs a decision.
+    const unknown = captures.filter(
+      (c) =>
+        webkassaCaptureType(c.provider, terminalMethods.get(c.attempt_id) ?? null) === undefined,
+    );
+    if (unknown.length) {
+      await this.hold(event, token, PAYMENT_PROVIDER_UNKNOWN_RETRY_MS);
+      this.log({
+        event: 'webkassa_cloud_payment_provider_unknown',
+        documentId: document.id,
+        providers: [...new Set(unknown.map((c) => c.provider))].sort(),
+      });
+      return 'retry';
+    }
     const payments = new Map<WebkassaPaymentType, bigint>();
     for (const capture of captures) {
-      const type = WEBKASSA_CAPTURE_TYPE[capture.provider];
-      if (type === undefined) throw new Error('FISCAL_PAYMENT_PROVIDER');
+      const type = webkassaCaptureType(
+        capture.provider,
+        terminalMethods.get(capture.attempt_id) ?? null,
+      )!;
       payments.set(type, (payments.get(type) ?? 0n) + BigInt(capture.amount_minor));
     }
     const paid = [...payments.values()].reduce((a, b) => a + b, 0n);
-    if (paid !== amount) throw new Error('FISCAL_PAYMENT_AMOUNT');
+    if (paid !== amount) {
+      // Still thrown (and retried with the lease), but monitoring tells it from a network error.
+      this.log({
+        event: 'webkassa_cloud_payment_amount_mismatch',
+        documentId: document.id,
+        kind: document.kind,
+      });
+      throw new Error('FISCAL_PAYMENT_AMOUNT');
+    }
     const lines = cloudFiscalLines(document.request.snapshot?.lines ?? [], amount);
     const list: FiscalPayment[] = [...payments].map(([type, amountMinor]) => ({
       type,
