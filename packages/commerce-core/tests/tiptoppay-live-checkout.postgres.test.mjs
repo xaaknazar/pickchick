@@ -677,29 +677,67 @@ test('signed notifications: Check admits only with the live checkout on; Fail de
     assert.equal(await kitchenJobs(f, orderId), 0);
   }, true));
 
-test('restricted roles: the API role charges and records the bank answer; the worker role refunds', () =>
-  fixture(async (f) => {
-    const { customerCheckoutGrants } = await import('../../../infra/staging/checkout-grants.mjs');
-    const { tipTopPayApiGrants, tipTopPayWorkerGrants } =
-      await import('../../../infra/staging/tiptoppay-live-grants.mjs');
-    const suffix = randomUUID().replaceAll('-', '');
-    const api = 'ttp_api_' + suffix,
-      worker = 'ttp_worker_' + suffix;
-    const pools = [];
+/**
+ * Two restricted roles with exactly what the repository grant modules give them (no hand-made
+ * GRANT here). The API role is the server API role: the transport grants (which carry INSERT on
+ * commerce_fiscal_documents), then the checkout grants, then the TipTopPay API grants. The worker
+ * role is the dedicated TipTopPay worker role: tipTopPayWorkerGrants alone.
+ */
+async function withRestrictedRoles(f, run) {
+  const { fulfillmentTransportGrants } =
+    await import('../../../infra/staging/fulfillment-transport-grants.mjs');
+  const { customerCheckoutGrants } = await import('../../../infra/staging/checkout-grants.mjs');
+  const { tipTopPayApiGrants, tipTopPayWorkerGrants } =
+    await import('../../../infra/staging/tiptoppay-live-grants.mjs');
+  const suffix = randomUUID().replaceAll('-', '');
+  const api = 'ttp_api_' + suffix,
+    worker = 'ttp_worker_' + suffix;
+  const pools = [];
+  try {
     for (const role of [api, worker])
       await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
-    try {
-      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${api},${worker}`);
-      await f.pool.query(customerCheckoutGrants(api, true));
-      await f.pool.query(tipTopPayApiGrants(api, true));
-      await f.pool.query(tipTopPayWorkerGrants(worker, true));
-      const as = (role) => {
-        const url = new URL(f.url);
-        url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
-        const pool = createPool(url.toString(), 2);
-        pools.push(pool);
-        return pool;
-      };
+    await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${api},${worker}`);
+    await f.pool.query(fulfillmentTransportGrants(api, true));
+    await f.pool.query(customerCheckoutGrants(api, true));
+    await f.pool.query(tipTopPayApiGrants(api, true));
+    await f.pool.query(tipTopPayWorkerGrants(worker, true));
+    const as = (role) => {
+      const url = new URL(f.url);
+      url.searchParams.set('options', `-c search_path=${f.schema} -c role=${role}`);
+      const pool = createPool(url.toString(), 2);
+      pools.push(pool);
+      return pool;
+    };
+    await run({ apiPool: as(api), workerPool: as(worker) });
+  } finally {
+    for (const pool of pools) await pool.end().catch(() => undefined);
+    for (const role of [api, worker]) {
+      await f.admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+      await f.admin.query(`DROP ROLE ${role}`).catch(() => undefined);
+    }
+  }
+}
+const fiscalKinds = async (f, orderId) =>
+  (
+    await f.pool.query(
+      'SELECT kind FROM commerce_fiscal_documents WHERE order_id=$1 ORDER BY kind',
+      [orderId],
+    )
+  ).rows.map((row) => row.kind);
+const restrictedCheckout = (f, apiPool, bank) => ({
+  checkout: new CustomerCheckout(apiPool, {
+    ...f.scope,
+    paymentAccountId: f.payment,
+    customerIds: [f.scope.principalId],
+    maxOrderMinor: '1000000',
+    approvalReference: 'Synthetic approval',
+  }),
+  live: new TipTopPayCheckout(apiPool, options(f), f.now, bank.fetch),
+});
+
+test('restricted roles: the API role charges and records the bank answer; the worker role refunds', () =>
+  fixture(async (f) => {
+    await withRestrictedRoles(f, async ({ apiPool, workerPool }) => {
       const bank = fakeBank();
       bank.handlers['/payments/cards/charge'] = (body) =>
         completed(body, { TransactionId: 9100020 });
@@ -708,15 +746,7 @@ test('restricted roles: the API role charges and records the bank answer; the wo
         Model: { TransactionId: 9100021 },
       });
       const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
-      const apiPool = as(api);
-      const checkout = new CustomerCheckout(apiPool, {
-        ...f.scope,
-        paymentAccountId: f.payment,
-        customerIds: [f.scope.principalId],
-        maxOrderMinor: '1000000',
-        approvalReference: 'Synthetic approval',
-      });
-      const live = new TipTopPayCheckout(apiPool, options(f), f.now, bank.fetch);
+      const { checkout, live } = restrictedCheckout(f, apiPool, bank);
       const attempt = await checkout.startTipTopPayAttempt(
         f.scope.principalId,
         orderId,
@@ -740,7 +770,7 @@ test('restricted roles: the API role charges and records the bank answer; the wo
         reason: 'Синтетический возврат',
         fulfillmentPolicy: 'manager_reviewed',
       });
-      const workerLive = new TipTopPayCheckout(as(worker), options(f), f.now, bank.fetch);
+      const workerLive = new TipTopPayCheckout(workerPool, options(f), f.now, bank.fetch);
       assert.equal((await workerLive.refunds()).sent, 1);
       assert.equal(
         (await f.pool.query('SELECT state FROM commerce_refunds WHERE id=$1', [refund.refundId]))
@@ -748,11 +778,73 @@ test('restricted roles: the API role charges and records the bank answer; the wo
         'succeeded',
       );
       assert.equal((await workerLive.reconcile()).errors, 0);
-    } finally {
-      for (const pool of pools) await pool.end();
-      for (const role of [api, worker]) {
-        await f.admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
-        await f.admin.query(`DROP ROLE ${role}`).catch(() => undefined);
-      }
-    }
+    });
   }, true));
+
+test('restricted roles, order with a receipt: the worker settles a lost bank answer and queues the sale receipt', () =>
+  fixture(async (f) => {
+    await withRestrictedRoles(f, async ({ apiPool, workerPool }) => {
+      const bank = fakeBank();
+      bank.handlers['/payments/cards/charge'] = () => {
+        throw new Error('socket hang up');
+      };
+      const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+      const { checkout, live } = restrictedCheckout(f, apiPool, bank);
+      const attempt = await checkout.startTipTopPayAttempt(
+        f.scope.principalId,
+        orderId,
+        f.tiptoppay,
+      );
+      await live.charge(attempt, { method: 'card', cryptogram: 'c'.repeat(40) }, '1.1.1.1');
+      assert.equal(await attemptState(f, attempt.attemptId), 'unknown');
+      assert.deepEqual(await fiscalKinds(f, orderId), []);
+      bank.handlers['/payments/find'] = () =>
+        completed({ InvoiceId: attempt.attemptId, Amount: 1000 }, { TransactionId: 9100030 });
+      await f.pool.query('UPDATE commerce_tiptoppay_sessions SET next_check_at=NULL');
+      const workerLive = new TipTopPayCheckout(workerPool, options(f), f.now, bank.fetch);
+      const result = await workerLive.reconcile();
+      assert.equal(result.settled, 1);
+      assert.equal(result.errors, 0);
+      assert.equal(await attemptState(f, attempt.attemptId), 'succeeded');
+      assert.deepEqual(await fiscalKinds(f, orderId), ['sale']);
+      assert.equal(await kitchenJobs(f, orderId), 1);
+    });
+  }));
+
+test('restricted roles, order with a receipt: the worker confirms the refund and queues its receipt', () =>
+  fixture(async (f) => {
+    await withRestrictedRoles(f, async ({ apiPool, workerPool }) => {
+      const bank = fakeBank();
+      bank.handlers['/payments/cards/charge'] = (body) =>
+        completed(body, { TransactionId: 9100040 });
+      bank.handlers['/payments/refund'] = () => ({
+        Success: true,
+        Model: { TransactionId: 9100041 },
+      });
+      const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+      const { checkout, live } = restrictedCheckout(f, apiPool, bank);
+      const attempt = await checkout.startTipTopPayAttempt(
+        f.scope.principalId,
+        orderId,
+        f.tiptoppay,
+      );
+      await live.charge(attempt, { method: 'card', cryptogram: 'c'.repeat(40) }, '1.1.1.1');
+      assert.deepEqual(await fiscalKinds(f, orderId), ['sale']);
+      const capture = (await f.view(orderId)).captures[0];
+      const refund = await f.repo.requestRefund({ ...f.scope, role: 'manager' }, randomUUID(), {
+        orderId,
+        captureId: capture.id,
+        amountMinor: '100000',
+        reason: 'Синтетический возврат',
+        fulfillmentPolicy: 'manager_reviewed',
+      });
+      const workerLive = new TipTopPayCheckout(workerPool, options(f), f.now, bank.fetch);
+      assert.equal((await workerLive.refunds()).sent, 1);
+      assert.equal(
+        (await f.pool.query('SELECT state FROM commerce_refunds WHERE id=$1', [refund.refundId]))
+          .rows[0].state,
+        'succeeded',
+      );
+      assert.deepEqual(await fiscalKinds(f, orderId), ['refund', 'sale']);
+    });
+  }));
