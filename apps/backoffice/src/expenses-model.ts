@@ -352,7 +352,13 @@ export function explain(e: unknown): string {
 /** CSV for Excel: UTF-8 with BOM, «;» between columns (the Russian Excel opens it as a table). */
 export function excel(rows: (string | number)[][]) {
   const cell = (v: string | number) => {
-    const s = String(v);
+    const raw = String(v);
+    // Text typed by staff (comment, supplier) must not run as an Excel formula. Amounts from
+    // excelAmount («-1234,5») stay numbers.
+    const s =
+      typeof v === 'string' && /^[=+\-@\t\r]/.test(raw) && !/^-?\d+(,\d+)?$/.test(raw)
+        ? "'" + raw
+        : raw;
     return /[";\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
   };
   return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n');

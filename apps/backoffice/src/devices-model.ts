@@ -411,7 +411,11 @@ export function deviceConnection(
       detail: 'Откройте PickChick на устройстве.',
     };
   if (d.presence.issue === 'demo')
-    return { label: 'Открыто демо', tone: 'neutral', detail: 'Переключите киоск в рабочий режим.' };
+    return {
+      label: 'Не в рабочем режиме',
+      tone: 'warning',
+      detail: 'Переключите киоск в рабочий режим.',
+    };
   if (d.presence.issue !== 'none')
     return {
       label: 'Требует внимания',

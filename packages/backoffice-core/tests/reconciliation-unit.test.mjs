@@ -466,3 +466,32 @@ test('the fingerprint changes when a late fact appears and stays stable otherwis
   );
   assert.match(a, /^[a-f0-9]{64}$/);
 });
+
+test('cashier tenders give cash and Kaspi Smart POS an expectation to compare with the KKM total', () => {
+  const sale = fact('cash', 250000, '2026-10-24T07:00:00.000Z', { id: 'p-' + id() });
+  const kaspi = fact('kaspi_pos', 180000, '2026-10-24T08:00:00.000Z', { id: 'p-' + id() });
+  const back = fact('cash', -50000, '2026-10-24T09:00:00.000Z', { id: 'q-' + id() });
+  const totals = [
+    {
+      id: 't-cash',
+      method: 'cash',
+      source: 'kkm',
+      amount_minor: 200000n,
+      comment: 'Z-отчёт',
+      created_at: '2026-10-25T03:00:00.000Z',
+      author: 'Бухгалтер',
+    },
+  ];
+  const on = day({ facts: [sale, kaspi, back], totals, pos_recorded: true });
+  const cash = on.methods.find((m) => m.method === 'cash');
+  assert.equal(cash.recorded, true);
+  assert.equal(cash.expected_minor, '200000');
+  assert.equal(on.rows.find((r) => r.key === 'total:t-cash').state, 'matched');
+  const pos = on.methods.find((m) => m.method === 'kaspi_pos');
+  assert.equal(pos.expected_minor, '180000');
+  assert.equal(on.rows.find((r) => r.key === 'nobank:kaspi_pos').amount_minor, '-180000');
+  // Without the cashier projection the methods stay external, exactly as before.
+  const off = day({ totals });
+  assert.equal(off.methods.find((m) => m.method === 'cash').expected_minor, null);
+  assert.equal(off.rows.find((r) => r.key === 'total:t-cash').state, 'missing_in_pickchick');
+});
