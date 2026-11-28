@@ -483,7 +483,7 @@ export function parseStatement(text: string, mapping: Mapping): StatementResult 
 // Matching.
 // ---------------------------------------------------------------------------------------------
 export type Fact = {
-  /** c-<capture id> | r-<refund effect id> */
+  /** c-<capture id> | r-<refund effect id> | p-<cashier tender id> | q-<cashier refund>-<tender> */
   id: string;
   kind: 'capture' | 'refund';
   method: MethodKey;
@@ -548,7 +548,19 @@ export type ReconcileInput = {
   /** Pick Combo gift orders with nothing to pay, created on the day. */
   gifts: { orders: number; discount_minor: bigint };
   unknown_attempts: Partial<Record<MethodKey, number>>;
+  /**
+   * True when the cashier's own tenders (cloud073 cloud_pos_tenders) are among the facts: cash and
+   * Kaspi Smart POS then have a PickChick expectation like the cloud methods.
+   */
+  pos_recorded?: boolean;
 };
+/** Cashier tender methods (cloud073) that reach a bank or the drawer; the rest are not money in. */
+export const POS_TENDER_METHODS: Readonly<Record<string, MethodKey>> = Object.freeze({
+  cash: 'cash',
+  kaspi_terminal: 'kaspi_pos',
+  kaspi_manual: 'kaspi_pos',
+});
+export const POS_RECORDED_METHODS: readonly MethodKey[] = ['cash', 'kaspi_pos'];
 export type Rule =
   | 'operation_id'
   | 'amount_time'
@@ -854,7 +866,9 @@ export function reconcileDay(input: ReconcileInput): DayReport {
       refundsMinor = -sum(refunds.map((f) => f.amount_minor));
     const bank = todayLines.filter((l) => attributed.get(l.id) === method);
     const totals = input.totals.filter((t) => t.method === method);
-    const expected = m.recorded ? capturesMinor - refundsMinor : null;
+    const recorded =
+      m.recorded || (input.pos_recorded === true && POS_RECORDED_METHODS.includes(method));
+    const expected = recorded ? capturesMinor - refundsMinor : null;
     const coverageKind: MethodSummary['coverage'] = coverage.has(m.source)
       ? 'statement'
       : totals.length
@@ -880,7 +894,7 @@ export function reconcileDay(input: ReconcileInput): DayReport {
       method,
       label: m.label,
       source: m.source,
-      recorded: m.recorded,
+      recorded,
       orders_paid: new Set(captures.map((f) => f.order_id)).size,
       captures_count: captures.length,
       captures_minor: String(capturesMinor),

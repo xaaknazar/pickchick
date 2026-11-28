@@ -30,6 +30,7 @@ import {
   type MethodKey,
   type Row,
   type Source,
+  POS_TENDER_METHODS,
 } from './reconciliation-model.js';
 export * from './reconciliation-model.js';
 
@@ -411,6 +412,63 @@ export class Reconciliation {
         gift_minor: /^\d{1,15}$/.test(f.gift_minor ?? '') ? BigInt(f.gift_minor!) : 0n,
       };
     });
+    // The cashier's own tenders (cloud073, the posSales projection): cash in the drawer and Kaspi
+    // Smart POS. Read only when installed and granted; otherwise cash and Kaspi POS stay external.
+    const posRecorded =
+      (await this.readable(db, 'cloud_pos_tenders', [
+        'tender_id',
+        'order_id',
+        'branch_id',
+        'method',
+        'amount_minor',
+        'reference',
+        'created_at',
+      ])) &&
+      (await this.readable(db, 'cloud_pos_refund_tenders', [
+        'refund_id',
+        'tender_id',
+        'order_id',
+        'branch_id',
+        'method',
+        'amount_minor',
+      ])) &&
+      (await this.readable(db, 'cloud_pos_refunds', ['refund_id', 'branch_id', 'created_at']));
+    if (posRecorded) {
+      const methods = Object.keys(POS_TENDER_METHODS);
+      for (const t of await rows<{
+        id: string;
+        kind: 'capture' | 'refund';
+        order_id: string;
+        method: string;
+        amount_minor: string;
+        occurred_at: Date;
+        reference: string | null;
+        day: string;
+      }>(
+        `SELECT 'p-'||t.tender_id id,'capture' kind,t.order_id,t.method,t.amount_minor::text,t.created_at occurred_at,
+           t.reference,(t.created_at AT TIME ZONE '${REC_TIMEZONE}')::date::text AS day
+         FROM cloud_pos_tenders t WHERE t.branch_id=$1 AND t.method=ANY($4::text[])
+           AND t.created_at>=$2 AND t.created_at<$3
+         UNION ALL
+         SELECT 'q-'||x.refund_id||'-'||x.tender_id,'refund',x.order_id,x.method,(-x.amount_minor)::text,r.created_at,
+           NULL,(r.created_at AT TIME ZONE '${REC_TIMEZONE}')::date::text
+         FROM cloud_pos_refund_tenders x JOIN cloud_pos_refunds r ON r.refund_id=x.refund_id AND r.branch_id=x.branch_id
+         WHERE x.branch_id=$1 AND x.method=ANY($4::text[]) AND r.created_at>=$2 AND r.created_at<$3`,
+        [branch, wStart, wEnd, methods],
+      ))
+        facts.push({
+          id: t.id,
+          kind: t.kind,
+          method: POS_TENDER_METHODS[t.method]!,
+          amount_minor: BigInt(t.amount_minor),
+          occurred_at: new Date(t.occurred_at).toISOString(),
+          day: t.day,
+          order_id: t.order_id,
+          operation_id: t.reference,
+          keys: factKeys(t.reference),
+          gift_minor: 0n,
+        });
+    }
     // Lines of other days that carry an identifier of today's facts (late bank operations).
     const factKeysToday = [...new Set(facts.filter((f) => f.day === day).flatMap((f) => f.keys))];
     const known = new Set(lineRows.map((l) => l.id));
@@ -532,6 +590,7 @@ export class Reconciliation {
       shifts,
       gifts: { orders: gift.orders, discount_minor: BigInt(gift.discount.split('.')[0]!) },
       unknown_attempts: unknown,
+      pos_recorded: posRecorded,
     });
     const items = new Map(
       (
