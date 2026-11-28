@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+/* global Request */
 import test from 'node:test';
 import {
   CUSTOMER_ASSETS,

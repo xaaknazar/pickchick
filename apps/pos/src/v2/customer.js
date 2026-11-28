@@ -8,7 +8,7 @@ const money = (minor) =>
     Number(BigInt(minor) / 100n).toLocaleString('ru-RU') +
     (BigInt(minor) % 100n ? ',' + String(BigInt(minor) % 100n).padStart(2, '0') : '') +
     ' ₸'
-  ).replace(/ /g, ' ');
+  ).replace(/\u00a0/g, ' ');
 const plural = (n) => {
   const t = n % 10,
     h = n % 100;
