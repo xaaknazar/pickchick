@@ -8213,19 +8213,6 @@
       "updatedAt": "2026-11-28T12:12:56.137Z"
     },
     {
-      "id": "p0-webkassa-require-live",
-      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
-      "branch": "codex/p0-webkassa-require-live",
-      "scopes": [
-        "packages/platform/src/config.ts",
-        "infra/windows/enable-webkassa-edge.ps1",
-        "infra/payments/webkassa/worker.compose.yaml"
-      ],
-      "status": "active",
-      "head": "5925f11778aeb615df1d87ab1421bc39e01214c8",
-      "updatedAt": "2026-11-28T12:13:01.457Z"
-    },
-    {
       "id": "p0-paid-terminal-release",
       "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
       "branch": "codex/p0-paid-terminal-release",
@@ -8242,6 +8229,24 @@
       "status": "active",
       "head": "9601f75b057add08d725325d3cfdb7883b6fc6d0",
       "updatedAt": "2026-11-28T12:27:21.657Z"
+    },
+    {
+      "id": "p0-webkassa-require-live",
+      "owner": "0c599a1d-0244-4b46-a9c9-169ac08ef76f",
+      "branch": "codex/p0-webkassa-require-live",
+      "scopes": [
+        "packages/platform/src/config.ts",
+        "infra/windows/enable-webkassa-edge.ps1",
+        "infra/payments/webkassa/worker.compose.yaml",
+        "packages/webkassa/src/index.ts",
+        "services/edge/src/webkassa-loop.ts",
+        "services/api/src/webkassa-worker.ts",
+        "tests/unit/webkassa-worker-blocked.test.mjs",
+        "tests/unit/config.test.mjs"
+      ],
+      "status": "active",
+      "head": "5925f11778aeb615df1d87ab1421bc39e01214c8",
+      "updatedAt": "2026-11-28T12:30:43.706Z"
     }
   ],
   "approvedScopeTransfers": [
