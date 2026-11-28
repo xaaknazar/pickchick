@@ -8905,5 +8905,11 @@
     "kk": "Жүктелуде",
     "en": "Loading",
     "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx"
+  },
+  {
+    "ru": "Предыдущая оплата ещё проверяется. Новый заказ можно оформить после её завершения.",
+    "kk": "Алдыңғы төлем тексерілуде. Жаңа тапсырысты ол аяқталғаннан кейін рәсімдеуге болады.",
+    "en": "Your previous payment is still being checked. You can place a new order once it has finished.",
+    "context": "apps/mobile/src/commerce-presentation.ts"
   }
 ]

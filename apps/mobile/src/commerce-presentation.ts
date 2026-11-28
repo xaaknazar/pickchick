@@ -82,6 +82,13 @@ export const stuckCopy: Record<PaymentStuck, { title: string; detail: string }> 
 };
 
 /**
+ * Audit 28.11 P0-2: the server holds a new order, or another payment, while this guest's TipTopPay
+ * payment is in review (CONFLICT). Shown with that payment's order, instead of a price notice.
+ */
+export const PAYMENT_IN_REVIEW_NOTICE =
+  'Предыдущая оплата ещё проверяется. Новый заказ можно оформить после её завершения.';
+
+/**
  * Independent QA 28.10 (owner-all item 19, its product boundary): while the bank may still act on
  * an earlier order, a pay tap reopens that order instead of creating a new one (submit restores
  * the intent, then GET /orders resumes an order at the bank). A cart changed since then (another
