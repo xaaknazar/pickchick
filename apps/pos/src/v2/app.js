@@ -416,6 +416,85 @@ function menuChanged(change) {
   }
   say(menuChangeText(change));
 }
+// The guest's screen of a dual-screen monoblock (customer-display.mjs): only what the guest may
+// see, sent when it changes. Without a second screen main drops it.
+let customerSent = '';
+const GUEST_METHODS = ['cash', 'kaspi_terminal', 'kaspi_manual', 'chocofood', 'mixed'];
+function guestView() {
+  const m = model.state,
+    s = reference.state,
+    ss = sale.state;
+  if (!m.actor || !['work', 'pay', 'success'].includes(s.screen)) return { kind: 'idle' };
+  if (ss.screen === 'done' && m.sale?.display_number)
+    return { kind: 'done', number: String(m.sale.display_number), total_minor: m.sale.total_minor };
+  if (s.screen === 'success' && lastOrder)
+    return {
+      kind: 'done',
+      number: String(orderNumber(lastOrder)),
+      total_minor: lastOrder.snapshot.total_minor,
+    };
+  const mode = m.draft?.service_mode === 'dine_in' ? 'dine' : 'take';
+  const q = model.state.quote;
+  if (sale.on && (ss.screen === 'review' || ss.screen === 'pay') && q) {
+    const view = {
+      kind: ss.screen === 'pay' ? 'pay' : 'order',
+      mode,
+      total_minor: q.total_minor,
+      lines: q.lines.slice(0, 60).map((l) => ({
+        name: l.name.ru.slice(0, 80),
+        qty: l.quantity,
+        sum_minor: l.total_minor,
+        mods: (l.modifiers ?? [])
+          .map((x) => ((x.quantity ?? 1) > 1 ? x.quantity + ' × ' : '') + x.name.ru)
+          .join(' · ')
+          .slice(0, 200),
+      })),
+    };
+    if (view.kind === 'pay' && ss.method) {
+      view.method = GUEST_METHODS.includes(ss.method) ? ss.method : 'other';
+      if (ss.method === 'cash' && ss.cash) {
+        const tendered = BigInt(ss.cash) * 100n,
+          change = tendered - BigInt(q.total_minor);
+        view.tendered_minor = tendered.toString();
+        if (change >= 0n) view.change_minor = change.toString();
+      }
+    }
+    return view;
+  }
+  if (!s.cart?.length) return { kind: 'idle' };
+  const sum = total();
+  return {
+    kind: 'order',
+    mode,
+    total_minor: (sum ?? 0n).toString(),
+    lines: s.cart.slice(0, 60).map((l) => ({
+      name: String(l.name).slice(0, 80),
+      qty: l.qty,
+      sum_minor: (() => {
+        try {
+          return (linePrice(item(l.line.variant_id), l.line.modifiers) * BigInt(l.qty)).toString();
+        } catch {
+          return '0';
+        }
+      })(),
+      mods: String(l.mods ?? '').slice(0, 200),
+    })),
+  };
+}
+function showGuest() {
+  const bridge = globalThis.pickchickPosCustomer;
+  if (!bridge) return;
+  let view;
+  try {
+    view = guestView();
+  } catch {
+    view = { kind: 'idle' };
+  }
+  const key = JSON.stringify(view);
+  if (key === customerSent) return;
+  customerSent = key;
+  bridge.show(view);
+}
 function draw() {
   // Before reading the view state: the notice replaces reference.state.
   const change = model.state.menuChange;
@@ -1114,6 +1193,7 @@ function draw() {
     draft: m.draft,
     error: String(m.error ?? ''),
   });
+  showGuest();
   if (visual === lastRender) return;
   lastRender = visual;
   renderer.render(v);

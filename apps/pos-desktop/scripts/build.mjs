@@ -49,6 +49,8 @@ for (const path of [
     'renderer-recovery.mjs',
     'update-feed.json',
     'preload.cjs',
+    'customer-display.mjs',
+    'customer-preload.cjs',
     'package.json',
     'package-lock.json',
     'electron-builder.yml',
