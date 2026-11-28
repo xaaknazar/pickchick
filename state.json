@@ -8260,11 +8260,12 @@
         "docs/collaboration/ecc.md",
         "docs/collaboration/ecc-handoffs",
         "scripts/ecc",
-        "tests/ecc"
+        "tests/ecc",
+        "tests/unit/ecc-context.test.mjs"
       ],
       "status": "active",
       "head": "f52744aad713b66787f210788219088df9bdbc8e",
-      "updatedAt": "2026-11-28T15:33:38.554Z"
+      "updatedAt": "2026-11-28T15:35:20.421Z"
     }
   ],
   "approvedScopeTransfers": [
